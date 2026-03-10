@@ -22,10 +22,26 @@ body {
 .sidebar {
   width: 200px;
   background: #1e293b;
-  padding: 16px 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid #334155;
+}
+
+.app-title {
+  color: #e2e8f0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nav-links {
+  flex: 1;
+  padding: 8px 0;
 }
 
 .nav-link {
@@ -39,6 +55,34 @@ body {
 
 .nav-link:hover {
   background: #334155;
+  color: #e2e8f0;
+}
+
+.nav-link.active {
+  background: #334155;
+  color: #fff;
+  border-left: 3px solid #3b82f6;
+  padding-left: 17px;
+}
+
+.sidebar-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #334155;
+}
+
+.locale-btn {
+  background: #334155;
+  color: #94a3b8;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.locale-btn:hover {
+  background: #475569;
   color: #e2e8f0;
 }
 

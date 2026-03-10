@@ -1,15 +1,16 @@
-// ユーザー管理ページ
-// ロール管理、グループ管理、タグ管理、招待・罷免
+import { t } from '../i18n/i18n-util';
+
 export function renderUsers(container: HTMLElement) {
+  const u = t().users;
   container.innerHTML = `
-    <h1>Users</h1>
+    <h1>${u.title}</h1>
     <section>
-      <h2>Members</h2>
-      <p>No members</p>
+      <h2>${u.members}</h2>
+      <p>${u.noMembers}</p>
     </section>
     <section>
-      <h2>Groups</h2>
-      <p>No groups</p>
+      <h2>${u.groups}</h2>
+      <p>${u.noGroups}</p>
     </section>
   `;
 }

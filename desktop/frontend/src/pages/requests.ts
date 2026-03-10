@@ -1,15 +1,16 @@
-// 申請管理ページ
-// 場所追加申請、地図更新申請、訪問不可申請の処理
+import { t } from '../i18n/i18n-util';
+
 export function renderRequests(container: HTMLElement) {
+  const r = t().requests;
   container.innerHTML = `
-    <h1>Requests</h1>
+    <h1>${r.title}</h1>
     <section>
-      <h2>Pending</h2>
-      <p>No pending requests</p>
+      <h2>${r.pending}</h2>
+      <p>${r.noPending}</p>
     </section>
     <section>
-      <h2>Resolved</h2>
-      <p>No resolved requests</p>
+      <h2>${r.resolved}</h2>
+      <p>${r.noResolved}</p>
     </section>
   `;
 }

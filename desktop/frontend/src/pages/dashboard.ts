@@ -1,15 +1,16 @@
-// マイページ / ダッシュボード
-// 通知一覧、割り当て区域、タスクリスト等を表示
+import { t } from '../i18n/i18n-util';
+
 export function renderDashboard(container: HTMLElement) {
+  const d = t().dashboard;
   container.innerHTML = `
-    <h1>Dashboard</h1>
-    <section class="notifications">
-      <h2>Notifications</h2>
-      <p>No notifications</p>
+    <h1>${d.title}</h1>
+    <section>
+      <h2>${d.notifications}</h2>
+      <p>${d.noNotifications}</p>
     </section>
-    <section class="assigned-areas">
-      <h2>Assigned Areas</h2>
-      <p>No areas assigned</p>
+    <section>
+      <h2>${d.assignedAreas}</h2>
+      <p>${d.noAssignedAreas}</p>
     </section>
   `;
 }

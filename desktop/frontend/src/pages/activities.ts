@@ -1,15 +1,16 @@
-// 訪問活動管理ページ
-// 区域チェックアウト、チーム割り当て、返却・回収、訪問記録
+import { t } from '../i18n/i18n-util';
+
 export function renderActivities(container: HTMLElement) {
+  const a = t().activities;
   container.innerHTML = `
-    <h1>Activities</h1>
+    <h1>${a.title}</h1>
     <section>
-      <h2>Active</h2>
-      <p>No active activities</p>
+      <h2>${a.active}</h2>
+      <p>${a.noActive}</p>
     </section>
     <section>
-      <h2>Completed</h2>
-      <p>No completed activities</p>
+      <h2>${a.completed}</h2>
+      <p>${a.noCompleted}</p>
     </section>
   `;
 }

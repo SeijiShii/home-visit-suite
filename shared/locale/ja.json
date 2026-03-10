@@ -1,0 +1,41 @@
+{
+  "error.unauthorized": {
+    "other": "この操作を行う権限がありません"
+  },
+  "error.not_found": {
+    "other": "指定されたデータが見つかりません"
+  },
+  "error.validation": {
+    "other": "入力内容に問題があります"
+  },
+  "error.region.symbol_format": {
+    "other": "領域記号は2~4文字の英大文字で指定してください"
+  },
+  "error.region.already_approved": {
+    "other": "この領域は承認済みです"
+  },
+  "error.area.delete_approved": {
+    "other": "承認済みの区域は管理者のみ削除できます"
+  },
+  "error.activity.already_checked_out": {
+    "other": "この区域は既にチェックアウトされています"
+  },
+  "error.activity.not_active": {
+    "other": "この訪問活動は活動中ではありません"
+  },
+  "error.role.cannot_self_dismiss": {
+    "other": "自身を罷免することはできません"
+  },
+  "error.role.no_admin_remaining": {
+    "other": "管理者が0人になる操作はできません"
+  },
+  "audit.role_change": {
+    "other": "{{.Actor}} が {{.Target}} のロールを {{.NewRole}} に変更しました"
+  },
+  "audit.area_edit": {
+    "other": "{{.Actor}} が区域 {{.AreaID}} を編集しました"
+  },
+  "audit.approval": {
+    "other": "{{.Actor}} が領域 {{.RegionID}} を承認しました"
+  }
+}

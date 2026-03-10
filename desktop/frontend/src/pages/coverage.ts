@@ -1,15 +1,16 @@
-// 網羅管理ページ
-// 網羅活動データ、進捗管理、網羅予定管理、ヒートマップ
+import { t } from '../i18n/i18n-util';
+
 export function renderCoverage(container: HTMLElement) {
+  const c = t().coverage;
   container.innerHTML = `
-    <h1>Coverage</h1>
+    <h1>${c.title}</h1>
     <section>
-      <h2>Progress</h2>
-      <p>No coverage data</p>
+      <h2>${c.progress}</h2>
+      <p>${c.noData}</p>
     </section>
     <section>
-      <h2>Plans</h2>
-      <p>No coverage plans</p>
+      <h2>${c.plans}</h2>
+      <p>${c.noPlans}</p>
     </section>
   `;
 }

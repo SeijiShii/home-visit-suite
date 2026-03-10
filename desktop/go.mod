@@ -1,6 +1,6 @@
 module github.com/SeijiShii/home-visit-suite/desktop
 
-go 1.23
+go 1.24.0
 
 require (
 	github.com/SeijiShii/home-visit-suite/shared v0.0.0
@@ -34,7 +34,7 @@ require (
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 )
 
 replace github.com/SeijiShii/home-visit-suite/shared => ../shared

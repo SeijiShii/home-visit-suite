@@ -1,0 +1,41 @@
+{
+  "error.unauthorized": {
+    "other": "You do not have permission to perform this action"
+  },
+  "error.not_found": {
+    "other": "The specified data was not found"
+  },
+  "error.validation": {
+    "other": "There is a problem with the input"
+  },
+  "error.region.symbol_format": {
+    "other": "Region symbol must be 2-4 uppercase letters"
+  },
+  "error.region.already_approved": {
+    "other": "This region has already been approved"
+  },
+  "error.area.delete_approved": {
+    "other": "Only admins can delete approved areas"
+  },
+  "error.activity.already_checked_out": {
+    "other": "This area is already checked out"
+  },
+  "error.activity.not_active": {
+    "other": "This visit activity is not active"
+  },
+  "error.role.cannot_self_dismiss": {
+    "other": "You cannot dismiss yourself"
+  },
+  "error.role.no_admin_remaining": {
+    "other": "Cannot leave zero admins"
+  },
+  "audit.role_change": {
+    "other": "{{.Actor}} changed {{.Target}}'s role to {{.NewRole}}"
+  },
+  "audit.area_edit": {
+    "other": "{{.Actor}} edited area {{.AreaID}}"
+  },
+  "audit.approval": {
+    "other": "{{.Actor}} approved region {{.RegionID}}"
+  }
+}
