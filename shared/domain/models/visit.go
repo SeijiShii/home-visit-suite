@@ -1,4 +1,4 @@
-package domain
+package models
 
 import "time"
 
@@ -28,8 +28,8 @@ type VisitRecord struct {
 type Team struct {
 	ID       string   `json:"id"`
 	Name     string   `json:"name"`
-	LeaderID string   `json:"leaderId"`  // チーム責任者
-	Members  []string `json:"members"`   // メンバーのユーザーID
+	LeaderID string   `json:"leaderId"` // チーム責任者
+	Members  []string `json:"members"`  // メンバーのユーザーID
 }
 
 // ActivityStatus は訪問活動のステータス。
@@ -46,7 +46,7 @@ const (
 type Activity struct {
 	ID        string         `json:"id"`
 	AreaID    string         `json:"areaId"`
-	OwnerID   string         `json:"ownerId"`  // 担当者
+	OwnerID   string         `json:"ownerId"` // 担当者
 	Status    ActivityStatus `json:"status"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`

@@ -1,4 +1,4 @@
-package domain
+package models
 
 import "time"
 
@@ -6,11 +6,11 @@ import "time"
 type AuditAction string
 
 const (
-	AuditActionRoleChange   AuditAction = "role_change"
-	AuditActionAreaEdit     AuditAction = "area_edit"
-	AuditActionApproval     AuditAction = "approval"
-	AuditActionDoNotVisit   AuditAction = "do_not_visit"
-	AuditActionForceReturn  AuditAction = "force_return"
+	AuditActionRoleChange  AuditAction = "role_change"
+	AuditActionAreaEdit    AuditAction = "area_edit"
+	AuditActionApproval    AuditAction = "approval"
+	AuditActionDoNotVisit  AuditAction = "do_not_visit"
+	AuditActionForceReturn AuditAction = "force_return"
 )
 
 // AuditLog は重要操作の履歴。

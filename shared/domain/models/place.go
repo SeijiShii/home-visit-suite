@@ -1,19 +1,13 @@
-package domain
+package models
 
 // PlaceType は場所の種別を表す。
 type PlaceType string
 
 const (
-	PlaceTypeHouse     PlaceType = "house"     // 戸建て
-	PlaceTypeBuilding  PlaceType = "building"  // 集合住宅
-	PlaceTypeRoom      PlaceType = "room"      // 部屋
+	PlaceTypeHouse    PlaceType = "house"    // 戸建て
+	PlaceTypeBuilding PlaceType = "building" // 集合住宅
+	PlaceTypeRoom     PlaceType = "room"     // 部屋
 )
-
-// Coordinate は地理座標を表す。
-type Coordinate struct {
-	Lat float64 `json:"lat"`
-	Lng float64 `json:"lng"`
-}
 
 // Place は座標と紐づく「場所」モデル。
 type Place struct {

@@ -1,4 +1,4 @@
-package domain
+package models
 
 import "time"
 
@@ -6,9 +6,9 @@ import "time"
 type RequestType string
 
 const (
-	RequestTypePlaceAdd    RequestType = "place_add"    // 場所追加申請
-	RequestTypeMapUpdate   RequestType = "map_update"   // 地図情報更新申請
-	RequestTypeDoNotVisit  RequestType = "do_not_visit" // 訪問不可申請
+	RequestTypePlaceAdd   RequestType = "place_add"    // 場所追加申請
+	RequestTypeMapUpdate  RequestType = "map_update"   // 地図情報更新申請
+	RequestTypeDoNotVisit RequestType = "do_not_visit" // 訪問不可申請
 )
 
 // RequestStatus は申請のステータス。

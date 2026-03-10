@@ -1,4 +1,4 @@
-package domain
+package models
 
 // Role はLinkSelfグループ内のロールを表す。
 // 上位互換: Admin > Editor > Member
