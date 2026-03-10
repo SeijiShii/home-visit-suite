@@ -1,7 +1,8 @@
-import './style.css';
-import { router } from './router';
+import "./style.css";
+import "leaflet/dist/leaflet.css";
+import { router } from "./router";
 
-const app = document.getElementById('app')!;
+const app = document.getElementById("app")!;
 
 // シンプルなクライアントサイドルーター
 function render() {
@@ -9,5 +10,5 @@ function render() {
   page(app);
 }
 
-window.addEventListener('hashchange', render);
+window.addEventListener("hashchange", render);
 render();

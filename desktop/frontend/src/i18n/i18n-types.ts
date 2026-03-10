@@ -1,4 +1,4 @@
-export type Locales = 'ja' | 'en';
+export type Locales = "ja" | "en";
 
 export interface Translations {
   nav: {
@@ -19,6 +19,9 @@ export interface Translations {
   map: {
     title: string;
     loading: string;
+    draw: string;
+    cancelDraw: string;
+    closeDraft: string;
   };
   users: {
     title: string;
