@@ -37,7 +37,7 @@ func main() {
 	mapBinding := binding.NewMapBinding()
 
 	err = wails.Run(&options.App{
-		Title:  "Home Visit Suite",
+		Title:  "Home Visit",
 		Width:  1280,
 		Height: 800,
 		AssetServer: &assetserver.Options{

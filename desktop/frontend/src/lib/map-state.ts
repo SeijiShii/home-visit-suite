@@ -1,10 +1,10 @@
-import type { PolygonID, DraftShape } from 'map-polygon-editor';
-import { createDraft } from 'map-polygon-editor';
+import type { PolygonID, DraftShape } from "map-polygon-editor";
+import { createDraft } from "map-polygon-editor";
 
 export enum MapMode {
-  Viewing = 'viewing',
-  Drawing = 'drawing',
-  Editing = 'editing',
+  Viewing = "viewing",
+  Drawing = "drawing",
+  Editing = "editing",
 }
 
 type ChangeListener = () => void;
@@ -42,6 +42,11 @@ export class MapState {
     this.notify();
   }
 
+  updateDraft(draft: DraftShape | null): void {
+    this.draft = draft;
+    this.notify();
+  }
+
   selectPolygon(id: PolygonID | null): void {
     if (this.mode !== MapMode.Viewing) return;
     this.selectedPolygonId = id;
@@ -57,6 +62,6 @@ export class MapState {
   }
 
   private notify(): void {
-    this.listeners.forEach(fn => fn());
+    this.listeners.forEach((fn) => fn());
   }
 }
