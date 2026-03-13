@@ -13,6 +13,19 @@
   - https://github.com/SeijiShii/link-self
 - **地図**: GSIタイル（日本）、map-polygon-editor（TypeScript実装）でポリゴン編集
 
+## 開発環境
+- **コード編集・テスト**: WSL2 (Ubuntu) — Claude Code、VSCode Remote-WSL、vitest
+- **Wails実行（開発中）**: WSL2で `~/go/bin/wails dev`（日本語入力不可、英字で動作確認）
+- **Wails実行（最終確認）**: Windows ネイティブ — IME（日本語入力）が必要な場合
+  - Windows側に Go + Wails CLI をインストール
+  - `D:\home-visit-suite` に git clone
+  - Git Bash で `cd /d/home-visit-suite/desktop && wails dev`
+  - WSL↔Windows同期: GitHub経由で push/pull
+- **制約**:
+  - `\\wsl$\` パス経由では Go の file lock が動作しない（`go mod tidy` 失敗）
+  - `/mnt/c/`, `/mnt/d/` 経由は 9p オーバーヘッドで低速
+  - WSLg + WebKitGTK では IME 入力が機能しない
+
 ## 用語
 - 区域 = 運用上の最小単位（旧称: 枝番）
 - 区域親番 = 枝番の集合としての上位概念（旧称: 区域）
