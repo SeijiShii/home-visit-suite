@@ -10,10 +10,7 @@ export function MapPage() {
   const { actions } = useMapState();
   const mapRef = useRef<MapViewHandle>(null);
 
-  const regionService = useMemo(
-    () => new RegionService(RegionBinding),
-    [],
-  );
+  const regionService = useMemo(() => new RegionService(RegionBinding), []);
 
   const handleMapClick = useCallback((_lat: number, _lng: number) => {
     // TODO: map click handling
@@ -35,7 +32,7 @@ export function MapPage() {
         onPolygonClick={handlePolygonClick}
       />
       <div className="map-sidebar">
-        <AreaTree service={regionService} />
+        <AreaTree service={regionService} api={RegionBinding} />
       </div>
     </div>
   );

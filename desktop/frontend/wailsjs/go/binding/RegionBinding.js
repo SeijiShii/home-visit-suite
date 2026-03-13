@@ -42,6 +42,18 @@ export function ListRegions() {
   return window['go']['binding']['RegionBinding']['ListRegions']();
 }
 
+export function RestoreArea(arg1) {
+  return window['go']['binding']['RegionBinding']['RestoreArea'](arg1);
+}
+
+export function RestoreParentArea(arg1) {
+  return window['go']['binding']['RegionBinding']['RestoreParentArea'](arg1);
+}
+
+export function RestoreRegion(arg1) {
+  return window['go']['binding']['RegionBinding']['RestoreRegion'](arg1);
+}
+
 export function SaveArea(arg1) {
   return window['go']['binding']['RegionBinding']['SaveArea'](arg1);
 }

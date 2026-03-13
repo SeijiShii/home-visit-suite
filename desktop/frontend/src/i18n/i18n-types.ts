@@ -26,7 +26,12 @@ export interface Translations {
     areaParent: string;
     area: string;
     add: string;
+    addChild: string;
     remove: string;
+    confirmDelete: string;
+    deleted: string;
+    undo: string;
+    redo: string;
     addRegion: string;
     regionName: string;
     regionSymbol: string;

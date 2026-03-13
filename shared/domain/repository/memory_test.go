@@ -193,3 +193,115 @@ func TestArea_DeleteNotFound(t *testing.T) {
 		t.Fatal("expected error for deleting nonexistent area")
 	}
 }
+
+// --- 論理削除 + GetRaw ---
+
+func TestRegion_SoftDelete_NotInList(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveRegion(&models.Region{ID: "r1", Name: "成田市", Symbol: "NRT"})
+	repo.DeleteRegion("r1")
+
+	regions, _ := repo.ListRegions()
+	if len(regions) != 0 {
+		t.Errorf("got %d regions, want 0 (soft-deleted should be hidden)", len(regions))
+	}
+}
+
+func TestRegion_SoftDelete_GetReturnsError(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveRegion(&models.Region{ID: "r1", Name: "成田市", Symbol: "NRT"})
+	repo.DeleteRegion("r1")
+
+	_, err := repo.GetRegion("r1")
+	if err == nil {
+		t.Fatal("expected error for soft-deleted region")
+	}
+}
+
+func TestRegion_GetRaw_ReturnsSoftDeleted(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveRegion(&models.Region{ID: "r1", Name: "成田市", Symbol: "NRT"})
+	repo.DeleteRegion("r1")
+
+	got, err := repo.GetRegionRaw("r1")
+	if err != nil {
+		t.Fatalf("GetRegionRaw: %v", err)
+	}
+	if got.Name != "成田市" {
+		t.Errorf("got Name=%s, want 成田市", got.Name)
+	}
+	if got.DeletedAt == nil {
+		t.Error("DeletedAt should be set for soft-deleted region")
+	}
+}
+
+func TestRegion_GetRaw_NotFound(t *testing.T) {
+	repo := newMemoryRepo()
+	_, err := repo.GetRegionRaw("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent region")
+	}
+}
+
+func TestRegion_GetRaw_ReturnsActiveRecord(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveRegion(&models.Region{ID: "r1", Name: "成田市", Symbol: "NRT"})
+
+	got, err := repo.GetRegionRaw("r1")
+	if err != nil {
+		t.Fatalf("GetRegionRaw: %v", err)
+	}
+	if got.DeletedAt != nil {
+		t.Error("DeletedAt should be nil for active region")
+	}
+}
+
+func TestParentArea_SoftDelete_NotInList(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveParentArea(&models.ParentArea{ID: "pa1", RegionID: "r1", Number: "001", Name: "加良部1"})
+	repo.DeleteParentArea("pa1")
+
+	list, _ := repo.ListParentAreas("r1")
+	if len(list) != 0 {
+		t.Errorf("got %d, want 0", len(list))
+	}
+}
+
+func TestParentArea_GetRaw_ReturnsSoftDeleted(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveParentArea(&models.ParentArea{ID: "pa1", RegionID: "r1", Number: "001", Name: "加良部1"})
+	repo.DeleteParentArea("pa1")
+
+	got, err := repo.GetParentAreaRaw("pa1")
+	if err != nil {
+		t.Fatalf("GetParentAreaRaw: %v", err)
+	}
+	if got.DeletedAt == nil {
+		t.Error("DeletedAt should be set")
+	}
+}
+
+func TestArea_SoftDelete_NotInList(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveArea(&models.Area{ID: "a1", ParentAreaID: "pa1", Number: "01"})
+	repo.DeleteArea("a1")
+
+	list, _ := repo.ListAreas("pa1")
+	if len(list) != 0 {
+		t.Errorf("got %d, want 0", len(list))
+	}
+}
+
+func TestArea_GetRaw_ReturnsSoftDeleted(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.SaveArea(&models.Area{ID: "a1", ParentAreaID: "pa1", Number: "01"})
+	repo.DeleteArea("a1")
+
+	got, err := repo.GetAreaRaw("a1")
+	if err != nil {
+		t.Fatalf("GetAreaRaw: %v", err)
+	}
+	if got.DeletedAt == nil {
+		t.Error("DeletedAt should be set")
+	}
+}

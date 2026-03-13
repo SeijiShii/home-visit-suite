@@ -19,6 +19,8 @@ export namespace models {
 	    parentAreaId: string;
 	    number: string;
 	    geometry?: GeoJSONPolygon;
+	    // Go type: time
+	    deletedAt?: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new Area(source);
@@ -30,6 +32,7 @@ export namespace models {
 	        this.parentAreaId = source["parentAreaId"];
 	        this.number = source["number"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
+	        this.deletedAt = this.convertValues(source["deletedAt"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -57,6 +60,8 @@ export namespace models {
 	    number: string;
 	    name: string;
 	    geometry?: GeoJSONPolygon;
+	    // Go type: time
+	    deletedAt?: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new ParentArea(source);
@@ -69,6 +74,7 @@ export namespace models {
 	        this.number = source["number"];
 	        this.name = source["name"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
+	        this.deletedAt = this.convertValues(source["deletedAt"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -95,6 +101,8 @@ export namespace models {
 	    symbol: string;
 	    approved: boolean;
 	    geometry?: GeoJSONPolygon;
+	    // Go type: time
+	    deletedAt?: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new Region(source);
@@ -107,6 +115,7 @@ export namespace models {
 	        this.symbol = source["symbol"];
 	        this.approved = source["approved"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
+	        this.deletedAt = this.convertValues(source["deletedAt"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

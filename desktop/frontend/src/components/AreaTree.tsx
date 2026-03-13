@@ -1,12 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useI18n } from "../contexts/I18nContext";
-import type { RegionService, AreaTreeNode } from "../services/region-service";
+import { useCommandHistory } from "../hooks/useCommandHistory";
+import { CommandExecutor } from "../services/command-executor";
+import type {
+  RegionService,
+  RegionBindingAPI,
+  AreaTreeNode,
+} from "../services/region-service";
 
 interface AreaTreeProps {
   service: RegionService;
+  api: RegionBindingAPI;
 }
 
-export function AreaTree({ service }: AreaTreeProps) {
+export function AreaTree({ service, api }: AreaTreeProps) {
   const { t } = useI18n();
   const m = t.areaTree;
   const [tree, setTree] = useState<AreaTreeNode[]>([]);
@@ -14,13 +21,24 @@ export function AreaTree({ service }: AreaTreeProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [canSubmit, setCanSubmit] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: "region" | "parentArea" | "area";
+    id: string;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const symbolRef = useRef<HTMLInputElement>(null);
 
+  const { snapshot, history } = useCommandHistory();
+  const executor = useMemo(() => new CommandExecutor(api), [api]);
+
   const reload = useCallback(async () => {
-    const data = await service.loadTree();
-    setTree(data);
+    try {
+      const data = await service.loadTree();
+      setTree(data);
+    } catch (e) {
+      console.error("loadTree failed:", e);
+    }
   }, [service]);
 
   useEffect(() => {
@@ -57,9 +75,59 @@ export function AreaTree({ service }: AreaTreeProps) {
     const name = nameRef.current?.value.trim() ?? "";
     const symbol = symbolRef.current?.value.trim() ?? "";
     if (!name || !symbol) return;
-    await service.addRegion(name, symbol);
-    setModalOpen(false);
-    await reload();
+    try {
+      await service.addRegion(name, symbol);
+      setModalOpen(false);
+      await reload();
+    } catch (e) {
+      console.error("addRegion failed:", e);
+    }
+  };
+
+  const handleDeleteClick = (
+    type: "region" | "parentArea" | "area",
+    id: string,
+  ) => {
+    setDeleteConfirm({ type, id });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    const { type, id } = deleteConfirm;
+    setDeleteConfirm(null);
+    try {
+      let cmd;
+      if (type === "region") cmd = await service.deleteRegion(id);
+      else if (type === "parentArea") cmd = await service.deleteParentArea(id);
+      else cmd = await service.deleteArea(id);
+      history.push(cmd);
+      await reload();
+    } catch (e) {
+      console.error("delete failed:", e);
+    }
+  };
+
+  const handleUndo = async () => {
+    const cmd = history.undo();
+    if (!cmd) return;
+    try {
+      await executor.undo(cmd);
+      await reload();
+    } catch (e) {
+      console.error("undo failed:", e);
+      history.push(cmd);
+    }
+  };
+
+  const handleRedo = async () => {
+    const cmd = history.redo();
+    if (!cmd) return;
+    try {
+      await executor.redo(cmd);
+      await reload();
+    } catch (e) {
+      console.error("redo failed:", e);
+    }
   };
 
   const handleModalClose = () => {
@@ -103,14 +171,15 @@ export function AreaTree({ service }: AreaTreeProps) {
                 {region.symbol} ({region.name})
               </span>
               <span className="tree-actions">
-                <button className="tree-action-btn" title={m.add}>
-                  +
+                <button className="tree-action-btn" title={m.addChild}>
+                  ⊕
                 </button>
                 <button
                   className="tree-action-btn tree-action-delete"
                   title={m.remove}
+                  onClick={() => handleDeleteClick("region", region.id)}
                 >
-                  −
+                  🗑
                 </button>
               </span>
             </div>
@@ -128,14 +197,15 @@ export function AreaTree({ service }: AreaTreeProps) {
                       {ap.number} {ap.name}
                     </span>
                     <span className="tree-actions">
-                      <button className="tree-action-btn" title={m.add}>
-                        +
+                      <button className="tree-action-btn" title={m.addChild}>
+                        ⊕
                       </button>
                       <button
                         className="tree-action-btn tree-action-delete"
                         title={m.remove}
+                        onClick={() => handleDeleteClick("parentArea", ap.id)}
                       >
-                        −
+                        🗑
                       </button>
                     </span>
                   </div>
@@ -149,8 +219,9 @@ export function AreaTree({ service }: AreaTreeProps) {
                             <button
                               className="tree-action-btn tree-action-delete"
                               title={m.remove}
+                              onClick={() => handleDeleteClick("area", area.id)}
                             >
-                              −
+                              🗑
                             </button>
                           </span>
                         </div>
@@ -161,6 +232,46 @@ export function AreaTree({ service }: AreaTreeProps) {
           </div>
         ))}
       </div>
+
+      {(snapshot.canUndo || snapshot.canRedo) && (
+        <div className="undo-bar">
+          {snapshot.canUndo && (
+            <>
+              <span>{m.deleted}</span>
+              <button className="undo-btn" onClick={handleUndo}>
+                {m.undo}
+              </button>
+            </>
+          )}
+          {snapshot.canRedo && (
+            <button className="undo-btn" onClick={handleRedo}>
+              {m.redo}
+            </button>
+          )}
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">{m.confirmDelete}</h3>
+            <div className="modal-actions">
+              <button
+                className="modal-btn"
+                onClick={() => setDeleteConfirm(null)}
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                className="modal-btn modal-btn-danger"
+                onClick={handleDeleteConfirm}
+              >
+                {m.remove}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalOpen && (
         <div className="modal-overlay" onClick={handleModalClose}>

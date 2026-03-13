@@ -5,8 +5,13 @@ const createMockAPI = (): RegionBindingAPI => ({
   ListRegions: vi.fn().mockResolvedValue([]),
   SaveRegion: vi.fn().mockResolvedValue(undefined),
   DeleteRegion: vi.fn().mockResolvedValue(undefined),
+  RestoreRegion: vi.fn().mockResolvedValue(undefined),
   ListParentAreas: vi.fn().mockResolvedValue([]),
+  DeleteParentArea: vi.fn().mockResolvedValue(undefined),
+  RestoreParentArea: vi.fn().mockResolvedValue(undefined),
   ListAreas: vi.fn().mockResolvedValue([]),
+  DeleteArea: vi.fn().mockResolvedValue(undefined),
+  RestoreArea: vi.fn().mockResolvedValue(undefined),
 });
 
 describe("RegionService", () => {
@@ -40,6 +45,18 @@ describe("RegionService", () => {
         parentAreas: [],
       });
       expect(api.ListParentAreas).toHaveBeenCalledWith("NRT");
+    });
+
+    it("APIがnullを返してもクラッシュしない", async () => {
+      (api.ListRegions as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT", name: "成田市", symbol: "NRT", approved: false },
+      ]);
+      (api.ListParentAreas as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const tree = await service.loadTree();
+
+      expect(tree).toHaveLength(1);
+      expect(tree[0].parentAreas).toEqual([]);
     });
 
     it("領域→区域親番→区域の3階層ツリーを構築する", async () => {
@@ -103,10 +120,70 @@ describe("RegionService", () => {
   });
 
   describe("deleteRegion", () => {
-    it("指定IDでDeleteRegionを呼ぶ", async () => {
-      await service.deleteRegion("NRT");
+    it("子なし領域を削除しDeleteCommandを返す", async () => {
+      const cmd = await service.deleteRegion("NRT");
 
       expect(api.DeleteRegion).toHaveBeenCalledWith("NRT");
+      expect(cmd).toEqual({
+        type: "delete",
+        targetType: "region",
+        targetId: "NRT",
+        entries: [{ entityType: "region", id: "NRT" }],
+      });
+    });
+
+    it("子要素を持つ領域を削除すると子もすべて削除する", async () => {
+      (api.ListParentAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT-001", regionId: "NRT", number: "001", name: "加良部" },
+      ]);
+      (api.ListAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT-001-01", parentAreaId: "NRT-001", number: "01" },
+      ]);
+
+      const cmd = await service.deleteRegion("NRT");
+
+      expect(api.DeleteArea).toHaveBeenCalledWith("NRT-001-01");
+      expect(api.DeleteParentArea).toHaveBeenCalledWith("NRT-001");
+      expect(api.DeleteRegion).toHaveBeenCalledWith("NRT");
+      expect(cmd.entries).toEqual([
+        { entityType: "area", id: "NRT-001-01" },
+        { entityType: "parentArea", id: "NRT-001" },
+        { entityType: "region", id: "NRT" },
+      ]);
+    });
+  });
+
+  describe("deleteParentArea", () => {
+    it("子の区域も削除する", async () => {
+      (api.ListAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT-001-01", parentAreaId: "NRT-001", number: "01" },
+        { id: "NRT-001-02", parentAreaId: "NRT-001", number: "02" },
+      ]);
+
+      const cmd = await service.deleteParentArea("NRT-001");
+
+      expect(api.DeleteArea).toHaveBeenCalledWith("NRT-001-01");
+      expect(api.DeleteArea).toHaveBeenCalledWith("NRT-001-02");
+      expect(api.DeleteParentArea).toHaveBeenCalledWith("NRT-001");
+      expect(cmd.entries).toEqual([
+        { entityType: "area", id: "NRT-001-01" },
+        { entityType: "area", id: "NRT-001-02" },
+        { entityType: "parentArea", id: "NRT-001" },
+      ]);
+    });
+  });
+
+  describe("deleteArea", () => {
+    it("指定IDの区域を削除する", async () => {
+      const cmd = await service.deleteArea("NRT-001-01");
+
+      expect(api.DeleteArea).toHaveBeenCalledWith("NRT-001-01");
+      expect(cmd).toEqual({
+        type: "delete",
+        targetType: "area",
+        targetId: "NRT-001-01",
+        entries: [{ entityType: "area", id: "NRT-001-01" }],
+      });
     });
   });
 });

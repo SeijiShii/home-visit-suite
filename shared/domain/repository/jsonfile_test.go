@@ -273,6 +273,47 @@ func TestJSONFile_InvalidDir(t *testing.T) {
 	}
 }
 
+// --- 論理削除 + GetRaw + 永続化 ---
+
+func TestJSONFile_SoftDelete_Persistence(t *testing.T) {
+	dir := t.TempDir()
+
+	repo1, _ := repository.NewJSONFileRepository(dir)
+	repo1.SaveRegion(&models.Region{ID: "r1", Name: "成田市", Symbol: "NRT"})
+	repo1.DeleteRegion("r1")
+
+	// 別インスタンスで読み込み → 論理削除されたデータが残っている
+	repo2, _ := repository.NewJSONFileRepository(dir)
+
+	// ListRegions では見えない
+	regions, _ := repo2.ListRegions()
+	if len(regions) != 0 {
+		t.Errorf("got %d, want 0", len(regions))
+	}
+
+	// GetRegionRaw で論理削除済みを取得できる
+	got, err := repo2.GetRegionRaw("r1")
+	if err != nil {
+		t.Fatalf("GetRegionRaw: %v", err)
+	}
+	if got.Name != "成田市" {
+		t.Errorf("got Name=%s, want 成田市", got.Name)
+	}
+	if got.DeletedAt == nil {
+		t.Error("DeletedAt should be set for soft-deleted region")
+	}
+
+	// DeletedAt をクリアして Save で復元（アプリ層のRestore相当）
+	got.DeletedAt = nil
+	if err := repo2.SaveRegion(got); err != nil {
+		t.Fatalf("SaveRegion: %v", err)
+	}
+	restored, _ := repo2.GetRegion("r1")
+	if restored.Name != "成田市" {
+		t.Errorf("got Name=%s, want 成田市", restored.Name)
+	}
+}
+
 func TestJSONFile_CorruptedFile(t *testing.T) {
 	dir := t.TempDir()
 	// 壊れたJSONファイルを配置

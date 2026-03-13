@@ -2,6 +2,8 @@
 package binding
 
 import (
+	"fmt"
+
 	"github.com/SeijiShii/home-visit-suite/shared/domain"
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
@@ -32,9 +34,22 @@ func (b *RegionBinding) SaveRegion(region *models.Region) error {
 	return b.repo.SaveRegion(region)
 }
 
-// DeleteRegion は領域を削除する。
+// DeleteRegion は領域を論理削除する。
 func (b *RegionBinding) DeleteRegion(id string) error {
 	return b.repo.DeleteRegion(id)
+}
+
+// RestoreRegion は論理削除された領域を復元する（アプリ層のアンドゥ操作）。
+func (b *RegionBinding) RestoreRegion(id string) error {
+	r, err := b.repo.GetRegionRaw(id)
+	if err != nil {
+		return err
+	}
+	if r.DeletedAt == nil {
+		return fmt.Errorf("region not deleted: %s", id)
+	}
+	r.DeletedAt = nil
+	return b.repo.SaveRegion(r)
 }
 
 // --- 区域親番 ---
@@ -54,9 +69,22 @@ func (b *RegionBinding) SaveParentArea(pa *models.ParentArea) error {
 	return b.repo.SaveParentArea(pa)
 }
 
-// DeleteParentArea は区域親番を削除する。
+// DeleteParentArea は区域親番を論理削除する。
 func (b *RegionBinding) DeleteParentArea(id string) error {
 	return b.repo.DeleteParentArea(id)
+}
+
+// RestoreParentArea は論理削除された区域親番を復元する（アプリ層のアンドゥ操作）。
+func (b *RegionBinding) RestoreParentArea(id string) error {
+	pa, err := b.repo.GetParentAreaRaw(id)
+	if err != nil {
+		return err
+	}
+	if pa.DeletedAt == nil {
+		return fmt.Errorf("parent area not deleted: %s", id)
+	}
+	pa.DeletedAt = nil
+	return b.repo.SaveParentArea(pa)
 }
 
 // --- 区域 ---
@@ -76,9 +104,22 @@ func (b *RegionBinding) SaveArea(area *models.Area) error {
 	return b.repo.SaveArea(area)
 }
 
-// DeleteArea は区域を削除する。
+// DeleteArea は区域を論理削除する。
 func (b *RegionBinding) DeleteArea(id string) error {
 	return b.repo.DeleteArea(id)
+}
+
+// RestoreArea は論理削除された区域を復元する（アプリ層のアンドゥ操作）。
+func (b *RegionBinding) RestoreArea(id string) error {
+	a, err := b.repo.GetAreaRaw(id)
+	if err != nil {
+		return err
+	}
+	if a.DeletedAt == nil {
+		return fmt.Errorf("area not deleted: %s", id)
+	}
+	a.DeletedAt = nil
+	return b.repo.SaveArea(a)
 }
 
 // --- ユーティリティ ---
