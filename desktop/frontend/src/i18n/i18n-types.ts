@@ -19,9 +19,17 @@ export interface Translations {
   map: {
     title: string;
     loading: string;
-    draw: string;
-    cancelDraw: string;
-    closeDraft: string;
+  };
+  areaTree: {
+    title: string;
+    region: string;
+    areaParent: string;
+    area: string;
+    add: string;
+    remove: string;
+    addRegion: string;
+    regionName: string;
+    regionSymbol: string;
   };
   users: {
     title: string;

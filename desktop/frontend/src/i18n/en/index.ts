@@ -3,7 +3,7 @@ import type { Translations } from "../i18n-types";
 const en: Translations = {
   nav: {
     dashboard: "Dashboard",
-    map: "Map",
+    map: "Area Map",
     users: "User Management",
     activities: "Visit Activities",
     coverage: "Coverage",
@@ -19,9 +19,17 @@ const en: Translations = {
   map: {
     title: "Map",
     loading: "Loading map...",
-    draw: "Draw Polygon",
-    cancelDraw: "Cancel Drawing",
-    closeDraft: "Close",
+  },
+  areaTree: {
+    title: "Area Map",
+    region: "Region",
+    areaParent: "Area Parent",
+    area: "Area",
+    add: "Add",
+    remove: "Remove",
+    addRegion: "Add Region",
+    regionName: "Region Name",
+    regionSymbol: "Symbol",
   },
   users: {
     title: "User Management",
