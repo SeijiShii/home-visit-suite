@@ -22,6 +22,8 @@ export function ListParentAreas(arg1:string):Promise<Array<models.ParentArea>>;
 
 export function ListRegions():Promise<Array<models.Region>>;
 
+export function ReorderRegions(arg1:Array<string>):Promise<void>;
+
 export function RestoreArea(arg1:string):Promise<void>;
 
 export function RestoreParentArea(arg1:string):Promise<void>;

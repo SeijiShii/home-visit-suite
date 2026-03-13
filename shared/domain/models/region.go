@@ -10,6 +10,7 @@ type Region struct {
 	Symbol    string          `json:"symbol"`            // NRT（2~4文字の英大文字）
 	Approved  bool            `json:"approved"`          // 管理者による承認済みか
 	Geometry  *GeoJSONPolygon `json:"geometry"`          // 領域の境界ポリゴン
+	Order     int             `json:"order"`             // 表示順（0始まり）
 	DeletedAt *time.Time      `json:"deletedAt,omitempty"` // 論理削除タイムスタンプ
 }
 

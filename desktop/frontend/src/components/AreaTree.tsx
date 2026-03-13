@@ -25,9 +25,16 @@ export function AreaTree({ service, api }: AreaTreeProps) {
     type: "region" | "parentArea" | "area";
     id: string;
   } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [dragRegionId, setDragRegionId] = useState<string | null>(null);
+  const [dragOverRegionId, setDragOverRegionId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const symbolRef = useRef<HTMLInputElement>(null);
+  const renameRef = useRef<HTMLInputElement>(null);
 
   const { snapshot, history } = useCommandHistory();
   const executor = useMemo(() => new CommandExecutor(api), [api]);
@@ -84,11 +91,99 @@ export function AreaTree({ service, api }: AreaTreeProps) {
     }
   };
 
+  const handleAddParentArea = async (regionId: string) => {
+    try {
+      await service.addParentArea(regionId, m.defaultParentAreaName);
+      setExpanded((prev) => new Set(prev).add(regionId));
+      await reload();
+    } catch (e) {
+      console.error("addParentArea failed:", e);
+    }
+  };
+
+  const handleAddArea = async (parentAreaId: string) => {
+    try {
+      await service.addArea(parentAreaId);
+      setExpanded((prev) => new Set(prev).add(parentAreaId));
+      await reload();
+    } catch (e) {
+      console.error("addArea failed:", e);
+    }
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!renameTarget) return;
+    const newName = renameRef.current?.value.trim() ?? "";
+    if (!newName || newName === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    try {
+      await service.renameParentArea(renameTarget.id, newName);
+      setRenameTarget(null);
+      await reload();
+    } catch (err) {
+      console.error("renameParentArea failed:", err);
+    }
+  };
+
   const handleDeleteClick = (
     type: "region" | "parentArea" | "area",
     id: string,
   ) => {
     setDeleteConfirm({ type, id });
+  };
+
+  const handleDragStart = (regionId: string) => {
+    setDragRegionId(regionId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (dragRegionId && dragRegionId !== targetId) {
+      setDragOverRegionId(targetId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverRegionId(null);
+  };
+
+  const handleDrop = async (targetRegionId: string) => {
+    setDragOverRegionId(null);
+    if (!dragRegionId || dragRegionId === targetRegionId) {
+      setDragRegionId(null);
+      return;
+    }
+    const ids = tree.map((r) => r.id);
+    const fromIndex = ids.indexOf(dragRegionId);
+    if (fromIndex === -1) {
+      setDragRegionId(null);
+      return;
+    }
+    ids.splice(fromIndex, 1);
+    if (targetRegionId === "__end__") {
+      ids.push(dragRegionId);
+    } else {
+      const toIndex = ids.indexOf(targetRegionId);
+      if (toIndex === -1) {
+        setDragRegionId(null);
+        return;
+      }
+      ids.splice(toIndex, 0, dragRegionId);
+    }
+    setDragRegionId(null);
+    try {
+      await service.reorderRegions(ids);
+      await reload();
+    } catch (e) {
+      console.error("reorder failed:", e);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragRegionId(null);
+    setDragOverRegionId(null);
   };
 
   const handleDeleteConfirm = async () => {
@@ -162,7 +257,16 @@ export function AreaTree({ service, api }: AreaTreeProps) {
       </div>
       <div className="area-tree-body">
         {tree.map((region) => (
-          <div key={region.id} className="tree-node">
+          <div
+            key={region.id}
+            className={`tree-node${dragOverRegionId === region.id ? " tree-drag-over" : ""}`}
+            draggable
+            onDragStart={() => handleDragStart(region.id)}
+            onDragOver={(e) => handleDragOver(e, region.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={() => handleDrop(region.id)}
+            onDragEnd={handleDragEnd}
+          >
             <div className="tree-row tree-row-region">
               <button className="tree-toggle" onClick={() => toggle(region.id)}>
                 {expanded.has(region.id) ? "▼" : "▶"}
@@ -171,7 +275,11 @@ export function AreaTree({ service, api }: AreaTreeProps) {
                 {region.symbol} ({region.name})
               </span>
               <span className="tree-actions">
-                <button className="tree-action-btn" title={m.addChild}>
+                <button
+                  className="tree-action-btn"
+                  title={m.addChild}
+                  onClick={() => handleAddParentArea(region.id)}
+                >
                   ⊕
                 </button>
                 <button
@@ -197,16 +305,31 @@ export function AreaTree({ service, api }: AreaTreeProps) {
                       {ap.number} {ap.name}
                     </span>
                     <span className="tree-actions">
-                      <button className="tree-action-btn" title={m.addChild}>
-                        ⊕
+                      <button
+                        className="tree-action-btn"
+                        title={t.common.edit}
+                        onClick={() =>
+                          setRenameTarget({ id: ap.id, name: ap.name })
+                        }
+                      >
+                        ✏
                       </button>
                       <button
-                        className="tree-action-btn tree-action-delete"
-                        title={m.remove}
-                        onClick={() => handleDeleteClick("parentArea", ap.id)}
+                        className="tree-action-btn"
+                        title={m.addChild}
+                        onClick={() => handleAddArea(ap.id)}
                       >
-                        🗑
+                        ⊕
                       </button>
+                      {service.isLastParentArea(region, ap.id) && (
+                        <button
+                          className="tree-action-btn tree-action-delete"
+                          title={m.remove}
+                          onClick={() => handleDeleteClick("parentArea", ap.id)}
+                        >
+                          🗑
+                        </button>
+                      )}
                     </span>
                   </div>
                   {expanded.has(ap.id) &&
@@ -216,13 +339,17 @@ export function AreaTree({ service, api }: AreaTreeProps) {
                           <span className="tree-leaf">•</span>
                           <span className="tree-label">{area.number}</span>
                           <span className="tree-actions">
-                            <button
-                              className="tree-action-btn tree-action-delete"
-                              title={m.remove}
-                              onClick={() => handleDeleteClick("area", area.id)}
-                            >
-                              🗑
-                            </button>
+                            {service.isLastArea(ap, area.id) && (
+                              <button
+                                className="tree-action-btn tree-action-delete"
+                                title={m.remove}
+                                onClick={() =>
+                                  handleDeleteClick("area", area.id)
+                                }
+                              >
+                                🗑
+                              </button>
+                            )}
                           </span>
                         </div>
                       </div>
@@ -231,6 +358,14 @@ export function AreaTree({ service, api }: AreaTreeProps) {
               ))}
           </div>
         ))}
+        {dragRegionId && (
+          <div
+            className={`tree-drop-end${dragOverRegionId === "__end__" ? " tree-drag-over" : ""}`}
+            onDragOver={(e) => handleDragOver(e, "__end__")}
+            onDragLeave={handleDragLeave}
+            onDrop={() => handleDrop("__end__")}
+          />
+        )}
       </div>
 
       {(snapshot.canUndo || snapshot.canRedo) && (
@@ -307,6 +442,41 @@ export function AreaTree({ service, api }: AreaTreeProps) {
                 disabled={!canSubmit}
               >
                 {m.add}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renameTarget && (
+        <div className="modal-overlay" onClick={() => setRenameTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">{t.common.edit}</h3>
+            <div className="modal-field">
+              <label className="modal-label">{m.areaParent}</label>
+              <input
+                ref={renameRef}
+                className="modal-input"
+                defaultValue={renameTarget.name}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameConfirm();
+                  if (e.key === "Escape") setRenameTarget(null);
+                }}
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                className="modal-btn"
+                onClick={() => setRenameTarget(null)}
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                className="modal-btn modal-btn-primary"
+                onClick={handleRenameConfirm}
+              >
+                {t.common.save}
               </button>
             </div>
           </div>

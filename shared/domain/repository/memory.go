@@ -3,6 +3,7 @@ package repository
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -38,6 +39,9 @@ func (r *InMemoryRepository) ListRegions() ([]models.Region, error) {
 			result = append(result, *v)
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Order < result[j].Order
+	})
 	return result, nil
 }
 

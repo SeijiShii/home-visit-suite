@@ -101,6 +101,7 @@ export namespace models {
 	    symbol: string;
 	    approved: boolean;
 	    geometry?: GeoJSONPolygon;
+	    order: number;
 	    // Go type: time
 	    deletedAt?: any;
 	
@@ -115,6 +116,7 @@ export namespace models {
 	        this.symbol = source["symbol"];
 	        this.approved = source["approved"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
+	        this.order = source["order"];
 	        this.deletedAt = this.convertValues(source["deletedAt"], null);
 	    }
 	

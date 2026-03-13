@@ -35,6 +35,7 @@ const en: Translations = {
     addRegion: "Add Region",
     regionName: "Region Name",
     regionSymbol: "Symbol",
+    defaultParentAreaName: "Untitled",
   },
   users: {
     title: "User Management",

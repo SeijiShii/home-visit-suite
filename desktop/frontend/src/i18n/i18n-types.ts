@@ -35,6 +35,7 @@ export interface Translations {
     addRegion: string;
     regionName: string;
     regionSymbol: string;
+    defaultParentAreaName: string;
   };
   users: {
     title: string;

@@ -191,13 +191,27 @@ section {
   height: 100%;
 }
 
+.sidebar-resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle:active {
+  background: #93c5fd;
+}
+
 .map-sidebar {
-  width: 192px;
+  min-width: 192px;
   flex-shrink: 0;
   background: #f8fafc;
   border-left: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* 区域ツリー */
@@ -324,6 +338,33 @@ section {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #334155;
+}
+
+.tree-node[draggable="true"] > .tree-row-region {
+  cursor: grab;
+}
+
+.tree-drag-over > .tree-row-region {
+  border-top: 2px solid #3b82f6;
+}
+
+.tree-drop-end {
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.tree-drop-end.tree-drag-over {
+  border-top: 2px solid #3b82f6;
+}
+
+.tree-inline-edit {
+  font: inherit;
+  border: 1px solid #93c5fd;
+  border-radius: 3px;
+  padding: 0 4px;
+  outline: none;
+  background: #fff;
+  width: 120px;
 }
 
 .tree-actions {

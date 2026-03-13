@@ -42,6 +42,10 @@ export function ListRegions() {
   return window['go']['binding']['RegionBinding']['ListRegions']();
 }
 
+export function ReorderRegions(arg1) {
+  return window['go']['binding']['RegionBinding']['ReorderRegions'](arg1);
+}
+
 export function RestoreArea(arg1) {
   return window['go']['binding']['RegionBinding']['RestoreArea'](arg1);
 }

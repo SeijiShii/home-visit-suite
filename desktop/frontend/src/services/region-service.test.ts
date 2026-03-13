@@ -7,11 +7,15 @@ const createMockAPI = (): RegionBindingAPI => ({
   DeleteRegion: vi.fn().mockResolvedValue(undefined),
   RestoreRegion: vi.fn().mockResolvedValue(undefined),
   ListParentAreas: vi.fn().mockResolvedValue([]),
+  GetParentArea: vi.fn().mockResolvedValue({}),
+  SaveParentArea: vi.fn().mockResolvedValue(undefined),
   DeleteParentArea: vi.fn().mockResolvedValue(undefined),
   RestoreParentArea: vi.fn().mockResolvedValue(undefined),
   ListAreas: vi.fn().mockResolvedValue([]),
+  SaveArea: vi.fn().mockResolvedValue(undefined),
   DeleteArea: vi.fn().mockResolvedValue(undefined),
   RestoreArea: vi.fn().mockResolvedValue(undefined),
+  ReorderRegions: vi.fn().mockResolvedValue(undefined),
 });
 
 describe("RegionService", () => {
@@ -116,6 +120,122 @@ describe("RegionService", () => {
       await expect(service.addRegion("成田市", "NRT")).rejects.toThrow(
         "duplicate id",
       );
+    });
+  });
+
+  describe("addParentArea", () => {
+    it("既存なしの場合、番号001でID=regionId-numberの親番区域を追加する", async () => {
+      await service.addParentArea("NRT", "名前なし");
+
+      expect(api.ListParentAreas).toHaveBeenCalledWith("NRT");
+      expect(api.SaveParentArea).toHaveBeenCalledOnce();
+      const saved = (api.SaveParentArea as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
+      expect(saved.id).toBe("NRT-001");
+      expect(saved.regionId).toBe("NRT");
+      expect(saved.number).toBe("001");
+      expect(saved.name).toBe("名前なし");
+    });
+
+    it("既存の最大番号に+1した番号を付与する", async () => {
+      (api.ListParentAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT-001", regionId: "NRT", number: "001", name: "加良部" },
+        { id: "NRT-003", regionId: "NRT", number: "003", name: "飯田" },
+      ]);
+
+      await service.addParentArea("NRT", "名前なし");
+
+      const saved = (api.SaveParentArea as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
+      expect(saved.id).toBe("NRT-004");
+      expect(saved.number).toBe("004");
+    });
+  });
+
+  describe("addArea", () => {
+    it("既存なしの場合、番号01でID=parentAreaId-numberの区域を追加する", async () => {
+      await service.addArea("NRT-001");
+
+      expect(api.ListAreas).toHaveBeenCalledWith("NRT-001");
+      expect(api.SaveArea).toHaveBeenCalledOnce();
+      const saved = (api.SaveArea as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(saved.id).toBe("NRT-001-01");
+      expect(saved.parentAreaId).toBe("NRT-001");
+      expect(saved.number).toBe("01");
+    });
+
+    it("既存の最大番号に+1した番号を付与する", async () => {
+      (api.ListAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT-001-01", parentAreaId: "NRT-001", number: "01" },
+        { id: "NRT-001-05", parentAreaId: "NRT-001", number: "05" },
+      ]);
+
+      await service.addArea("NRT-001");
+
+      const saved = (api.SaveArea as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(saved.id).toBe("NRT-001-06");
+      expect(saved.number).toBe("06");
+    });
+  });
+
+  describe("renameParentArea", () => {
+    it("GetParentAreaで取得した親番区域の名前を変更してSaveする", async () => {
+      (api.GetParentArea as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "NRT-001",
+        regionId: "NRT",
+        number: "001",
+        name: "旧名",
+      });
+
+      await service.renameParentArea("NRT-001", "新名");
+
+      expect(api.GetParentArea).toHaveBeenCalledWith("NRT-001");
+      expect(api.SaveParentArea).toHaveBeenCalledOnce();
+      const saved = (api.SaveParentArea as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
+      expect(saved.name).toBe("新名");
+      expect(saved.id).toBe("NRT-001");
+    });
+  });
+
+  describe("isLastParentArea", () => {
+    const region: import("./region-service").AreaTreeNode = {
+      id: "NRT",
+      name: "成田市",
+      symbol: "NRT",
+      parentAreas: [
+        { id: "NRT-001", number: "001", name: "加良部", areas: [] },
+        { id: "NRT-003", number: "003", name: "飯田", areas: [] },
+      ],
+    };
+
+    it("最大番号のアイテムならtrueを返す", () => {
+      expect(service.isLastParentArea(region, "NRT-003")).toBe(true);
+    });
+
+    it("最大番号でなければfalseを返す", () => {
+      expect(service.isLastParentArea(region, "NRT-001")).toBe(false);
+    });
+
+    it("存在しないIDならfalseを返す", () => {
+      expect(service.isLastParentArea(region, "NRT-999")).toBe(false);
+    });
+  });
+
+  describe("isLastArea", () => {
+    const parentArea = {
+      areas: [
+        { id: "NRT-001-01", number: "01" },
+        { id: "NRT-001-05", number: "05" },
+      ],
+    };
+
+    it("最大番号のアイテムならtrueを返す", () => {
+      expect(service.isLastArea(parentArea, "NRT-001-05")).toBe(true);
+    });
+
+    it("最大番号でなければfalseを返す", () => {
+      expect(service.isLastArea(parentArea, "NRT-001-01")).toBe(false);
     });
   });
 

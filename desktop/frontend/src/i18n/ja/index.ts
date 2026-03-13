@@ -35,6 +35,7 @@ const ja: Translations = {
     addRegion: "領域を追加",
     regionName: "領域名",
     regionSymbol: "記号",
+    defaultParentAreaName: "名前なし",
   },
   users: {
     title: "ユーザー管理",

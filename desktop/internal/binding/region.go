@@ -122,6 +122,23 @@ func (b *RegionBinding) RestoreArea(id string) error {
 	return b.repo.SaveArea(a)
 }
 
+// --- 並び替え ---
+
+// ReorderRegions は領域の表示順を更新する。idsは新しい順序のID配列。
+func (b *RegionBinding) ReorderRegions(ids []string) error {
+	for i, id := range ids {
+		r, err := b.repo.GetRegionRaw(id)
+		if err != nil {
+			return err
+		}
+		r.Order = i
+		if err := b.repo.SaveRegion(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // --- ユーティリティ ---
 
 // GetAreaDisplayLabel は区域の表示ラベルを返す。
