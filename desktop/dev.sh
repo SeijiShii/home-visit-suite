@@ -39,4 +39,4 @@ if [ ! -d frontend/node_modules ] || [ frontend/package.json -nt frontend/node_m
 fi
 
 echo "Starting wails dev..."
-wails dev
+wails dev -tags webkit2_41

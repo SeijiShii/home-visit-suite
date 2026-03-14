@@ -214,6 +214,62 @@ section {
   overflow: hidden;
 }
 
+/* サイドバータブ */
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sidebar-tab:hover {
+  color: #475569;
+}
+
+.sidebar-tab-active {
+  color: #1e293b;
+  border-bottom-color: #3b82f6;
+}
+
+.sidebar-tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ポリゴン一覧 */
+.polygon-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.polygon-list-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.polygon-list-empty {
+  padding: 20px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
 /* 区域ツリー */
 .area-tree {
   display: flex;
@@ -536,4 +592,269 @@ section {
 
 .modal-btn-danger:hover {
   background: #dc2626;
+}
+
+/* --- Region Management Page --- */
+
+.region-management {
+  padding: 24px;
+  max-width: 800px;
+}
+
+.region-management-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.region-management-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.region-management-add-btn {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.region-management-add-btn:hover {
+  background: #2563eb;
+}
+
+.region-management-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.region-management-empty {
+  padding: 32px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.region-management-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.region-management-item:hover {
+  border-color: #cbd5e1;
+}
+
+.region-management-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.region-management-symbol {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1e293b;
+  min-width: 48px;
+}
+
+.region-management-name {
+  font-size: 14px;
+  color: #475569;
+}
+
+.region-management-count {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.region-management-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.region-management-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.region-management-action-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.region-management-action-btn:disabled {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.region-management-action-btn:disabled:hover {
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.region-management-action-delete:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.region-management-warning {
+  padding: 8px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.region-delete-message {
+  font-size: 14px;
+  color: #475569;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.region-delete-target {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.region-delete-target-symbol {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.region-delete-target-name {
+  color: #991b1b;
+}
+
+/* 描画ツールバー */
+.drawing-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(30, 41, 59, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.drawing-hint {
+  max-width: 280px;
+  line-height: 1.3;
+}
+
+.drawing-point-count {
+  background: #475569;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.drawing-btn {
+  padding: 4px 12px;
+  border: 1px solid #64748b;
+  border-radius: 4px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.drawing-btn:hover {
+  background: #475569;
+}
+
+.drawing-btn-close {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.drawing-btn-close:hover {
+  background: #166534;
+  color: #fff;
+}
+
+.drawing-btn-save {
+  border-color: #3b82f6;
+  background: #3b82f6;
+  color: #fff;
+}
+
+.drawing-btn-save:hover {
+  background: #2563eb;
+}
+
+.drawing-btn-cancel {
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.drawing-btn-cancel:hover {
+  background: #7f1d1d;
+  color: #fff;
+}
+
+/* ポリゴンアイコン・描画ボタン */
+.tree-action-polygon {
+  color: #22c55e;
+  border-color: #86efac;
+}
+
+.tree-action-polygon:hover {
+  background: #dcfce7;
+}
+
+.tree-action-draw {
+  color: #3b82f6;
+  border-color: #93c5fd;
+}
+
+.tree-action-draw:hover {
+  background: #dbeafe;
+}
+
+.tree-action-draw:disabled {
+  color: #cbd5e1;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.tree-action-draw:disabled:hover {
+  background: transparent;
 }

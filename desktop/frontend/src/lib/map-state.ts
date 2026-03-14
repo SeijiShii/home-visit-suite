@@ -1,5 +1,6 @@
 import type { PolygonID, DraftShape } from "map-polygon-editor";
 import { createDraft } from "map-polygon-editor";
+import { DrawingController } from "./drawing-controller";
 
 export enum MapMode {
   Viewing = "viewing",
@@ -13,6 +14,7 @@ export class MapState {
   mode: MapMode = MapMode.Viewing;
   selectedPolygonId: PolygonID | null = null;
   draft: DraftShape | null = null;
+  readonly drawingController = new DrawingController();
 
   private listeners: ChangeListener[] = [];
 
@@ -23,9 +25,55 @@ export class MapState {
     this.notify();
   }
 
+  startDrawingForArea(areaId: string): void {
+    this.drawingController.startDrawing(areaId);
+    this.mode = MapMode.Drawing;
+    this.selectedPolygonId = null;
+    this.draft = this.drawingController.draft;
+    this.notify();
+  }
+
   cancelDrawing(): void {
     this.mode = MapMode.Viewing;
     this.draft = null;
+    this.drawingController.cancel();
+    this.notify();
+  }
+
+  handleMapClick(lat: number, lng: number): void {
+    if (this.mode !== MapMode.Drawing || !this.drawingController.isActive)
+      return;
+
+    this.drawingController.addPoint(lat, lng);
+    this.draft = this.drawingController.draft;
+    this.notify();
+  }
+
+  closeDrawing(): void {
+    if (!this.drawingController.isActive || !this.drawingController.canClose)
+      return;
+    this.drawingController.closeDraft();
+    this.draft = this.drawingController.draft;
+    this.notify();
+  }
+
+  finalizeDrawing(): { draft: DraftShape; targetAreaId: string } | null {
+    if (!this.drawingController.isActive) return null;
+    try {
+      const result = this.drawingController.finalize();
+      this.mode = MapMode.Viewing;
+      this.draft = null;
+      this.notify();
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  undoLastPoint(): void {
+    if (!this.drawingController.isActive) return;
+    this.drawingController.removeLastPoint();
+    this.draft = this.drawingController.draft;
     this.notify();
   }
 

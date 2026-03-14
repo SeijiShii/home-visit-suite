@@ -31,6 +31,7 @@ type Area struct {
 	ID           string          `json:"id"`
 	ParentAreaID string          `json:"parentAreaId"`
 	Number       string          `json:"number"` // "05"
+	PolygonID    string          `json:"polygonId,omitempty"` // map-polygon-editorのポリゴンID
 	Geometry     *GeoJSONPolygon `json:"geometry"`
 	DeletedAt    *time.Time      `json:"deletedAt,omitempty"`
 }

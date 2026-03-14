@@ -8,6 +8,7 @@ export interface Translations {
     activities: string;
     coverage: string;
     requests: string;
+    regions: string;
   };
   dashboard: {
     title: string;
@@ -19,6 +20,15 @@ export interface Translations {
   map: {
     title: string;
     loading: string;
+    tabAreas: string;
+    tabPolygons: string;
+    drawPolygon: string;
+    closePolygon: string;
+    savePolygon: string;
+    cancelDrawing: string;
+    undoPoint: string;
+    drawingHint: string;
+    drawingClosed: string;
   };
   areaTree: {
     title: string;
@@ -80,6 +90,22 @@ export interface Translations {
       mapUpdate: string;
       doNotVisit: string;
     };
+  };
+  regionManagement: {
+    title: string;
+    addRegion: string;
+    editRegion: string;
+    deleteRegion: string;
+    regionName: string;
+    regionSymbol: string;
+    moveUp: string;
+    moveDown: string;
+    confirmDeleteTitle: string;
+    confirmDeleteMessage: string;
+    enterNameToConfirm: string;
+    enterSymbolToConfirm: string;
+    symbolChangeWarning: string;
+    parentAreaCount: string;
   };
   common: {
     save: string;

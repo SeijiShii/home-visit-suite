@@ -122,6 +122,94 @@ func (b *RegionBinding) RestoreArea(id string) error {
 	return b.repo.SaveArea(a)
 }
 
+// BindPolygonToArea は区域にポリゴンIDを紐付ける。
+func (b *RegionBinding) BindPolygonToArea(areaID, polygonID string) error {
+	a, err := b.repo.GetArea(areaID)
+	if err != nil {
+		return fmt.Errorf("get area %s: %w", areaID, err)
+	}
+	a.PolygonID = polygonID
+	return b.repo.SaveArea(a)
+}
+
+// UnbindPolygonFromArea は区域からポリゴンIDの紐付けを解除する。
+func (b *RegionBinding) UnbindPolygonFromArea(areaID string) error {
+	a, err := b.repo.GetArea(areaID)
+	if err != nil {
+		return fmt.Errorf("get area %s: %w", areaID, err)
+	}
+	a.PolygonID = ""
+	return b.repo.SaveArea(a)
+}
+
+// --- 領域更新 ---
+
+// UpdateRegion は領域の名前・記号を更新する。
+// 記号が変更された場合、配下のParentArea・AreaのIDを連鎖更新する。
+// 更新順序: Area → ParentArea → Region（子から親へ、参照整合性のため）。
+func (b *RegionBinding) UpdateRegion(id, name, newSymbol string) error {
+	r, err := b.repo.GetRegion(id)
+	if err != nil {
+		return err
+	}
+
+	oldSymbol := r.Symbol
+
+	// 記号が変わらない場合は名前のみ更新
+	if oldSymbol == newSymbol {
+		r.Name = name
+		return b.repo.SaveRegion(r)
+	}
+
+	// 記号が変わる場合: 子 → 親の順でID連鎖更新
+	parentAreas, err := b.repo.ListParentAreas(id)
+	if err != nil {
+		return fmt.Errorf("list parent areas: %w", err)
+	}
+
+	// 1. Area: 旧ID削除 → 新ID保存
+	for _, pa := range parentAreas {
+		areas, err := b.repo.ListAreas(pa.ID)
+		if err != nil {
+			return fmt.Errorf("list areas for %s: %w", pa.ID, err)
+		}
+		newPaID := newSymbol + pa.ID[len(oldSymbol):]
+		for _, a := range areas {
+			newAreaID := newSymbol + a.ID[len(oldSymbol):]
+			if err := b.repo.RemoveArea(a.ID); err != nil {
+				return fmt.Errorf("remove area %s: %w", a.ID, err)
+			}
+			a.ID = newAreaID
+			a.ParentAreaID = newPaID
+			if err := b.repo.SaveArea(&a); err != nil {
+				return fmt.Errorf("save area %s: %w", newAreaID, err)
+			}
+		}
+	}
+
+	// 2. ParentArea: 旧ID削除 → 新ID保存
+	for _, pa := range parentAreas {
+		newPaID := newSymbol + pa.ID[len(oldSymbol):]
+		if err := b.repo.RemoveParentArea(pa.ID); err != nil {
+			return fmt.Errorf("remove parent area %s: %w", pa.ID, err)
+		}
+		pa.ID = newPaID
+		pa.RegionID = newSymbol
+		if err := b.repo.SaveParentArea(&pa); err != nil {
+			return fmt.Errorf("save parent area %s: %w", newPaID, err)
+		}
+	}
+
+	// 3. Region: 旧ID削除 → 新ID保存
+	if err := b.repo.RemoveRegion(id); err != nil {
+		return fmt.Errorf("remove region %s: %w", id, err)
+	}
+	r.ID = newSymbol
+	r.Symbol = newSymbol
+	r.Name = name
+	return b.repo.SaveRegion(r)
+}
+
 // --- 並び替え ---
 
 // ReorderRegions は領域の表示順を更新する。idsは新しい順序のID配列。

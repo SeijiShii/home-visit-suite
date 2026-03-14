@@ -130,6 +130,17 @@ func (r *JSONFileRepository) DeleteRegion(id string) error {
 	return r.saveFile(regionsFile, r.regions)
 }
 
+func (r *JSONFileRepository) RemoveRegion(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.regions[id]; !ok {
+		return fmt.Errorf("region not found: %s", id)
+	}
+	delete(r.regions, id)
+	return r.saveFile(regionsFile, r.regions)
+}
+
 // --- ParentArea ---
 
 func (r *JSONFileRepository) ListParentAreas(regionID string) ([]models.ParentArea, error) {
@@ -191,6 +202,17 @@ func (r *JSONFileRepository) DeleteParentArea(id string) error {
 	return r.saveFile(parentAreasFile, r.parentAreas)
 }
 
+func (r *JSONFileRepository) RemoveParentArea(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.parentAreas[id]; !ok {
+		return fmt.Errorf("parent area not found: %s", id)
+	}
+	delete(r.parentAreas, id)
+	return r.saveFile(parentAreasFile, r.parentAreas)
+}
+
 // --- Area ---
 
 func (r *JSONFileRepository) ListAreas(parentAreaID string) ([]models.Area, error) {
@@ -249,6 +271,17 @@ func (r *JSONFileRepository) DeleteArea(id string) error {
 	}
 	now := time.Now()
 	v.DeletedAt = &now
+	return r.saveFile(areasFile, r.areas)
+}
+
+func (r *JSONFileRepository) RemoveArea(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.areas[id]; !ok {
+		return fmt.Errorf("area not found: %s", id)
+	}
+	delete(r.areas, id)
 	return r.saveFile(areasFile, r.areas)
 }
 

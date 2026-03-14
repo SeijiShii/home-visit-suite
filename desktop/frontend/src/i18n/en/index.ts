@@ -8,6 +8,7 @@ const en: Translations = {
     activities: "Visit Activities",
     coverage: "Coverage",
     requests: "Requests",
+    regions: "Region Management",
   },
   dashboard: {
     title: "Dashboard",
@@ -19,6 +20,16 @@ const en: Translations = {
   map: {
     title: "Map",
     loading: "Loading map...",
+    tabAreas: "Areas",
+    tabPolygons: "Polygons",
+    drawPolygon: "Draw Polygon",
+    closePolygon: "Close Polygon",
+    savePolygon: "Save",
+    cancelDrawing: "Cancel",
+    undoPoint: "Undo",
+    drawingHint:
+      "Click on the map to add vertices. Click near start point to close.",
+    drawingClosed: "Polygon closed. Save or cancel.",
   },
   areaTree: {
     title: "Area Map",
@@ -80,6 +91,23 @@ const en: Translations = {
       mapUpdate: "Map Update",
       doNotVisit: "Do Not Visit",
     },
+  },
+  regionManagement: {
+    title: "Region Management",
+    addRegion: "Add Region",
+    editRegion: "Edit Region",
+    deleteRegion: "Delete Region",
+    regionName: "Region Name",
+    regionSymbol: "Symbol",
+    moveUp: "Move Up",
+    moveDown: "Move Down",
+    confirmDeleteTitle: "Delete Region",
+    confirmDeleteMessage:
+      "This will permanently delete the region and all its parent areas and areas. Enter the region name and symbol to confirm.",
+    enterNameToConfirm: "Enter region name to confirm",
+    enterSymbolToConfirm: "Enter symbol to confirm",
+    symbolChangeWarning: "Changing the symbol will update all child area IDs.",
+    parentAreaCount: "parent areas",
   },
   common: {
     save: "Save",

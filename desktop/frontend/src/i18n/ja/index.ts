@@ -8,6 +8,7 @@ const ja: Translations = {
     activities: "訪問活動",
     coverage: "網羅管理",
     requests: "申請管理",
+    regions: "領域管理",
   },
   dashboard: {
     title: "ダッシュボード",
@@ -19,6 +20,15 @@ const ja: Translations = {
   map: {
     title: "地図",
     loading: "地図を読み込み中...",
+    tabAreas: "区域",
+    tabPolygons: "ポリゴン",
+    drawPolygon: "ポリゴン描画",
+    closePolygon: "ポリゴンを閉じる",
+    savePolygon: "保存",
+    cancelDrawing: "キャンセル",
+    undoPoint: "戻す",
+    drawingHint: "地図をクリックして頂点を追加。始点付近クリックで閉じます。",
+    drawingClosed: "ポリゴンが閉じました。保存またはキャンセルしてください。",
   },
   areaTree: {
     title: "区域地図",
@@ -80,6 +90,24 @@ const ja: Translations = {
       mapUpdate: "地図情報更新",
       doNotVisit: "訪問不可",
     },
+  },
+  regionManagement: {
+    title: "領域管理",
+    addRegion: "領域を追加",
+    editRegion: "領域を編集",
+    deleteRegion: "領域を削除",
+    regionName: "領域名",
+    regionSymbol: "記号",
+    moveUp: "上へ",
+    moveDown: "下へ",
+    confirmDeleteTitle: "領域を削除",
+    confirmDeleteMessage:
+      "この領域と配下のすべての区域親番・区域が完全に削除されます。確認のため領域名と記号を入力してください。",
+    enterNameToConfirm: "領域名を入力",
+    enterSymbolToConfirm: "記号を入力",
+    symbolChangeWarning:
+      "記号を変更すると、配下のすべての区域IDが更新されます。",
+    parentAreaCount: "区域親番",
   },
   common: {
     save: "保存",

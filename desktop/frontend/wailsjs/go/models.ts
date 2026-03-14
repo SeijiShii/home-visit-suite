@@ -18,6 +18,7 @@ export namespace models {
 	    id: string;
 	    parentAreaId: string;
 	    number: string;
+	    polygonId?: string;
 	    geometry?: GeoJSONPolygon;
 	    // Go type: time
 	    deletedAt?: any;
@@ -31,6 +32,7 @@ export namespace models {
 	        this.id = source["id"];
 	        this.parentAreaId = source["parentAreaId"];
 	        this.number = source["number"];
+	        this.polygonId = source["polygonId"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
 	        this.deletedAt = this.convertValues(source["deletedAt"], null);
 	    }

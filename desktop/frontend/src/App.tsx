@@ -1,12 +1,13 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
-import { I18nProvider } from './contexts/I18nContext';
-import { Layout } from './components/Layout';
-import { DashboardPage } from './pages/DashboardPage';
-import { MapPage } from './pages/MapPage';
-import { UsersPage } from './pages/UsersPage';
-import { ActivitiesPage } from './pages/ActivitiesPage';
-import { CoveragePage } from './pages/CoveragePage';
-import { RequestsPage } from './pages/RequestsPage';
+import { HashRouter, Routes, Route } from "react-router-dom";
+import { I18nProvider } from "./contexts/I18nContext";
+import { Layout } from "./components/Layout";
+import { DashboardPage } from "./pages/DashboardPage";
+import { MapPage } from "./pages/MapPage";
+import { UsersPage } from "./pages/UsersPage";
+import { ActivitiesPage } from "./pages/ActivitiesPage";
+import { CoveragePage } from "./pages/CoveragePage";
+import { RequestsPage } from "./pages/RequestsPage";
+import { RegionManagementPage } from "./pages/RegionManagementPage";
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="map" element={<MapPage />} />
+            <Route path="regions" element={<RegionManagementPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="activities" element={<ActivitiesPage />} />
             <Route path="coverage" element={<CoveragePage />} />

@@ -15,7 +15,8 @@
 
 ## 開発環境
 - **コード編集・テスト**: WSL2 (Ubuntu) — Claude Code、VSCode Remote-WSL、vitest
-- **Wails実行（開発中）**: WSL2で `~/go/bin/wails dev`（日本語入力不可、英字で動作確認）
+- **Wails実行（開発中）**: WSL2で `desktop/dev.sh` を実行（依存チェック・webkit2gtk-4.1対応・npm install を自動化）
+  - 日本語入力不可、英字で動作確認
 - **Wails実行（最終確認）**: Windows ネイティブ — IME（日本語入力）が必要な場合
   - Windows側に Go + Wails CLI をインストール
   - `D:\home-visit-suite` に git clone

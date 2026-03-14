@@ -8,12 +8,19 @@ const createMockAPI = (): RegionBindingAPI => ({
   SaveRegion: vi.fn().mockResolvedValue(undefined),
   DeleteRegion: vi.fn().mockResolvedValue(undefined),
   RestoreRegion: vi.fn().mockResolvedValue(undefined),
+  UpdateRegion: vi.fn().mockResolvedValue(undefined),
   ListParentAreas: vi.fn().mockResolvedValue([]),
+  GetParentArea: vi.fn().mockResolvedValue({}),
+  SaveParentArea: vi.fn().mockResolvedValue(undefined),
   DeleteParentArea: vi.fn().mockResolvedValue(undefined),
   RestoreParentArea: vi.fn().mockResolvedValue(undefined),
   ListAreas: vi.fn().mockResolvedValue([]),
+  SaveArea: vi.fn().mockResolvedValue(undefined),
   DeleteArea: vi.fn().mockResolvedValue(undefined),
   RestoreArea: vi.fn().mockResolvedValue(undefined),
+  ReorderRegions: vi.fn().mockResolvedValue(undefined),
+  BindPolygonToArea: vi.fn().mockResolvedValue(undefined),
+  UnbindPolygonFromArea: vi.fn().mockResolvedValue(undefined),
 });
 
 describe("CommandExecutor", () => {

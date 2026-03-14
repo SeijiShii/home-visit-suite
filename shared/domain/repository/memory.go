@@ -91,6 +91,17 @@ func (r *InMemoryRepository) DeleteRegion(id string) error {
 	return nil
 }
 
+func (r *InMemoryRepository) RemoveRegion(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.regions[id]; !ok {
+		return fmt.Errorf("region not found: %s", id)
+	}
+	delete(r.regions, id)
+	return nil
+}
+
 // --- ParentArea ---
 
 func (r *InMemoryRepository) ListParentAreas(regionID string) ([]models.ParentArea, error) {
@@ -152,6 +163,17 @@ func (r *InMemoryRepository) DeleteParentArea(id string) error {
 	return nil
 }
 
+func (r *InMemoryRepository) RemoveParentArea(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.parentAreas[id]; !ok {
+		return fmt.Errorf("parent area not found: %s", id)
+	}
+	delete(r.parentAreas, id)
+	return nil
+}
+
 // --- Area ---
 
 func (r *InMemoryRepository) ListAreas(parentAreaID string) ([]models.Area, error) {
@@ -210,5 +232,16 @@ func (r *InMemoryRepository) DeleteArea(id string) error {
 	}
 	now := time.Now()
 	v.DeletedAt = &now
+	return nil
+}
+
+func (r *InMemoryRepository) RemoveArea(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.areas[id]; !ok {
+		return fmt.Errorf("area not found: %s", id)
+	}
+	delete(r.areas, id)
 	return nil
 }

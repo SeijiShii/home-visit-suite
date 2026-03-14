@@ -6,6 +6,7 @@ const createMockAPI = (): RegionBindingAPI => ({
   SaveRegion: vi.fn().mockResolvedValue(undefined),
   DeleteRegion: vi.fn().mockResolvedValue(undefined),
   RestoreRegion: vi.fn().mockResolvedValue(undefined),
+  UpdateRegion: vi.fn().mockResolvedValue(undefined),
   ListParentAreas: vi.fn().mockResolvedValue([]),
   GetParentArea: vi.fn().mockResolvedValue({}),
   SaveParentArea: vi.fn().mockResolvedValue(undefined),
@@ -16,6 +17,8 @@ const createMockAPI = (): RegionBindingAPI => ({
   DeleteArea: vi.fn().mockResolvedValue(undefined),
   RestoreArea: vi.fn().mockResolvedValue(undefined),
   ReorderRegions: vi.fn().mockResolvedValue(undefined),
+  BindPolygonToArea: vi.fn().mockResolvedValue(undefined),
+  UnbindPolygonFromArea: vi.fn().mockResolvedValue(undefined),
 });
 
 describe("RegionService", () => {
@@ -82,6 +85,29 @@ describe("RegionService", () => {
       expect(tree[0].parentAreas[0].areas).toHaveLength(2);
       expect(tree[0].parentAreas[0].number).toBe("001");
       expect(tree[0].parentAreas[0].areas[0].number).toBe("01");
+    });
+
+    it("区域のpolygonIdをツリーに含める", async () => {
+      (api.ListRegions as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT", name: "成田市", symbol: "NRT", approved: true },
+      ]);
+      (api.ListParentAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: "NRT-001", regionId: "NRT", number: "001", name: "加良部" },
+      ]);
+      (api.ListAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        {
+          id: "NRT-001-01",
+          parentAreaId: "NRT-001",
+          number: "01",
+          polygonId: "poly-abc",
+        },
+        { id: "NRT-001-02", parentAreaId: "NRT-001", number: "02" },
+      ]);
+
+      const tree = await service.loadTree();
+
+      expect(tree[0].parentAreas[0].areas[0].polygonId).toBe("poly-abc");
+      expect(tree[0].parentAreas[0].areas[1].polygonId).toBeUndefined();
     });
 
     it("複数領域を正しく構築する", async () => {

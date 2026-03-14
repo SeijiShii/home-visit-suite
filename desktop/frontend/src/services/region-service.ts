@@ -7,6 +7,7 @@ export interface RegionBindingAPI {
   SaveRegion(region: models.Region): Promise<void>;
   DeleteRegion(id: string): Promise<void>;
   RestoreRegion(id: string): Promise<void>;
+  UpdateRegion(id: string, name: string, symbol: string): Promise<void>;
   ListParentAreas(regionID: string): Promise<models.ParentArea[]>;
   GetParentArea(id: string): Promise<models.ParentArea>;
   DeleteParentArea(id: string): Promise<void>;
@@ -17,6 +18,8 @@ export interface RegionBindingAPI {
   DeleteArea(id: string): Promise<void>;
   RestoreArea(id: string): Promise<void>;
   ReorderRegions(ids: string[]): Promise<void>;
+  BindPolygonToArea(areaId: string, polygonId: string): Promise<void>;
+  UnbindPolygonFromArea(areaId: string): Promise<void>;
 }
 
 // ツリー表示用の型
@@ -31,6 +34,7 @@ export interface AreaTreeNode {
     areas: {
       id: string;
       number: string;
+      polygonId?: string;
     }[];
   }[];
 }
@@ -54,7 +58,11 @@ export class RegionService {
           number: pa.number,
           name: pa.name,
           areas: areas
-            .map((a) => ({ id: a.id, number: a.number }))
+            .map((a) => ({
+              id: a.id,
+              number: a.number,
+              ...(a.polygonId ? { polygonId: a.polygonId } : {}),
+            }))
             .sort((a, b) => a.number.localeCompare(b.number)),
         });
       }
@@ -88,7 +96,22 @@ export class RegionService {
     await this.api.SaveRegion(region);
   }
 
+  async updateRegion(id: string, name: string, symbol: string): Promise<void> {
+    await this.api.UpdateRegion(id, name, symbol);
+  }
+
   async reorderRegions(ids: string[]): Promise<void> {
+    await this.api.ReorderRegions(ids);
+  }
+
+  async moveRegion(id: string, direction: "up" | "down"): Promise<void> {
+    const regions = await this.api.ListRegions();
+    const ids = (regions ?? []).map((r) => r.id);
+    const idx = ids.indexOf(id);
+    if (idx === -1) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= ids.length) return;
+    [ids[idx], ids[targetIdx]] = [ids[targetIdx], ids[idx]];
     await this.api.ReorderRegions(ids);
   }
 

@@ -14,6 +14,7 @@ type RegionRepository interface {
 	GetRegionRaw(id string) (*models.Region, error) // DeletedAt状態に関係なく取得
 	SaveRegion(region *models.Region) error
 	DeleteRegion(id string) error
+	RemoveRegion(id string) error // 物理削除（ID変更時に使用）
 
 	// 区域親番
 	ListParentAreas(regionID string) ([]models.ParentArea, error)
@@ -21,6 +22,7 @@ type RegionRepository interface {
 	GetParentAreaRaw(id string) (*models.ParentArea, error)
 	SaveParentArea(pa *models.ParentArea) error
 	DeleteParentArea(id string) error
+	RemoveParentArea(id string) error // 物理削除
 
 	// 区域
 	ListAreas(parentAreaID string) ([]models.Area, error)
@@ -28,4 +30,5 @@ type RegionRepository interface {
 	GetAreaRaw(id string) (*models.Area, error)
 	SaveArea(area *models.Area) error
 	DeleteArea(id string) error
+	RemoveArea(id string) error // 物理削除
 }

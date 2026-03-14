@@ -31,11 +31,27 @@ describe("MapState", () => {
       expect(state.draft!.isClosed).toBe(false);
     });
 
+    it("startDrawingForAreaで対象区域ID付きで描画開始する", () => {
+      state.startDrawingForArea("NRT-001-01");
+      expect(state.mode).toBe(MapMode.Drawing);
+      expect(state.drawingController.isActive).toBe(true);
+      expect(state.drawingController.targetAreaId).toBe("NRT-001-01");
+      expect(state.draft).not.toBeNull();
+    });
+
     it("drawing → viewing にキャンセルできる", () => {
       state.startDrawing();
       state.cancelDrawing();
       expect(state.mode).toBe(MapMode.Viewing);
       expect(state.draft).toBeNull();
+    });
+
+    it("startDrawingForArea後のcancelDrawingでDrawingControllerもリセットされる", () => {
+      state.startDrawingForArea("NRT-001-01");
+      state.cancelDrawing();
+      expect(state.mode).toBe(MapMode.Viewing);
+      expect(state.drawingController.isActive).toBe(false);
+      expect(state.drawingController.targetAreaId).toBeNull();
     });
 
     it("viewing → editing に遷移できる", () => {
@@ -92,6 +108,82 @@ describe("MapState", () => {
       state.startDrawing();
       state.updateDraft(null);
       expect(state.draft).toBeNull();
+    });
+  });
+
+  describe("描画フロー（startDrawingForArea経由）", () => {
+    it("handleMapClickでポイントを追加し通知する", () => {
+      state.startDrawingForArea("NRT-001-01");
+      let notified = false;
+      state.onChange(() => {
+        notified = true;
+      });
+
+      state.handleMapClick(35.776, 140.318);
+
+      expect(state.draft!.points).toHaveLength(1);
+      expect(notified).toBe(true);
+    });
+
+    it("handleMapClickは常にポイントを追加する（スナップ判定はUI層で実施）", () => {
+      state.startDrawingForArea("NRT-001-01");
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+      state.handleMapClick(35.778, 140.32);
+      state.handleMapClick(35.776, 140.318);
+
+      expect(state.draft!.points).toHaveLength(4);
+      expect(state.draft!.isClosed).toBe(false);
+    });
+
+    it("描画モードでない場合はhandleMapClickで何もしない", () => {
+      state.handleMapClick(35.776, 140.318);
+      expect(state.draft).toBeNull();
+    });
+
+    it("closeDrawingで明示的にクローズする", () => {
+      state.startDrawingForArea("NRT-001-01");
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+      state.handleMapClick(35.778, 140.32);
+
+      state.closeDrawing();
+
+      expect(state.draft!.isClosed).toBe(true);
+    });
+
+    it("3点未満でcloseDrawingは何もしない", () => {
+      state.startDrawingForArea("NRT-001-01");
+      state.handleMapClick(35.776, 140.318);
+
+      state.closeDrawing();
+
+      expect(state.draft!.isClosed).toBe(false);
+    });
+
+    it("finalizeDrawingでクローズ済みドラフトと区域IDを返す", () => {
+      state.startDrawingForArea("NRT-001-01");
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+      state.handleMapClick(35.778, 140.32);
+      state.closeDrawing();
+
+      const result = state.finalizeDrawing();
+
+      expect(result).not.toBeNull();
+      expect(result!.targetAreaId).toBe("NRT-001-01");
+      expect(result!.draft.isClosed).toBe(true);
+      expect(state.mode).toBe(MapMode.Viewing);
+    });
+
+    it("undoLastPointで最後のポイントを削除する", () => {
+      state.startDrawingForArea("NRT-001-01");
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+
+      state.undoLastPoint();
+
+      expect(state.draft!.points).toHaveLength(1);
     });
   });
 
