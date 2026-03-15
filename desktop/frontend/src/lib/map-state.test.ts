@@ -29,6 +29,8 @@ describe("MapState", () => {
       expect(state.draft).not.toBeNull();
       expect(state.draft!.points).toEqual([]);
       expect(state.draft!.isClosed).toBe(false);
+      expect(state.drawingController.isActive).toBe(true);
+      expect(state.drawingController.targetAreaId).toBeNull();
     });
 
     it("startDrawingForAreaで対象区域ID付きで描画開始する", () => {
@@ -184,6 +186,29 @@ describe("MapState", () => {
       state.undoLastPoint();
 
       expect(state.draft!.points).toHaveLength(1);
+    });
+  });
+
+  describe("フリー描画フロー（startDrawing経由）", () => {
+    it("handleMapClickでポイントを追加できる", () => {
+      state.startDrawing();
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+
+      expect(state.draft!.points).toHaveLength(2);
+    });
+
+    it("closeDrawing → finalizeDrawingでtargetAreaIdがnull", () => {
+      state.startDrawing();
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+      state.handleMapClick(35.778, 140.32);
+      state.closeDrawing();
+
+      const result = state.finalizeDrawing();
+      expect(result).not.toBeNull();
+      expect(result!.targetAreaId).toBeNull();
+      expect(result!.draft.isClosed).toBe(true);
     });
   });
 

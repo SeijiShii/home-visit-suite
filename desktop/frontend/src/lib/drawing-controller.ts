@@ -6,9 +6,29 @@ import {
   closeDraft,
 } from "map-polygon-editor";
 
+export interface BridgeAnchor {
+  polygonId: string;
+  vertexIndex: number;
+}
+
+export interface BridgeInfo {
+  startPolygonId: string;
+  startVertexIndex: number;
+  endPolygonId: string;
+  endVertexIndex: number;
+}
+
+export interface FinalizeResult {
+  draft: DraftShape;
+  targetAreaId: string | null;
+  bridgeInfo: BridgeInfo | null;
+}
+
 export class DrawingController {
   private _draft: DraftShape | null = null;
   private _targetAreaId: string | null = null;
+  private _bridgeStart: BridgeAnchor | null = null;
+  private _bridgeEnd: BridgeAnchor | null = null;
 
   get isActive(): boolean {
     return this._draft !== null;
@@ -20,6 +40,14 @@ export class DrawingController {
 
   get targetAreaId(): string | null {
     return this._targetAreaId;
+  }
+
+  get bridgeStart(): BridgeAnchor | null {
+    return this._bridgeStart;
+  }
+
+  get bridgeEnd(): BridgeAnchor | null {
+    return this._bridgeEnd;
   }
 
   get canClose(): boolean {
@@ -38,6 +66,24 @@ export class DrawingController {
     }
     this._targetAreaId = areaId;
     this._draft = createDraft();
+  }
+
+  startFreeDrawing(): void {
+    if (this._draft !== null) {
+      throw new Error(
+        "Already drawing. Cancel or finalize the current drawing first.",
+      );
+    }
+    this._targetAreaId = null;
+    this._draft = createDraft();
+  }
+
+  setBridgeStart(polygonId: string, vertexIndex: number): void {
+    this._bridgeStart = { polygonId, vertexIndex };
+  }
+
+  setBridgeEnd(polygonId: string, vertexIndex: number): void {
+    this._bridgeEnd = { polygonId, vertexIndex };
   }
 
   addPoint(lat: number, lng: number): void {
@@ -65,18 +111,32 @@ export class DrawingController {
   cancel(): void {
     this._draft = null;
     this._targetAreaId = null;
+    this._bridgeStart = null;
+    this._bridgeEnd = null;
   }
 
-  finalize(): { draft: DraftShape; targetAreaId: string } {
+  finalize(): FinalizeResult {
     if (!this._draft || !this._draft.isClosed) {
       throw new Error("Cannot finalize: draft is not closed.");
     }
-    if (!this._targetAreaId) {
-      throw new Error("Cannot finalize: no target area.");
-    }
-    const result = { draft: this._draft, targetAreaId: this._targetAreaId };
+    const bridgeInfo =
+      this._bridgeStart && this._bridgeEnd
+        ? {
+            startPolygonId: this._bridgeStart.polygonId,
+            startVertexIndex: this._bridgeStart.vertexIndex,
+            endPolygonId: this._bridgeEnd.polygonId,
+            endVertexIndex: this._bridgeEnd.vertexIndex,
+          }
+        : null;
+    const result: FinalizeResult = {
+      draft: this._draft,
+      targetAreaId: this._targetAreaId,
+      bridgeInfo,
+    };
     this._draft = null;
     this._targetAreaId = null;
+    this._bridgeStart = null;
+    this._bridgeEnd = null;
     return result;
   }
 }

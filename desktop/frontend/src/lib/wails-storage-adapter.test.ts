@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WailsStorageAdapter } from './wails-storage-adapter';
-import type { MapPolygon, Group, PersistedDraft, ChangeSet } from 'map-polygon-editor';
+import type { MapPolygon, PersistedDraft, ChangeSet } from 'map-polygon-editor';
 
 // Wails Go バインディングのモック
 const mockMapBinding = {
   GetPolygonsJSON: vi.fn(),
-  GetGroupsJSON: vi.fn(),
   GetDraftsJSON: vi.fn(),
   BatchWrite: vi.fn(),
   SaveDraft: vi.fn(),
@@ -23,45 +22,31 @@ describe('WailsStorageAdapter', () => {
   describe('loadAll', () => {
     it('空のデータを返す', async () => {
       mockMapBinding.GetPolygonsJSON.mockResolvedValue('[]');
-      mockMapBinding.GetGroupsJSON.mockResolvedValue('[]');
       mockMapBinding.GetDraftsJSON.mockResolvedValue('[]');
 
       const result = await adapter.loadAll();
 
       expect(result.polygons).toEqual([]);
-      expect(result.groups).toEqual([]);
       expect(result.drafts).toEqual([]);
     });
 
-    it('ポリゴンとグループをパースして返す', async () => {
+    it('ポリゴンをパースして返す', async () => {
       const polygons: MapPolygon[] = [{
         id: 'p1' as any,
         geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
         display_name: 'Test Polygon',
-        parent_id: null,
         metadata: {},
         created_at: new Date('2026-01-01'),
         updated_at: new Date('2026-01-01'),
-      }];
-      const groups: Group[] = [{
-        id: 'g1' as any,
-        display_name: 'Test Group',
-        parent_id: null,
-        metadata: {},
-        created_at: new Date('2026-01-01'),
-        updated_at: new Date('2026-01-01'),
-      }];
+      } as MapPolygon];
 
       mockMapBinding.GetPolygonsJSON.mockResolvedValue(JSON.stringify(polygons));
-      mockMapBinding.GetGroupsJSON.mockResolvedValue(JSON.stringify(groups));
       mockMapBinding.GetDraftsJSON.mockResolvedValue('[]');
 
       const result = await adapter.loadAll();
 
       expect(result.polygons).toHaveLength(1);
       expect(result.polygons[0].display_name).toBe('Test Polygon');
-      expect(result.groups).toHaveLength(1);
-      expect(result.groups[0].display_name).toBe('Test Group');
     });
 
     it('Go側のエラーを伝播する', async () => {
@@ -79,9 +64,6 @@ describe('WailsStorageAdapter', () => {
         createdPolygons: [],
         deletedPolygonIds: [],
         modifiedPolygons: [],
-        createdGroups: [],
-        deletedGroupIds: [],
-        modifiedGroups: [],
       };
 
       await adapter.batchWrite(changes);

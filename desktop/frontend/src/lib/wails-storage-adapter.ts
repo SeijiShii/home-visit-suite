@@ -1,9 +1,15 @@
-import type { StorageAdapter, MapPolygon, Group, PersistedDraft, ChangeSet, DraftID } from 'map-polygon-editor';
+import type {
+  StorageAdapter,
+  MapPolygon,
+  PersistedDraft,
+  ChangeSet,
+  DraftID,
+} from "map-polygon-editor";
 
 // Wails Go バインディングの型定義
 export interface MapBindingAPI {
   GetPolygonsJSON(): Promise<string>;
-  GetGroupsJSON(): Promise<string>;
+  GetGroupsJSON?: () => Promise<string>;
   GetDraftsJSON(): Promise<string>;
   BatchWrite(changesJSON: string): Promise<void>;
   SaveDraft(draftJSON: string): Promise<void>;
@@ -13,16 +19,17 @@ export interface MapBindingAPI {
 export class WailsStorageAdapter implements StorageAdapter {
   constructor(private readonly binding: MapBindingAPI) {}
 
-  async loadAll(): Promise<{ polygons: MapPolygon[]; groups: Group[]; drafts: PersistedDraft[] }> {
-    const [polygonsJSON, groupsJSON, draftsJSON] = await Promise.all([
+  async loadAll(): Promise<{
+    polygons: MapPolygon[];
+    drafts: PersistedDraft[];
+  }> {
+    const [polygonsJSON, draftsJSON] = await Promise.all([
       this.binding.GetPolygonsJSON(),
-      this.binding.GetGroupsJSON(),
       this.binding.GetDraftsJSON(),
     ]);
 
     return {
       polygons: JSON.parse(polygonsJSON) as MapPolygon[],
-      groups: JSON.parse(groupsJSON) as Group[],
       drafts: JSON.parse(draftsJSON) as PersistedDraft[],
     };
   }

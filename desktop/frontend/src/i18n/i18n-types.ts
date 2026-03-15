@@ -29,6 +29,8 @@ export interface Translations {
     undoPoint: string;
     drawingHint: string;
     drawingClosed: string;
+    noArea: string;
+    startDrawing: string;
   };
   areaTree: {
     title: string;

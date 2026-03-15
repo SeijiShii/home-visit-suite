@@ -29,6 +29,8 @@ const ja: Translations = {
     undoPoint: "戻す",
     drawingHint: "地図をクリックして頂点を追加。始点付近クリックで閉じます。",
     drawingClosed: "ポリゴンが閉じました。保存またはキャンセルしてください。",
+    noArea: "区域なし",
+    startDrawing: "描画開始",
   },
   areaTree: {
     title: "区域地図",

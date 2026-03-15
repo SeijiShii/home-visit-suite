@@ -156,6 +156,83 @@ describe("DrawingController", () => {
     });
   });
 
+  describe("startFreeDrawing", () => {
+    it("対象区域IDなしで描画を開始する", () => {
+      controller.startFreeDrawing();
+
+      expect(controller.isActive).toBe(true);
+      expect(controller.targetAreaId).toBeNull();
+      expect(controller.draft).not.toBeNull();
+      expect(controller.draft!.points).toEqual([]);
+    });
+
+    it("既に描画中の場合はエラーをスローする", () => {
+      controller.startFreeDrawing();
+      expect(() => controller.startFreeDrawing()).toThrow();
+    });
+  });
+
+  describe("ブリッジアンカー", () => {
+    it("setBridgeStartで開始アンカーを記録する", () => {
+      controller.startFreeDrawing();
+      controller.setBridgeStart("poly-1", 2);
+
+      expect(controller.bridgeStart).toEqual({
+        polygonId: "poly-1",
+        vertexIndex: 2,
+      });
+    });
+
+    it("setBridgeEndで終了アンカーを記録する", () => {
+      controller.startFreeDrawing();
+      controller.setBridgeEnd("poly-1", 5);
+
+      expect(controller.bridgeEnd).toEqual({
+        polygonId: "poly-1",
+        vertexIndex: 5,
+      });
+    });
+
+    it("cancelでアンカーもリセットされる", () => {
+      controller.startFreeDrawing();
+      controller.setBridgeStart("poly-1", 2);
+      controller.setBridgeEnd("poly-1", 5);
+      controller.cancel();
+
+      expect(controller.bridgeStart).toBeNull();
+      expect(controller.bridgeEnd).toBeNull();
+    });
+
+    it("finalizeでブリッジ情報が返る", () => {
+      controller.startFreeDrawing();
+      controller.setBridgeStart("poly-1", 0);
+      controller.addPoint(35.776, 140.318);
+      controller.addPoint(35.777, 140.319);
+      controller.addPoint(35.778, 140.32);
+      controller.setBridgeEnd("poly-1", 3);
+      controller.closeDraft();
+
+      const result = controller.finalize();
+      expect(result.bridgeInfo).toEqual({
+        startPolygonId: "poly-1",
+        startVertexIndex: 0,
+        endPolygonId: "poly-1",
+        endVertexIndex: 3,
+      });
+    });
+
+    it("アンカーなしのfinalizeではbridgeInfoがnull", () => {
+      controller.startFreeDrawing();
+      controller.addPoint(35.776, 140.318);
+      controller.addPoint(35.777, 140.319);
+      controller.addPoint(35.778, 140.32);
+      controller.closeDraft();
+
+      const result = controller.finalize();
+      expect(result.bridgeInfo).toBeNull();
+    });
+  });
+
   describe("finalize", () => {
     beforeEach(() => {
       controller.startDrawing("NRT-001-01");
@@ -179,6 +256,19 @@ describe("DrawingController", () => {
       expect(controller.isActive).toBe(false);
       expect(controller.draft).toBeNull();
       expect(controller.targetAreaId).toBeNull();
+    });
+
+    it("フリー描画時はtargetAreaIdがnullで返る", () => {
+      const c = new DrawingController();
+      c.startFreeDrawing();
+      c.addPoint(35.776, 140.318);
+      c.addPoint(35.777, 140.319);
+      c.addPoint(35.778, 140.32);
+      c.closeDraft();
+
+      const result = c.finalize();
+      expect(result.targetAreaId).toBeNull();
+      expect(result.draft.isClosed).toBe(true);
     });
 
     it("クローズされていなければエラーをスローする", () => {

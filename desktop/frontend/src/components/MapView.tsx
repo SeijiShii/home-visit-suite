@@ -1,6 +1,6 @@
 import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import { MapRenderer } from "../lib/map-renderer";
-import type { MapRendererCallbacks } from "../lib/map-renderer";
+import type { MapRendererCallbacks, SnapInfo } from "../lib/map-renderer";
 import type { DraftShape, PolygonID, MapPolygon } from "map-polygon-editor";
 
 export interface MapViewHandle {
@@ -10,25 +10,28 @@ export interface MapViewHandle {
   renderPolygons(
     polygons: MapPolygon[],
     callbacks?: MapRendererCallbacks,
+    linkedPolygonIds?: Set<string>,
   ): void;
   enableRubberBand(): void;
   disableRubberBand(): void;
   isNearStartPoint(lat: number, lng: number): boolean;
+  getSnapInfo(lat: number, lng: number): SnapInfo | null;
 }
 
 interface MapViewProps {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
+  onContextMenu?: () => void;
 }
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { onMapClick, onPolygonClick },
+  { onMapClick, onPolygonClick, onContextMenu },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
-  const callbacksRef = useRef({ onMapClick, onPolygonClick });
-  callbacksRef.current = { onMapClick, onPolygonClick };
+  const callbacksRef = useRef({ onMapClick, onPolygonClick, onContextMenu });
+  callbacksRef.current = { onMapClick, onPolygonClick, onContextMenu };
 
   useImperativeHandle(ref, () => ({
     renderDraft(draft) {
@@ -40,8 +43,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     highlightPolygon(id) {
       rendererRef.current?.highlightPolygon(id);
     },
-    renderPolygons(polygons, callbacks) {
-      rendererRef.current?.renderPolygons(polygons, callbacks);
+    renderPolygons(polygons, callbacks, linkedPolygonIds) {
+      rendererRef.current?.renderPolygons(
+        polygons,
+        callbacks,
+        linkedPolygonIds,
+      );
     },
     enableRubberBand() {
       rendererRef.current?.enableRubberBand();
@@ -52,6 +59,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     isNearStartPoint(lat, lng) {
       return rendererRef.current?.isNearStartPoint(lat, lng) ?? false;
     },
+    getSnapInfo(lat, lng) {
+      return rendererRef.current?.getSnapInfo(lat, lng) ?? null;
+    },
   }));
 
   useEffect(() => {
@@ -60,6 +70,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     renderer.mount(containerRef.current, {
       onMapClick: (lat, lng) => callbacksRef.current.onMapClick?.(lat, lng),
       onPolygonClick: (id) => callbacksRef.current.onPolygonClick?.(id),
+      onContextMenu: () => callbacksRef.current.onContextMenu?.(),
     });
     rendererRef.current = renderer;
     return () => {

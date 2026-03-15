@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { PolygonService } from "./polygon-service";
-import type { DraftShape, MapPolygon, PolygonID } from "map-polygon-editor";
+import { PolygonService, buildPolygonAreaMap } from "./polygon-service";
+import type {
+  DraftShape,
+  MapPolygon,
+  PolygonID,
+  BridgeResult,
+} from "map-polygon-editor";
 
 // MapPolygonEditor のモック
 const createMockEditor = () => ({
@@ -11,6 +16,7 @@ const createMockEditor = () => ({
   deletePolygon: vi.fn().mockResolvedValue(undefined),
   loadPolygonToDraft: vi.fn(),
   updatePolygonGeometry: vi.fn(),
+  bridgePolygons: vi.fn(),
 });
 
 // RegionBindingAPI の最小モック
@@ -23,7 +29,7 @@ const makeDraft = (closed: boolean): DraftShape => ({
   points: [
     { lat: 35.776, lng: 140.318 },
     { lat: 35.777, lng: 140.319 },
-    { lat: 35.778, lng: 140.320 },
+    { lat: 35.778, lng: 140.32 },
   ],
   isClosed: closed,
 });
@@ -119,6 +125,112 @@ describe("PolygonService", () => {
       editor.getAllPolygons.mockReturnValue(polygons);
 
       expect(service.getAllPolygons()).toEqual(polygons);
+    });
+  });
+
+  describe("buildPolygonAreaMap", () => {
+    it("ポリゴンIDから区域情報へのマップを返す", () => {
+      const tree = [
+        {
+          id: "NRT",
+          name: "成田",
+          symbol: "NRT",
+          parentAreas: [
+            {
+              id: "NRT-001",
+              number: "001",
+              name: "唐部",
+              areas: [
+                { id: "NRT-001-01", number: "01", polygonId: "poly-a" },
+                { id: "NRT-001-02", number: "02" }, // polygonId なし
+              ],
+            },
+          ],
+        },
+        {
+          id: "TKY",
+          name: "東京",
+          symbol: "TKY",
+          parentAreas: [
+            {
+              id: "TKY-001",
+              number: "001",
+              name: "渋谷",
+              areas: [{ id: "TKY-001-01", number: "01", polygonId: "poly-b" }],
+            },
+          ],
+        },
+      ];
+
+      const result = buildPolygonAreaMap(tree);
+
+      expect(result.size).toBe(2);
+      expect(result.get("poly-a")).toEqual({
+        areaId: "NRT-001-01",
+        areaLabel: "NRT-001-01",
+      });
+      expect(result.get("poly-b")).toEqual({
+        areaId: "TKY-001-01",
+        areaLabel: "TKY-001-01",
+      });
+    });
+
+    it("ポリゴンが紐づいていない場合は空マップを返す", () => {
+      const tree = [
+        {
+          id: "NRT",
+          name: "成田",
+          symbol: "NRT",
+          parentAreas: [
+            {
+              id: "NRT-001",
+              number: "001",
+              name: "唐部",
+              areas: [{ id: "NRT-001-01", number: "01" }],
+            },
+          ],
+        },
+      ];
+
+      const result = buildPolygonAreaMap(tree);
+      expect(result.size).toBe(0);
+    });
+
+    it("空ツリーでは空マップを返す", () => {
+      const result = buildPolygonAreaMap([]);
+      expect(result.size).toBe(0);
+    });
+  });
+
+  describe("bridgePolygon", () => {
+    it("bridgePolygonsを呼び出してok:trueの結果を返す", async () => {
+      const polygon = makePolygon("new-poly", "bridged");
+      const bridgeResult: BridgeResult = { ok: true, polygon };
+      editor.bridgePolygons.mockResolvedValue(bridgeResult);
+
+      const bridgePath = [
+        { lat: 35.777, lng: 140.319 },
+        { lat: 35.778, lng: 140.32 },
+      ];
+
+      const result = await service.bridgePolygon(
+        "poly-a" as unknown as PolygonID,
+        0,
+        "poly-a" as unknown as PolygonID,
+        3,
+        bridgePath,
+        "test-bridge",
+      );
+
+      expect(editor.bridgePolygons).toHaveBeenCalledWith(
+        "poly-a",
+        0,
+        "poly-a",
+        3,
+        bridgePath,
+        "test-bridge",
+      );
+      expect(result).toBe(bridgeResult);
     });
   });
 });

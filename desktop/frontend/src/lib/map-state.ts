@@ -1,6 +1,5 @@
 import type { PolygonID, DraftShape } from "map-polygon-editor";
-import { createDraft } from "map-polygon-editor";
-import { DrawingController } from "./drawing-controller";
+import { DrawingController, type FinalizeResult } from "./drawing-controller";
 
 export enum MapMode {
   Viewing = "viewing",
@@ -19,9 +18,10 @@ export class MapState {
   private listeners: ChangeListener[] = [];
 
   startDrawing(): void {
+    this.drawingController.startFreeDrawing();
     this.mode = MapMode.Drawing;
     this.selectedPolygonId = null;
-    this.draft = createDraft();
+    this.draft = this.drawingController.draft;
     this.notify();
   }
 
@@ -57,7 +57,7 @@ export class MapState {
     this.notify();
   }
 
-  finalizeDrawing(): { draft: DraftShape; targetAreaId: string } | null {
+  finalizeDrawing(): FinalizeResult | null {
     if (!this.drawingController.isActive) return null;
     try {
       const result = this.drawingController.finalize();

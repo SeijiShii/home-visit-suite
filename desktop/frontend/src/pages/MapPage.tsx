@@ -6,9 +6,11 @@ import { MapView, type MapViewHandle } from "../components/MapView";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
 import { RegionService } from "../services/region-service";
+import { buildPolygonAreaMap } from "../services/polygon-service";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import * as MapBinding from "../../wailsjs/go/binding/MapBinding";
-import { type PolygonID } from "map-polygon-editor";
+import { type PolygonID, type MapPolygon } from "map-polygon-editor";
+import type { PolygonAreaInfo } from "../services/polygon-service";
 
 const SIDEBAR_MIN_WIDTH = 192;
 
@@ -21,6 +23,10 @@ export function MapPage() {
   const treeRef = useRef<AreaTreeHandle>(null);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_MIN_WIDTH);
   const [activeTab, setActiveTab] = useState<SidebarTab>("areas");
+  const [polygons, setPolygons] = useState<MapPolygon[]>([]);
+  const [polygonAreaMap, setPolygonAreaMap] = useState<
+    Map<string, PolygonAreaInfo>
+  >(new Map());
 
   const regionService = useMemo(() => new RegionService(RegionBinding), []);
 
@@ -36,17 +42,34 @@ export function MapPage() {
     regionAPI,
   );
 
+  const handlePolygonClick = useCallback(
+    (id: PolygonID) => {
+      actions.selectPolygon(id);
+      mapRef.current?.highlightPolygon(id);
+    },
+    [actions],
+  );
+
+  const reloadPolygons = useCallback(async () => {
+    if (!polygonService) return;
+    const allPolygons = polygonService.getAllPolygons();
+    const tree = await regionService.loadTree();
+    const areaMap = buildPolygonAreaMap(tree);
+    const linkedIds = new Set(areaMap.keys());
+    setPolygons(allPolygons);
+    setPolygonAreaMap(areaMap);
+    mapRef.current?.renderPolygons(
+      allPolygons,
+      { onPolygonClick: handlePolygonClick },
+      linkedIds,
+    );
+  }, [polygonService, regionService, handlePolygonClick]);
+
   // エディタ準備完了時にポリゴンを描画
   useEffect(() => {
-    if (!editorReady || !polygonService) return;
-    const polygons = polygonService.getAllPolygons();
-    mapRef.current?.renderPolygons(polygons, {
-      onPolygonClick: (id: PolygonID) => {
-        actions.selectPolygon(id);
-        mapRef.current?.highlightPolygon(id);
-      },
-    });
-  }, [editorReady, polygonService, actions]);
+    if (!editorReady) return;
+    reloadPolygons();
+  }, [editorReady, reloadPolygons]);
 
   // ドラフト変更時にマップを再描画
   useEffect(() => {
@@ -62,24 +85,41 @@ export function MapPage() {
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
-      if (
-        snapshot.mode === MapMode.Drawing &&
-        mapRef.current?.isNearStartPoint(lat, lng)
-      ) {
+      if (snapshot.mode !== MapMode.Drawing) {
+        return;
+      }
+
+      const snap = mapRef.current?.getSnapInfo(lat, lng);
+      const clickLat = snap ? snap.lat : lat;
+      const clickLng = snap ? snap.lng : lng;
+      const dc = actions.drawingController;
+      const pointCount = dc.draft?.points.length ?? 0;
+
+      // 既存ポリゴン頂点にスナップした場合
+      if (snap?.anchor) {
+        if (pointCount === 0) {
+          // 最初のポイント: ブリッジ開始アンカーを記録
+          dc.setBridgeStart(snap.anchor.polygonId, snap.anchor.vertexIndex);
+          actions.handleMapClick(clickLat, clickLng);
+        } else {
+          // 2つ目以降: ブリッジ終了 → ポイント追加して描画終了
+          dc.setBridgeEnd(snap.anchor.polygonId, snap.anchor.vertexIndex);
+          actions.handleMapClick(clickLat, clickLng);
+          if (dc.canClose) {
+            actions.closeDrawing();
+          }
+        }
+        return;
+      }
+
+      // ドラフト始点スナップ → 閉回路
+      if (mapRef.current?.isNearStartPoint(clickLat, clickLng)) {
         actions.closeDrawing();
       } else {
-        actions.handleMapClick(lat, lng);
+        actions.handleMapClick(clickLat, clickLng);
       }
     },
     [actions, snapshot.mode],
-  );
-
-  const handlePolygonClick = useCallback(
-    (id: PolygonID) => {
-      actions.selectPolygon(id);
-      mapRef.current?.highlightPolygon(id);
-    },
-    [actions],
   );
 
   const handleStartDrawing = useCallback(
@@ -88,6 +128,10 @@ export function MapPage() {
     },
     [actions],
   );
+
+  const handleStartFreeDrawing = useCallback(() => {
+    actions.startDrawing();
+  }, [actions]);
 
   const handleCloseDrawing = useCallback(() => {
     actions.closeDrawing();
@@ -101,26 +145,44 @@ export function MapPage() {
     actions.undoLastPoint();
   }, [actions]);
 
+  const handleContextMenu = useCallback(() => {
+    if (snapshot.mode === MapMode.Drawing) {
+      actions.undoLastPoint();
+    }
+  }, [actions, snapshot.mode]);
+
   const handleSavePolygon = useCallback(async () => {
     const result = actions.finalizeDrawing();
     if (!result || !polygonService) return;
 
     try {
-      await polygonService.savePolygonForArea(
-        result.draft,
-        result.targetAreaId,
-        result.targetAreaId,
-      );
+      if (result.bridgeInfo) {
+        // ブリッジ描画: 全ポイント（開始・終了頂点を含む）
+        const bridgePath = result.draft.points;
+        await polygonService.bridgePolygon(
+          result.bridgeInfo.startPolygonId as unknown as PolygonID,
+          result.bridgeInfo.startVertexIndex,
+          result.bridgeInfo.endPolygonId as unknown as PolygonID,
+          result.bridgeInfo.endVertexIndex,
+          bridgePath,
+          "",
+        );
+      } else if (result.targetAreaId) {
+        await polygonService.savePolygonForArea(
+          result.draft,
+          result.targetAreaId,
+          result.targetAreaId,
+        );
+      } else {
+        await polygonService.savePolygon(result.draft, "");
+      }
       // ポリゴン再描画 + AreaTree リロード
-      const polygons = polygonService.getAllPolygons();
-      mapRef.current?.renderPolygons(polygons, {
-        onPolygonClick: handlePolygonClick,
-      });
+      await reloadPolygons();
       treeRef.current?.reload();
     } catch (err) {
       console.error("save polygon failed:", err);
     }
-  }, [actions, polygonService, handlePolygonClick]);
+  }, [actions, polygonService, reloadPolygons]);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
@@ -159,6 +221,7 @@ export function MapPage() {
         ref={mapRef}
         onMapClick={handleMapClick}
         onPolygonClick={handlePolygonClick}
+        onContextMenu={handleContextMenu}
       />
 
       {isDrawing && (
@@ -199,6 +262,15 @@ export function MapPage() {
 
       <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
       <div className="map-sidebar" style={{ width: sidebarWidth }}>
+        <div className="sidebar-draw-area">
+          <button
+            className="sidebar-draw-btn"
+            onClick={handleStartFreeDrawing}
+            disabled={isDrawing}
+          >
+            {t.map.startDrawing}
+          </button>
+        </div>
         <div className="sidebar-tabs">
           <button
             className={`sidebar-tab${activeTab === "areas" ? " sidebar-tab-active" : ""}`}
@@ -223,7 +295,14 @@ export function MapPage() {
               isDrawing={isDrawing}
             />
           )}
-          {activeTab === "polygons" && <PolygonList />}
+          {activeTab === "polygons" && (
+            <PolygonList
+              polygons={polygons}
+              polygonAreaMap={polygonAreaMap}
+              selectedPolygonId={snapshot.selectedPolygonId}
+              onPolygonClick={handlePolygonClick}
+            />
+          )}
         </div>
       </div>
     </div>

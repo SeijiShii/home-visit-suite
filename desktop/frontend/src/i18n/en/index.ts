@@ -30,6 +30,8 @@ const en: Translations = {
     drawingHint:
       "Click on the map to add vertices. Click near start point to close.",
     drawingClosed: "Polygon closed. Save or cancel.",
+    noArea: "No area",
+    startDrawing: "Start Drawing",
   },
   areaTree: {
     title: "Area Map",
