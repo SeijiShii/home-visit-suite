@@ -73,6 +73,14 @@ export class MapState {
   undoLastPoint(): void {
     if (!this.drawingController.isActive) return;
     this.drawingController.removeLastPoint();
+    // 頂点が0になったら描画モードを解除
+    if (this.drawingController.draft?.points.length === 0) {
+      this.drawingController.cancel();
+      this.mode = MapMode.Viewing;
+      this.draft = null;
+      this.notify();
+      return;
+    }
     this.draft = this.drawingController.draft;
     this.notify();
   }

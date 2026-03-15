@@ -34,7 +34,10 @@ func main() {
 
 	app := NewApp()
 	regionBinding := binding.NewRegionBinding(repo)
-	mapBinding := binding.NewMapBinding()
+	mapBinding, err := binding.NewMapBinding(dataDir)
+	if err != nil {
+		log.Fatalf("failed to initialize map binding: %v", err)
+	}
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",

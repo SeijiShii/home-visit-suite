@@ -1,5 +1,6 @@
 import L from "leaflet";
 import type { MapPolygon, DraftShape, PolygonID } from "map-polygon-editor";
+import type { BridgeInfo } from "./drawing-controller";
 
 const GSI_TILE_URL = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png";
 const GSI_ATTRIBUTION =
@@ -203,7 +204,7 @@ export class MapRenderer {
     });
   }
 
-  renderDraft(draft: DraftShape | null): void {
+  renderDraft(draft: DraftShape | null, bridgeInfo?: BridgeInfo | null): void {
     if (!this.draftLayer) return;
     this.draftLayer.clearLayers();
     this.currentDraft = draft;
@@ -217,7 +218,12 @@ export class MapRenderer {
 
     if (draft.isClosed) {
       this.removeRubberBand();
-      L.polygon(latLngs, {
+      // ブリッジプレビュー: 既存ポリゴン境界に沿った形状を表示
+      const previewLatLngs = bridgeInfo
+        ? this.computeBridgePreview(draft, bridgeInfo)
+        : null;
+
+      L.polygon(previewLatLngs ?? latLngs, {
         color: "#22c55e",
         weight: 3,
         fillOpacity: 0.2,
@@ -241,6 +247,52 @@ export class MapRenderer {
         weight: 2,
       }).addTo(this.draftLayer);
     }
+  }
+
+  private computeBridgePreview(
+    draft: DraftShape,
+    bridgeInfo: BridgeInfo,
+  ): L.LatLngTuple[] | null {
+    // 同一ポリゴンのブリッジのみ対応
+    if (bridgeInfo.startPolygonId !== bridgeInfo.endPolygonId) return null;
+
+    const polygonLayer = this.polygonLayers.get(bridgeInfo.startPolygonId);
+    if (!polygonLayer) return null;
+
+    const polyLatLngs = polygonLayer.getLatLngs()[0] as L.LatLng[];
+    const n = polyLatLngs.length;
+    const startIdx = bridgeInfo.startVertexIndex;
+    const endIdx = bridgeInfo.endVertexIndex;
+
+    // 同一頂点の場合はドラフトをそのまま表示
+    if (startIdx === endIdx) return null;
+
+    // ドラフトポイント（開始頂点→終了頂点の描画パス）
+    const draftLatLngs = draft.points.map(
+      (p) => [p.lat, p.lng] as L.LatLngTuple,
+    );
+
+    // 既存ポリゴン境界を endIdx → startIdx で歩く（2方向試して短い方）
+    const forwardPath: L.LatLngTuple[] = [];
+    let i = endIdx;
+    while (true) {
+      i = (i + 1) % n;
+      if (i === startIdx) break;
+      forwardPath.push([polyLatLngs[i].lat, polyLatLngs[i].lng]);
+    }
+
+    const backwardPath: L.LatLngTuple[] = [];
+    i = endIdx;
+    while (true) {
+      i = (i - 1 + n) % n;
+      if (i === startIdx) break;
+      backwardPath.push([polyLatLngs[i].lat, polyLatLngs[i].lng]);
+    }
+
+    const boundaryPath =
+      forwardPath.length <= backwardPath.length ? forwardPath : backwardPath;
+
+    return [...draftLatLngs, ...boundaryPath];
   }
 
   isNearStartPoint(lat: number, lng: number): boolean {

@@ -73,7 +73,17 @@ export function MapPage() {
 
   // ドラフト変更時にマップを再描画
   useEffect(() => {
-    mapRef.current?.renderDraft(snapshot.draft);
+    const dc = actions.drawingController;
+    const bridgeInfo =
+      dc.bridgeStart && dc.bridgeEnd
+        ? {
+            startPolygonId: dc.bridgeStart.polygonId,
+            startVertexIndex: dc.bridgeStart.vertexIndex,
+            endPolygonId: dc.bridgeEnd.polygonId,
+            endVertexIndex: dc.bridgeEnd.vertexIndex,
+          }
+        : null;
+    mapRef.current?.renderDraft(snapshot.draft, bridgeInfo);
     if (snapshot.mode === MapMode.Drawing) {
       mapRef.current?.setCursor("crosshair");
       mapRef.current?.enableRubberBand();
@@ -81,7 +91,7 @@ export function MapPage() {
       mapRef.current?.setCursor("");
       mapRef.current?.disableRubberBand();
     }
-  }, [snapshot.draft, snapshot.mode]);
+  }, [snapshot.draft, snapshot.mode, actions]);
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {

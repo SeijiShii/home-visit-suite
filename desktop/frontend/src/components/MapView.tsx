@@ -2,9 +2,10 @@ import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import { MapRenderer } from "../lib/map-renderer";
 import type { MapRendererCallbacks, SnapInfo } from "../lib/map-renderer";
 import type { DraftShape, PolygonID, MapPolygon } from "map-polygon-editor";
+import type { BridgeInfo } from "../lib/drawing-controller";
 
 export interface MapViewHandle {
-  renderDraft(draft: DraftShape | null): void;
+  renderDraft(draft: DraftShape | null, bridgeInfo?: BridgeInfo | null): void;
   setCursor(cursor: string): void;
   highlightPolygon(id: PolygonID | null): void;
   renderPolygons(
@@ -34,8 +35,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   callbacksRef.current = { onMapClick, onPolygonClick, onContextMenu };
 
   useImperativeHandle(ref, () => ({
-    renderDraft(draft) {
-      rendererRef.current?.renderDraft(draft);
+    renderDraft(draft, bridgeInfo) {
+      rendererRef.current?.renderDraft(draft, bridgeInfo);
     },
     setCursor(cursor) {
       rendererRef.current?.setCursor(cursor);
