@@ -212,6 +212,39 @@ describe("MapState", () => {
     });
   });
 
+  describe("ポリゴン分割フロー", () => {
+    it("finalizeSplitDrawingでopenドラフトとsplitInfoを返す", () => {
+      state.startDrawing();
+      const dc = state.drawingController;
+      dc.setBridgeStart("poly-1", 0);
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.7765, 140.3185);
+      state.handleMapClick(35.777, 140.319);
+      dc.setBridgeEnd("poly-1", 3);
+
+      const result = state.finalizeSplitDrawing();
+
+      expect(result).not.toBeNull();
+      expect(result!.draft.isClosed).toBe(false);
+      expect(result!.splitInfo.polygonId).toBe("poly-1");
+      expect(result!.splitInfo.startVertexIndex).toBe(0);
+      expect(result!.splitInfo.endVertexIndex).toBe(3);
+      expect(state.mode).toBe(MapMode.Viewing);
+      expect(state.draft).toBeNull();
+    });
+
+    it("splitModeでない場合はnullを返す", () => {
+      state.startDrawing();
+      state.handleMapClick(35.776, 140.318);
+      state.handleMapClick(35.777, 140.319);
+      state.handleMapClick(35.778, 140.32);
+
+      const result = state.finalizeSplitDrawing();
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("変更通知", () => {
     it("リスナーがモード変更を受け取る", () => {
       const changes: MapMode[] = [];

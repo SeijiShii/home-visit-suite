@@ -17,6 +17,8 @@ const createMockEditor = () => ({
   loadPolygonToDraft: vi.fn(),
   updatePolygonGeometry: vi.fn(),
   bridgePolygons: vi.fn(),
+  splitPolygon: vi.fn(),
+  sharedEdgeMove: vi.fn(),
 });
 
 // RegionBindingAPI の最小モック
@@ -202,6 +204,49 @@ describe("PolygonService", () => {
     });
   });
 
+  describe("splitPolygon", () => {
+    it("splitPolygonを呼び出して分割結果を返す", async () => {
+      const poly1 = makePolygon("split-1", "part-A");
+      const poly2 = makePolygon("split-2", "part-B");
+      editor.splitPolygon.mockResolvedValue([poly1, poly2]);
+
+      const openDraft: DraftShape = {
+        points: [
+          { lat: 35.776, lng: 140.318 },
+          { lat: 35.777, lng: 140.319 },
+        ],
+        isClosed: false,
+      };
+
+      const result = await service.splitPolygon(
+        "poly-a" as unknown as PolygonID,
+        openDraft,
+      );
+
+      expect(editor.splitPolygon).toHaveBeenCalledWith("poly-a", openDraft);
+      expect(result).toEqual([poly1, poly2]);
+    });
+
+    it("分割失敗時（交差なし）は空配列を返す", async () => {
+      editor.splitPolygon.mockResolvedValue([]);
+
+      const openDraft: DraftShape = {
+        points: [
+          { lat: 35.776, lng: 140.318 },
+          { lat: 35.777, lng: 140.319 },
+        ],
+        isClosed: false,
+      };
+
+      const result = await service.splitPolygon(
+        "poly-a" as unknown as PolygonID,
+        openDraft,
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
   describe("bridgePolygon", () => {
     it("bridgePolygonsを呼び出してok:trueの結果を返す", async () => {
       const polygon = makePolygon("new-poly", "bridged");
@@ -231,6 +276,70 @@ describe("PolygonService", () => {
         "test-bridge",
       );
       expect(result).toBe(bridgeResult);
+    });
+  });
+
+  describe("moveVertex", () => {
+    it("sharedEdgeMoveを呼び出して変更されたポリゴンを返す", async () => {
+      const modified1 = makePolygon("poly-a", "modified");
+      const modified2 = makePolygon("poly-b", "neighbor");
+      editor.sharedEdgeMove.mockResolvedValue([modified1, modified2]);
+
+      const result = await service.moveVertex(
+        "poly-a" as unknown as PolygonID,
+        2,
+        35.777,
+        140.319,
+      );
+
+      expect(editor.sharedEdgeMove).toHaveBeenCalledWith(
+        "poly-a",
+        2,
+        35.777,
+        140.319,
+      );
+      expect(result).toEqual([modified1, modified2]);
+    });
+
+    it("共有頂点がない場合は対象ポリゴンのみ返す", async () => {
+      const modified = makePolygon("poly-a", "modified");
+      editor.sharedEdgeMove.mockResolvedValue([modified]);
+
+      const result = await service.moveVertex(
+        "poly-a" as unknown as PolygonID,
+        0,
+        35.776,
+        140.318,
+      );
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe("insertVertex", () => {
+    it("loadPolygonToDraft → insertPoint → updatePolygonGeometryを呼ぶ", async () => {
+      const draft = makeDraft(true);
+      editor.loadPolygonToDraft.mockReturnValue(draft);
+      const updatedPolygon = makePolygon("poly-a", "updated");
+      editor.updatePolygonGeometry.mockResolvedValue(updatedPolygon);
+
+      const result = await service.insertVertex(
+        "poly-a" as unknown as PolygonID,
+        1,
+        35.7775,
+        140.3195,
+      );
+
+      expect(editor.loadPolygonToDraft).toHaveBeenCalledWith("poly-a");
+      expect(editor.updatePolygonGeometry).toHaveBeenCalledWith(
+        "poly-a",
+        expect.objectContaining({
+          points: expect.arrayContaining([
+            expect.objectContaining({ lat: 35.7775, lng: 140.3195 }),
+          ]),
+        }),
+      );
+      expect(result).toBe(updatedPolygon);
     });
   });
 });

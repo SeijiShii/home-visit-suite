@@ -30,8 +30,14 @@ const en: Translations = {
     drawingHint:
       "Click on the map to add vertices. Click near start point to close.",
     drawingClosed: "Polygon closed. Save or cancel.",
+    splitHint: "Drawing split line. End at another vertex of the same polygon.",
+    splitPolygon: "Split Polygon",
     noArea: "No area",
     startDrawing: "Start Drawing",
+    deletePolygon: "Delete",
+    confirmDeletePolygon: "Delete this polygon?",
+    editingHint: "Drag vertices to edit. Click empty area or 'Finish' to exit.",
+    finishEditing: "Finish Editing",
   },
   areaTree: {
     title: "Area Map",

@@ -29,8 +29,15 @@ const ja: Translations = {
     undoPoint: "戻す",
     drawingHint: "地図をクリックして頂点を追加。始点付近クリックで閉じます。",
     drawingClosed: "ポリゴンが閉じました。保存またはキャンセルしてください。",
+    splitHint: "分割線を描画中。同一ポリゴンの別の頂点で終了します。",
+    splitPolygon: "ポリゴン分割",
     noArea: "区域なし",
     startDrawing: "描画開始",
+    deletePolygon: "削除",
+    confirmDeletePolygon: "このポリゴンを削除しますか？",
+    editingHint:
+      "頂点をドラッグして編集。地図の空白クリックまたは「編集完了」で終了。",
+    finishEditing: "編集完了",
   },
   areaTree: {
     title: "区域地図",

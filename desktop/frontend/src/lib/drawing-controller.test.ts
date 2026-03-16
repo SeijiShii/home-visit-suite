@@ -203,20 +203,20 @@ describe("DrawingController", () => {
       expect(controller.bridgeEnd).toBeNull();
     });
 
-    it("finalizeでブリッジ情報が返る", () => {
+    it("finalizeでブリッジ情報が返る（異なるポリゴン間）", () => {
       controller.startFreeDrawing();
       controller.setBridgeStart("poly-1", 0);
       controller.addPoint(35.776, 140.318);
       controller.addPoint(35.777, 140.319);
       controller.addPoint(35.778, 140.32);
-      controller.setBridgeEnd("poly-1", 3);
+      controller.setBridgeEnd("poly-2", 3);
       controller.closeDraft();
 
       const result = controller.finalize();
       expect(result.bridgeInfo).toEqual({
         startPolygonId: "poly-1",
         startVertexIndex: 0,
-        endPolygonId: "poly-1",
+        endPolygonId: "poly-2",
         endVertexIndex: 3,
       });
     });
@@ -279,6 +279,140 @@ describe("DrawingController", () => {
       c.addPoint(35.778, 140.32);
 
       expect(() => c.finalize()).toThrow();
+    });
+
+    it("splitMode中にfinalizeを呼ぶとエラーをスローする", () => {
+      const c = new DrawingController();
+      c.startFreeDrawing();
+      c.setBridgeStart("poly-1", 0);
+      c.addPoint(35.776, 140.318);
+      c.addPoint(35.777, 140.319);
+      c.addPoint(35.778, 140.32);
+      c.setBridgeEnd("poly-1", 3);
+      c.closeDraft();
+
+      expect(() => c.finalize()).toThrow("split mode");
+    });
+  });
+
+  describe("ポリゴン分割 (split)", () => {
+    describe("isSplitMode", () => {
+      it("同一ポリゴンの異なる頂点にアンカーがある場合trueを返す", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.addPoint(35.777, 140.319);
+        controller.setBridgeEnd("poly-1", 3);
+
+        expect(controller.isSplitMode).toBe(true);
+      });
+
+      it("異なるポリゴンにアンカーがある場合falseを返す（ブリッジ）", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.addPoint(35.777, 140.319);
+        controller.setBridgeEnd("poly-2", 3);
+
+        expect(controller.isSplitMode).toBe(false);
+      });
+
+      it("アンカーが片方しかない場合falseを返す", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+
+        expect(controller.isSplitMode).toBe(false);
+      });
+
+      it("アンカーがない場合falseを返す", () => {
+        controller.startFreeDrawing();
+        controller.addPoint(35.776, 140.318);
+
+        expect(controller.isSplitMode).toBe(false);
+      });
+
+      it("同一ポリゴンの同一頂点の場合falseを返す", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.setBridgeEnd("poly-1", 0);
+
+        expect(controller.isSplitMode).toBe(false);
+      });
+    });
+
+    describe("splitTargetPolygonId", () => {
+      it("splitMode時に対象ポリゴンIDを返す", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.addPoint(35.777, 140.319);
+        controller.setBridgeEnd("poly-1", 3);
+
+        expect(controller.splitTargetPolygonId).toBe("poly-1");
+      });
+
+      it("splitModeでない場合nullを返す", () => {
+        controller.startFreeDrawing();
+        controller.addPoint(35.776, 140.318);
+
+        expect(controller.splitTargetPolygonId).toBeNull();
+      });
+    });
+
+    describe("finalizeSplit", () => {
+      it("openドラフトとsplitInfoを返す", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.addPoint(35.7765, 140.3185);
+        controller.addPoint(35.777, 140.319);
+        controller.setBridgeEnd("poly-1", 3);
+
+        const result = controller.finalizeSplit();
+
+        expect(result.draft.isClosed).toBe(false);
+        expect(result.draft.points).toHaveLength(3);
+        expect(result.splitInfo).toEqual({
+          polygonId: "poly-1",
+          startVertexIndex: 0,
+          endVertexIndex: 3,
+        });
+      });
+
+      it("finalizeSplit後は初期状態に戻る", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.addPoint(35.777, 140.319);
+        controller.setBridgeEnd("poly-1", 3);
+
+        controller.finalizeSplit();
+
+        expect(controller.isActive).toBe(false);
+        expect(controller.draft).toBeNull();
+        expect(controller.bridgeStart).toBeNull();
+        expect(controller.bridgeEnd).toBeNull();
+      });
+
+      it("splitModeでない場合はエラーをスローする", () => {
+        controller.startFreeDrawing();
+        controller.addPoint(35.776, 140.318);
+        controller.addPoint(35.777, 140.319);
+        controller.addPoint(35.778, 140.32);
+
+        expect(() => controller.finalizeSplit()).toThrow();
+      });
+
+      it("ポイントが2つ未満ではエラーをスローする", () => {
+        controller.startFreeDrawing();
+        controller.setBridgeStart("poly-1", 0);
+        controller.addPoint(35.776, 140.318);
+        controller.setBridgeEnd("poly-1", 3);
+
+        expect(() => controller.finalizeSplit()).toThrow();
+      });
     });
   });
 });

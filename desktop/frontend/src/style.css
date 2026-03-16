@@ -304,6 +304,9 @@ section {
   color: #334155;
   cursor: pointer;
   border-left: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .polygon-list-item:hover {
@@ -314,6 +317,113 @@ section {
   background: #dbeafe;
   border-left-color: #3b82f6;
   font-weight: 500;
+}
+
+.polygon-list-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.polygon-list-delete-btn {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.polygon-list-item:hover .polygon-list-delete-btn {
+  opacity: 1;
+}
+
+.polygon-list-delete-btn:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.polygon-list-delete-btn:disabled {
+  opacity: 0 !important;
+  cursor: default;
+}
+
+.polygon-delete-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: none;
+  border-radius: 8px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  max-width: 320px;
+  margin: 0;
+}
+
+.polygon-delete-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.polygon-delete-dialog-message {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: #334155;
+}
+
+.polygon-delete-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.polygon-delete-dialog-btn {
+  padding: 6px 16px;
+  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.polygon-delete-dialog-cancel {
+  color: #64748b;
+  background: #fff;
+}
+
+.polygon-delete-dialog-cancel:hover {
+  background: #f1f5f9;
+}
+
+.polygon-delete-dialog-confirm {
+  color: #fff;
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+.polygon-delete-dialog-confirm:hover {
+  background: #dc2626;
+}
+
+/* 頂点編集マーカー */
+.edit-vertex-marker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #f59e0b;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.edit-vertex-marker:active {
+  cursor: grabbing;
+  background: #fef3c7;
 }
 
 /* 区域ツリー */

@@ -1,9 +1,10 @@
-import type {
-  MapPolygonEditor,
-  DraftShape,
-  MapPolygon,
-  PolygonID,
-  BridgeResult,
+import {
+  type MapPolygonEditor,
+  type DraftShape,
+  type MapPolygon,
+  type PolygonID,
+  type BridgeResult,
+  insertPoint,
 } from "map-polygon-editor";
 import type { AreaTreeNode } from "./region-service";
 
@@ -55,6 +56,10 @@ export class PolygonService {
     return polygon;
   }
 
+  async deletePolygon(polygonId: PolygonID): Promise<void> {
+    await this.editor.deletePolygon(polygonId);
+  }
+
   async deletePolygonForArea(
     polygonId: PolygonID,
     areaId: string,
@@ -89,6 +94,33 @@ export class PolygonService {
       bridgePath,
       name,
     );
+  }
+
+  async splitPolygon(
+    polygonId: PolygonID,
+    draft: DraftShape,
+  ): Promise<MapPolygon[]> {
+    return this.editor.splitPolygon(polygonId, draft);
+  }
+
+  async moveVertex(
+    polygonId: PolygonID,
+    index: number,
+    lat: number,
+    lng: number,
+  ): Promise<MapPolygon[]> {
+    return this.editor.sharedEdgeMove(polygonId, index, lat, lng);
+  }
+
+  async insertVertex(
+    polygonId: PolygonID,
+    afterIndex: number,
+    lat: number,
+    lng: number,
+  ): Promise<MapPolygon> {
+    const draft = this.editor.loadPolygonToDraft(polygonId);
+    const updated = insertPoint(draft, afterIndex + 1, { lat, lng });
+    return this.editor.updatePolygonGeometry(polygonId, updated);
   }
 
   getAllPolygons(): MapPolygon[] {

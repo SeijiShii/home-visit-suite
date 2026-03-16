@@ -10,7 +10,14 @@ const makePolygon = (id: string, name: string): MapPolygon =>
     id: id as unknown as PolygonID,
     geometry: {
       type: "Polygon" as const,
-      coordinates: [[[140, 35], [141, 36], [140, 36], [140, 35]]],
+      coordinates: [
+        [
+          [140, 35],
+          [141, 36],
+          [140, 36],
+          [140, 35],
+        ],
+      ],
     },
     display_name: name,
     parent_id: null,
@@ -23,15 +30,17 @@ const wrap = (ui: React.ReactElement) =>
   render(<I18nProvider>{ui}</I18nProvider>);
 
 describe("PolygonList", () => {
+  const defaultProps = {
+    polygons: [] as MapPolygon[],
+    polygonAreaMap: new Map<string, PolygonAreaInfo>(),
+    selectedPolygonId: null as PolygonID | null,
+    onPolygonClick: vi.fn(),
+    onDeletePolygon: vi.fn(),
+    isDrawing: false,
+  };
+
   it("ポリゴンがない場合はnoDataメッセージを表示する", () => {
-    wrap(
-      <PolygonList
-        polygons={[]}
-        polygonAreaMap={new Map()}
-        selectedPolygonId={null}
-        onPolygonClick={vi.fn()}
-      />,
-    );
+    wrap(<PolygonList {...defaultProps} />);
     expect(screen.getByText("データがありません")).toBeInTheDocument();
   });
 
@@ -43,10 +52,9 @@ describe("PolygonList", () => {
 
     wrap(
       <PolygonList
+        {...defaultProps}
         polygons={polygons}
         polygonAreaMap={areaMap}
-        selectedPolygonId={null}
-        onPolygonClick={vi.fn()}
       />,
     );
     expect(screen.getByText("NRT-001-01")).toBeInTheDocument();
@@ -55,14 +63,7 @@ describe("PolygonList", () => {
   it("未紐づきポリゴンは「区域なし」を表示する", () => {
     const polygons = [makePolygon("p1", "display-p1")];
 
-    wrap(
-      <PolygonList
-        polygons={polygons}
-        polygonAreaMap={new Map()}
-        selectedPolygonId={null}
-        onPolygonClick={vi.fn()}
-      />,
-    );
+    wrap(<PolygonList {...defaultProps} polygons={polygons} />);
     expect(screen.getByText("区域なし")).toBeInTheDocument();
   });
 
@@ -72,9 +73,8 @@ describe("PolygonList", () => {
 
     wrap(
       <PolygonList
+        {...defaultProps}
         polygons={polygons}
-        polygonAreaMap={new Map()}
-        selectedPolygonId={null}
         onPolygonClick={onClick}
       />,
     );
@@ -88,14 +88,104 @@ describe("PolygonList", () => {
 
     wrap(
       <PolygonList
+        {...defaultProps}
         polygons={polygons}
-        polygonAreaMap={new Map()}
         selectedPolygonId={"p1" as unknown as PolygonID}
-        onPolygonClick={vi.fn()}
       />,
     );
 
     const item = screen.getByText("区域なし").closest(".polygon-list-item");
     expect(item?.classList.contains("polygon-list-item-selected")).toBe(true);
+  });
+
+  describe("削除機能", () => {
+    it("各ポリゴンに削除ボタンが表示される", () => {
+      const polygons = [makePolygon("p1", "P1"), makePolygon("p2", "P2")];
+
+      wrap(<PolygonList {...defaultProps} polygons={polygons} />);
+
+      const deleteButtons = screen.getAllByRole("button", { name: "削除" });
+      expect(deleteButtons).toHaveLength(2);
+    });
+
+    it("描画中は削除ボタンが無効になる", () => {
+      const polygons = [makePolygon("p1", "P1")];
+
+      wrap(
+        <PolygonList {...defaultProps} polygons={polygons} isDrawing={true} />,
+      );
+
+      const deleteButton = screen.getByRole("button", { name: "削除" });
+      expect(deleteButton).toBeDisabled();
+    });
+
+    it("削除ボタンクリックでダイアログが開く", () => {
+      const polygons = [makePolygon("p1", "P1")];
+
+      wrap(<PolygonList {...defaultProps} polygons={polygons} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
+
+      const dialog = screen.getByRole("dialog");
+      expect(dialog).toBeInTheDocument();
+      expect(
+        screen.getByText("このポリゴンを削除しますか？"),
+      ).toBeInTheDocument();
+    });
+
+    it("ダイアログでキャンセルするとonDeletePolygonは呼ばれない", () => {
+      const polygons = [makePolygon("p1", "P1")];
+      const onDelete = vi.fn();
+
+      wrap(
+        <PolygonList
+          {...defaultProps}
+          polygons={polygons}
+          onDeletePolygon={onDelete}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
+      fireEvent.click(screen.getByText("キャンセル"));
+
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("ダイアログで確認するとonDeletePolygonが呼ばれる", () => {
+      const polygons = [makePolygon("p1", "P1")];
+      const onDelete = vi.fn();
+
+      wrap(
+        <PolygonList
+          {...defaultProps}
+          polygons={polygons}
+          onDeletePolygon={onDelete}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
+      fireEvent.click(screen.getByText("確認"));
+
+      expect(onDelete).toHaveBeenCalledWith("p1");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("削除ボタンクリック時にポリゴンクリックイベントは発火しない", () => {
+      const polygons = [makePolygon("p1", "P1")];
+      const onClick = vi.fn();
+
+      wrap(
+        <PolygonList
+          {...defaultProps}
+          polygons={polygons}
+          onPolygonClick={onClick}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
+
+      expect(onClick).not.toHaveBeenCalled();
+    });
   });
 });

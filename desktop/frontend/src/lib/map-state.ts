@@ -1,5 +1,9 @@
 import type { PolygonID, DraftShape } from "map-polygon-editor";
-import { DrawingController, type FinalizeResult } from "./drawing-controller";
+import {
+  DrawingController,
+  type FinalizeResult,
+  type FinalizeSplitResult,
+} from "./drawing-controller";
 
 export enum MapMode {
   Viewing = "viewing",
@@ -61,6 +65,20 @@ export class MapState {
     if (!this.drawingController.isActive) return null;
     try {
       const result = this.drawingController.finalize();
+      this.mode = MapMode.Viewing;
+      this.draft = null;
+      this.notify();
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  finalizeSplitDrawing(): FinalizeSplitResult | null {
+    if (!this.drawingController.isActive) return null;
+    if (!this.drawingController.isSplitMode) return null;
+    try {
+      const result = this.drawingController.finalizeSplit();
       this.mode = MapMode.Viewing;
       this.draft = null;
       this.notify();

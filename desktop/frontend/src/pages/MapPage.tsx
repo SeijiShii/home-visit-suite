@@ -10,6 +10,7 @@ import { buildPolygonAreaMap } from "../services/polygon-service";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import * as MapBinding from "../../wailsjs/go/binding/MapBinding";
 import { type PolygonID, type MapPolygon } from "map-polygon-editor";
+import type { VertexDragEvent } from "../lib/map-renderer";
 import type { PolygonAreaInfo } from "../services/polygon-service";
 
 const SIDEBAR_MIN_WIDTH = 192;
@@ -42,12 +43,50 @@ export function MapPage() {
     regionAPI,
   );
 
+  const handleVertexDrag = useCallback(
+    async (event: VertexDragEvent) => {
+      if (!polygonService) return;
+      try {
+        const modified = await polygonService.moveVertex(
+          event.polygonId as unknown as PolygonID,
+          event.vertexIndex,
+          event.lat,
+          event.lng,
+        );
+        // ポリゴンレイヤーとマーカーを更新（再描画せず差分更新）
+        mapRef.current?.updateEditMarkers(modified);
+        // ローカルステートも更新
+        setPolygons(polygonService.getAllPolygons());
+      } catch (err) {
+        console.error("vertex move failed:", err);
+      }
+    },
+    [polygonService],
+  );
+
   const handlePolygonClick = useCallback(
     (id: PolygonID) => {
-      actions.selectPolygon(id);
+      if (snapshot.mode === MapMode.Drawing) return;
+
+      // 同じポリゴンを編集中 → 何もしない
+      if (
+        snapshot.mode === MapMode.Editing &&
+        snapshot.selectedPolygonId === id
+      ) {
+        return;
+      }
+
+      // 別のポリゴンを編集中 → 切り替え
+      if (snapshot.mode === MapMode.Editing) {
+        mapRef.current?.exitEditMode();
+      }
+
+      actions.startEditing(id);
       mapRef.current?.highlightPolygon(id);
+      mapRef.current?.focusPolygon(id);
+      mapRef.current?.enterEditMode(id, handleVertexDrag);
     },
-    [actions],
+    [actions, snapshot.mode, snapshot.selectedPolygonId, handleVertexDrag],
   );
 
   const reloadPolygons = useCallback(async () => {
@@ -83,18 +122,42 @@ export function MapPage() {
             endVertexIndex: dc.bridgeEnd.vertexIndex,
           }
         : null;
-    mapRef.current?.renderDraft(snapshot.draft, bridgeInfo);
-    if (snapshot.mode === MapMode.Drawing) {
+    mapRef.current?.renderDraft(snapshot.draft, bridgeInfo, dc.isSplitMode);
+    if (snapshot.mode === MapMode.Drawing && !dc.isSplitMode) {
       mapRef.current?.setCursor("crosshair");
       mapRef.current?.enableRubberBand();
     } else {
-      mapRef.current?.setCursor("");
+      mapRef.current?.setCursor(
+        snapshot.mode === MapMode.Drawing ? "crosshair" : "",
+      );
       mapRef.current?.disableRubberBand();
     }
   }, [snapshot.draft, snapshot.mode, actions]);
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
+      // 編集モード中: 辺の近傍なら頂点追加、そうでなければ編集終了
+      if (snapshot.mode === MapMode.Editing) {
+        const edgeHit = mapRef.current?.findEdgeAtClick(lat, lng);
+        if (edgeHit && polygonService) {
+          polygonService
+            .insertVertex(
+              edgeHit.polygonId as unknown as PolygonID,
+              edgeHit.afterIndex,
+              edgeHit.lat,
+              edgeHit.lng,
+            )
+            .then((updated) => {
+              mapRef.current?.rebuildEditMarkers(updated);
+              setPolygons(polygonService.getAllPolygons());
+            })
+            .catch((err) => console.error("insert vertex failed:", err));
+          return;
+        }
+        mapRef.current?.exitEditMode();
+        actions.cancelEditing();
+        return;
+      }
       if (snapshot.mode !== MapMode.Drawing) {
         return;
       }
@@ -108,14 +171,15 @@ export function MapPage() {
       // 既存ポリゴン頂点にスナップした場合
       if (snap?.anchor) {
         if (pointCount === 0) {
-          // 最初のポイント: ブリッジ開始アンカーを記録
+          // 最初のポイント: ブリッジ/スプリット開始アンカーを記録
           dc.setBridgeStart(snap.anchor.polygonId, snap.anchor.vertexIndex);
           actions.handleMapClick(clickLat, clickLng);
         } else {
-          // 2つ目以降: ブリッジ終了 → ポイント追加して描画終了
+          // 2つ目以降: 終了アンカー記録 → ポイント追加
           dc.setBridgeEnd(snap.anchor.polygonId, snap.anchor.vertexIndex);
           actions.handleMapClick(clickLat, clickLng);
-          if (dc.canClose) {
+          // splitモード: ドラフトを閉じずにUI側でsplit判定
+          if (!dc.isSplitMode && dc.canClose) {
             actions.closeDrawing();
           }
         }
@@ -161,6 +225,27 @@ export function MapPage() {
     }
   }, [actions, snapshot.mode]);
 
+  const handleSplitPolygon = useCallback(async () => {
+    const result = actions.finalizeSplitDrawing();
+    if (!result || !polygonService) return;
+
+    try {
+      const splitResult = await polygonService.splitPolygon(
+        result.splitInfo.polygonId as unknown as PolygonID,
+        result.draft,
+      );
+      if (splitResult.length === 0) {
+        console.warn(
+          "split produced no polygons (line may not intersect polygon boundary)",
+        );
+      }
+      await reloadPolygons();
+      treeRef.current?.reload();
+    } catch (err) {
+      console.error("split polygon failed:", err);
+    }
+  }, [actions, polygonService, reloadPolygons]);
+
   const handleSavePolygon = useCallback(async () => {
     const result = actions.finalizeDrawing();
     if (!result || !polygonService) return;
@@ -194,6 +279,35 @@ export function MapPage() {
     }
   }, [actions, polygonService, reloadPolygons]);
 
+  const handleDeletePolygon = useCallback(
+    async (id: PolygonID) => {
+      if (!polygonService) return;
+      try {
+        const areaInfo = polygonAreaMap.get(id as string);
+        if (areaInfo) {
+          await polygonService.deletePolygonForArea(id, areaInfo.areaId);
+        } else {
+          await polygonService.deletePolygon(id);
+        }
+        if (snapshot.selectedPolygonId === id) {
+          actions.selectPolygon(null);
+          mapRef.current?.highlightPolygon(null);
+        }
+        await reloadPolygons();
+        treeRef.current?.reload();
+      } catch (err) {
+        console.error("delete polygon failed:", err);
+      }
+    },
+    [
+      polygonService,
+      polygonAreaMap,
+      snapshot.selectedPolygonId,
+      actions,
+      reloadPolygons,
+    ],
+  );
+
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -221,9 +335,17 @@ export function MapPage() {
   );
 
   const isDrawing = snapshot.mode === MapMode.Drawing;
+  const isEditing = snapshot.mode === MapMode.Editing;
   const draftClosed = snapshot.draft?.isClosed ?? false;
+  const isSplitMode = actions.drawingController.isSplitMode;
   const canClose = actions.drawingController.canClose;
   const pointCount = snapshot.draft?.points.length ?? 0;
+
+  const handleFinishEditing = useCallback(() => {
+    mapRef.current?.exitEditMode();
+    actions.cancelEditing();
+    reloadPolygons();
+  }, [actions, reloadPolygons]);
 
   return (
     <div className="map-page">
@@ -234,18 +356,34 @@ export function MapPage() {
         onContextMenu={handleContextMenu}
       />
 
+      {isEditing && (
+        <div className="drawing-toolbar">
+          <span className="drawing-hint">{t.map.editingHint}</span>
+          <button
+            className="drawing-btn drawing-btn-save"
+            onClick={handleFinishEditing}
+          >
+            {t.map.finishEditing}
+          </button>
+        </div>
+      )}
+
       {isDrawing && (
         <div className="drawing-toolbar">
           <span className="drawing-hint">
-            {draftClosed ? t.map.drawingClosed : t.map.drawingHint}
+            {isSplitMode
+              ? t.map.splitHint
+              : draftClosed
+                ? t.map.drawingClosed
+                : t.map.drawingHint}
           </span>
           <span className="drawing-point-count">{pointCount}</span>
-          {!draftClosed && pointCount > 0 && (
+          {!draftClosed && !isSplitMode && pointCount > 0 && (
             <button className="drawing-btn" onClick={handleUndoPoint}>
               {t.map.undoPoint}
             </button>
           )}
-          {!draftClosed && canClose && (
+          {!draftClosed && !isSplitMode && canClose && (
             <button
               className="drawing-btn drawing-btn-close"
               onClick={handleCloseDrawing}
@@ -253,7 +391,15 @@ export function MapPage() {
               {t.map.closePolygon}
             </button>
           )}
-          {draftClosed && (
+          {isSplitMode && pointCount >= 2 && (
+            <button
+              className="drawing-btn drawing-btn-save"
+              onClick={handleSplitPolygon}
+            >
+              {t.map.splitPolygon}
+            </button>
+          )}
+          {draftClosed && !isSplitMode && (
             <button
               className="drawing-btn drawing-btn-save"
               onClick={handleSavePolygon}
@@ -276,7 +422,7 @@ export function MapPage() {
           <button
             className="sidebar-draw-btn"
             onClick={handleStartFreeDrawing}
-            disabled={isDrawing}
+            disabled={isDrawing || isEditing}
           >
             {t.map.startDrawing}
           </button>
@@ -311,6 +457,8 @@ export function MapPage() {
               polygonAreaMap={polygonAreaMap}
               selectedPolygonId={snapshot.selectedPolygonId}
               onPolygonClick={handlePolygonClick}
+              onDeletePolygon={handleDeletePolygon}
+              isDrawing={isDrawing}
             />
           )}
         </div>

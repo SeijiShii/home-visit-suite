@@ -18,10 +18,21 @@ export interface BridgeInfo {
   endVertexIndex: number;
 }
 
+export interface SplitInfo {
+  polygonId: string;
+  startVertexIndex: number;
+  endVertexIndex: number;
+}
+
 export interface FinalizeResult {
   draft: DraftShape;
   targetAreaId: string | null;
   bridgeInfo: BridgeInfo | null;
+}
+
+export interface FinalizeSplitResult {
+  draft: DraftShape;
+  splitInfo: SplitInfo;
 }
 
 export class DrawingController {
@@ -56,6 +67,21 @@ export class DrawingController {
       !this._draft.isClosed &&
       this._draft.points.length >= 3
     );
+  }
+
+  /** 同一ポリゴンの異なる2頂点にアンカーがある場合 true */
+  get isSplitMode(): boolean {
+    return (
+      this._bridgeStart !== null &&
+      this._bridgeEnd !== null &&
+      this._bridgeStart.polygonId === this._bridgeEnd.polygonId &&
+      this._bridgeStart.vertexIndex !== this._bridgeEnd.vertexIndex
+    );
+  }
+
+  /** splitMode時に対象ポリゴンIDを返す */
+  get splitTargetPolygonId(): string | null {
+    return this.isSplitMode ? this._bridgeStart!.polygonId : null;
   }
 
   startDrawing(areaId: string): void {
@@ -115,7 +141,32 @@ export class DrawingController {
     this._bridgeEnd = null;
   }
 
+  finalizeSplit(): FinalizeSplitResult {
+    if (!this.isSplitMode) {
+      throw new Error("Cannot finalizeSplit: not in split mode.");
+    }
+    if (!this._draft || this._draft.points.length < 2) {
+      throw new Error("Cannot finalizeSplit: need at least 2 points.");
+    }
+    const result: FinalizeSplitResult = {
+      draft: this._draft, // open draft (not closed)
+      splitInfo: {
+        polygonId: this._bridgeStart!.polygonId,
+        startVertexIndex: this._bridgeStart!.vertexIndex,
+        endVertexIndex: this._bridgeEnd!.vertexIndex,
+      },
+    };
+    this._draft = null;
+    this._targetAreaId = null;
+    this._bridgeStart = null;
+    this._bridgeEnd = null;
+    return result;
+  }
+
   finalize(): FinalizeResult {
+    if (this.isSplitMode) {
+      throw new Error("Cannot finalize in split mode. Use finalizeSplit().");
+    }
     if (!this._draft || !this._draft.isClosed) {
       throw new Error("Cannot finalize: draft is not closed.");
     }

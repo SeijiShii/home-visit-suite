@@ -29,8 +29,14 @@ export interface Translations {
     undoPoint: string;
     drawingHint: string;
     drawingClosed: string;
+    splitHint: string;
+    splitPolygon: string;
     noArea: string;
     startDrawing: string;
+    deletePolygon: string;
+    confirmDeletePolygon: string;
+    editingHint: string;
+    finishEditing: string;
   };
   areaTree: {
     title: string;
