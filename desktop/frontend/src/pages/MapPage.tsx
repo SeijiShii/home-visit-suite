@@ -17,6 +17,54 @@ const SIDEBAR_MIN_WIDTH = 192;
 
 type SidebarTab = "areas" | "polygons";
 
+/**
+ * ポリゴンの外環 ring 上で from → to 間の頂点を返す（短い方向で歩く）。
+ * ring は GeoJSON 座標 [lng, lat][] で、最初と最後が同じ点（閉じたリング）。
+ * from/to は ring 上の辺に乗る点。返り値は {lat, lng}[] で from/to 自体は含まない。
+ */
+function walkBoundary(
+  ring: number[][],
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+): { lat: number; lng: number }[] {
+  const n = ring.length - 1; // 最後は閉じ点なので除外
+  const eps = 1e-8;
+
+  // ring 上の辺インデックスを見つける（点 p が辺 ring[i]→ring[i+1] 上にある）
+  const findEdge = (p: { lat: number; lng: number }): number => {
+    for (let i = 0; i < n; i++) {
+      const [ax, ay] = ring[i];
+      const [bx, by] = ring[i + 1];
+      const dAP = Math.hypot(p.lng - ax, p.lat - ay);
+      const dPB = Math.hypot(bx - p.lng, by - p.lat);
+      const dAB = Math.hypot(bx - ax, by - ay);
+      if (Math.abs(dAP + dPB - dAB) < eps) return i;
+    }
+    return 0;
+  };
+
+  const fromEdge = findEdge(from);
+  const toEdge = findEdge(to);
+
+  // 正方向（fromEdge → toEdge）で ring 頂点を収集
+  const fwd: { lat: number; lng: number }[] = [];
+  let idx = (fromEdge + 1) % n;
+  while (idx !== (toEdge + 1) % n) {
+    fwd.push({ lat: ring[idx][1], lng: ring[idx][0] });
+    idx = (idx + 1) % n;
+  }
+
+  // 逆方向
+  const bwd: { lat: number; lng: number }[] = [];
+  idx = fromEdge;
+  while (idx !== toEdge) {
+    bwd.push({ lat: ring[idx][1], lng: ring[idx][0] });
+    idx = (idx - 1 + n) % n;
+  }
+
+  return fwd.length <= bwd.length ? fwd : bwd;
+}
+
 export function MapPage() {
   const { t } = useI18n();
   const { snapshot, actions } = useMapState();
@@ -29,6 +77,7 @@ export function MapPage() {
     Map<string, PolygonAreaInfo>
   >(new Map());
 
+  const resolvingRef = useRef(false);
   const regionService = useMemo(() => new RegionService(RegionBinding), []);
 
   const regionAPI = useMemo(
@@ -64,30 +113,33 @@ export function MapPage() {
     [polygonService],
   );
 
-  const handlePolygonClick = useCallback(
-    (id: PolygonID) => {
-      if (snapshot.mode === MapMode.Drawing) return;
+  // ポリゴンクリックハンドラを ref 経由で参照（ポリゴンレイヤーに登録されたクロージャが
+  // stale にならないように、常に最新の snapshot.mode を参照する）
+  const polygonClickRef = useRef<(id: PolygonID) => void>(() => {});
+  const handlePolygonClick = useCallback((id: PolygonID) => {
+    polygonClickRef.current(id);
+  }, []);
+  polygonClickRef.current = (id: PolygonID) => {
+    if (snapshot.mode === MapMode.Drawing) return;
 
-      // 同じポリゴンを編集中 → 何もしない
-      if (
-        snapshot.mode === MapMode.Editing &&
-        snapshot.selectedPolygonId === id
-      ) {
-        return;
-      }
+    // 同じポリゴンを編集中 → 何もしない
+    if (
+      snapshot.mode === MapMode.Editing &&
+      snapshot.selectedPolygonId === id
+    ) {
+      return;
+    }
 
-      // 別のポリゴンを編集中 → 切り替え
-      if (snapshot.mode === MapMode.Editing) {
-        mapRef.current?.exitEditMode();
-      }
+    // 別のポリゴンを編集中 → 切り替え
+    if (snapshot.mode === MapMode.Editing) {
+      mapRef.current?.exitEditMode();
+    }
 
-      actions.startEditing(id);
-      mapRef.current?.highlightPolygon(id);
-      mapRef.current?.focusPolygon(id);
-      mapRef.current?.enterEditMode(id, handleVertexDrag);
-    },
-    [actions, snapshot.mode, snapshot.selectedPolygonId, handleVertexDrag],
-  );
+    actions.startEditing(id);
+    mapRef.current?.highlightPolygon(id);
+    mapRef.current?.focusPolygon(id);
+    mapRef.current?.enterEditMode(id, handleVertexDrag);
+  };
 
   const reloadPolygons = useCallback(async () => {
     if (!polygonService) return;
@@ -161,6 +213,7 @@ export function MapPage() {
       if (snapshot.mode !== MapMode.Drawing) {
         return;
       }
+      resolvingRef.current = false; // 前回のカーブ完了フラグをリセット
 
       const snap = mapRef.current?.getSnapInfo(lat, lng);
       const clickLat = snap ? snap.lat : lat;
@@ -189,11 +242,93 @@ export function MapPage() {
       // ドラフト始点スナップ → 閉回路
       if (mapRef.current?.isNearStartPoint(clickLat, clickLng)) {
         actions.closeDrawing();
+        return;
       } else {
-        actions.handleMapClick(clickLat, clickLng);
+        let finalLat = clickLat;
+        let finalLng = clickLng;
+
+        if (polygonService && !snap?.anchor) {
+          const nearVertex = polygonService.findNearestVertex(
+            { lat: clickLat, lng: clickLng },
+            0.0002,
+          );
+          if (nearVertex) {
+            finalLat = nearVertex.lat;
+            finalLng = nearVertex.lng;
+          }
+        }
+
+        actions.handleMapClick(finalLat, finalLng);
+
+        // ポイント追加後、開いたドラフトがポリゴンを横切っていれば自動くり抜き
+        if (polygonService && !resolvingRef.current) {
+          const currentDraft = dc.draft;
+          if (currentDraft && currentDraft.points.length >= 2) {
+            const openDraft = {
+              points: [...currentDraft.points],
+              isClosed: false,
+            };
+            const allPolys = polygonService.getAllPolygons();
+            resolvingRef.current = true;
+            (async () => {
+              try {
+                for (const poly of allPolys) {
+                  const result = await polygonService.resolveOverlapsWithDraft(
+                    poly.id as PolygonID,
+                    openDraft,
+                  );
+                  if (result.created.length > 0) {
+                    console.log("[autoSplit] carved!", {
+                      targetPolygon: poly.id,
+                      created: result.created.map((p) => p.id),
+                      remainingDrafts: result.remainingDrafts.map(
+                        (d) => d.points.length,
+                      ),
+                    });
+                    await reloadPolygons();
+                    treeRef.current?.reload();
+                    // 残りドラフト断片をポリゴン境界で繋いでコの字にする
+                    const drafts = result.remainingDrafts;
+                    if (drafts.length > 0) {
+                      // カーブ前のポリゴン境界を使う（ノッチなし）
+                      const ring = poly.geometry.coordinates[0];
+                      const allPoints: { lat: number; lng: number }[] = [
+                        ...drafts[0].points,
+                      ];
+                      for (let di = 1; di < drafts.length; di++) {
+                        // 前断片の末尾 → 次断片の先頭をポリゴン境界で繋ぐ
+                        const exitPt = allPoints[allPoints.length - 1];
+                        const entryPt = drafts[di].points[0];
+                        const boundaryPts = walkBoundary(ring, exitPt, entryPt);
+                        allPoints.push(...boundaryPts);
+                        allPoints.push(...drafts[di].points);
+                      }
+                      const continuation = {
+                        points: allPoints,
+                        isClosed: false,
+                      };
+                      console.log("[autoSplit] continuation:", {
+                        totalPoints: allPoints.length,
+                        fragments: drafts.length,
+                      });
+                      actions.replaceDraft(continuation);
+                      mapRef.current?.renderDraft(continuation, null, false);
+                    } else {
+                      actions.cancelDrawing();
+                    }
+                    return;
+                  }
+                }
+              } catch (err) {
+                console.error("[autoSplit] error:", err);
+                resolvingRef.current = false;
+              }
+            })();
+          }
+        }
       }
     },
-    [actions, snapshot.mode],
+    [actions, snapshot.mode, polygonService, reloadPolygons],
   );
 
   const handleStartDrawing = useCallback(
@@ -249,10 +384,8 @@ export function MapPage() {
   const handleSavePolygon = useCallback(async () => {
     const result = actions.finalizeDrawing();
     if (!result || !polygonService) return;
-
     try {
       if (result.bridgeInfo) {
-        // ブリッジ描画: 全ポイント（開始・終了頂点を含む）
         const bridgePath = result.draft.points;
         await polygonService.bridgePolygon(
           result.bridgeInfo.startPolygonId as unknown as PolygonID,
@@ -271,7 +404,6 @@ export function MapPage() {
       } else {
         await polygonService.savePolygon(result.draft, "");
       }
-      // ポリゴン再描画 + AreaTree リロード
       await reloadPolygons();
       treeRef.current?.reload();
     } catch (err) {

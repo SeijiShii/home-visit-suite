@@ -121,6 +121,14 @@ export class MapState {
     this.notify();
   }
 
+  /** 現在の描画を維持しつつドラフトを差し替える（resolveOverlaps の残りドラフト用） */
+  replaceDraft(draft: DraftShape): void {
+    if (this.mode !== MapMode.Drawing) return;
+    this.drawingController.replaceDraft(draft);
+    this.draft = this.drawingController.draft;
+    this.notify();
+  }
+
   selectPolygon(id: PolygonID | null): void {
     if (this.mode !== MapMode.Viewing) return;
     this.selectedPolygonId = id;

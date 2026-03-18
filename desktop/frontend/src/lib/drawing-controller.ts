@@ -134,6 +134,16 @@ export class DrawingController {
     this._draft = removePoint(this._draft, this._draft.points.length - 1);
   }
 
+  /** ドラフトを差し替える（resolveOverlaps の残りドラフト継続用） */
+  replaceDraft(draft: DraftShape): void {
+    if (!this._draft) {
+      throw new Error("Not in drawing mode. Call startDrawing first.");
+    }
+    this._draft = draft;
+    this._bridgeStart = null;
+    this._bridgeEnd = null;
+  }
+
   cancel(): void {
     this._draft = null;
     this._targetAreaId = null;

@@ -5,6 +5,7 @@ import type {
   MapPolygon,
   PolygonID,
   BridgeResult,
+  GeometryViolation,
 } from "map-polygon-editor";
 
 // MapPolygonEditor のモック
@@ -19,6 +20,17 @@ const createMockEditor = () => ({
   bridgePolygons: vi.fn(),
   splitPolygon: vi.fn(),
   sharedEdgeMove: vi.fn(),
+  findNearestVertex: vi.fn(),
+  findEdgeIntersections: vi.fn(),
+  carveInnerPolygon: vi.fn(),
+  expandWithPolygon: vi.fn(),
+  renamePolygon: vi.fn(),
+  validateDraft: vi.fn(),
+  resolveOverlapsWithDraft: vi.fn(),
+  undo: vi.fn().mockResolvedValue(undefined),
+  redo: vi.fn().mockResolvedValue(undefined),
+  canUndo: vi.fn().mockReturnValue(false),
+  canRedo: vi.fn().mockReturnValue(false),
 });
 
 // RegionBindingAPI の最小モック
@@ -340,6 +352,324 @@ describe("PolygonService", () => {
         }),
       );
       expect(result).toBe(updatedPolygon);
+    });
+  });
+
+  describe("findNearestVertex", () => {
+    it("ライブラリのfindNearestVertexに委譲する", () => {
+      const snapped = { lat: 35.776, lng: 140.318 };
+      editor.findNearestVertex.mockReturnValue(snapped);
+
+      const result = service.findNearestVertex(
+        { lat: 35.7761, lng: 140.3181 },
+        0.0002,
+      );
+
+      expect(editor.findNearestVertex).toHaveBeenCalledWith(
+        { lat: 35.7761, lng: 140.3181 },
+        0.0002,
+      );
+      expect(result).toBe(snapped);
+    });
+
+    it("近傍に頂点がなければnullを返す", () => {
+      editor.findNearestVertex.mockReturnValue(null);
+
+      const result = service.findNearestVertex(
+        { lat: 35.8, lng: 140.4 },
+        0.0002,
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("findEdgeIntersections", () => {
+    it("交差点をp1からの距離順で返す", () => {
+      const intersections = [
+        { lat: 35.777, lng: 140.319 },
+        { lat: 35.778, lng: 140.32 },
+      ];
+      editor.findEdgeIntersections.mockReturnValue(intersections);
+
+      const result = service.findEdgeIntersections(
+        { lat: 35.776, lng: 140.318 },
+        { lat: 35.779, lng: 140.321 },
+      );
+
+      expect(editor.findEdgeIntersections).toHaveBeenCalledWith(
+        { lat: 35.776, lng: 140.318 },
+        { lat: 35.779, lng: 140.321 },
+      );
+      expect(result).toEqual(intersections);
+    });
+
+    it("交差がなければ空配列を返す", () => {
+      editor.findEdgeIntersections.mockReturnValue([]);
+
+      const result = service.findEdgeIntersections(
+        { lat: 35.776, lng: 140.318 },
+        { lat: 35.777, lng: 140.319 },
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("carveInnerPolygon", () => {
+    it("ポリゴン内に閉ループを描いて内側ポリゴンをくり抜く", async () => {
+      const outer = makePolygon("poly-outer", "outer");
+      const inner = makePolygon("poly-inner", "inner");
+      editor.carveInnerPolygon.mockResolvedValue({ outer, inner });
+
+      const loopPath = [
+        { lat: 35.7765, lng: 140.3185 },
+        { lat: 35.777, lng: 140.319 },
+        { lat: 35.7775, lng: 140.3185 },
+      ];
+
+      const result = await service.carveInnerPolygon(
+        "poly-a" as unknown as PolygonID,
+        loopPath,
+      );
+
+      expect(editor.carveInnerPolygon).toHaveBeenCalledWith("poly-a", loopPath);
+      expect(result).toEqual({ outer, inner });
+    });
+
+    it("ループがポリゴン外なら例外をスローする", async () => {
+      editor.carveInnerPolygon.mockRejectedValue(
+        new Error("Loop does not lie inside polygon"),
+      );
+
+      await expect(
+        service.carveInnerPolygon("poly-a" as unknown as PolygonID, [
+          { lat: 0, lng: 0 },
+          { lat: 1, lng: 1 },
+          { lat: 0, lng: 1 },
+        ]),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("expandWithPolygon", () => {
+    it("既存ポリゴンを外側パスで拡張する", async () => {
+      const original = makePolygon("poly-a", "original");
+      const added = makePolygon("poly-child", "child");
+      editor.expandWithPolygon.mockResolvedValue({ original, added });
+
+      const outerPath = [
+        { lat: 35.779, lng: 140.321 },
+        { lat: 35.78, lng: 140.322 },
+        { lat: 35.779, lng: 140.323 },
+      ];
+
+      const result = await service.expandWithPolygon(
+        "poly-a" as unknown as PolygonID,
+        outerPath,
+        "expanded-child",
+      );
+
+      expect(editor.expandWithPolygon).toHaveBeenCalledWith(
+        "poly-a",
+        outerPath,
+        "expanded-child",
+      );
+      expect(result).toEqual({ original, added });
+    });
+  });
+
+  describe("renamePolygon", () => {
+    it("ポリゴンの表示名を変更する", async () => {
+      const renamed = makePolygon("poly-a", "新しい名前");
+      editor.renamePolygon.mockResolvedValue(renamed);
+
+      const result = await service.renamePolygon(
+        "poly-a" as unknown as PolygonID,
+        "新しい名前",
+      );
+
+      expect(editor.renamePolygon).toHaveBeenCalledWith("poly-a", "新しい名前");
+      expect(result.display_name).toBe("新しい名前");
+    });
+  });
+
+  describe("validateDraft", () => {
+    it("有効なドラフトに対して空配列を返す", () => {
+      editor.validateDraft.mockReturnValue([]);
+
+      const draft = makeDraft(true);
+      const result = service.validateDraft(draft);
+
+      expect(editor.validateDraft).toHaveBeenCalledWith(draft);
+      expect(result).toEqual([]);
+    });
+
+    it("不正なドラフトに対してバイオレーションを返す", () => {
+      const violations: GeometryViolation[] = [
+        { code: "TOO_FEW_VERTICES" },
+        { code: "SELF_INTERSECTION" },
+      ];
+      editor.validateDraft.mockReturnValue(violations);
+
+      const draft: DraftShape = {
+        points: [{ lat: 0, lng: 0 }],
+        isClosed: true,
+      };
+      const result = service.validateDraft(draft);
+
+      expect(result).toEqual(violations);
+    });
+  });
+
+  describe("undo / redo", () => {
+    it("undoをエディタに委譲する", async () => {
+      await service.undo();
+      expect(editor.undo).toHaveBeenCalled();
+    });
+
+    it("redoをエディタに委譲する", async () => {
+      await service.redo();
+      expect(editor.redo).toHaveBeenCalled();
+    });
+
+    it("canUndo/canRedoをエディタに委譲する", () => {
+      editor.canUndo.mockReturnValue(true);
+      editor.canRedo.mockReturnValue(false);
+
+      expect(service.canUndo()).toBe(true);
+      expect(service.canRedo()).toBe(false);
+    });
+  });
+
+  describe("resolveOverlapsWithDraft", () => {
+    it("ライブラリのresolveOverlapsWithDraftに委譲する", async () => {
+      const modified = makePolygon("poly-a", "modified");
+      const created1 = makePolygon("poly-new-1", "created-1");
+      const remainingDraft: DraftShape = {
+        points: [
+          { lat: 35.779, lng: 140.321 },
+          { lat: 35.78, lng: 140.322 },
+          { lat: 35.779, lng: 140.323 },
+        ],
+        isClosed: true,
+      };
+
+      editor.resolveOverlapsWithDraft.mockResolvedValue({
+        modified,
+        created: [created1],
+        remainingDrafts: [remainingDraft],
+      });
+
+      const draft: DraftShape = {
+        points: [
+          { lat: 35.776, lng: 140.319 },
+          { lat: 35.776, lng: 140.321 },
+          { lat: 35.778, lng: 140.321 },
+          { lat: 35.778, lng: 140.319 },
+        ],
+        isClosed: true,
+      };
+
+      const result = await service.resolveOverlapsWithDraft(
+        "poly-a" as unknown as PolygonID,
+        draft,
+      );
+
+      expect(editor.resolveOverlapsWithDraft).toHaveBeenCalledWith(
+        "poly-a",
+        draft,
+      );
+      expect(result.modified).toBe(modified);
+      expect(result.created).toEqual([created1]);
+      expect(result.remainingDrafts).toEqual([remainingDraft]);
+    });
+
+    it("重なりがなければcreatedとremainingDraftsが空になる", async () => {
+      const unchanged = makePolygon("poly-a", "unchanged");
+      editor.resolveOverlapsWithDraft.mockResolvedValue({
+        modified: unchanged,
+        created: [],
+        remainingDrafts: [],
+      });
+
+      const draft = makeDraft(true);
+
+      const result = await service.resolveOverlapsWithDraft(
+        "poly-a" as unknown as PolygonID,
+        draft,
+      );
+
+      expect(result.modified).toBe(unchanged);
+      expect(result.created).toEqual([]);
+      expect(result.remainingDrafts).toEqual([]);
+    });
+  });
+
+  describe("savePolygonResolvingOverlaps", () => {
+    it("交差するポリゴンがあればresolveOverlapsWithDraftで分割して保存する", async () => {
+      const existing = makePolygon("poly-1", "area-1");
+      editor.getAllPolygons.mockReturnValue([existing]);
+
+      // findEdgeIntersections: ドラフトの辺が既存ポリゴンと交差
+      editor.findEdgeIntersections
+        .mockReturnValueOnce([{ lat: 35.777, lng: 140.319 }]) // 辺1が交差
+        .mockReturnValue([]); // 残りは交差しない
+
+      const modified = makePolygon("poly-1", "modified");
+      const created = makePolygon("poly-new", "created");
+      editor.resolveOverlapsWithDraft.mockResolvedValue({
+        modified,
+        created: [created],
+        remainingDrafts: [],
+      });
+
+      const draft: DraftShape = {
+        points: [
+          { lat: 35.776, lng: 140.319 },
+          { lat: 35.776, lng: 140.321 },
+          { lat: 35.778, lng: 140.321 },
+          { lat: 35.778, lng: 140.319 },
+        ],
+        isClosed: true,
+      };
+
+      const result = await service.savePolygonResolvingOverlaps(
+        draft,
+        "new-area",
+      );
+
+      expect(editor.resolveOverlapsWithDraft).toHaveBeenCalledWith(
+        "poly-1",
+        expect.objectContaining({ isClosed: false }),
+      );
+      expect("created" in result && result.created).toContain(created);
+    });
+
+    it("交差するポリゴンがなければ通常のsaveAsPolygonで保存する", async () => {
+      editor.getAllPolygons.mockReturnValue([]);
+      editor.findEdgeIntersections.mockReturnValue([]);
+
+      const newPoly = makePolygon("new-1", "new-area");
+      editor.saveAsPolygon.mockResolvedValue(newPoly);
+
+      const draft = makeDraft(true);
+
+      const result = await service.savePolygonResolvingOverlaps(
+        draft,
+        "new-area",
+      );
+
+      expect(editor.saveAsPolygon).toHaveBeenCalledWith(draft, "new-area");
+      expect(editor.resolveOverlapsWithDraft).not.toHaveBeenCalled();
+      expect("saved" in result && result.saved).toBe(newPoly);
+    });
+
+    it("クローズされていないドラフトではエラーをスローする", async () => {
+      const draft = makeDraft(false);
+      await expect(
+        service.savePolygonResolvingOverlaps(draft, "test"),
+      ).rejects.toThrow();
     });
   });
 });
