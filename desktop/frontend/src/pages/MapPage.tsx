@@ -186,6 +186,36 @@ export function MapPage() {
     }
   }, [snapshot.draft, snapshot.mode, actions]);
 
+  const saveAndReload = useCallback(async () => {
+    const result = actions.finalizeDrawing();
+    if (!result || !polygonService) return;
+    try {
+      if (result.bridgeInfo) {
+        const bridgePath = result.draft.points;
+        await polygonService.bridgePolygon(
+          result.bridgeInfo.startPolygonId as unknown as PolygonID,
+          result.bridgeInfo.startVertexIndex,
+          result.bridgeInfo.endPolygonId as unknown as PolygonID,
+          result.bridgeInfo.endVertexIndex,
+          bridgePath,
+          "",
+        );
+      } else if (result.targetAreaId) {
+        await polygonService.savePolygonForArea(
+          result.draft,
+          result.targetAreaId,
+          result.targetAreaId,
+        );
+      } else {
+        await polygonService.savePolygon(result.draft, "");
+      }
+      await reloadPolygons();
+      treeRef.current?.reload();
+    } catch (err) {
+      console.error("save polygon failed:", err);
+    }
+  }, [actions, polygonService, reloadPolygons]);
+
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
       // 編集モード中: 辺の近傍なら頂点追加、そうでなければ編集終了
@@ -239,9 +269,10 @@ export function MapPage() {
         return;
       }
 
-      // ドラフト始点スナップ → 閉回路
+      // ドラフト始点スナップ → 閉回路 → 即時保存
       if (mapRef.current?.isNearStartPoint(clickLat, clickLng)) {
         actions.closeDrawing();
+        saveAndReload();
         return;
       } else {
         let finalLat = clickLat;
@@ -328,7 +359,7 @@ export function MapPage() {
         }
       }
     },
-    [actions, snapshot.mode, polygonService, reloadPolygons],
+    [actions, snapshot.mode, polygonService, reloadPolygons, saveAndReload],
   );
 
   const handleStartDrawing = useCallback(
@@ -344,7 +375,8 @@ export function MapPage() {
 
   const handleCloseDrawing = useCallback(() => {
     actions.closeDrawing();
-  }, [actions]);
+    saveAndReload();
+  }, [actions, saveAndReload]);
 
   const handleCancelDrawing = useCallback(() => {
     actions.cancelDrawing();
@@ -381,35 +413,7 @@ export function MapPage() {
     }
   }, [actions, polygonService, reloadPolygons]);
 
-  const handleSavePolygon = useCallback(async () => {
-    const result = actions.finalizeDrawing();
-    if (!result || !polygonService) return;
-    try {
-      if (result.bridgeInfo) {
-        const bridgePath = result.draft.points;
-        await polygonService.bridgePolygon(
-          result.bridgeInfo.startPolygonId as unknown as PolygonID,
-          result.bridgeInfo.startVertexIndex,
-          result.bridgeInfo.endPolygonId as unknown as PolygonID,
-          result.bridgeInfo.endVertexIndex,
-          bridgePath,
-          "",
-        );
-      } else if (result.targetAreaId) {
-        await polygonService.savePolygonForArea(
-          result.draft,
-          result.targetAreaId,
-          result.targetAreaId,
-        );
-      } else {
-        await polygonService.savePolygon(result.draft, "");
-      }
-      await reloadPolygons();
-      treeRef.current?.reload();
-    } catch (err) {
-      console.error("save polygon failed:", err);
-    }
-  }, [actions, polygonService, reloadPolygons]);
+  const handleSavePolygon = saveAndReload;
 
   const handleDeletePolygon = useCallback(
     async (id: PolygonID) => {
