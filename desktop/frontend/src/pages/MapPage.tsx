@@ -17,54 +17,6 @@ const SIDEBAR_MIN_WIDTH = 192;
 
 type SidebarTab = "areas" | "polygons";
 
-/**
- * ポリゴンの外環 ring 上で from → to 間の頂点を返す（短い方向で歩く）。
- * ring は GeoJSON 座標 [lng, lat][] で、最初と最後が同じ点（閉じたリング）。
- * from/to は ring 上の辺に乗る点。返り値は {lat, lng}[] で from/to 自体は含まない。
- */
-function walkBoundary(
-  ring: number[][],
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number },
-): { lat: number; lng: number }[] {
-  const n = ring.length - 1; // 最後は閉じ点なので除外
-  const eps = 1e-8;
-
-  // ring 上の辺インデックスを見つける（点 p が辺 ring[i]→ring[i+1] 上にある）
-  const findEdge = (p: { lat: number; lng: number }): number => {
-    for (let i = 0; i < n; i++) {
-      const [ax, ay] = ring[i];
-      const [bx, by] = ring[i + 1];
-      const dAP = Math.hypot(p.lng - ax, p.lat - ay);
-      const dPB = Math.hypot(bx - p.lng, by - p.lat);
-      const dAB = Math.hypot(bx - ax, by - ay);
-      if (Math.abs(dAP + dPB - dAB) < eps) return i;
-    }
-    return 0;
-  };
-
-  const fromEdge = findEdge(from);
-  const toEdge = findEdge(to);
-
-  // 正方向（fromEdge → toEdge）で ring 頂点を収集
-  const fwd: { lat: number; lng: number }[] = [];
-  let idx = (fromEdge + 1) % n;
-  while (idx !== (toEdge + 1) % n) {
-    fwd.push({ lat: ring[idx][1], lng: ring[idx][0] });
-    idx = (idx + 1) % n;
-  }
-
-  // 逆方向
-  const bwd: { lat: number; lng: number }[] = [];
-  idx = fromEdge;
-  while (idx !== toEdge) {
-    bwd.push({ lat: ring[idx][1], lng: ring[idx][0] });
-    idx = (idx - 1 + n) % n;
-  }
-
-  return fwd.length <= bwd.length ? fwd : bwd;
-}
-
 export function MapPage() {
   const { t } = useI18n();
   const { snapshot, actions } = useMapState();
@@ -207,7 +159,18 @@ export function MapPage() {
           result.targetAreaId,
         );
       } else {
-        await polygonService.savePolygon(result.draft, "");
+        const saved = await polygonService.savePolygon(result.draft, "");
+        // 保存後に既存ポリゴンとの重なりを解決
+        const allPolys = polygonService.getAllPolygons();
+        const overlapping = allPolys.filter(
+          (p) => (p.id as string) !== (saved.id as string),
+        );
+        if (overlapping.length > 0) {
+          await polygonService.resolveOverlaps([
+            saved.id,
+            ...overlapping.map((p) => p.id),
+          ]);
+        }
       }
       await reloadPolygons();
       treeRef.current?.reload();
@@ -318,21 +281,13 @@ export function MapPage() {
                     });
                     await reloadPolygons();
                     treeRef.current?.reload();
-                    // 残りドラフト断片をポリゴン境界で繋いでコの字にする
+                    // 残りドラフト断片を直結してコの字にする
+                    // A→int1 + int2→C = 台形（境界角頂点は不要）
                     const drafts = result.remainingDrafts;
                     if (drafts.length > 0) {
-                      // カーブ前のポリゴン境界を使う（ノッチなし）
-                      const ring = poly.geometry.coordinates[0];
-                      const allPoints: { lat: number; lng: number }[] = [
-                        ...drafts[0].points,
-                      ];
-                      for (let di = 1; di < drafts.length; di++) {
-                        // 前断片の末尾 → 次断片の先頭をポリゴン境界で繋ぐ
-                        const exitPt = allPoints[allPoints.length - 1];
-                        const entryPt = drafts[di].points[0];
-                        const boundaryPts = walkBoundary(ring, exitPt, entryPt);
-                        allPoints.push(...boundaryPts);
-                        allPoints.push(...drafts[di].points);
+                      const allPoints: { lat: number; lng: number }[] = [];
+                      for (const rd of drafts) {
+                        allPoints.push(...rd.points);
                       }
                       const continuation = {
                         points: allPoints,

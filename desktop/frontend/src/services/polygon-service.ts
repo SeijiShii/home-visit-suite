@@ -176,6 +176,10 @@ export class PolygonService {
     return this.editor.resolveOverlapsWithDraft(polygonId, draft);
   }
 
+  async resolveOverlaps(polygonIds: PolygonID[]) {
+    return this.editor.resolveOverlaps(polygonIds);
+  }
+
   async savePolygonResolvingOverlaps(
     draft: DraftShape,
     displayName: string,
