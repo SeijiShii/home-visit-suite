@@ -1,14 +1,14 @@
 import { useState, useRef, useCallback } from "react";
 import { useI18n } from "../contexts/I18nContext";
-import type { MapPolygon, PolygonID } from "map-polygon-editor";
+import type { PolygonID, PolygonSnapshot } from "map-polygon-editor";
 import type { PolygonAreaInfo } from "../services/polygon-service";
 
 interface PolygonListProps {
-  polygons: MapPolygon[];
+  polygons: PolygonSnapshot[];
   polygonAreaMap: Map<string, PolygonAreaInfo>;
   selectedPolygonId: PolygonID | null;
   onPolygonClick: (id: PolygonID) => void;
-  onDeletePolygon: (id: PolygonID) => void;
+  onDeletePolygon: (snapshot: PolygonSnapshot) => void;
   isDrawing: boolean;
 }
 
@@ -21,30 +21,27 @@ export function PolygonList({
   isDrawing,
 }: PolygonListProps) {
   const { t } = useI18n();
-  const [pendingDeleteId, setPendingDeleteId] = useState<PolygonID | null>(
+  const [pendingDelete, setPendingDelete] = useState<PolygonSnapshot | null>(
     null,
   );
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  const openDialog = useCallback(
-    (id: PolygonID) => {
-      setPendingDeleteId(id);
-      dialogRef.current?.showModal();
-    },
-    [],
-  );
+  const openDialog = useCallback((snapshot: PolygonSnapshot) => {
+    setPendingDelete(snapshot);
+    dialogRef.current?.showModal();
+  }, []);
 
   const closeDialog = useCallback(() => {
     dialogRef.current?.close();
-    setPendingDeleteId(null);
+    setPendingDelete(null);
   }, []);
 
   const confirmDelete = useCallback(() => {
-    if (pendingDeleteId) {
-      onDeletePolygon(pendingDeleteId);
+    if (pendingDelete) {
+      onDeletePolygon(pendingDelete);
     }
     closeDialog();
-  }, [pendingDeleteId, onDeletePolygon, closeDialog]);
+  }, [pendingDelete, onDeletePolygon, closeDialog]);
 
   if (polygons.length === 0) {
     return (
@@ -77,7 +74,7 @@ export function PolygonList({
                 disabled={isDrawing}
                 onClick={(e) => {
                   e.stopPropagation();
-                  openDialog(poly.id);
+                  openDialog(poly);
                 }}
               >
                 {t.map.deletePolygon}

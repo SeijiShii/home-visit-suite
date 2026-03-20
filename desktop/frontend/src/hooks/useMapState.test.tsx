@@ -1,15 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useMapState, MapMode } from './useMapState';
+import { describe, it, expect } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { useMapState, MapMode } from "./useMapState";
 
-describe('useMapState', () => {
-  it('初期状態はViewing', () => {
+describe("useMapState", () => {
+  it("初期状態はIdle", () => {
     const { result } = renderHook(() => useMapState());
-    expect(result.current.snapshot.mode).toBe(MapMode.Viewing);
-    expect(result.current.snapshot.draft).toBeNull();
+    expect(result.current.snapshot.mode).toBe(MapMode.Idle);
   });
 
-  it('startDrawingでDrawingモードに遷移', () => {
+  it("startDrawingでDrawingモードに遷移", () => {
     const { result } = renderHook(() => useMapState());
 
     act(() => {
@@ -17,31 +16,29 @@ describe('useMapState', () => {
     });
 
     expect(result.current.snapshot.mode).toBe(MapMode.Drawing);
-    expect(result.current.snapshot.draft).not.toBeNull();
   });
 
-  it('cancelDrawingでViewingに戻る', () => {
+  it("endDrawingでIdleに戻る", () => {
     const { result } = renderHook(() => useMapState());
 
     act(() => {
       result.current.actions.startDrawing();
     });
     act(() => {
-      result.current.actions.cancelDrawing();
+      result.current.actions.endDrawing();
     });
 
-    expect(result.current.snapshot.mode).toBe(MapMode.Viewing);
-    expect(result.current.snapshot.draft).toBeNull();
+    expect(result.current.snapshot.mode).toBe(MapMode.Idle);
   });
 
-  it('updateDraftでスナップショットが更新される', () => {
+  it("startEditingでEditingモードに遷移", () => {
     const { result } = renderHook(() => useMapState());
 
-    const mockDraft = { points: [{ lat: 35, lng: 140 }], isClosed: false } as any;
     act(() => {
-      result.current.actions.updateDraft(mockDraft);
+      result.current.actions.startEditing("p1" as any);
     });
 
-    expect(result.current.snapshot.draft).toEqual(mockDraft);
+    expect(result.current.snapshot.mode).toBe(MapMode.Editing);
+    expect(result.current.snapshot.selectedPolygonId).toBe("p1");
   });
 });

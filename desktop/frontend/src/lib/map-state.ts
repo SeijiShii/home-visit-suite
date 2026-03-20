@@ -1,12 +1,7 @@
-import type { PolygonID, DraftShape } from "map-polygon-editor";
-import {
-  DrawingController,
-  type FinalizeResult,
-  type FinalizeSplitResult,
-} from "./drawing-controller";
+import type { PolygonID } from "map-polygon-editor";
 
 export enum MapMode {
-  Viewing = "viewing",
+  Idle = "idle",
   Drawing = "drawing",
   Editing = "editing",
 }
@@ -14,92 +9,19 @@ export enum MapMode {
 type ChangeListener = () => void;
 
 export class MapState {
-  mode: MapMode = MapMode.Viewing;
+  mode: MapMode = MapMode.Idle;
   selectedPolygonId: PolygonID | null = null;
-  draft: DraftShape | null = null;
-  readonly drawingController = new DrawingController();
 
   private listeners: ChangeListener[] = [];
 
   startDrawing(): void {
-    this.drawingController.startFreeDrawing();
     this.mode = MapMode.Drawing;
     this.selectedPolygonId = null;
-    this.draft = this.drawingController.draft;
     this.notify();
   }
 
-  startDrawingForArea(areaId: string): void {
-    this.drawingController.startDrawing(areaId);
-    this.mode = MapMode.Drawing;
-    this.selectedPolygonId = null;
-    this.draft = this.drawingController.draft;
-    this.notify();
-  }
-
-  cancelDrawing(): void {
-    this.mode = MapMode.Viewing;
-    this.draft = null;
-    this.drawingController.cancel();
-    this.notify();
-  }
-
-  handleMapClick(lat: number, lng: number): void {
-    if (this.mode !== MapMode.Drawing || !this.drawingController.isActive)
-      return;
-
-    this.drawingController.addPoint(lat, lng);
-    this.draft = this.drawingController.draft;
-    this.notify();
-  }
-
-  closeDrawing(): void {
-    if (!this.drawingController.isActive || !this.drawingController.canClose)
-      return;
-    this.drawingController.closeDraft();
-    this.draft = this.drawingController.draft;
-    this.notify();
-  }
-
-  finalizeDrawing(): FinalizeResult | null {
-    if (!this.drawingController.isActive) return null;
-    try {
-      const result = this.drawingController.finalize();
-      this.mode = MapMode.Viewing;
-      this.draft = null;
-      this.notify();
-      return result;
-    } catch {
-      return null;
-    }
-  }
-
-  finalizeSplitDrawing(): FinalizeSplitResult | null {
-    if (!this.drawingController.isActive) return null;
-    if (!this.drawingController.isSplitMode) return null;
-    try {
-      const result = this.drawingController.finalizeSplit();
-      this.mode = MapMode.Viewing;
-      this.draft = null;
-      this.notify();
-      return result;
-    } catch {
-      return null;
-    }
-  }
-
-  undoLastPoint(): void {
-    if (!this.drawingController.isActive) return;
-    this.drawingController.removeLastPoint();
-    // 頂点が0になったら描画モードを解除
-    if (this.drawingController.draft?.points.length === 0) {
-      this.drawingController.cancel();
-      this.mode = MapMode.Viewing;
-      this.draft = null;
-      this.notify();
-      return;
-    }
-    this.draft = this.drawingController.draft;
+  endDrawing(): void {
+    this.mode = MapMode.Idle;
     this.notify();
   }
 
@@ -109,28 +31,14 @@ export class MapState {
     this.notify();
   }
 
-  cancelEditing(): void {
-    this.mode = MapMode.Viewing;
+  endEditing(): void {
+    this.mode = MapMode.Idle;
     this.selectedPolygonId = null;
-    this.draft = null;
-    this.notify();
-  }
-
-  updateDraft(draft: DraftShape | null): void {
-    this.draft = draft;
-    this.notify();
-  }
-
-  /** 現在の描画を維持しつつドラフトを差し替える（resolveOverlaps の残りドラフト用） */
-  replaceDraft(draft: DraftShape): void {
-    if (this.mode !== MapMode.Drawing) return;
-    this.drawingController.replaceDraft(draft);
-    this.draft = this.drawingController.draft;
     this.notify();
   }
 
   selectPolygon(id: PolygonID | null): void {
-    if (this.mode !== MapMode.Viewing) return;
+    if (this.mode !== MapMode.Idle) return;
     this.selectedPolygonId = id;
     this.notify();
   }

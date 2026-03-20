@@ -26,6 +26,7 @@ export interface Translations {
     closePolygon: string;
     savePolygon: string;
     cancelDrawing: string;
+    endDrawing: string;
     undoPoint: string;
     drawingHint: string;
     drawingClosed: string;
@@ -37,6 +38,7 @@ export interface Translations {
     confirmDeletePolygon: string;
     editingHint: string;
     finishEditing: string;
+    pruneOrphans: string;
   };
   areaTree: {
     title: string;

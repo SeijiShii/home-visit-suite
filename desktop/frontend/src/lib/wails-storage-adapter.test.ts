@@ -1,17 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { WailsStorageAdapter } from './wails-storage-adapter';
-import type { MapPolygon, PersistedDraft, ChangeSet } from 'map-polygon-editor';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { WailsStorageAdapter } from "./wails-storage-adapter";
+import type { Vertex, Edge, PolygonSnapshot } from "map-polygon-editor";
+import { createVertexID, createEdgeID, createPolygonID } from "map-polygon-editor";
 
 // Wails Go バインディングのモック
 const mockMapBinding = {
-  GetPolygonsJSON: vi.fn(),
-  GetDraftsJSON: vi.fn(),
-  BatchWrite: vi.fn(),
-  SaveDraft: vi.fn(),
-  DeleteDraft: vi.fn(),
+  GetNetworkJSON: vi.fn(),
+  SaveNetworkJSON: vi.fn(),
 };
 
-describe('WailsStorageAdapter', () => {
+describe("WailsStorageAdapter", () => {
   let adapter: WailsStorageAdapter;
 
   beforeEach(() => {
@@ -19,87 +17,95 @@ describe('WailsStorageAdapter', () => {
     adapter = new WailsStorageAdapter(mockMapBinding);
   });
 
-  describe('loadAll', () => {
-    it('空のデータを返す', async () => {
-      mockMapBinding.GetPolygonsJSON.mockResolvedValue('[]');
-      mockMapBinding.GetDraftsJSON.mockResolvedValue('[]');
+  describe("loadAll", () => {
+    it("空のデータを返す", async () => {
+      mockMapBinding.GetNetworkJSON.mockResolvedValue(
+        JSON.stringify({ vertices: [], edges: [], polygons: [] }),
+      );
 
       const result = await adapter.loadAll();
 
+      expect(result.vertices).toEqual([]);
+      expect(result.edges).toEqual([]);
       expect(result.polygons).toEqual([]);
-      expect(result.drafts).toEqual([]);
     });
 
-    it('ポリゴンをパースして返す', async () => {
-      const polygons: MapPolygon[] = [{
-        id: 'p1' as any,
-        geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
-        display_name: 'Test Polygon',
-        metadata: {},
-        created_at: new Date('2026-01-01'),
-        updated_at: new Date('2026-01-01'),
-      } as MapPolygon];
+    it("頂点・線分・ポリゴンをパースして返す", async () => {
+      const v1 = createVertexID("v1");
+      const v2 = createVertexID("v2");
+      const v3 = createVertexID("v3");
+      const e1 = createEdgeID("e1");
+      const e2 = createEdgeID("e2");
+      const e3 = createEdgeID("e3");
+      const p1 = createPolygonID("p1");
 
-      mockMapBinding.GetPolygonsJSON.mockResolvedValue(JSON.stringify(polygons));
-      mockMapBinding.GetDraftsJSON.mockResolvedValue('[]');
+      const data = {
+        vertices: [
+          { id: v1, lat: 35.776, lng: 140.318 },
+          { id: v2, lat: 35.777, lng: 140.319 },
+          { id: v3, lat: 35.778, lng: 140.32 },
+        ],
+        edges: [
+          { id: e1, v1, v2 },
+          { id: e2, v1: v2, v2: v3 },
+          { id: e3, v1: v3, v2: v1 },
+        ],
+        polygons: [{ id: p1, edgeIds: [e1, e2, e3], holes: [] }],
+      };
+
+      mockMapBinding.GetNetworkJSON.mockResolvedValue(JSON.stringify(data));
 
       const result = await adapter.loadAll();
 
+      expect(result.vertices).toHaveLength(3);
+      expect(result.vertices[0].lat).toBe(35.776);
+      expect(result.edges).toHaveLength(3);
       expect(result.polygons).toHaveLength(1);
-      expect(result.polygons[0].display_name).toBe('Test Polygon');
+      expect(result.polygons[0].edgeIds).toEqual([e1, e2, e3]);
     });
 
-    it('Go側のエラーを伝播する', async () => {
-      mockMapBinding.GetPolygonsJSON.mockRejectedValue(new Error('storage error'));
+    it("Go側のエラーを伝播する", async () => {
+      mockMapBinding.GetNetworkJSON.mockRejectedValue(
+        new Error("storage error"),
+      );
 
-      await expect(adapter.loadAll()).rejects.toThrow('storage error');
+      await expect(adapter.loadAll()).rejects.toThrow("storage error");
     });
   });
 
-  describe('batchWrite', () => {
-    it('ChangeSetをJSON化してGo側に送る', async () => {
-      mockMapBinding.BatchWrite.mockResolvedValue(undefined);
+  describe("saveAll", () => {
+    it("ネットワークデータをJSON化してGo側に送る", async () => {
+      mockMapBinding.SaveNetworkJSON.mockResolvedValue(undefined);
 
-      const changes: ChangeSet = {
-        createdPolygons: [],
-        deletedPolygonIds: [],
-        modifiedPolygons: [],
+      const v1 = createVertexID("v1");
+      const v2 = createVertexID("v2");
+      const e1 = createEdgeID("e1");
+      const p1 = createPolygonID("p1");
+
+      const data = {
+        vertices: [
+          { id: v1, lat: 35.776, lng: 140.318 },
+          { id: v2, lat: 35.777, lng: 140.319 },
+        ] as Vertex[],
+        edges: [{ id: e1, v1, v2 }] as Edge[],
+        polygons: [{ id: p1, edgeIds: [e1], holes: [] }] as PolygonSnapshot[],
       };
 
-      await adapter.batchWrite(changes);
+      await adapter.saveAll(data);
 
-      expect(mockMapBinding.BatchWrite).toHaveBeenCalledWith(
-        JSON.stringify(changes)
-      );
-    });
-  });
-
-  describe('saveDraft / deleteDraft', () => {
-    it('下書きを保存できる', async () => {
-      mockMapBinding.SaveDraft.mockResolvedValue(undefined);
-
-      const draft: PersistedDraft = {
-        id: 'd1' as any,
-        points: [{ lat: 35.0, lng: 140.0 }],
-        isClosed: false,
-        metadata: {},
-        created_at: new Date('2026-01-01'),
-        updated_at: new Date('2026-01-01'),
-      };
-
-      await adapter.saveDraft(draft);
-
-      expect(mockMapBinding.SaveDraft).toHaveBeenCalledWith(
-        JSON.stringify(draft)
+      expect(mockMapBinding.SaveNetworkJSON).toHaveBeenCalledWith(
+        JSON.stringify(data),
       );
     });
 
-    it('下書きを削除できる', async () => {
-      mockMapBinding.DeleteDraft.mockResolvedValue(undefined);
+    it("Go側のエラーを伝播する", async () => {
+      mockMapBinding.SaveNetworkJSON.mockRejectedValue(
+        new Error("write error"),
+      );
 
-      await adapter.deleteDraft('d1' as any);
-
-      expect(mockMapBinding.DeleteDraft).toHaveBeenCalledWith('d1');
+      await expect(
+        adapter.saveAll({ vertices: [], edges: [], polygons: [] }),
+      ).rejects.toThrow("write error");
     });
   });
 });

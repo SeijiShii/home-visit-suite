@@ -1,13 +1,10 @@
-import {
-  type MapPolygonEditor,
-  type DraftShape,
-  type MapPolygon,
-  type PolygonID,
-  type Point,
-  type BridgeResult,
-  type GeometryViolation,
-  insertPoint,
+import type {
+  NetworkPolygonEditor,
+  PolygonSnapshot,
+  PolygonID,
+  ChangeSet,
 } from "map-polygon-editor";
+import type { Polygon } from "geojson";
 import type { AreaTreeNode } from "./region-service";
 
 export interface PolygonAreaInfo {
@@ -41,126 +38,54 @@ export interface PolygonBindingAPI {
 
 export class PolygonService {
   constructor(
-    private readonly editor: MapPolygonEditor,
+    private readonly editor: NetworkPolygonEditor,
     private readonly regionAPI: PolygonBindingAPI,
   ) {}
 
-  async savePolygonForArea(
-    draft: DraftShape,
-    areaId: string,
-    displayName: string,
-  ): Promise<MapPolygon> {
-    if (!draft.isClosed) {
-      throw new Error("Cannot save: draft is not closed.");
-    }
-    const polygon = await this.editor.saveAsPolygon(draft, displayName);
-    await this.regionAPI.BindPolygonToArea(areaId, polygon.id as string);
-    return polygon;
-  }
-
-  async deletePolygon(polygonId: PolygonID): Promise<void> {
-    await this.editor.deletePolygon(polygonId);
-  }
-
-  async deletePolygonForArea(
+  async bindPolygonToArea(
     polygonId: PolygonID,
     areaId: string,
   ): Promise<void> {
-    await this.editor.deletePolygon(polygonId);
+    await this.regionAPI.BindPolygonToArea(areaId, polygonId as string);
+  }
+
+  async unbindPolygonFromArea(areaId: string): Promise<void> {
     await this.regionAPI.UnbindPolygonFromArea(areaId);
   }
 
-  async savePolygon(
-    draft: DraftShape,
-    displayName: string,
-  ): Promise<MapPolygon> {
-    if (!draft.isClosed) {
-      throw new Error("Cannot save: draft is not closed.");
+  /** ポリゴンの構成エッジを全削除（穴含む）→ ポリゴン消滅 */
+  deletePolygonEdges(snapshot: PolygonSnapshot): ChangeSet {
+    let lastCs: ChangeSet | null = null;
+    // 穴のエッジを先に削除
+    for (const holeEdges of snapshot.holes) {
+      for (const edgeId of holeEdges) {
+        lastCs = this.editor.removeEdge(edgeId);
+      }
     }
-    return this.editor.saveAsPolygon(draft, displayName);
+    // 外周エッジを削除
+    for (const edgeId of snapshot.edgeIds) {
+      lastCs = this.editor.removeEdge(edgeId);
+    }
+    return lastCs!;
   }
 
-  async bridgePolygon(
-    polygonAId: PolygonID,
-    aVertexIndex: number,
-    polygonBId: PolygonID,
-    bVertexIndex: number,
-    bridgePath: { lat: number; lng: number }[],
-    name: string,
-  ): Promise<BridgeResult> {
-    return this.editor.bridgePolygons(
-      polygonAId,
-      aVertexIndex,
-      polygonBId,
-      bVertexIndex,
-      bridgePath,
-      name,
-    );
+  async deletePolygonForArea(
+    snapshot: PolygonSnapshot,
+    areaId: string,
+  ): Promise<void> {
+    this.deletePolygonEdges(snapshot);
+    await this.regionAPI.UnbindPolygonFromArea(areaId);
   }
 
-  async splitPolygon(
-    polygonId: PolygonID,
-    draft: DraftShape,
-  ): Promise<MapPolygon[]> {
-    return this.editor.splitPolygon(polygonId, draft);
+  async save(): Promise<void> {
+    await this.editor.save();
   }
 
-  async moveVertex(
-    polygonId: PolygonID,
-    index: number,
-    lat: number,
-    lng: number,
-  ): Promise<MapPolygon[]> {
-    return this.editor.sharedEdgeMove(polygonId, index, lat, lng);
-  }
-
-  async insertVertex(
-    polygonId: PolygonID,
-    afterIndex: number,
-    lat: number,
-    lng: number,
-  ): Promise<MapPolygon> {
-    const draft = this.editor.loadPolygonToDraft(polygonId);
-    const updated = insertPoint(draft, afterIndex + 1, { lat, lng });
-    return this.editor.updatePolygonGeometry(polygonId, updated);
-  }
-
-  findNearestVertex(point: Point, radius: number): Point | null {
-    return this.editor.findNearestVertex(point, radius);
-  }
-
-  findEdgeIntersections(p1: Point, p2: Point): Point[] {
-    return this.editor.findEdgeIntersections(p1, p2);
-  }
-
-  async carveInnerPolygon(
-    polygonId: PolygonID,
-    loopPath: { lat: number; lng: number }[],
-  ): Promise<{ outer: MapPolygon; inner: MapPolygon }> {
-    return this.editor.carveInnerPolygon(polygonId, loopPath);
-  }
-
-  async expandWithPolygon(
-    polygonId: PolygonID,
-    outerPath: { lat: number; lng: number }[],
-    childName: string,
-  ): Promise<{ original: MapPolygon; added: MapPolygon }> {
-    return this.editor.expandWithPolygon(polygonId, outerPath, childName);
-  }
-
-  async renamePolygon(polygonId: PolygonID, name: string): Promise<MapPolygon> {
-    return this.editor.renamePolygon(polygonId, name);
-  }
-
-  validateDraft(draft: DraftShape): GeometryViolation[] {
-    return this.editor.validateDraft(draft);
-  }
-
-  async undo(): Promise<void> {
+  undo(): ChangeSet | null {
     return this.editor.undo();
   }
 
-  async redo(): Promise<void> {
+  redo(): ChangeSet | null {
     return this.editor.redo();
   }
 
@@ -172,63 +97,11 @@ export class PolygonService {
     return this.editor.canRedo();
   }
 
-  async resolveOverlapsWithDraft(polygonId: PolygonID, draft: DraftShape) {
-    return this.editor.resolveOverlapsWithDraft(polygonId, draft);
+  getPolygons(): PolygonSnapshot[] {
+    return this.editor.getPolygons();
   }
 
-  async resolveOverlaps(polygonIds: PolygonID[]) {
-    return this.editor.resolveOverlaps(polygonIds);
-  }
-
-  async savePolygonResolvingOverlaps(
-    draft: DraftShape,
-    displayName: string,
-  ): Promise<
-    | { saved: MapPolygon }
-    | {
-        modified: MapPolygon;
-        created: MapPolygon[];
-        remainingDrafts: DraftShape[];
-      }
-  > {
-    if (!draft.isClosed) {
-      throw new Error("Cannot save: draft is not closed.");
-    }
-
-    // ドラフトの各辺が既存ポリゴンと交差するか確認
-    let hasIntersection = false;
-    for (let i = 0; i < draft.points.length; i++) {
-      const p1 = draft.points[i];
-      const p2 = draft.points[(i + 1) % draft.points.length];
-      if (this.editor.findEdgeIntersections(p1, p2).length > 0) {
-        hasIntersection = true;
-        break;
-      }
-    }
-
-    if (hasIntersection) {
-      const openDraft: DraftShape = { points: draft.points, isClosed: false };
-      for (const poly of this.editor.getAllPolygons()) {
-        const result = await this.editor.resolveOverlapsWithDraft(
-          poly.id,
-          openDraft,
-        );
-        if (result.created.length > 0) {
-          return {
-            modified: result.modified,
-            created: result.created,
-            remainingDrafts: result.remainingDrafts,
-          };
-        }
-      }
-    }
-
-    // 交差なし → 通常保存
-    const saved = await this.editor.saveAsPolygon(draft, displayName);
-    return { saved };
-  }
-
-  getAllPolygons(): MapPolygon[] {
-    return this.editor.getAllPolygons();
+  getPolygonGeoJSON(id: PolygonID): Polygon | null {
+    return this.editor.getPolygonGeoJSON(id);
   }
 }

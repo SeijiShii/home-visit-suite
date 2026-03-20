@@ -26,6 +26,7 @@ const ja: Translations = {
     closePolygon: "ポリゴンを閉じる",
     savePolygon: "保存",
     cancelDrawing: "キャンセル",
+    endDrawing: "描画終了",
     undoPoint: "戻す",
     drawingHint: "地図をクリックして頂点を追加。始点付近クリックで閉じます。",
     drawingClosed: "ポリゴンが閉じました。保存またはキャンセルしてください。",
@@ -38,6 +39,7 @@ const ja: Translations = {
     editingHint:
       "頂点をドラッグして編集。地図の空白クリックまたは「編集完了」で終了。",
     finishEditing: "編集完了",
+    pruneOrphans: "不要要素を削除",
   },
   areaTree: {
     title: "区域地図",

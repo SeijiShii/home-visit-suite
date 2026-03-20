@@ -1,40 +1,30 @@
 import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import { MapRenderer } from "../lib/map-renderer";
 import type {
-  MapRendererCallbacks,
-  SnapInfo,
-  VertexDragEvent,
-  EdgeClickEvent,
-} from "../lib/map-renderer";
-import type { DraftShape, PolygonID, MapPolygon } from "map-polygon-editor";
-import type { BridgeInfo } from "../lib/drawing-controller";
+  ChangeSet,
+  PolygonID,
+  VertexID,
+  NetworkPolygonEditor,
+} from "map-polygon-editor";
 
 export interface MapViewHandle {
-  renderDraft(
-    draft: DraftShape | null,
-    bridgeInfo?: BridgeInfo | null,
-    isSplitMode?: boolean,
-  ): void;
+  applyChangeSet(cs: ChangeSet): void;
+  renderAll(linkedPolygonIds?: Set<string>): void;
+  setEditor(editor: NetworkPolygonEditor): void;
   setCursor(cursor: string): void;
   highlightPolygon(id: PolygonID | null): void;
   focusPolygon(id: PolygonID): void;
-  renderPolygons(
-    polygons: MapPolygon[],
-    callbacks?: MapRendererCallbacks,
-    linkedPolygonIds?: Set<string>,
-  ): void;
-  enterEditMode(
-    id: PolygonID,
-    onVertexDrag: (event: VertexDragEvent) => void,
-  ): void;
-  exitEditMode(): void;
-  updateEditMarkers(polygons: MapPolygon[]): void;
-  rebuildEditMarkers(polygon: MapPolygon): void;
-  findEdgeAtClick(lat: number, lng: number): EdgeClickEvent | null;
+  setLinkedPolygonIds(ids: Set<string>): void;
   enableRubberBand(): void;
   disableRubberBand(): void;
-  isNearStartPoint(lat: number, lng: number): boolean;
-  getSnapInfo(lat: number, lng: number): SnapInfo | null;
+  enableVertexDrag(
+    callback: (vertexId: VertexID, lat: number, lng: number) => void,
+  ): void;
+  disableVertexDrag(): void;
+  showVertices(): void;
+  hideVertices(): void;
+  pixelsToDegrees(px: number): number;
+  getSnapThresholdPx(): number;
 }
 
 interface MapViewProps {
@@ -53,8 +43,14 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   callbacksRef.current = { onMapClick, onPolygonClick, onContextMenu };
 
   useImperativeHandle(ref, () => ({
-    renderDraft(draft, bridgeInfo, isSplitMode) {
-      rendererRef.current?.renderDraft(draft, bridgeInfo, isSplitMode);
+    applyChangeSet(cs) {
+      rendererRef.current?.applyChangeSet(cs);
+    },
+    renderAll(linkedPolygonIds) {
+      rendererRef.current?.renderAll(linkedPolygonIds);
+    },
+    setEditor(editor) {
+      rendererRef.current?.setEditor(editor);
     },
     setCursor(cursor) {
       rendererRef.current?.setCursor(cursor);
@@ -65,27 +61,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     focusPolygon(id) {
       rendererRef.current?.focusPolygon(id);
     },
-    renderPolygons(polygons, callbacks, linkedPolygonIds) {
-      rendererRef.current?.renderPolygons(
-        polygons,
-        callbacks,
-        linkedPolygonIds,
-      );
-    },
-    enterEditMode(id, onVertexDrag) {
-      rendererRef.current?.enterEditMode(id, onVertexDrag);
-    },
-    exitEditMode() {
-      rendererRef.current?.exitEditMode();
-    },
-    updateEditMarkers(polygons) {
-      rendererRef.current?.updateEditMarkers(polygons);
-    },
-    rebuildEditMarkers(polygon) {
-      rendererRef.current?.rebuildEditMarkers(polygon);
-    },
-    findEdgeAtClick(lat, lng) {
-      return rendererRef.current?.findEdgeAtClick(lat, lng) ?? null;
+    setLinkedPolygonIds(ids) {
+      rendererRef.current?.setLinkedPolygonIds(ids);
     },
     enableRubberBand() {
       rendererRef.current?.enableRubberBand();
@@ -93,11 +70,23 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     disableRubberBand() {
       rendererRef.current?.disableRubberBand();
     },
-    isNearStartPoint(lat, lng) {
-      return rendererRef.current?.isNearStartPoint(lat, lng) ?? false;
+    enableVertexDrag(callback) {
+      rendererRef.current?.enableVertexDrag(callback);
     },
-    getSnapInfo(lat, lng) {
-      return rendererRef.current?.getSnapInfo(lat, lng) ?? null;
+    disableVertexDrag() {
+      rendererRef.current?.disableVertexDrag();
+    },
+    showVertices() {
+      rendererRef.current?.showVertices();
+    },
+    hideVertices() {
+      rendererRef.current?.hideVertices();
+    },
+    pixelsToDegrees(px) {
+      return rendererRef.current?.pixelsToDegrees(px) ?? 0.001;
+    },
+    getSnapThresholdPx() {
+      return rendererRef.current?.getSnapThresholdPx() ?? 20;
     },
   }));
 

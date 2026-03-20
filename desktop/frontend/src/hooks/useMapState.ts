@@ -1,18 +1,16 @@
-import { useRef, useMemo, useSyncExternalStore } from 'react';
-import { MapState, MapMode } from '../lib/map-state';
-import type { DraftShape, PolygonID } from 'map-polygon-editor';
+import { useRef, useMemo, useSyncExternalStore } from "react";
+import { MapState, MapMode } from "../lib/map-state";
+import type { PolygonID } from "map-polygon-editor";
 
 export interface MapStateSnapshot {
   mode: MapMode;
   selectedPolygonId: PolygonID | null;
-  draft: DraftShape | null;
 }
 
 function takeSnapshot(s: MapState): MapStateSnapshot {
   return {
     mode: s.mode,
     selectedPolygonId: s.selectedPolygonId,
-    draft: s.draft,
   };
 }
 

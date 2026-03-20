@@ -26,6 +26,7 @@ const en: Translations = {
     closePolygon: "Close Polygon",
     savePolygon: "Save",
     cancelDrawing: "Cancel",
+    endDrawing: "End Drawing",
     undoPoint: "Undo",
     drawingHint:
       "Click on the map to add vertices. Click near start point to close.",
@@ -38,6 +39,7 @@ const en: Translations = {
     confirmDeletePolygon: "Delete this polygon?",
     editingHint: "Drag vertices to edit. Click empty area or 'Finish' to exit.",
     finishEditing: "Finish Editing",
+    pruneOrphans: "Remove Orphans",
   },
   areaTree: {
     title: "Area Map",

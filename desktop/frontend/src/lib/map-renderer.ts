@@ -1,6 +1,11 @@
 import L from "leaflet";
-import type { MapPolygon, DraftShape, PolygonID } from "map-polygon-editor";
-import type { BridgeInfo } from "./drawing-controller";
+import type {
+  ChangeSet,
+  PolygonID,
+  VertexID,
+  EdgeID,
+  NetworkPolygonEditor,
+} from "map-polygon-editor";
 
 const GSI_TILE_URL = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png";
 const GSI_ATTRIBUTION =
@@ -12,40 +17,6 @@ export interface PolygonStyle {
   color: string;
   weight: number;
   fillOpacity: number;
-}
-
-export interface SnapVertex {
-  lat: number;
-  lng: number;
-  polygonId: string;
-  vertexIndex: number;
-}
-
-export interface SnapInfo {
-  lat: number;
-  lng: number;
-  /** ポリゴン頂点にスナップした場合のみセット */
-  anchor?: { polygonId: string; vertexIndex: number };
-}
-
-export function findNearestVertex(
-  lat: number,
-  lng: number,
-  vertices: SnapVertex[],
-  threshold: number,
-): SnapVertex | null {
-  let nearest: SnapVertex | null = null;
-  let minDist = Infinity;
-  for (const v of vertices) {
-    const dlat = v.lat - lat;
-    const dlng = v.lng - lng;
-    const dist = Math.sqrt(dlat * dlat + dlng * dlng);
-    if (dist < threshold && dist < minDist) {
-      minDist = dist;
-      nearest = v;
-    }
-  }
-  return nearest;
 }
 
 export function getPolygonStyle(
@@ -67,20 +38,6 @@ const DEFAULT_CENTER: L.LatLngExpression = [35.776, 140.318];
 const DEFAULT_ZOOM = 14;
 const VIEW_STORAGE_KEY = "map-view";
 
-export interface VertexDragEvent {
-  polygonId: string;
-  vertexIndex: number;
-  lat: number;
-  lng: number;
-}
-
-export interface EdgeClickEvent {
-  polygonId: string;
-  afterIndex: number;
-  lat: number;
-  lng: number;
-}
-
 export interface MapRendererCallbacks {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
@@ -89,17 +46,32 @@ export interface MapRendererCallbacks {
 
 export class MapRenderer {
   private map: L.Map | null = null;
-  private polygonLayers = new Map<string, L.Polygon>();
-  private draftLayer: L.LayerGroup | null = null;
+  private editor: NetworkPolygonEditor | null = null;
+
+  // ネットワーク要素のレイヤー
+  private vertexLayers = new Map<string, L.CircleMarker>();
+  private edgeLayers = new Map<string, L.Polyline>();
+  private polygonLayers = new Map<string, L.GeoJSON>();
+
+  // ラバーバンド（描画中のみ）
   private rubberBandLine: L.Polyline | null = null;
-  private currentDraft: DraftShape | null = null;
+  private lastPlacedVertexId: VertexID | null = null;
   private mouseMoveHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
   private mouseOutHandler: (() => void) | null = null;
   private snapIndicator: L.CircleMarker | null = null;
-  private editMarkers: L.Marker[] = [];
-  private editingPolygonId: string | null = null;
-  private onVertexDragCallback: ((event: VertexDragEvent) => void) | null =
-    null;
+
+  // ポリゴンメタデータ（区域紐付け、選択状態）
+  private linkedPolygonIds: Set<string> = new Set();
+  private selectedId: string | null = null;
+  private polygonClickCallback: ((id: PolygonID) => void) | null = null;
+
+  // 頂点表示制御
+  private verticesVisible = false;
+
+  // 頂点ドラッグ
+  private vertexDragCallback:
+    | ((vertexId: VertexID, lat: number, lng: number) => void)
+    | null = null;
 
   mount(container: HTMLElement, callbacks: MapRendererCallbacks = {}): void {
     const saved = this.loadView();
@@ -120,8 +92,6 @@ export class MapRenderer {
       maxZoom: 19,
     }).addTo(this.map);
 
-    this.draftLayer = L.layerGroup().addTo(this.map);
-
     this.map.on("moveend", () => this.saveView());
 
     if (callbacks.onMapClick) {
@@ -136,6 +106,12 @@ export class MapRenderer {
         callbacks.onContextMenu!();
       });
     }
+
+    this.polygonClickCallback = callbacks.onPolygonClick ?? null;
+  }
+
+  setEditor(editor: NetworkPolygonEditor): void {
+    this.editor = editor;
   }
 
   private saveView(): void {
@@ -169,58 +145,246 @@ export class MapRenderer {
       this.map.remove();
       this.map = null;
     }
+    this.vertexLayers.clear();
+    this.edgeLayers.clear();
     this.polygonLayers.clear();
-    this.draftLayer = null;
+    this.editor = null;
   }
 
-  private linkedPolygonIds: Set<string> = new Set();
-  private selectedId: string | null = null;
+  // --- ネットワーク全体の初期描画 ---
 
-  renderPolygons(
-    polygons: MapPolygon[],
-    callbacks: MapRendererCallbacks = {},
-    linkedPolygonIds?: Set<string>,
-  ): void {
-    if (!this.map) return;
+  renderAll(linkedPolygonIds?: Set<string>): void {
+    if (!this.map || !this.editor) return;
 
     if (linkedPolygonIds) {
       this.linkedPolygonIds = linkedPolygonIds;
     }
 
     // 既存レイヤーをクリア
-    this.polygonLayers.forEach((layer) => layer.remove());
+    this.vertexLayers.forEach((l) => l.remove());
+    this.vertexLayers.clear();
+    this.edgeLayers.forEach((l) => l.remove());
+    this.edgeLayers.clear();
+    this.polygonLayers.forEach((l) => l.remove());
     this.polygonLayers.clear();
 
-    for (const poly of polygons) {
-      const coords = poly.geometry.coordinates[0];
-      // GeoJSON: [lng, lat] → Leaflet: [lat, lng]
-      const latLngs = coords.map(([lng, lat]) => [lat, lng] as L.LatLngTuple);
+    // 頂点
+    for (const v of this.editor.getVertices()) {
+      this.addVertexLayer(v.id, v.lat, v.lng);
+    }
 
-      const isLinked = this.linkedPolygonIds.has(poly.id as string);
-      const isSelected = this.selectedId === (poly.id as string);
-      const style = getPolygonStyle(isLinked, isSelected);
+    // 線分
+    for (const e of this.editor.getEdges()) {
+      this.addEdgeLayer(e.id, e.v1, e.v2);
+    }
 
-      const layer = L.polygon(latLngs, style).addTo(this.map!);
-
-      layer.bindTooltip(poly.display_name);
-
-      if (callbacks.onPolygonClick) {
-        layer.on("click", () => {
-          callbacks.onPolygonClick!(poly.id);
-        });
-      }
-
-      this.polygonLayers.set(poly.id as string, layer);
+    // ポリゴン
+    for (const p of this.editor.getPolygons()) {
+      this.addPolygonLayer(p.id);
     }
   }
 
+  // --- ChangeSet 差分適用 ---
+
+  applyChangeSet(cs: ChangeSet): void {
+    if (!this.map || !this.editor) return;
+
+    // 頂点
+    for (const v of cs.vertices.added) {
+      this.addVertexLayer(v.id, v.lat, v.lng);
+    }
+    for (const id of cs.vertices.removed) {
+      this.vertexLayers.get(id as string)?.remove();
+      this.vertexLayers.delete(id as string);
+    }
+    for (const m of cs.vertices.moved) {
+      const marker = this.vertexLayers.get(m.id as string);
+      if (marker) marker.setLatLng([m.to.lat, m.to.lng]);
+    }
+
+    // 線分
+    for (const e of cs.edges.added) {
+      this.addEdgeLayer(e.id, e.v1, e.v2);
+    }
+    for (const id of cs.edges.removed) {
+      this.edgeLayers.get(id as string)?.remove();
+      this.edgeLayers.delete(id as string);
+    }
+    // 線分の移動: 頂点が動いたら端点も更新
+    if (cs.vertices.moved.length > 0) {
+      this.updateEdgePositions(cs);
+    }
+
+    // ポリゴン
+    for (const p of cs.polygons.created) {
+      this.addPolygonLayer(p.id);
+    }
+    for (const p of cs.polygons.modified) {
+      // 再描画
+      this.polygonLayers.get(p.id as string)?.remove();
+      this.polygonLayers.delete(p.id as string);
+      this.addPolygonLayer(p.id);
+    }
+    for (const id of cs.polygons.removed) {
+      this.polygonLayers.get(id as string)?.remove();
+      this.polygonLayers.delete(id as string);
+    }
+
+    // ラバーバンドの始点を更新
+    // placeVertex() ではユーザーが置いた頂点が added[0]、
+    // 交差解決で生じた頂点がその後に来る。始点は最初の頂点。
+    if (cs.vertices.added.length > 0) {
+      this.lastPlacedVertexId = cs.vertices.added[0].id;
+    }
+  }
+
+  private updateEdgePositions(cs: ChangeSet): void {
+    if (!this.editor) return;
+    const movedIds = new Set(cs.vertices.moved.map((m) => m.id as string));
+    for (const [edgeIdStr, line] of this.edgeLayers) {
+      const edge = this.editor.getEdge(edgeIdStr as EdgeID);
+      if (!edge) continue;
+      if (movedIds.has(edge.v1 as string) || movedIds.has(edge.v2 as string)) {
+        const v1 = this.editor.getVertex(edge.v1);
+        const v2 = this.editor.getVertex(edge.v2);
+        if (v1 && v2) {
+          line.setLatLngs([
+            [v1.lat, v1.lng],
+            [v2.lat, v2.lng],
+          ]);
+        }
+      }
+    }
+  }
+
+  // --- レイヤー作成ヘルパー ---
+
+  private addVertexLayer(id: VertexID, lat: number, lng: number): void {
+    if (!this.map) return;
+    const marker = L.circleMarker([lat, lng], {
+      radius: 5,
+      color: "#333",
+      fillColor: "#fff",
+      fillOpacity: 1,
+      weight: 2,
+    });
+
+    // 頂点表示状態に応じて地図に追加
+    if (this.verticesVisible) {
+      marker.addTo(this.map);
+    }
+
+    // 頂点ドラッグ
+    if (this.vertexDragCallback) {
+      this.makeVertexDraggable(id, marker);
+    }
+
+    this.vertexLayers.set(id as string, marker);
+  }
+
+  /** 全頂点を表示する（描画/編集モード用） */
+  showVertices(): void {
+    if (!this.map) return;
+    this.verticesVisible = true;
+    for (const marker of this.vertexLayers.values()) {
+      marker.addTo(this.map);
+    }
+  }
+
+  /** 全頂点を非表示にする（通常モード用） */
+  hideVertices(): void {
+    this.verticesVisible = false;
+    for (const marker of this.vertexLayers.values()) {
+      marker.remove();
+    }
+  }
+
+  private makeVertexDraggable(id: VertexID, marker: L.CircleMarker): void {
+    // CircleMarker はドラッグ非対応なので、通常のMarkerを使う代わりに
+    // mousedown でドラッグ開始するカスタム実装
+    let dragging = false;
+
+    const onMouseDown = (e: L.LeafletMouseEvent) => {
+      if (!this.map) return;
+      dragging = true;
+      this.map.dragging.disable();
+      L.DomEvent.stop(e.originalEvent);
+
+      const onMouseMove = (ev: L.LeafletMouseEvent) => {
+        if (!dragging) return;
+        marker.setLatLng(ev.latlng);
+      };
+
+      const onMouseUp = (ev: L.LeafletMouseEvent) => {
+        if (!dragging) return;
+        dragging = false;
+        this.map!.dragging.enable();
+        this.map!.off("mousemove", onMouseMove);
+        this.map!.off("mouseup", onMouseUp);
+        this.vertexDragCallback?.(id, ev.latlng.lat, ev.latlng.lng);
+      };
+
+      this.map.on("mousemove", onMouseMove);
+      this.map.on("mouseup", onMouseUp);
+    };
+
+    marker.on("mousedown", onMouseDown);
+  }
+
+  private addEdgeLayer(id: EdgeID, v1Id: VertexID, v2Id: VertexID): void {
+    if (!this.map || !this.editor) return;
+    const v1 = this.editor.getVertex(v1Id);
+    const v2 = this.editor.getVertex(v2Id);
+    if (!v1 || !v2) return;
+
+    const line = L.polyline(
+      [
+        [v1.lat, v1.lng],
+        [v2.lat, v2.lng],
+      ],
+      { color: "#666", weight: 2, opacity: 0.6 },
+    ).addTo(this.map);
+
+    this.edgeLayers.set(id as string, line);
+  }
+
+  private addPolygonLayer(id: PolygonID): void {
+    if (!this.map || !this.editor) return;
+    const geo = this.editor.getPolygonGeoJSON(id);
+    if (!geo) return;
+
+    const isLinked = this.linkedPolygonIds.has(id as string);
+    const isSelected = this.selectedId === (id as string);
+    const style = getPolygonStyle(isLinked, isSelected);
+
+    const feature = {
+      type: "Feature" as const,
+      geometry: geo,
+      properties: {},
+    };
+    const layer = L.geoJSON(feature as GeoJSON.GeoJsonObject, {
+      style: () => style,
+    }).addTo(this.map);
+
+    if (this.polygonClickCallback) {
+      layer.on("click", () => {
+        this.polygonClickCallback!(id);
+      });
+    }
+
+    this.polygonLayers.set(id as string, layer);
+  }
+
+  // --- ポリゴン選択/ハイライト ---
+
   highlightPolygon(id: PolygonID | null): void {
     this.selectedId = id as string | null;
-    this.polygonLayers.forEach((layer, layerId) => {
+    // ポリゴンレイヤーを再スタイル
+    for (const [layerId, layer] of this.polygonLayers) {
       const isLinked = this.linkedPolygonIds.has(layerId);
       const isSelected = layerId === (id as string);
       layer.setStyle(getPolygonStyle(isLinked, isSelected));
-    });
+    }
   }
 
   focusPolygon(id: PolygonID): void {
@@ -234,437 +398,63 @@ export class MapRenderer {
     });
   }
 
-  enterEditMode(
-    id: PolygonID,
-    onVertexDrag: (event: VertexDragEvent) => void,
+  setLinkedPolygonIds(ids: Set<string>): void {
+    this.linkedPolygonIds = ids;
+  }
+
+  // --- 頂点ドラッグモード ---
+
+  enableVertexDrag(
+    callback: (vertexId: VertexID, lat: number, lng: number) => void,
   ): void {
-    if (!this.map) return;
-    this.exitEditMode();
-    this.editingPolygonId = id as string;
-    this.onVertexDragCallback = onVertexDrag;
-
-    this.buildEditMarkers(id as string, onVertexDrag);
-  }
-
-  /**
-   * 編集中のポリゴンの辺近傍にクリックがあるか判定。
-   * 辺に近ければ EdgeClickEvent を返し、遠ければ null。
-   */
-  findEdgeAtClick(lat: number, lng: number): EdgeClickEvent | null {
-    if (!this.editingPolygonId) return null;
-    const result = this.findNearestEdge(lat, lng, this.editingPolygonId);
-    if (!result) return null;
-    return {
-      polygonId: this.editingPolygonId,
-      afterIndex: result.afterIndex,
-      lat: result.lat,
-      lng: result.lng,
-    };
-  }
-
-  private buildEditMarkers(
-    polygonId: string,
-    onVertexDrag: (event: VertexDragEvent) => void,
-  ): void {
-    if (!this.map) return;
-    for (const m of this.editMarkers) m.remove();
-    this.editMarkers = [];
-
-    const layer = this.polygonLayers.get(polygonId);
-    if (!layer) return;
-
-    const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-
-    for (let i = 0; i < latlngs.length; i++) {
-      const ll = latlngs[i];
-      const marker = L.marker([ll.lat, ll.lng], {
-        draggable: true,
-        icon: L.divIcon({
-          className: "edit-vertex-marker",
-          iconSize: [12, 12],
-          iconAnchor: [6, 6],
-        }),
-      }).addTo(this.map);
-
-      const vertexIndex = i;
-
-      // ドラッグ中: ポリゴン形状をリアルタイム更新（ラバーバンド）
-      marker.on("drag", () => {
-        const pos = marker.getLatLng();
-        const currentLatLngs = layer.getLatLngs()[0] as L.LatLng[];
-        currentLatLngs[vertexIndex] = pos;
-        layer.setLatLngs(currentLatLngs);
-      });
-
-      // ドラッグ終了: 永続化
-      marker.on("dragend", () => {
-        const pos = marker.getLatLng();
-        onVertexDrag({
-          polygonId,
-          vertexIndex,
-          lat: pos.lat,
-          lng: pos.lng,
-        });
-      });
-
-      this.editMarkers.push(marker);
+    this.vertexDragCallback = callback;
+    // 既存の頂点マーカーにドラッグ機能を追加
+    for (const [idStr, marker] of this.vertexLayers) {
+      this.makeVertexDraggable(idStr as VertexID, marker);
     }
   }
 
-  exitEditMode(): void {
-    this.onVertexDragCallback = null;
-    for (const marker of this.editMarkers) {
-      marker.remove();
-    }
-    this.editMarkers = [];
-    this.editingPolygonId = null;
+  disableVertexDrag(): void {
+    this.vertexDragCallback = null;
   }
 
-  /** 頂点追加後にマーカーを再構築 */
-  rebuildEditMarkers(polygon: MapPolygon): void {
-    if (!this.editingPolygonId || !this.map || !this.onVertexDragCallback)
-      return;
-
-    const layer = this.polygonLayers.get(polygon.id as string);
-    if (layer) {
-      const coords = polygon.geometry.coordinates[0];
-      const latLngs = coords.map(([lng, lat]) => [lat, lng] as L.LatLngTuple);
-      layer.setLatLngs(latLngs);
-    }
-
-    this.buildEditMarkers(this.editingPolygonId, this.onVertexDragCallback);
-  }
-
-  /**
-   * 編集中のポリゴンの辺のうち、クリック地点に最も近いものを返す。
-   * ピクセルベースの閾値 (SNAP_THRESHOLD_PX) で判定。
-   */
-  private findNearestEdge(
-    lat: number,
-    lng: number,
-    polygonId: string,
-  ): { afterIndex: number; lat: number; lng: number } | null {
-    if (!this.map) return null;
-    const layer = this.polygonLayers.get(polygonId);
-    if (!layer) return null;
-
-    const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-    const clickPx = this.map.latLngToContainerPoint([lat, lng]);
-    const n = latlngs.length;
-
-    let bestDist = Infinity;
-    let bestResult: { afterIndex: number; lat: number; lng: number } | null =
-      null;
-
-    for (let i = 0; i < n; i++) {
-      const a = latlngs[i];
-      const b = latlngs[(i + 1) % n];
-      const aPx = this.map.latLngToContainerPoint(a);
-      const bPx = this.map.latLngToContainerPoint(b);
-
-      // 頂点近傍はスキップ（頂点ドラッグと競合しないように）
-      const dToA = Math.sqrt(
-        (clickPx.x - aPx.x) ** 2 + (clickPx.y - aPx.y) ** 2,
-      );
-      const dToB = Math.sqrt(
-        (clickPx.x - bPx.x) ** 2 + (clickPx.y - bPx.y) ** 2,
-      );
-      if (dToA < SNAP_THRESHOLD_PX || dToB < SNAP_THRESHOLD_PX) continue;
-
-      // 線分への射影
-      const proj = this.projectPointToSegment(clickPx, aPx, bPx);
-      const dist = Math.sqrt(
-        (clickPx.x - proj.x) ** 2 + (clickPx.y - proj.y) ** 2,
-      );
-
-      if (dist < SNAP_THRESHOLD_PX && dist < bestDist) {
-        bestDist = dist;
-        const projLatLng = this.map.containerPointToLatLng(proj);
-        bestResult = {
-          afterIndex: i,
-          lat: projLatLng.lat,
-          lng: projLatLng.lng,
-        };
-      }
-    }
-
-    return bestResult;
-  }
-
-  private projectPointToSegment(p: L.Point, a: L.Point, b: L.Point): L.Point {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lenSq = dx * dx + dy * dy;
-    if (lenSq === 0) return a;
-    const t = Math.max(
-      0,
-      Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq),
-    );
-    return L.point(a.x + t * dx, a.y + t * dy);
-  }
-
-  /** 編集中のポリゴンの頂点マーカーを再配置（頂点移動後） */
-  updateEditMarkers(polygons: MapPolygon[]): void {
-    if (!this.editingPolygonId || !this.map) return;
-
-    // 変更されたポリゴンのレイヤーを更新
-    for (const poly of polygons) {
-      const layer = this.polygonLayers.get(poly.id as string);
-      if (layer) {
-        const coords = poly.geometry.coordinates[0];
-        const latLngs = coords.map(([lng, lat]) => [lat, lng] as L.LatLngTuple);
-        layer.setLatLngs(latLngs);
-      }
-    }
-
-    // 編集中のポリゴンのマーカーを新しい座標に移動
-    const editingPoly = polygons.find(
-      (p) => (p.id as string) === this.editingPolygonId,
-    );
-    if (!editingPoly) return;
-
-    const coords = editingPoly.geometry.coordinates[0];
-    // GeoJSON ring は最初と最後が同じなので -1
-    const vertexCount = coords.length - 1;
-    for (let i = 0; i < this.editMarkers.length && i < vertexCount; i++) {
-      const [lng, lat] = coords[i];
-      this.editMarkers[i].setLatLng([lat, lng]);
-    }
-  }
-
-  renderDraft(
-    draft: DraftShape | null,
-    bridgeInfo?: BridgeInfo | null,
-    isSplitMode?: boolean,
-  ): void {
-    if (!this.draftLayer) return;
-    this.draftLayer.clearLayers();
-    this.currentDraft = draft;
-
-    if (!draft || draft.points.length === 0) {
-      this.removeRubberBand();
-      return;
-    }
-
-    const latLngs = draft.points.map((p) => [p.lat, p.lng] as L.LatLngTuple);
-
-    if (isSplitMode) {
-      // 分割モード: 赤い破線で分割パスを表示
-      this.removeRubberBand();
-      L.polyline(latLngs, {
-        color: "#ef4444",
-        weight: 3,
-        dashArray: "8, 4",
-      }).addTo(this.draftLayer);
-    } else if (draft.isClosed) {
-      this.removeRubberBand();
-      // ブリッジプレビュー: 既存ポリゴン境界に沿った形状を表示
-      const previewLatLngs = bridgeInfo
-        ? this.computeBridgePreview(draft, bridgeInfo)
-        : null;
-
-      L.polygon(previewLatLngs ?? latLngs, {
-        color: "#22c55e",
-        weight: 3,
-        fillOpacity: 0.2,
-        dashArray: "5, 5",
-      }).addTo(this.draftLayer);
-    } else {
-      L.polyline(latLngs, {
-        color: "#22c55e",
-        weight: 3,
-        dashArray: "5, 5",
-      }).addTo(this.draftLayer);
-    }
-
-    // 頂点マーカー
-    const markerColor = isSplitMode ? "#ef4444" : "#22c55e";
-    for (const p of draft.points) {
-      L.circleMarker([p.lat, p.lng], {
-        radius: 5,
-        color: markerColor,
-        fillColor: "#fff",
-        fillOpacity: 1,
-        weight: 2,
-      }).addTo(this.draftLayer);
-    }
-  }
-
-  private computeBridgePreview(
-    draft: DraftShape,
-    bridgeInfo: BridgeInfo,
-  ): L.LatLngTuple[] | null {
-    // 同一ポリゴンのブリッジのみ対応
-    if (bridgeInfo.startPolygonId !== bridgeInfo.endPolygonId) return null;
-
-    const polygonLayer = this.polygonLayers.get(bridgeInfo.startPolygonId);
-    if (!polygonLayer) return null;
-
-    const polyLatLngs = polygonLayer.getLatLngs()[0] as L.LatLng[];
-    const n = polyLatLngs.length;
-    const startIdx = bridgeInfo.startVertexIndex;
-    const endIdx = bridgeInfo.endVertexIndex;
-
-    // 同一頂点の場合はドラフトをそのまま表示
-    if (startIdx === endIdx) return null;
-
-    // ドラフトポイント（開始頂点→終了頂点の描画パス）
-    const draftLatLngs = draft.points.map(
-      (p) => [p.lat, p.lng] as L.LatLngTuple,
-    );
-
-    // 既存ポリゴン境界を endIdx → startIdx で歩く（2方向試して短い方）
-    const forwardPath: L.LatLngTuple[] = [];
-    let i = endIdx;
-    while (true) {
-      i = (i + 1) % n;
-      if (i === startIdx) break;
-      forwardPath.push([polyLatLngs[i].lat, polyLatLngs[i].lng]);
-    }
-
-    const backwardPath: L.LatLngTuple[] = [];
-    i = endIdx;
-    while (true) {
-      i = (i - 1 + n) % n;
-      if (i === startIdx) break;
-      backwardPath.push([polyLatLngs[i].lat, polyLatLngs[i].lng]);
-    }
-
-    const boundaryPath =
-      forwardPath.length <= backwardPath.length ? forwardPath : backwardPath;
-
-    return [...draftLatLngs, ...boundaryPath];
-  }
-
-  isNearStartPoint(lat: number, lng: number): boolean {
-    if (
-      !this.map ||
-      !this.currentDraft ||
-      this.currentDraft.points.length < 3
-    ) {
-      return false;
-    }
-    const start = this.currentDraft.points[0];
-    const cursorPx = this.map.latLngToContainerPoint([lat, lng]);
-    const startPx = this.map.latLngToContainerPoint([start.lat, start.lng]);
-    const dx = cursorPx.x - startPx.x;
-    const dy = cursorPx.y - startPx.y;
-    return Math.sqrt(dx * dx + dy * dy) < SNAP_THRESHOLD_PX;
-  }
-
-  collectAllVertices(): SnapVertex[] {
-    const vertices: SnapVertex[] = [];
-    this.polygonLayers.forEach((layer, id) => {
-      const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-      for (let i = 0; i < latlngs.length; i++) {
-        const ll = latlngs[i];
-        vertices.push({
-          lat: ll.lat,
-          lng: ll.lng,
-          polygonId: id,
-          vertexIndex: i,
-        });
-      }
-    });
-    return vertices;
-  }
-
-  findSnapTarget(lat: number, lng: number): SnapInfo | null {
-    if (!this.map) return null;
-
-    // Check all polygon vertices first
-    const vertices = this.collectAllVertices();
-    const cursorPx = this.map.latLngToContainerPoint([lat, lng]);
-    let nearestVertex: SnapVertex | null = null;
-    let minDist = Infinity;
-
-    for (const v of vertices) {
-      const vPx = this.map.latLngToContainerPoint([v.lat, v.lng]);
-      const dx = cursorPx.x - vPx.x;
-      const dy = cursorPx.y - vPx.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < SNAP_THRESHOLD_PX && dist < minDist) {
-        minDist = dist;
-        nearestVertex = v;
-      }
-    }
-
-    if (nearestVertex) {
-      return {
-        lat: nearestVertex.lat,
-        lng: nearestVertex.lng,
-        anchor: {
-          polygonId: nearestVertex.polygonId,
-          vertexIndex: nearestVertex.vertexIndex,
-        },
-      };
-    }
-
-    // Check draft start point (for closing)
-    if (this.currentDraft && this.currentDraft.points.length >= 3) {
-      const start = this.currentDraft.points[0];
-      const startPx = this.map.latLngToContainerPoint([start.lat, start.lng]);
-      const dx = cursorPx.x - startPx.x;
-      const dy = cursorPx.y - startPx.y;
-      if (Math.sqrt(dx * dx + dy * dy) < SNAP_THRESHOLD_PX) {
-        return { lat: start.lat, lng: start.lng };
-      }
-    }
-
-    return null;
-  }
-
-  getSnapInfo(lat: number, lng: number): SnapInfo | null {
-    return this.findSnapTarget(lat, lng);
-  }
-
-  private showSnapIndicator(lat: number, lng: number): void {
-    if (this.snapIndicator) {
-      this.snapIndicator.setLatLng([lat, lng]);
-    } else if (this.map) {
-      this.snapIndicator = L.circleMarker([lat, lng], {
-        radius: 8,
-        color: "#ef4444",
-        fillColor: "#ef4444",
-        fillOpacity: 0.6,
-        weight: 2,
-      }).addTo(this.map);
-    }
-  }
-
-  private hideSnapIndicator(): void {
-    if (this.snapIndicator) {
-      this.snapIndicator.remove();
-      this.snapIndicator = null;
-    }
-  }
+  // --- ラバーバンド（描画モード用） ---
 
   enableRubberBand(): void {
     if (!this.map || this.mouseMoveHandler) return;
 
     this.mouseMoveHandler = (e: L.LeafletMouseEvent) => {
-      const draft = this.currentDraft;
-
-      // スナップインジケーター: ポイント0個（描画開始前）でも表示
-      const snap = this.findSnapTarget(e.latlng.lat, e.latlng.lng);
-      if (snap) {
-        this.showSnapIndicator(snap.lat, snap.lng);
-      } else {
+      if (!this.editor || !this.lastPlacedVertexId) {
+        this.removeRubberBand();
         this.hideSnapIndicator();
+        return;
       }
 
-      // ラバーバンド: ポイントが1つ以上あるときのみ
-      if (!draft || draft.points.length === 0 || draft.isClosed) {
+      const lastVertex = this.editor.getVertex(this.lastPlacedVertexId);
+      if (!lastVertex) {
         this.removeRubberBand();
         return;
       }
 
-      const endLat = snap ? snap.lat : e.latlng.lat;
-      const endLng = snap ? snap.lng : e.latlng.lng;
+      // スナップインジケーター
+      const thresholdDeg = this.pixelsToDegrees(SNAP_THRESHOLD_PX);
+      const nearVertex = this.editor.findNearestVertex(
+        e.latlng.lat,
+        e.latlng.lng,
+        thresholdDeg,
+      );
 
-      const lastPoint = draft.points[draft.points.length - 1];
+      if (nearVertex) {
+        this.showSnapIndicator(nearVertex.lat, nearVertex.lng);
+      } else {
+        this.hideSnapIndicator();
+      }
+
+      const endLat = nearVertex ? nearVertex.lat : e.latlng.lat;
+      const endLng = nearVertex ? nearVertex.lng : e.latlng.lng;
+
       const latlngs: L.LatLngTuple[] = [
-        [lastPoint.lat, lastPoint.lng],
+        [lastVertex.lat, lastVertex.lng],
         [endLat, endLng],
       ];
 
@@ -702,6 +492,7 @@ export class MapRenderer {
     this.mouseOutHandler = null;
     this.removeRubberBand();
     this.hideSnapIndicator();
+    this.lastPlacedVertexId = null;
   }
 
   private removeRubberBand(): void {
@@ -709,5 +500,43 @@ export class MapRenderer {
       this.rubberBandLine.remove();
       this.rubberBandLine = null;
     }
+  }
+
+  // --- スナップ ---
+
+  private showSnapIndicator(lat: number, lng: number): void {
+    if (this.snapIndicator) {
+      this.snapIndicator.setLatLng([lat, lng]);
+    } else if (this.map) {
+      this.snapIndicator = L.circleMarker([lat, lng], {
+        radius: 8,
+        color: "#ef4444",
+        fillColor: "#ef4444",
+        fillOpacity: 0.6,
+        weight: 2,
+      }).addTo(this.map);
+    }
+  }
+
+  private hideSnapIndicator(): void {
+    if (this.snapIndicator) {
+      this.snapIndicator.remove();
+      this.snapIndicator = null;
+    }
+  }
+
+  /** ピクセル閾値を度数に変換（現在のズームレベルで） */
+  pixelsToDegrees(px: number): number {
+    if (!this.map) return 0.001;
+    const center = this.map.getCenter();
+    const point = this.map.latLngToContainerPoint(center);
+    const offset = this.map.containerPointToLatLng(
+      L.point(point.x + px, point.y),
+    );
+    return Math.abs(offset.lng - center.lng);
+  }
+
+  getSnapThresholdPx(): number {
+    return SNAP_THRESHOLD_PX;
   }
 }
