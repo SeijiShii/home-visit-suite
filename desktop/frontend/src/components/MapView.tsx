@@ -1,5 +1,5 @@
 import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
-import { MapRenderer } from "../lib/map-renderer";
+import { MapRenderer, type VertexDragCallbacks } from "../lib/map-renderer";
 import type {
   ChangeSet,
   PolygonID,
@@ -17,9 +17,8 @@ export interface MapViewHandle {
   setLinkedPolygonIds(ids: Set<string>): void;
   enableRubberBand(): void;
   disableRubberBand(): void;
-  enableVertexDrag(
-    callback: (vertexId: VertexID, lat: number, lng: number) => void,
-  ): void;
+  setRubberBandOrigin(vertexId: VertexID): void;
+  enableVertexDrag(callbacks: VertexDragCallbacks): void;
   disableVertexDrag(): void;
   showVertices(): void;
   hideVertices(): void;
@@ -70,8 +69,11 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     disableRubberBand() {
       rendererRef.current?.disableRubberBand();
     },
-    enableVertexDrag(callback) {
-      rendererRef.current?.enableVertexDrag(callback);
+    setRubberBandOrigin(vertexId) {
+      rendererRef.current?.setRubberBandOrigin(vertexId);
+    },
+    enableVertexDrag(callbacks) {
+      rendererRef.current?.enableVertexDrag(callbacks);
     },
     disableVertexDrag() {
       rendererRef.current?.disableVertexDrag();

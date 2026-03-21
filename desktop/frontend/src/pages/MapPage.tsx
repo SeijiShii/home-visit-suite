@@ -94,13 +94,24 @@ export function MapPage() {
     mapRef.current?.highlightPolygon(id);
     mapRef.current?.focusPolygon(id);
 
-    // 頂点ドラッグを有効化
-    mapRef.current?.enableVertexDrag((vertexId, lat, lng) => {
-      if (!editorRef.current) return;
-      const cs = editorRef.current.moveVertex(vertexId, lat, lng);
-      mapRef.current?.applyChangeSet(cs);
-      setPolygons(editorRef.current.getPolygons());
-      editorRef.current.save().catch(console.error);
+    // 頂点ドラッグを有効化（ドラッグ中もポリゴン形状がリアルタイム更新）
+    mapRef.current?.enableVertexDrag({
+      onDragStart: (vertexId) => {
+        editorRef.current?.beginDrag(vertexId);
+      },
+      onDragMove: (_vertexId, lat, lng) => {
+        if (!editorRef.current) return;
+        const cs = editorRef.current.dragTo(lat, lng);
+        mapRef.current?.applyChangeSet(cs);
+        setPolygons(editorRef.current.getPolygons());
+      },
+      onDragEnd: () => {
+        if (!editorRef.current) return;
+        const cs = editorRef.current.endDrag();
+        mapRef.current?.applyChangeSet(cs);
+        setPolygons(editorRef.current.getPolygons());
+        editorRef.current.save().catch(console.error);
+      },
     });
   };
 
@@ -145,7 +156,7 @@ export function MapPage() {
 
       let cs;
       if (nearVertex) {
-        // 既存頂点にスナップ → 描画終了（閉回路ならポリゴン自動生成）
+        // 既存頂点にスナップ（開始時: 起点として継続、途中: 接続して終了）
         cs = ed.snapToVertex(nearVertex.id);
       } else if (nearEdge) {
         // 既存線分にスナップ → 線分分割＋接続
@@ -160,6 +171,11 @@ export function MapPage() {
       }
 
       mapRef.current?.applyChangeSet(cs);
+
+      // 既存頂点にスナップして描画継続（開始時）→ ラバーバンド起点を設定
+      if (nearVertex && ed.getMode() === "drawing") {
+        mapRef.current?.setRubberBandOrigin(nearVertex.id);
+      }
 
       // snapToVertex / snapToEdge で描画モードが終了した場合
       if (ed.getMode() === "idle") {

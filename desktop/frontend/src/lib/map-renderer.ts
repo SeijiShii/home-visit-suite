@@ -38,6 +38,12 @@ const DEFAULT_CENTER: L.LatLngExpression = [35.776, 140.318];
 const DEFAULT_ZOOM = 14;
 const VIEW_STORAGE_KEY = "map-view";
 
+export interface VertexDragCallbacks {
+  onDragStart: (vertexId: VertexID) => void;
+  onDragMove: (vertexId: VertexID, lat: number, lng: number) => void;
+  onDragEnd: (vertexId: VertexID, lat: number, lng: number) => void;
+}
+
 export interface MapRendererCallbacks {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
@@ -69,9 +75,8 @@ export class MapRenderer {
   private verticesVisible = false;
 
   // 頂点ドラッグ
-  private vertexDragCallback:
-    | ((vertexId: VertexID, lat: number, lng: number) => void)
-    | null = null;
+  private vertexDragCallbacks: VertexDragCallbacks | null = null;
+  private draggableVertexIds = new Set<string>();
 
   mount(container: HTMLElement, callbacks: MapRendererCallbacks = {}): void {
     const saved = this.loadView();
@@ -275,7 +280,7 @@ export class MapRenderer {
     }
 
     // 頂点ドラッグ
-    if (this.vertexDragCallback) {
+    if (this.vertexDragCallbacks) {
       this.makeVertexDraggable(id, marker);
     }
 
@@ -300,19 +305,22 @@ export class MapRenderer {
   }
 
   private makeVertexDraggable(id: VertexID, marker: L.CircleMarker): void {
-    // CircleMarker はドラッグ非対応なので、通常のMarkerを使う代わりに
-    // mousedown でドラッグ開始するカスタム実装
+    if (this.draggableVertexIds.has(id as string)) return;
+    this.draggableVertexIds.add(id as string);
+
     let dragging = false;
 
     const onMouseDown = (e: L.LeafletMouseEvent) => {
-      if (!this.map) return;
+      if (!this.map || !this.vertexDragCallbacks) return;
       dragging = true;
       this.map.dragging.disable();
       L.DomEvent.stop(e.originalEvent);
+      this.vertexDragCallbacks.onDragStart(id);
 
       const onMouseMove = (ev: L.LeafletMouseEvent) => {
         if (!dragging) return;
         marker.setLatLng(ev.latlng);
+        this.vertexDragCallbacks?.onDragMove(id, ev.latlng.lat, ev.latlng.lng);
       };
 
       const onMouseUp = (ev: L.LeafletMouseEvent) => {
@@ -321,7 +329,7 @@ export class MapRenderer {
         this.map!.dragging.enable();
         this.map!.off("mousemove", onMouseMove);
         this.map!.off("mouseup", onMouseUp);
-        this.vertexDragCallback?.(id, ev.latlng.lat, ev.latlng.lng);
+        this.vertexDragCallbacks?.onDragEnd(id, ev.latlng.lat, ev.latlng.lng);
       };
 
       this.map.on("mousemove", onMouseMove);
@@ -404,10 +412,8 @@ export class MapRenderer {
 
   // --- 頂点ドラッグモード ---
 
-  enableVertexDrag(
-    callback: (vertexId: VertexID, lat: number, lng: number) => void,
-  ): void {
-    this.vertexDragCallback = callback;
+  enableVertexDrag(callbacks: VertexDragCallbacks): void {
+    this.vertexDragCallbacks = callbacks;
     // 既存の頂点マーカーにドラッグ機能を追加
     for (const [idStr, marker] of this.vertexLayers) {
       this.makeVertexDraggable(idStr as VertexID, marker);
@@ -415,7 +421,7 @@ export class MapRenderer {
   }
 
   disableVertexDrag(): void {
-    this.vertexDragCallback = null;
+    this.vertexDragCallbacks = null;
   }
 
   // --- ラバーバンド（描画モード用） ---
@@ -477,6 +483,10 @@ export class MapRenderer {
 
     this.map.on("mousemove", this.mouseMoveHandler);
     this.map.on("mouseout", this.mouseOutHandler);
+  }
+
+  setRubberBandOrigin(vertexId: VertexID): void {
+    this.lastPlacedVertexId = vertexId;
   }
 
   disableRubberBand(): void {

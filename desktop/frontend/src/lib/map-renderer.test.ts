@@ -1,5 +1,18 @@
-import { describe, it, expect } from "vitest";
-import { getPolygonStyle } from "./map-renderer";
+import { describe, it, expect, vi } from "vitest";
+import { getPolygonStyle, type VertexDragCallbacks } from "./map-renderer";
+
+describe("VertexDragCallbacks 型", () => {
+  it("onDragStart / onDragMove / onDragEnd の3コールバックを持つ", () => {
+    const callbacks: VertexDragCallbacks = {
+      onDragStart: vi.fn(),
+      onDragMove: vi.fn(),
+      onDragEnd: vi.fn(),
+    };
+    expect(callbacks.onDragStart).toBeDefined();
+    expect(callbacks.onDragMove).toBeDefined();
+    expect(callbacks.onDragEnd).toBeDefined();
+  });
+});
 
 describe("getPolygonStyle", () => {
   it("紐づき+選択: 濃い緑", () => {
