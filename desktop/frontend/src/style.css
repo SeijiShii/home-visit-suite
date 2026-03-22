@@ -205,7 +205,7 @@ section {
 }
 
 .map-sidebar {
-  min-width: 192px;
+  min-width: 260px;
   flex-shrink: 0;
   background: #f8fafc;
   border-left: 1px solid #e2e8f0;
@@ -278,6 +278,13 @@ section {
   flex-direction: column;
 }
 
+.sidebar-tab-panel {
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* ポリゴン一覧 */
 .polygon-list {
   display: flex;
@@ -327,17 +334,64 @@ section {
   white-space: nowrap;
 }
 
-.polygon-list-delete-btn {
+.polygon-list-item-inactive {
+  opacity: 0.5;
+}
+
+.polygon-list-toggle-btn {
   flex-shrink: 0;
-  padding: 2px 8px;
-  font-size: 12px;
-  color: #94a3b8;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: #64748b;
   background: transparent;
-  border: 1px solid #cbd5e1;
+  border: none;
   border-radius: 4px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.polygon-list-toggle-btn:hover {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.polygon-list-link-btn {
+  color: #3b82f6;
+}
+
+.polygon-list-link-btn:hover {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.polygon-list-unlink-btn:hover {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.polygon-list-delete-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 
 .polygon-list-item:hover .polygon-list-delete-btn {
@@ -346,7 +400,7 @@ section {
 
 .polygon-list-delete-btn:hover {
   color: #ef4444;
-  border-color: #ef4444;
+  background: #fee2e2;
 }
 
 .polygon-list-delete-btn:disabled {
@@ -1000,6 +1054,39 @@ section {
   background: #dcfce7;
 }
 
+.tree-action-menu-wrapper {
+  position: relative;
+}
+
+.tree-action-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 140px;
+  z-index: 10;
+}
+
+.tree-action-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.tree-action-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
 .tree-action-draw {
   color: #3b82f6;
   border-color: #93c5fd;
@@ -1017,4 +1104,97 @@ section {
 
 .tree-action-draw:disabled:hover {
   background: transparent;
+}
+
+/* 区域ピッカーダイアログ */
+.area-picker-dialog {
+  max-width: 400px;
+  width: 100%;
+}
+
+.area-picker-body {
+  max-height: 360px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.area-picker-group-label {
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.area-picker-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.area-picker-toggle:hover {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.area-picker-arrow {
+  font-size: 10px;
+  width: 14px;
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.area-picker-parent-label {
+  padding-left: 20px;
+  font-weight: 500;
+}
+
+.area-picker-item {
+  padding: 6px 8px 6px 36px;
+  font-size: 14px;
+  color: #334155;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.area-picker-item:hover {
+  background: #e2e8f0;
+}
+
+.area-picker-item-disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.area-picker-item-disabled:hover {
+  background: transparent;
+}
+
+/* トースト */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background: #10b981;
+  color: #fff;
+  font-size: 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  animation: toast-fade-in 0.2s ease;
+}
+
+@keyframes toast-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }

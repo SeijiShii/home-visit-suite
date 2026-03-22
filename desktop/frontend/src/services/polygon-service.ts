@@ -34,6 +34,7 @@ export function buildPolygonAreaMap(
 export interface PolygonBindingAPI {
   BindPolygonToArea(areaId: string, polygonId: string): Promise<void>;
   UnbindPolygonFromArea(areaId: string): Promise<void>;
+  RemapPolygonIds(idMap: Record<string, string>): Promise<void>;
 }
 
 export class PolygonService {
@@ -42,10 +43,7 @@ export class PolygonService {
     private readonly regionAPI: PolygonBindingAPI,
   ) {}
 
-  async bindPolygonToArea(
-    polygonId: PolygonID,
-    areaId: string,
-  ): Promise<void> {
+  async bindPolygonToArea(polygonId: PolygonID, areaId: string): Promise<void> {
     await this.regionAPI.BindPolygonToArea(areaId, polygonId as string);
   }
 

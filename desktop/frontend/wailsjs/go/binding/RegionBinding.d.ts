@@ -24,6 +24,8 @@ export function ListParentAreas(arg1:string):Promise<Array<models.ParentArea>>;
 
 export function ListRegions():Promise<Array<models.Region>>;
 
+export function RemapPolygonIds(arg1:Record<string, string>):Promise<void>;
+
 export function ReorderRegions(arg1:Array<string>):Promise<void>;
 
 export function RestoreArea(arg1:string):Promise<void>;

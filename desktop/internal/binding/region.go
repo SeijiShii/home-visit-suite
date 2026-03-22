@@ -142,6 +142,44 @@ func (b *RegionBinding) UnbindPolygonFromArea(areaID string) error {
 	return b.repo.SaveArea(a)
 }
 
+// RemapPolygonIds はポリゴンIDの変更を全区域に反映する。
+// map-polygon-editor の init() でポリゴンIDが再生成されるため、
+// 起動時に旧ID→新IDのマッピングで区域の紐付けを更新する。
+func (b *RegionBinding) RemapPolygonIds(idMap map[string]string) error {
+	if len(idMap) == 0 {
+		return nil
+	}
+	regions, err := b.repo.ListRegions()
+	if err != nil {
+		return fmt.Errorf("list regions: %w", err)
+	}
+	for _, region := range regions {
+		parentAreas, err := b.repo.ListParentAreas(region.ID)
+		if err != nil {
+			return fmt.Errorf("list parent areas for %s: %w", region.ID, err)
+		}
+		for _, pa := range parentAreas {
+			areas, err := b.repo.ListAreas(pa.ID)
+			if err != nil {
+				return fmt.Errorf("list areas for %s: %w", pa.ID, err)
+			}
+			for _, area := range areas {
+				if area.PolygonID == "" {
+					continue
+				}
+				if newID, ok := idMap[area.PolygonID]; ok {
+					area := area // ループ変数コピー
+					area.PolygonID = newID
+					if err := b.repo.SaveArea(&area); err != nil {
+						return fmt.Errorf("save area %s: %w", area.ID, err)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // --- 領域更新 ---
 
 // UpdateRegion は領域の名前・記号を更新する。

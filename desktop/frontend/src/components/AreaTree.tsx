@@ -23,12 +23,11 @@ export interface AreaTreeHandle {
 interface AreaTreeProps {
   service: RegionService;
   api: RegionBindingAPI;
-  onStartDrawing?: (areaId: string) => void;
-  isDrawing?: boolean;
+  onUnlinkPolygon?: (areaId: string) => void;
 }
 
 export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
-  function AreaTree({ service, api, onStartDrawing, isDrawing }, ref) {
+  function AreaTree({ service, api, onUnlinkPolygon }, ref) {
     const { t } = useI18n();
     const m = t.areaTree;
     const [tree, setTree] = useState<AreaTreeNode[]>([]);
@@ -42,6 +41,11 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
       name: string;
     } | null>(null);
     const renameRef = useRef<HTMLInputElement>(null);
+    const [menuTarget, setMenuTarget] = useState<string | null>(null);
+    const [unlinkConfirm, setUnlinkConfirm] = useState<{
+      areaId: string;
+      areaLabel: string;
+    } | null>(null);
 
     const { snapshot, history } = useCommandHistory();
     const executor = useMemo(() => new CommandExecutor(api), [api]);
@@ -223,24 +227,47 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                             <span className="tree-leaf">•</span>
                             <span className="tree-label">{area.number}</span>
                             <span className="tree-actions">
-                              {area.polygonId ? (
-                                <button
-                                  className="tree-action-btn tree-action-polygon"
-                                  title={t.map.tabPolygons}
-                                >
-                                  ⬡
-                                </button>
-                              ) : (
-                                onStartDrawing && (
-                                  <button
-                                    className="tree-action-btn tree-action-draw"
-                                    title={t.map.drawPolygon}
-                                    disabled={isDrawing}
-                                    onClick={() => onStartDrawing(area.id)}
+                              {area.polygonId && (
+                                <>
+                                  <span
+                                    className="tree-action-btn tree-action-polygon"
+                                    title={t.map.tabPolygons}
                                   >
-                                    ✎
-                                  </button>
-                                )
+                                    ⬡
+                                  </span>
+                                  {onUnlinkPolygon && (
+                                    <div className="tree-action-menu-wrapper">
+                                      <button
+                                        className="tree-action-btn"
+                                        onClick={() =>
+                                          setMenuTarget(
+                                            menuTarget === area.id
+                                              ? null
+                                              : area.id,
+                                          )
+                                        }
+                                      >
+                                        ⋯
+                                      </button>
+                                      {menuTarget === area.id && (
+                                        <div className="tree-action-dropdown">
+                                          <button
+                                            className="tree-action-dropdown-item"
+                                            onClick={() => {
+                                              setMenuTarget(null);
+                                              setUnlinkConfirm({
+                                                areaId: area.id,
+                                                areaLabel: area.id,
+                                              });
+                                            }}
+                                          >
+                                            {t.map.unlinkPolygon}
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
                               )}
                               {service.isLastArea(ap, area.id) && (
                                 <button
@@ -332,6 +359,34 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                   onClick={handleRenameConfirm}
                 >
                   {t.common.save}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {unlinkConfirm && (
+          <div className="modal-overlay" onClick={() => setUnlinkConfirm(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <p className="polygon-delete-dialog-message">
+                {t.map.confirmUnlink.replace("{area}", unlinkConfirm.areaLabel)}
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="modal-btn"
+                  onClick={() => setUnlinkConfirm(null)}
+                >
+                  {t.common.cancel}
+                </button>
+                <button
+                  className="modal-btn modal-btn-danger"
+                  onClick={async () => {
+                    const { areaId } = unlinkConfirm;
+                    setUnlinkConfirm(null);
+                    onUnlinkPolygon?.(areaId);
+                  }}
+                >
+                  {t.map.unlinkFromArea}
                 </button>
               </div>
             </div>

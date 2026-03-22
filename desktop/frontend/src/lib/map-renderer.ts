@@ -235,6 +235,20 @@ export class MapRenderer {
       this.polygonLayers.delete(id as string);
     }
 
+    // 状態変更（active/locked）
+    for (const sc of cs.polygons.statusChanged) {
+      if (sc.field === "active") {
+        if (sc.after) {
+          // 活性化: レイヤーを追加
+          this.addPolygonLayer(sc.id);
+        } else {
+          // 不活性化: レイヤーを削除
+          this.polygonLayers.get(sc.id as string)?.remove();
+          this.polygonLayers.delete(sc.id as string);
+        }
+      }
+    }
+
     // ラバーバンドの始点を更新
     // placeVertex() ではユーザーが置いた頂点が added[0]、
     // 交差解決で生じた頂点がその後に来る。始点は最初の頂点。
@@ -358,6 +372,10 @@ export class MapRenderer {
 
   private addPolygonLayer(id: PolygonID): void {
     if (!this.map || !this.editor) return;
+
+    // 不活性ポリゴンはレイヤーを追加しない
+    if (!this.editor.isPolygonActive(id)) return;
+
     const geo = this.editor.getPolygonGeoJSON(id);
     if (!geo) return;
 

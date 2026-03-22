@@ -39,6 +39,17 @@ export interface Translations {
     editingHint: string;
     finishEditing: string;
     pruneOrphans: string;
+    showPolygon: string;
+    hidePolygon: string;
+    lockPolygon: string;
+    unlockPolygon: string;
+    linkToArea: string;
+    unlinkFromArea: string;
+    confirmUnlink: string;
+    linkedToArea: string;
+    selectArea: string;
+    areaAlreadyLinked: string;
+    unlinkPolygon: string;
   };
   areaTree: {
     title: string;

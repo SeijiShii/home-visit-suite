@@ -15,8 +15,9 @@ import type {
   NetworkPolygonEditor,
 } from "map-polygon-editor";
 import type { PolygonAreaInfo } from "../services/polygon-service";
+import type { AreaTreeNode } from "../services/region-service";
 
-const SIDEBAR_MIN_WIDTH = 192;
+const SIDEBAR_MIN_WIDTH = 260;
 
 type SidebarTab = "areas" | "polygons";
 
@@ -32,6 +33,7 @@ export function MapPage() {
   const [polygonAreaMap, setPolygonAreaMap] = useState<
     Map<string, PolygonAreaInfo>
   >(new Map());
+  const [areaTree, setAreaTree] = useState<AreaTreeNode[]>([]);
 
   const regionService = useMemo(() => new RegionService(RegionBinding), []);
 
@@ -39,6 +41,7 @@ export function MapPage() {
     () => ({
       BindPolygonToArea: RegionBinding.BindPolygonToArea,
       UnbindPolygonFromArea: RegionBinding.UnbindPolygonFromArea,
+      RemapPolygonIds: RegionBinding.RemapPolygonIds,
     }),
     [],
   );
@@ -58,6 +61,7 @@ export function MapPage() {
     const linkedIds = new Set(areaMap.keys());
     setPolygons(allPolygons);
     setPolygonAreaMap(areaMap);
+    setAreaTree(tree);
     mapRef.current?.setLinkedPolygonIds(linkedIds);
     mapRef.current?.renderAll(linkedIds);
   }, [polygonService, editor, regionService]);
@@ -90,6 +94,14 @@ export function MapPage() {
       mapRef.current?.disableVertexDrag();
     }
 
+    // ロック中のポリゴンはフォーカスのみ（編集モードに入らない）
+    if (editorRef.current?.isPolygonLocked(id)) {
+      actions.selectPolygon(id);
+      mapRef.current?.highlightPolygon(id);
+      mapRef.current?.focusPolygon(id);
+      return;
+    }
+
     actions.startEditing(id);
     mapRef.current?.highlightPolygon(id);
     mapRef.current?.focusPolygon(id);
@@ -114,6 +126,26 @@ export function MapPage() {
       },
     });
   };
+
+  // --- ポリゴンリストからのフォーカス（編集モードには入らない） ---
+
+  const handlePolygonFocus = useCallback(
+    (id: PolygonID) => {
+      if (snapshot.mode === MapMode.Drawing) return;
+
+      // 編集中なら編集を終了して保存
+      if (snapshot.mode === MapMode.Editing) {
+        mapRef.current?.disableVertexDrag();
+        actions.endEditing();
+        editorRef.current?.save().catch(console.error);
+      }
+
+      actions.selectPolygon(id);
+      mapRef.current?.highlightPolygon(id);
+      mapRef.current?.focusPolygon(id);
+    },
+    [actions, snapshot.mode],
+  );
 
   // --- 描画モード制御 ---
 
@@ -189,15 +221,6 @@ export function MapPage() {
 
   // --- ツールバーアクション ---
 
-  const handleStartDrawing = useCallback(
-    (_areaId: string) => {
-      if (!editorRef.current) return;
-      editorRef.current.startDrawing();
-      actions.startDrawing();
-    },
-    [actions],
-  );
-
   const handleStartFreeDrawing = useCallback(() => {
     if (!editorRef.current) return;
     editorRef.current.startDrawing();
@@ -241,6 +264,80 @@ export function MapPage() {
     }
     reloadPolygons();
   }, [actions, reloadPolygons]);
+
+  const handleToggleActive = useCallback(
+    (id: PolygonID, active: boolean) => {
+      if (!editorRef.current) return;
+      // 編集中のポリゴンを不活性化する場合は編集終了
+      if (!active && snapshot.selectedPolygonId === id) {
+        mapRef.current?.disableVertexDrag();
+        actions.endEditing();
+      }
+      const cs = editorRef.current.setPolygonActive(id, active);
+      mapRef.current?.applyChangeSet(cs);
+      setPolygons(editorRef.current.getPolygons());
+      editorRef.current.save().catch(console.error);
+    },
+    [actions, snapshot.selectedPolygonId],
+  );
+
+  const handleToggleLocked = useCallback(
+    (id: PolygonID, locked: boolean) => {
+      if (!editorRef.current) return;
+      // ロック時に編集中なら編集終了
+      if (locked && snapshot.selectedPolygonId === id) {
+        mapRef.current?.disableVertexDrag();
+        actions.endEditing();
+      }
+      const cs = editorRef.current.setPolygonLocked(id, locked);
+      mapRef.current?.applyChangeSet(cs);
+      setPolygons(editorRef.current.getPolygons());
+      editorRef.current.save().catch(console.error);
+    },
+    [actions, snapshot.selectedPolygonId],
+  );
+
+  const handleLinkPolygon = useCallback(
+    async (polygonId: PolygonID, areaId: string) => {
+      if (!polygonService) return;
+      try {
+        await polygonService.bindPolygonToArea(polygonId, areaId);
+        await reloadPolygons();
+        treeRef.current?.reload();
+      } catch (err) {
+        console.error("link polygon failed:", err);
+      }
+    },
+    [polygonService, reloadPolygons],
+  );
+
+  const handleUnlinkPolygon = useCallback(
+    async (_polygonId: PolygonID, areaId: string) => {
+      if (!polygonService) return;
+      try {
+        await polygonService.unbindPolygonFromArea(areaId);
+        await reloadPolygons();
+        treeRef.current?.reload();
+      } catch (err) {
+        console.error("unlink polygon failed:", err);
+      }
+    },
+    [polygonService, reloadPolygons],
+  );
+
+  const handleUnlinkArea = useCallback(
+    async (areaId: string) => {
+      if (!polygonService) return;
+      try {
+        await polygonService.unbindPolygonFromArea(areaId);
+        await reloadPolygons();
+        treeRef.current?.reload();
+      } catch (err) {
+        console.error("unlink area failed:", err);
+      }
+    },
+    [polygonService, reloadPolygons],
+  );
 
   const handleDeletePolygon = useCallback(
     async (snapshot: PolygonSnapshot) => {
@@ -363,25 +460,35 @@ export function MapPage() {
           </button>
         </div>
         <div className="sidebar-tab-content">
-          {activeTab === "areas" && (
+          <div
+            className="sidebar-tab-panel"
+            style={{ display: activeTab === "areas" ? "flex" : "none" }}
+          >
             <AreaTree
               ref={treeRef}
               service={regionService}
               api={RegionBinding}
-              onStartDrawing={handleStartDrawing}
-              isDrawing={isDrawing}
+              onUnlinkPolygon={handleUnlinkArea}
             />
-          )}
-          {activeTab === "polygons" && (
+          </div>
+          <div
+            className="sidebar-tab-panel"
+            style={{ display: activeTab === "polygons" ? "flex" : "none" }}
+          >
             <PolygonList
               polygons={polygons}
               polygonAreaMap={polygonAreaMap}
+              tree={areaTree}
               selectedPolygonId={snapshot.selectedPolygonId}
-              onPolygonClick={handlePolygonClick}
+              onPolygonClick={handlePolygonFocus}
               onDeletePolygon={handleDeletePolygon}
+              onToggleActive={handleToggleActive}
+              onToggleLocked={handleToggleLocked}
+              onLinkPolygon={handleLinkPolygon}
+              onUnlinkPolygon={handleUnlinkPolygon}
               isDrawing={isDrawing}
             />
-          )}
+          </div>
         </div>
       </div>
     </div>
