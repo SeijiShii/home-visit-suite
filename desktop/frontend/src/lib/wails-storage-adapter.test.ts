@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { WailsStorageAdapter } from "./wails-storage-adapter";
 import type { Vertex, Edge, PolygonSnapshot } from "map-polygon-editor";
-import { createVertexID, createEdgeID, createPolygonID } from "map-polygon-editor";
+import {
+  createVertexID,
+  createEdgeID,
+  createPolygonID,
+} from "map-polygon-editor";
 
 // Wails Go バインディングのモック
 const mockMapBinding = {
@@ -50,7 +54,9 @@ describe("WailsStorageAdapter", () => {
           { id: e2, v1: v2, v2: v3 },
           { id: e3, v1: v3, v2: v1 },
         ],
-        polygons: [{ id: p1, edgeIds: [e1, e2, e3], holes: [] }],
+        polygons: [
+          { id: p1, edgeIds: [e1, e2, e3], vertexIds: [v1, v2, v3], holes: [] },
+        ],
       };
 
       mockMapBinding.GetNetworkJSON.mockResolvedValue(JSON.stringify(data));
@@ -88,7 +94,9 @@ describe("WailsStorageAdapter", () => {
           { id: v2, lat: 35.777, lng: 140.319 },
         ] as Vertex[],
         edges: [{ id: e1, v1, v2 }] as Edge[],
-        polygons: [{ id: p1, edgeIds: [e1], holes: [] }] as PolygonSnapshot[],
+        polygons: [
+          { id: p1, edgeIds: [e1], vertexIds: [v1, v2], holes: [] },
+        ] as PolygonSnapshot[],
       };
 
       await adapter.saveAll(data);

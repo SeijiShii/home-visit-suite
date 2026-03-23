@@ -3,7 +3,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { PolygonList } from "./PolygonList";
 import { I18nProvider } from "../contexts/I18nContext";
 import type { PolygonID, PolygonSnapshot } from "map-polygon-editor";
-import { createPolygonID, createEdgeID } from "map-polygon-editor";
+import {
+  createPolygonID,
+  createEdgeID,
+  createVertexID,
+} from "map-polygon-editor";
 import type { PolygonAreaInfo } from "../services/polygon-service";
 
 const makePolygonSnapshot = (
@@ -12,6 +16,7 @@ const makePolygonSnapshot = (
 ): PolygonSnapshot => ({
   id: createPolygonID(id),
   edgeIds: [createEdgeID("e1"), createEdgeID("e2"), createEdgeID("e3")],
+  vertexIds: [createVertexID("v1"), createVertexID("v2"), createVertexID("v3")],
   holes: [],
   ...opts,
 });

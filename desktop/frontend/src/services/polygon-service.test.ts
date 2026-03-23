@@ -4,6 +4,7 @@ import type { PolygonSnapshot, NetworkPolygonEditor } from "map-polygon-editor";
 import {
   createPolygonID,
   createEdgeID,
+  createVertexID,
   emptyChangeSet,
 } from "map-polygon-editor";
 
@@ -48,6 +49,7 @@ const createMockRegionAPI = () => ({
 const makePolygonSnapshot = (id: string): PolygonSnapshot => ({
   id: createPolygonID(id),
   edgeIds: [createEdgeID("e1"), createEdgeID("e2"), createEdgeID("e3")],
+  vertexIds: [createVertexID("v1"), createVertexID("v2"), createVertexID("v3")],
   holes: [],
 });
 
@@ -94,6 +96,11 @@ describe("PolygonService", () => {
       const snapshot: PolygonSnapshot = {
         id: createPolygonID("p1"),
         edgeIds: [e1, e2, e3],
+        vertexIds: [
+          createVertexID("v1"),
+          createVertexID("v2"),
+          createVertexID("v3"),
+        ],
         holes: [],
       };
 
@@ -117,6 +124,7 @@ describe("PolygonService", () => {
       const snapshot: PolygonSnapshot = {
         id: createPolygonID("p1"),
         edgeIds: [e1, e2],
+        vertexIds: [createVertexID("v1"), createVertexID("v2")],
         holes: [[holeE1, holeE2]],
       };
 
