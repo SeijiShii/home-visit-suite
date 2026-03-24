@@ -60,6 +60,14 @@ export function MapPage() {
     ready: editorReady,
   } = usePolygonEditor(MapBinding, regionAPI);
 
+  // --- AreaTreeからの変更通知 ---
+
+  const handleTreeChanged = useCallback((tree: AreaTreeNode[]) => {
+    const areaMap = buildPolygonAreaMap(tree);
+    setPolygonAreaMap(areaMap);
+    setAreaTree(tree);
+  }, []);
+
   // --- ポリゴンリロード ---
 
   const reloadPolygons = useCallback(async () => {
@@ -522,6 +530,7 @@ export function MapPage() {
               service={regionService}
               api={RegionBinding}
               onUnlinkPolygon={handleUnlinkArea}
+              onTreeChanged={handleTreeChanged}
             />
           </div>
           <div

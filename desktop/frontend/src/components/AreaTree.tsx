@@ -24,10 +24,11 @@ interface AreaTreeProps {
   service: RegionService;
   api: RegionBindingAPI;
   onUnlinkPolygon?: (areaId: string) => void;
+  onTreeChanged?: (tree: AreaTreeNode[]) => void;
 }
 
 export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
-  function AreaTree({ service, api, onUnlinkPolygon }, ref) {
+  function AreaTree({ service, api, onUnlinkPolygon, onTreeChanged }, ref) {
     const { t } = useI18n();
     const m = t.areaTree;
     const [tree, setTree] = useState<AreaTreeNode[]>([]);
@@ -56,10 +57,11 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
       try {
         const data = await service.loadTree();
         setTree(data);
+        onTreeChanged?.(data);
       } catch (e) {
         console.error("loadTree failed:", e);
       }
-    }, [service]);
+    }, [service, onTreeChanged]);
 
     useEffect(() => {
       reload();
