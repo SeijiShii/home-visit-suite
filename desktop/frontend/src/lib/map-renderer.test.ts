@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { getPolygonStyle, type VertexDragCallbacks } from "./map-renderer";
+import {
+  getPolygonStyle,
+  type VertexDragCallbacks,
+  type MapRendererCallbacks,
+} from "./map-renderer";
 
 describe("VertexDragCallbacks 型", () => {
   it("onDragStart / onDragMove / onDragEnd の3コールバックを持つ", () => {
@@ -41,5 +45,22 @@ describe("getPolygonStyle", () => {
     expect(style.color).toBe("#3b82f6");
     expect(style.fillOpacity).toBe(0.15);
     expect(style.weight).toBe(2);
+  });
+});
+
+describe("MapRendererCallbacks.onContextMenu", () => {
+  it("lat, lng, containerX, containerY の4引数を受け取れる型である", () => {
+    const onContextMenu =
+      vi.fn<
+        (
+          lat: number,
+          lng: number,
+          containerX: number,
+          containerY: number,
+        ) => void
+      >();
+    const callbacks: MapRendererCallbacks = { onContextMenu };
+    callbacks.onContextMenu!(35.0, 140.0, 150, 300);
+    expect(onContextMenu).toHaveBeenCalledWith(35.0, 140.0, 150, 300);
   });
 });

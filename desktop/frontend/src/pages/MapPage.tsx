@@ -3,6 +3,7 @@ import { useMapState, MapMode } from "../hooks/useMapState";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
 import { useI18n } from "../contexts/I18nContext";
 import { MapView, type MapViewHandle } from "../components/MapView";
+import { EdgeContextMenu } from "../components/EdgeContextMenu";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
 import { RegionService } from "../services/region-service";
@@ -11,6 +12,7 @@ import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import * as MapBinding from "../../wailsjs/go/binding/MapBinding";
 import type {
   PolygonID,
+  EdgeID,
   PolygonSnapshot,
   NetworkPolygonEditor,
 } from "map-polygon-editor";
@@ -34,6 +36,13 @@ export function MapPage() {
     Map<string, PolygonAreaInfo>
   >(new Map());
   const [areaTree, setAreaTree] = useState<AreaTreeNode[]>([]);
+  const [edgeMenu, setEdgeMenu] = useState<{
+    x: number;
+    y: number;
+    edgeId: EdgeID;
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   const regionService = useMemo(() => new RegionService(RegionBinding), []);
 
@@ -172,6 +181,7 @@ export function MapPage() {
       // 編集モード中 → 編集終了
       if (snapshot.mode === MapMode.Editing) {
         mapRef.current?.disableVertexDrag();
+        mapRef.current?.highlightPolygon(null);
         actions.endEditing();
         return;
       }
@@ -242,11 +252,45 @@ export function MapPage() {
     }
   }, []);
 
-  const handleContextMenu = useCallback(() => {
-    if (snapshot.mode === MapMode.Drawing) {
-      handleUndoDrawing();
-    }
-  }, [snapshot.mode, handleUndoDrawing]);
+  const handleContextMenu = useCallback(
+    (lat: number, lng: number, containerX: number, containerY: number) => {
+      if (snapshot.mode === MapMode.Drawing) {
+        handleUndoDrawing();
+        return;
+      }
+      if (snapshot.mode === MapMode.Editing) {
+        const ed = editorRef.current;
+        if (!ed) return;
+        const thresholdDeg =
+          mapRef.current?.pixelsToDegrees(
+            mapRef.current.getSnapThresholdPx(),
+          ) ?? 0.001;
+        const nearEdge = ed.findNearestEdge(lat, lng, thresholdDeg);
+        if (nearEdge) {
+          setEdgeMenu({
+            x: containerX,
+            y: containerY,
+            edgeId: nearEdge.edge.id,
+            lat: nearEdge.point.lat,
+            lng: nearEdge.point.lng,
+          });
+        }
+      }
+    },
+    [snapshot.mode, handleUndoDrawing],
+  );
+
+  const handleEdgeAddVertex = useCallback(() => {
+    if (!edgeMenu || !editorRef.current) return;
+    const cs = editorRef.current.splitEdge(
+      edgeMenu.edgeId,
+      edgeMenu.lat,
+      edgeMenu.lng,
+    );
+    mapRef.current?.applyChangeSet(cs);
+    editorRef.current.save().catch(console.error);
+    setEdgeMenu(null);
+  }, [edgeMenu]);
 
   const handlePruneOrphans = useCallback(() => {
     if (!editorRef.current) return;
@@ -402,6 +446,15 @@ export function MapPage() {
         onPolygonClick={handlePolygonClick}
         onContextMenu={handleContextMenu}
       />
+
+      {edgeMenu && (
+        <EdgeContextMenu
+          x={edgeMenu.x}
+          y={edgeMenu.y}
+          onAddVertex={handleEdgeAddVertex}
+          onClose={() => setEdgeMenu(null)}
+        />
+      )}
 
       {isEditing && (
         <div className="drawing-toolbar">

@@ -29,7 +29,12 @@ export interface MapViewHandle {
 interface MapViewProps {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
-  onContextMenu?: () => void;
+  onContextMenu?: (
+    lat: number,
+    lng: number,
+    containerX: number,
+    containerY: number,
+  ) => void;
 }
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
@@ -98,7 +103,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     renderer.mount(containerRef.current, {
       onMapClick: (lat, lng) => callbacksRef.current.onMapClick?.(lat, lng),
       onPolygonClick: (id) => callbacksRef.current.onPolygonClick?.(id),
-      onContextMenu: () => callbacksRef.current.onContextMenu?.(),
+      onContextMenu: (lat, lng, cx, cy) =>
+        callbacksRef.current.onContextMenu?.(lat, lng, cx, cy),
     });
     rendererRef.current = renderer;
     return () => {

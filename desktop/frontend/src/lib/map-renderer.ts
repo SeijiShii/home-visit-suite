@@ -47,7 +47,12 @@ export interface VertexDragCallbacks {
 export interface MapRendererCallbacks {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
-  onContextMenu?: () => void;
+  onContextMenu?: (
+    lat: number,
+    lng: number,
+    containerX: number,
+    containerY: number,
+  ) => void;
 }
 
 export class MapRenderer {
@@ -108,7 +113,12 @@ export class MapRenderer {
     if (callbacks.onContextMenu) {
       this.map.on("contextmenu", (e: L.LeafletMouseEvent) => {
         e.originalEvent.preventDefault();
-        callbacks.onContextMenu!();
+        callbacks.onContextMenu!(
+          e.latlng.lat,
+          e.latlng.lng,
+          e.containerPoint.x,
+          e.containerPoint.y,
+        );
       });
     }
 
@@ -246,6 +256,17 @@ export class MapRenderer {
           this.polygonLayers.get(sc.id as string)?.remove();
           this.polygonLayers.delete(sc.id as string);
         }
+      }
+    }
+
+    // ポリゴンレイヤーが再追加された場合、頂点マーカーを前面に戻す
+    const polygonsChanged =
+      cs.polygons.created.length > 0 ||
+      cs.polygons.modified.length > 0 ||
+      cs.polygons.statusChanged.length > 0;
+    if (polygonsChanged && this.verticesVisible) {
+      for (const marker of this.vertexLayers.values()) {
+        marker.bringToFront();
       }
     }
 
