@@ -83,6 +83,7 @@ export interface Translations {
     assignToGroup: string;
     removeFromGroup: string;
     memberCount: string;
+    role: string;
     roles: {
       admin: string;
       editor: string;

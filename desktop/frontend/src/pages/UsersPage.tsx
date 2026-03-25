@@ -269,12 +269,12 @@ export function UsersPage() {
             <thead>
               <tr>
                 <th>{u.members}</th>
-                <th>Role</th>
+                <th>{u.role}</th>
                 <th>{u.groups}</th>
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user) => (
+              {[...filteredUsers].sort(sortByRole).map((user) => (
                 <tr key={user.id}>
                   <td>{user.name}</td>
                   <td>

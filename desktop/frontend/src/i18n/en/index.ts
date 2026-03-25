@@ -84,6 +84,7 @@ const en: Translations = {
     assignToGroup: "Assign to Group",
     removeFromGroup: "Remove from Group",
     memberCount: "members",
+    role: "Role",
     roles: {
       admin: "Admin",
       editor: "Editor",

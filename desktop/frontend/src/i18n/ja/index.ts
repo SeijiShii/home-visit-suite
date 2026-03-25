@@ -85,6 +85,7 @@ const ja: Translations = {
     assignToGroup: "グループに所属",
     removeFromGroup: "グループから外す",
     memberCount: "名",
+    role: "ロール",
     roles: {
       admin: "管理者",
       editor: "編集スタッフ",
