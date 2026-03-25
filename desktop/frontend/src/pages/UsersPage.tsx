@@ -48,7 +48,7 @@ export function UsersPage() {
     users.filter((user) => user.orgGroupId === groupId);
 
   const unassignedMembers = users.filter(
-    (user) => !user.orgGroupId || !groupMap.has(user.orgGroupId)
+    (user) => !user.orgGroupId || !groupMap.has(user.orgGroupId),
   );
 
   const roleLabel = (role: string) => {
@@ -62,12 +62,48 @@ export function UsersPage() {
     }
   };
 
+  const roleChipClass = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "member-chip-admin";
+      case "editor":
+        return "member-chip-editor";
+      default:
+        return "member-chip-member";
+    }
+  };
+
+  const roleBadgeClass = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "role-badge role-badge-admin";
+      case "editor":
+        return "role-badge role-badge-editor";
+      default:
+        return "role-badge role-badge-member";
+    }
+  };
+
+  const roleOrder = (role: string) => {
+    switch (role) {
+      case "admin":
+        return 0;
+      case "editor":
+        return 1;
+      default:
+        return 2;
+    }
+  };
+
+  const sortByRole = (a: models.User, b: models.User) =>
+    roleOrder(a.role) - roleOrder(b.role);
+
   const filteredUsers = search
     ? users.filter(
         (user) =>
           user.name.includes(search) ||
           roleLabel(user.role).includes(search) ||
-          groupName(user.orgGroupId).includes(search)
+          groupName(user.orgGroupId).includes(search),
       )
     : users;
 
@@ -75,7 +111,10 @@ export function UsersPage() {
     const name = groupNameRef.current?.value.trim();
     if (!name) return;
     if (modal.type === "addGroup") {
-      await UserBinding.SaveGroup({ id: `grp-${Date.now()}`, name } as models.Group);
+      await UserBinding.SaveGroup({
+        id: `grp-${Date.now()}`,
+        name,
+      } as models.Group);
     } else if (modal.type === "editGroup") {
       await UserBinding.SaveGroup({ ...modal.group, name } as models.Group);
     }
@@ -96,7 +135,10 @@ export function UsersPage() {
 
   const handleAssignGroup = async (groupId: string) => {
     if (modal.type !== "assignGroup") return;
-    await UserBinding.SaveUser({ ...modal.user, orgGroupId: groupId } as models.User);
+    await UserBinding.SaveUser({
+      ...modal.user,
+      orgGroupId: groupId,
+    } as models.User);
     setModal({ type: "none" });
     reload();
   };
@@ -116,7 +158,10 @@ export function UsersPage() {
       <section>
         <div className="group-card-header">
           <h2>{u.groups}</h2>
-          <button className="btn btn-primary btn-sm" onClick={() => setModal({ type: "addGroup" })}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => setModal({ type: "addGroup" })}
+          >
             {u.addGroup}
           </button>
         </div>
@@ -131,21 +176,32 @@ export function UsersPage() {
                 <div key={group.id} className="group-card">
                   <div className="group-card-header">
                     <span className="group-card-name">{group.name}</span>
-                    <span className="group-card-count">({members.length}{u.memberCount})</span>
+                    <span className="group-card-count">
+                      ({members.length}
+                      {u.memberCount})
+                    </span>
                     <div className="group-card-actions">
-                      <button className="btn btn-secondary btn-sm" onClick={() => setModal({ type: "editGroup", group })}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setModal({ type: "editGroup", group })}
+                      >
                         {c.edit}
                       </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => setModal({ type: "deleteGroup", group })}>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => setModal({ type: "deleteGroup", group })}
+                      >
                         {c.delete}
                       </button>
                     </div>
                   </div>
                   <div className="chip-list">
-                    {members.map((member) => (
-                      <span key={member.id} className="member-chip">
+                    {[...members].sort(sortByRole).map((member) => (
+                      <span
+                        key={member.id}
+                        className={`member-chip ${roleChipClass(member.role)}`}
+                      >
                         {member.name}
-                        <span className="member-chip-role">{roleLabel(member.role)}</span>
                         <button
                           className="member-chip-remove"
                           onClick={() => handleRemoveFromGroup(member)}
@@ -164,18 +220,22 @@ export function UsersPage() {
               <div className="group-unassigned">
                 <div className="group-card-header">
                   <span className="group-card-name">{u.unassigned}</span>
-                  <span className="group-card-count">({unassignedMembers.length}{u.memberCount})</span>
+                  <span className="group-card-count">
+                    ({unassignedMembers.length}
+                    {u.memberCount})
+                  </span>
                 </div>
                 <div className="chip-list">
-                  {unassignedMembers.map((member) => (
+                  {[...unassignedMembers].sort(sortByRole).map((member) => (
                     <span
                       key={member.id}
-                      className="member-chip member-chip-unassigned"
-                      onClick={() => setModal({ type: "assignGroup", user: member })}
+                      className={`member-chip member-chip-unassigned ${roleChipClass(member.role)}`}
+                      onClick={() =>
+                        setModal({ type: "assignGroup", user: member })
+                      }
                       title={u.assignToGroup}
                     >
                       {member.name}
-                      <span className="member-chip-role">{roleLabel(member.role)}</span>
                     </span>
                   ))}
                 </div>
@@ -188,7 +248,9 @@ export function UsersPage() {
       {/* Members table */}
       <section>
         <div className="group-card-header">
-          <h2>{u.members} ({users.length})</h2>
+          <h2>
+            {u.members} ({users.length})
+          </h2>
           <div className="group-card-actions">
             <input
               type="text"
@@ -215,7 +277,11 @@ export function UsersPage() {
               {filteredUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.name}</td>
-                  <td>{roleLabel(user.role)}</td>
+                  <td>
+                    <span className={roleBadgeClass(user.role)}>
+                      {roleLabel(user.role)}
+                    </span>
+                  </td>
                   <td>
                     <span
                       className="member-table-group"
@@ -233,7 +299,10 @@ export function UsersPage() {
 
       {/* Add/Edit Group Modal */}
       {(modal.type === "addGroup" || modal.type === "editGroup") && (
-        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">
               {modal.type === "addGroup" ? u.addGroup : u.editGroup}
@@ -244,13 +313,18 @@ export function UsersPage() {
                 ref={groupNameRef}
                 type="text"
                 className="modal-input"
-                defaultValue={modal.type === "editGroup" ? modal.group.name : ""}
+                defaultValue={
+                  modal.type === "editGroup" ? modal.group.name : ""
+                }
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleSaveGroup()}
               />
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setModal({ type: "none" })}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModal({ type: "none" })}
+              >
                 {c.cancel}
               </button>
               <button className="btn btn-primary" onClick={handleSaveGroup}>
@@ -263,7 +337,10 @@ export function UsersPage() {
 
       {/* Delete Group Modal */}
       {modal.type === "deleteGroup" && (
-        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">{u.deleteGroup}</div>
             <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 8 }}>
@@ -273,7 +350,10 @@ export function UsersPage() {
               {u.confirmDeleteGroup}
             </p>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setModal({ type: "none" })}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModal({ type: "none" })}
+              >
                 {c.cancel}
               </button>
               <button className="btn btn-danger" onClick={handleDeleteGroup}>
@@ -286,12 +366,17 @@ export function UsersPage() {
 
       {/* Assign to Group Modal */}
       {modal.type === "assignGroup" && (
-        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">{u.assignToGroup}</div>
             <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 16 }}>
               {modal.user.name}
-              <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 8 }}>
+              <span
+                style={{ fontWeight: 400, color: "#64748b", marginLeft: 8 }}
+              >
                 {roleLabel(modal.user.role)}
               </span>
             </p>
@@ -304,7 +389,8 @@ export function UsersPage() {
                 >
                   {group.name}
                   <span className="group-pick-count">
-                    ({membersOfGroup(group.id).length}{u.memberCount})
+                    ({membersOfGroup(group.id).length}
+                    {u.memberCount})
                   </span>
                 </button>
               ))}
@@ -316,7 +402,10 @@ export function UsersPage() {
               </button>
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setModal({ type: "none" })}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModal({ type: "none" })}
+              >
                 {c.cancel}
               </button>
             </div>

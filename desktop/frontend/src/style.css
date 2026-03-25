@@ -1359,17 +1359,52 @@ section {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 3px 10px;
   font-size: 13px;
   color: #334155;
+  border: 1px solid;
 }
 
-.member-chip-role {
+.member-chip-admin {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.member-chip-editor {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.member-chip-member {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.role-badge {
+  display: inline-block;
   font-size: 11px;
-  color: #94a3b8;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.role-badge-admin {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.role-badge-editor {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.role-badge-member {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
 }
 
 .member-chip-remove {
@@ -1388,15 +1423,12 @@ section {
 }
 
 .member-chip-unassigned {
-  background: #fff;
-  border-color: #fde68a;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: opacity 0.15s;
 }
 
 .member-chip-unassigned:hover {
-  background: #fef9c3;
-  border-color: #fbbf24;
+  opacity: 0.75;
 }
 
 .chip-list {
