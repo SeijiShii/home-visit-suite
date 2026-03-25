@@ -74,6 +74,15 @@ export interface Translations {
     noMembers: string;
     groups: string;
     noGroups: string;
+    addGroup: string;
+    editGroup: string;
+    deleteGroup: string;
+    groupName: string;
+    confirmDeleteGroup: string;
+    unassigned: string;
+    assignToGroup: string;
+    removeFromGroup: string;
+    memberCount: string;
     roles: {
       admin: string;
       editor: string;

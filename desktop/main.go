@@ -8,6 +8,7 @@ import (
 
 	"github.com/SeijiShii/home-visit-suite/desktop/internal/binding"
 	"github.com/SeijiShii/home-visit-suite/shared/domain/repository"
+	"github.com/SeijiShii/home-visit-suite/shared/testdata"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -32,12 +33,19 @@ func main() {
 		log.Fatalf("failed to initialize repository: %v", err)
 	}
 
+	// ユーザー・グループ管理用リポジトリ（開発中: InMemory + シードデータ）
+	seedRepos := testdata.NewInMemoryRepos()
+	if err := testdata.SeedAll(seedRepos); err != nil {
+		log.Fatalf("failed to seed data: %v", err)
+	}
+
 	app := NewApp()
 	regionBinding := binding.NewRegionBinding(repo)
 	mapBinding, err := binding.NewMapBinding(dataDir)
 	if err != nil {
 		log.Fatalf("failed to initialize map binding: %v", err)
 	}
+	userBinding := binding.NewUserBinding(seedRepos.User)
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",
@@ -52,6 +60,7 @@ func main() {
 			app,
 			regionBinding,
 			mapBinding,
+			userBinding,
 		},
 	})
 

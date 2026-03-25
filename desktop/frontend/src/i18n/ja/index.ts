@@ -75,6 +75,16 @@ const ja: Translations = {
     noMembers: "メンバーはいません",
     groups: "グループ",
     noGroups: "グループはありません",
+    addGroup: "グループ作成",
+    editGroup: "グループ編集",
+    deleteGroup: "グループ削除",
+    groupName: "グループ名",
+    confirmDeleteGroup:
+      "このグループを削除しますか？所属メンバーは未所属になります。",
+    unassigned: "未所属",
+    assignToGroup: "グループに所属",
+    removeFromGroup: "グループから外す",
+    memberCount: "名",
     roles: {
       admin: "管理者",
       editor: "編集スタッフ",
