@@ -24,10 +24,13 @@ type Coverage struct {
 
 // CoveragePlan は網羅予定。グループごとに期間と区域親番を割り当てる。
 type CoveragePlan struct {
-	ID         string    `json:"id"`
-	CoverageID string    `json:"coverageId"`
-	GroupID    string    `json:"groupId"`
-	StartDate  time.Time `json:"startDate"`
-	EndDate    time.Time `json:"endDate"`
-	Approved   bool      `json:"approved"` // 承認フロー対象
+	ID            string    `json:"id"`
+	CoverageID    string    `json:"coverageId"`
+	GroupID       string    `json:"groupId"`       // 対象グループ（""=全メンバー）
+	ParentAreaIDs []string  `json:"parentAreaIds"` // 対象区域親番リスト
+	StartDate     time.Time `json:"startDate"`
+	EndDate       time.Time `json:"endDate"`
+	Approved      bool      `json:"approved"` // 承認フロー対象
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
