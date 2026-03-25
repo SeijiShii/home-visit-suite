@@ -57,7 +57,9 @@ LinkSelfには2つのストレージレイヤーがある。
 | `invitations` | `{targetDID}` | 招待・任命 | admin/editor+ | 90日 |
 | `notifications` | `{targetDID}` | 通知 | system | 30日 |
 | `audit_log` | `{regionId}` | 監査ログ | system | 永続 |
-| `map_networks` | `{regionId}` | ポリゴンネットワーク | editor+ | 永続 |
+| `map_vertices` | `{regionId}` | ポリゴン頂点 | editor+ | 永続 |
+| `map_edges` | `{regionId}` | ポリゴン辺 | editor+ | 永続 |
+| `map_polygons` | `{regionId}` | ポリゴン定義 | editor+ | 永続 |
 
 #### topicの設計意図
 
@@ -169,14 +171,15 @@ type VisitRecord struct {
 
 ```go
 type Place struct {
-    ID             string     `json:"id"`
+    ID             string     `json:"id"`             // UUID
     AreaID         string     `json:"areaId"`
     Coord          Coordinate `json:"coord"`
     Type           PlaceType  `json:"type"`
     Label          string     `json:"label"`          // 表札名等
+    DisplayName    string     `json:"displayName"`    // ★変更: 部屋番号等の表示名（文字列）
     ParentID       string     `json:"parentId"`       // 集合住宅の場合、親建物のID
-    Floor          int        `json:"floor"`          // ★追加: 階数（部屋の場合）
-    RoomNumber     string     `json:"roomNumber"`     // ★追加: 部屋番号
+    SortOrder      int        `json:"sortOrder"`      // ★追加: 並び順（編集staff変更可）
+    Languages      []string   `json:"languages"`      // ★追加: ISO 639-1コード
     DoNotVisit     bool       `json:"doNotVisit"`
     DoNotVisitNote string     `json:"doNotVisitNote"` // ★追加: 訪問不可理由
     CreatedAt      time.Time  `json:"createdAt"`      // ★追加
@@ -394,131 +397,77 @@ OrgGroup (組織グループ)
 
 ### 5-1. 重要度：高
 
-#### H1. LinkSelf Groupと組織グループの関係
+#### H1. LinkSelf Groupと組織グループの関係 → **決定済み**
 
-**現状**: 仕様では「管理スタッフと活動スタッフは同じグループに所属」(01)とあり、全員が1つのLinkSelf Groupに参加する。一方で「管理者はLinkSelf内に複数のグループを作成しメンバーを割り当てる」(04)とも記載。
+LinkSelf GroupとApp内グループは全く異なるレイヤーであり、混同しない。
 
-**問題**: LinkSelfの`GroupAPI`で組織グループ（Aグループ、Bグループ）も作るのか、1つのLinkSelf Groupの中でアプリ層で管理するのか。
+- **LinkSelf Group**: P2Pデータ同期の基盤層。全メンバーが1つのLinkSelf Groupに参加し、GroupShareでデータを共有する
+- **App内グループ（組織グループ）**: ビジネスロジック層。`org_groups`チャネルでアプリ側が管理する運用上の組織構造
 
-**提案**: 1つのLinkSelf Groupに全員が参加し、組織グループは`org_groups`チャネルでアプリ層管理とする。理由：
-- GroupShareのAccessPolicyはLinkSelf Group単位。組織グループごとにLinkSelf Groupを分けると、グループ横断のデータ共有（チーム組成等）ができない
-- 組織グループは頻繁に再編される可能性があり、LinkSelf Group操作（DHT更新等）は重い
+#### H2. マルチリージョン（複数領域）のデータ分離 → **決定済み**
 
-**要決定**: この方針でよいか。
+領域間のアクセス制御は不要。topicベースのSubscriptionによるトラフィック最適化で十分。活動スタッフは自分が関与する領域のtopicのみSubscribeする。
 
-#### H2. マルチリージョン（複数領域）のデータ分離
+#### H3. Activity と Team の多対多関係（日時情報） → **決定済み**
 
-**現状**: GroupShareは全メンバーに配信される。成田市と富里市の両方の領域がある場合、全メンバーに両方のデータが届く。
+日付単位で管理する。`ActivityTeamAssignment.ActivityDate`は`time.Time`だが日付部分のみ使用。時間帯の区別は不要。
 
-**問題**: 領域Aの活動スタッフが領域Bのデータを受け取る必要があるか。データ量が大きい場合にトラフィックの懸念。
+#### H4. 同一区域の複数チェックアウト → **決定済み**
 
-**提案**: topicベースのSubscriptionで解決する。活動スタッフは自分が関与する領域のtopicのみSubscribeする。AccessPolicyレベルでの制限は不要（領域間で秘匿が必要なデータはない想定）。
+同一区域の複数チェックアウトは不可。区域の貸し出しは排他的とする。1つの区域に対してアクティブなActivityは常に最大1つ。ビジネスロジック層でActivity作成時に既存アクティブActivityの有無をチェックする。
 
-**要決定**: 領域間のアクセス制御が必要なケースがあるか。
+#### H5. 留守情報の共有範囲 → **決定済み**
 
-#### H3. Activity と Team の多対多関係（日時情報）
-
-**現状**: 仕様(05)「1つの訪問活動に対して日時ごとに複数のチームを紐づけ」。既存の`ActivityTeamAssignment`には日時情報がない。
-
-**対応**: `ActivityDate`フィールドを追加済み（2-3参照）。
-
-**要確認**: 「日時ごと」は日付単位か、それとも時間帯まで区別するか。
-
-#### H4. 同一区域の複数チェックアウト
-
-**現状**: 仕様(05)「同じ区域を複数のチームに貸し出すことができる」。
-
-**問題**: 同一AreaIDに対して複数のActivityレコードが存在する状態で、網羅活動の進捗をどう算出するか。
-
-**提案の選択肢**:
-- A) 全Activityの訪問記録をマージして完了率を算出する（同じPlaceへの重複訪問は1回とカウント）
-- B) Activityごとの完了はそれぞれ独立で、Coverage側で「最も進んでいるActivity」を採用する
-
-**要決定**: 進捗算出のロジック方針。
-
-#### H5. VisitRecordの留守情報の共有範囲
-
-**現状**: 仕様(08)で「留守情報はLinkSelfグループ全体に共有して他のメンバーがその場所を再網羅できる」、一方「個人情報に当たるので他のメンバーに共有されない」。
-
-**対応済み**: 本設計では以下のように分離している：
-- **GroupShare**: `Result`（met/absent）, `VisitedAt`, `PlaceID` — 共有
-- **DeviceDB**: `PersonalNote` — 個人
-
-**要確認**: 留守の詳細情報（「何時頃不在」「車はあったが応答なし」等）はGroupShare側に持つべきか、PersonalNote側か。他メンバーの再訪問判断に役立つ情報はGroupShareに含めたほうがよい可能性がある。
+- **GroupShare（VisitRecord）**: PlaceID、訪問日時、結果（会えた/留守）— 他メンバーの再訪問判断に必要な事実情報
+- **DeviceDB（PersonalNote）**: 詳細メモ（反応の様子、個人的な所感など）— 個人情報に該当するため非共有
 
 ### 5-2. 重要度：中
 
-#### M1. 外国人居住情報の構造
+#### M1. 外国人居住情報の構造 → **決定済み**
 
-**仕様参照**: (08)「言語によっては専従スタッフが訪問できるように情報を切り分ける」
+Placeに `Languages []string` フィールドを追加。ISO 639-1コード（`en`, `zh`, `ko`, `pt`, `es`, `vi`, `tl` 等）を格納する。UIでは `golang.org/x/text/language` の表示名付き選択肢リストを提供し、一般的な外国語をほぼ全てカバーする。
 
-**問題**: PlaceモデルにLanguageフィールドを追加するか、別モデルにするか。
+#### M2. 集合住宅の階・部屋構造の詳細 → **決定済み**
 
-**提案**: Placeに `Languages []string` フィールドを追加する。例: `["en", "zh"]`。簡素で実用的。
+- 部屋番号は建物により体系が異なるため、全て文字列管理とする
+- 各Place（部屋）はUUIDを持ち、`DisplayName`として部屋番号文字列を持つ
+- デフォルトは辞書順ソートだが、編集スタッフが並び順を変更可能（`SortOrder int`）
+- メゾネット式の例: 101, 201, 202, 102 のような物理配置順に並べ替えできる
+- `Floor` / `RoomNumber` フィールドは廃止し、`DisplayName` + `SortOrder` に統合する
 
-#### M2. 集合住宅の階・部屋構造の詳細
+#### M3. 承認フローのデータモデル → **決定済み**
 
-**仕様参照**: (03)「メゾネットタイプだと記述を工夫したほうが良い」
+専用Approvalモデルは不要。各エンティティの`Approved` boolフラグ + AuditLog（誰がいつ承認したか）で対応する。
 
-**現設計**: `Floor` + `RoomNumber` で基本構造をカバー。メゾネット（1つの部屋が2階にまたがる）は`Floor`を入居階として扱い、備考をLabelに記載する運用で対応できる。
+#### M4. データ保持期間の管理 → **決定済み**
 
-**要確認**: より複雑な構造（棟番号など）への対応が必要か。
+GroupShareに`app_config`チャネルを設け、管理者が設定した保持期間等のアプリ設定を格納する。チャネル登録時のRetention指定と連動させる。
 
-#### M3. 承認フローのデータモデル
+#### M5. ポリゴンネットワークのGroupShare化 → **決定済み**
 
-**仕様参照**: (04)「一そろいの領域内区域が完成した時点で管理者が承認」、(06)「予定策定・編集も承認フロー」
+同時編集を可能にする。`map_networks`チャネル（JSON丸ごと）ではなく、`map_vertices` / `map_edges` / `map_polygons` の3チャネルにエンティティ単位で格納する。map-polygon-editorライブラリ側のStorageAdapterをレコード単位のput/deleteに変更する必要あり。
 
-**現設計**: Regionの`Approved` bool、CoveragePlanの`Approved` boolで対応。
+詳細は [map-polygon-editor-concurrent-editing.md](map-polygon-editor-concurrent-editing.md) を参照。
 
-**問題**: 承認履歴（誰がいつ承認したか）を記録する場合、以下の選択肢がある：
-- A) AuditLogに記録するだけで十分（現設計）
-- B) 汎用Approvalモデルを新設する
+#### M6. 罷免時のデータ遷移 → **決定済み**
 
-**提案**: A) AuditLogで対応。承認は頻繁に発生しないため専用モデルは過剰。
-
-#### M4. データ保持期間の管理
-
-**仕様参照**: (07)「LinkSelfの設定値として保持期間を管理者が設定」
-
-**対応**: LinkSelfの`ChannelOption`にRetention設定がある。アプリ層で管理者が設定するUIと、チャネル登録時のRetention指定を実装する。
-
-**要設計**: 保持期間設定のためのアプリ設定モデル（`AppConfig`等）が必要になる可能性がある。
-
-#### M5. ポリゴンネットワークのGroupShare化
-
-**現状**: `network.json`ファイルに保存（`MapBinding.SaveNetworkJSON`）。
-
-**問題**: LinkSelfで同期する場合、JSONをまるごとGroupShareのレコードとして格納するか、ポリゴン単位でレコード化するか。
-
-**提案**: 初期はJSONまるごと1レコードとして`map_networks`チャネルに格納。ポリゴン数が増え同時編集が頻発する場合に分割を検討する。
-
-**理由**: map-polygon-editorはネットワーク全体をJSONとして読み書きする設計。レコード分割するとEditorのAPI変更が必要。
-
-#### M6. 罷免時のデータ遷移
-
-**仕様参照**: (04)「LinkSelfグループからの削除：担当者なしになる。未処理タスクも担当者なしになる」
-
-**問題**: Activity.OwnerIDやRequest.SubmitterIDが削除されたDIDを参照し続ける。
-
-**提案**: 削除時にActivityのOwnerIDを空文字にクリアするバッチ処理を行う。VisitRecordのUserIDは履歴として残す（誰が訪問したかは事実として保持）。
-
-**要決定**: DID削除後もVisitRecord.UserIDを保持してよいか（データ保持ポリシー）。
+- **Activity.OwnerID**: 空文字にクリア（担当者なし）。バッチ処理で該当DIDのアクティブなActivityを更新
+- **VisitRecord.UserID**: 履歴として保持（誰が訪問したかは事実情報として永続）
+- **Request等の未処理タスク**: 担当者なしに変更
 
 ### 5-3. 重要度：低
 
-#### L1. NTPスキュー問題
+#### L1. NTPスキュー問題 → **決定済み**
 
-LinkSelfはLast-Write-Winsで競合解決する。オフラインで活動し、オンライン復帰時にデバイス時刻がずれていると、意図しない上書きが発生しうる。
+アプリ起動時にNTP同期チェックを行い、5分以上のずれを検出した場合はユーザーに警告する。
 
-**対応**: アプリ起動時にNTP同期チェックを行い、大幅なずれ（例: 5分以上）を検出した場合はユーザーに警告する。
+#### L2. ダンプ/リストアの粒度 → **決定済み**
 
-#### L2. ダンプ/リストアの粒度
+GroupShareの`Dump`はGroupID単位。領域単位のエクスポートが必要な場合はアプリ層でフィルタリングする。
 
-GroupShareの`Dump`はGroupID単位で全チャネルの全データを出力する。領域単位のエクスポートが必要なら、アプリ層でフィルタリングする。
+#### L3. 管理者0人問題 → **決定済み**
 
-#### L3. 管理者0人問題
-
-仕様(04)で「管理者は自己罷免不可」と明記。データモデル層での制約はなく、ビジネスロジック（ロール変更処理）で担保する。
+データモデル層での制約は不要。ビジネスロジック（ロール変更処理）で「管理者は自己罷免不可」を担保する。
 
 ---
 
