@@ -16,9 +16,11 @@ const (
 // AuditLog は重要操作の履歴。
 type AuditLog struct {
 	ID        string      `json:"id"`
+	RegionID  string      `json:"regionId"` // 所属領域（GroupShareのtopic）
 	Action    AuditAction `json:"action"`
 	ActorID   string      `json:"actorId"`  // 操作者
 	TargetID  string      `json:"targetId"` // 操作対象
 	Detail    string      `json:"detail"`
+	Timestamp time.Time   `json:"timestamp"`
 	CreatedAt time.Time   `json:"createdAt"`
 }
