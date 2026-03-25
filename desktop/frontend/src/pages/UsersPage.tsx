@@ -39,8 +39,6 @@ export function UsersPage() {
     reload();
   }, [reload]);
 
-  // --- Group helpers ---
-
   const groupMap = new Map(groups.map((g) => [g.id, g]));
 
   const groupName = (groupId: string) =>
@@ -64,8 +62,6 @@ export function UsersPage() {
     }
   };
 
-  // --- Filtered users ---
-
   const filteredUsers = search
     ? users.filter(
         (user) =>
@@ -75,20 +71,13 @@ export function UsersPage() {
       )
     : users;
 
-  // --- Group CRUD ---
-
   const handleSaveGroup = async () => {
     const name = groupNameRef.current?.value.trim();
     if (!name) return;
-
     if (modal.type === "addGroup") {
-      const id = `grp-${Date.now()}`;
-      await UserBinding.SaveGroup({ id, name } as models.Group);
+      await UserBinding.SaveGroup({ id: `grp-${Date.now()}`, name } as models.Group);
     } else if (modal.type === "editGroup") {
-      await UserBinding.SaveGroup({
-        ...modal.group,
-        name,
-      } as models.Group);
+      await UserBinding.SaveGroup({ ...modal.group, name } as models.Group);
     }
     setModal({ type: "none" });
     reload();
@@ -96,48 +85,38 @@ export function UsersPage() {
 
   const handleDeleteGroup = async () => {
     if (modal.type !== "deleteGroup") return;
-    const groupId = modal.group.id;
-
-    // Unassign all members from this group
-    const members = membersOfGroup(groupId);
+    const members = membersOfGroup(modal.group.id);
     for (const member of members) {
-      await UserBinding.SaveUser({
-        ...member,
-        orgGroupId: "",
-      } as models.User);
+      await UserBinding.SaveUser({ ...member, orgGroupId: "" } as models.User);
     }
-    await UserBinding.DeleteGroup(groupId);
+    await UserBinding.DeleteGroup(modal.group.id);
     setModal({ type: "none" });
     reload();
   };
 
   const handleAssignGroup = async (groupId: string) => {
     if (modal.type !== "assignGroup") return;
-    await UserBinding.SaveUser({
-      ...modal.user,
-      orgGroupId: groupId,
-    } as models.User);
+    await UserBinding.SaveUser({ ...modal.user, orgGroupId: groupId } as models.User);
     setModal({ type: "none" });
     reload();
   };
 
   const handleRemoveFromGroup = async (user: models.User) => {
-    await UserBinding.SaveUser({
-      ...user,
-      orgGroupId: "",
-    } as models.User);
+    await UserBinding.SaveUser({ ...user, orgGroupId: "" } as models.User);
     reload();
   };
 
   return (
     <>
-      <h1>{u.title}</h1>
+      <div className="users-header">
+        <h1 className="users-title">{u.title}</h1>
+      </div>
 
-      {/* --- Groups section --- */}
+      {/* Groups */}
       <section>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="group-card-header">
           <h2>{u.groups}</h2>
-          <button onClick={() => setModal({ type: "addGroup" })}>
+          <button className="btn btn-primary btn-sm" onClick={() => setModal({ type: "addGroup" })}>
             {u.addGroup}
           </button>
         </div>
@@ -145,71 +124,31 @@ export function UsersPage() {
         {groups.length === 0 ? (
           <p>{u.noGroups}</p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {groups.map((group) => {
               const members = membersOfGroup(group.id);
               return (
-                <div
-                  key={group.id}
-                  style={{
-                    border: "1px solid #ccc",
-                    borderRadius: 6,
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <strong>{group.name}</strong>
-                    <span style={{ color: "#888" }}>
-                      ({members.length}
-                      {u.memberCount})
-                    </span>
-                    <button
-                      onClick={() => setModal({ type: "editGroup", group })}
-                      style={{ marginLeft: "auto" }}
-                    >
-                      {c.edit}
-                    </button>
-                    <button
-                      onClick={() => setModal({ type: "deleteGroup", group })}
-                    >
-                      {c.delete}
-                    </button>
+                <div key={group.id} className="group-card">
+                  <div className="group-card-header">
+                    <span className="group-card-name">{group.name}</span>
+                    <span className="group-card-count">({members.length}{u.memberCount})</span>
+                    <div className="group-card-actions">
+                      <button className="btn btn-secondary btn-sm" onClick={() => setModal({ type: "editGroup", group })}>
+                        {c.edit}
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => setModal({ type: "deleteGroup", group })}>
+                        {c.delete}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  <div className="chip-list">
                     {members.map((member) => (
-                      <span
-                        key={member.id}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          background: "#f0f0f0",
-                          borderRadius: 4,
-                          padding: "2px 8px",
-                          fontSize: 13,
-                        }}
-                      >
+                      <span key={member.id} className="member-chip">
                         {member.name}
-                        <span style={{ color: "#888", fontSize: 11 }}>
-                          {roleLabel(member.role)}
-                        </span>
+                        <span className="member-chip-role">{roleLabel(member.role)}</span>
                         <button
+                          className="member-chip-remove"
                           onClick={() => handleRemoveFromGroup(member)}
-                          style={{
-                            border: "none",
-                            background: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                            fontSize: 14,
-                            color: "#999",
-                          }}
                           title={u.removeFromGroup}
                         >
                           &times;
@@ -221,43 +160,22 @@ export function UsersPage() {
               );
             })}
 
-            {/* Unassigned */}
             {unassignedMembers.length > 0 && (
-              <div
-                style={{
-                  border: "1px dashed #aaa",
-                  borderRadius: 6,
-                  padding: 12,
-                }}
-              >
-                <div style={{ marginBottom: 8 }}>
-                  <strong>{u.unassigned}</strong>
-                  <span style={{ color: "#888", marginLeft: 8 }}>
-                    ({unassignedMembers.length}
-                    {u.memberCount})
-                  </span>
+              <div className="group-unassigned">
+                <div className="group-card-header">
+                  <span className="group-card-name">{u.unassigned}</span>
+                  <span className="group-card-count">({unassignedMembers.length}{u.memberCount})</span>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                <div className="chip-list">
                   {unassignedMembers.map((member) => (
                     <span
                       key={member.id}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        background: "#fff8e0",
-                        borderRadius: 4,
-                        padding: "2px 8px",
-                        fontSize: 13,
-                        cursor: "pointer",
-                      }}
+                      className="member-chip member-chip-unassigned"
                       onClick={() => setModal({ type: "assignGroup", user: member })}
                       title={u.assignToGroup}
                     >
                       {member.name}
-                      <span style={{ color: "#888", fontSize: 11 }}>
-                        {roleLabel(member.role)}
-                      </span>
+                      <span className="member-chip-role">{roleLabel(member.role)}</span>
                     </span>
                   ))}
                 </div>
@@ -267,43 +185,40 @@ export function UsersPage() {
         )}
       </section>
 
-      {/* --- Members table --- */}
-      <section style={{ marginTop: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h2>
-            {u.members} ({users.length})
-          </h2>
-          <input
-            type="text"
-            placeholder={c.search}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ marginLeft: "auto", padding: "4px 8px" }}
-          />
+      {/* Members table */}
+      <section>
+        <div className="group-card-header">
+          <h2>{u.members} ({users.length})</h2>
+          <div className="group-card-actions">
+            <input
+              type="text"
+              className="search-input"
+              placeholder={c.search}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         {filteredUsers.length === 0 ? (
           <p>{u.noMembers}</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table className="member-table">
             <thead>
-              <tr style={{ borderBottom: "2px solid #ccc", textAlign: "left" }}>
-                <th style={{ padding: "6px 8px" }}>名前</th>
-                <th style={{ padding: "6px 8px" }}>ロール</th>
-                <th style={{ padding: "6px 8px" }}>{u.groups}</th>
+              <tr>
+                <th>{u.members}</th>
+                <th>Role</th>
+                <th>{u.groups}</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr
-                  key={user.id}
-                  style={{ borderBottom: "1px solid #eee" }}
-                >
-                  <td style={{ padding: "6px 8px" }}>{user.name}</td>
-                  <td style={{ padding: "6px 8px" }}>{roleLabel(user.role)}</td>
-                  <td style={{ padding: "6px 8px" }}>
+                <tr key={user.id}>
+                  <td>{user.name}</td>
+                  <td>{roleLabel(user.role)}</td>
+                  <td>
                     <span
-                      style={{ cursor: "pointer", textDecoration: "underline" }}
+                      className="member-table-group"
                       onClick={() => setModal({ type: "assignGroup", user })}
                     >
                       {groupName(user.orgGroupId)}
@@ -316,59 +231,31 @@ export function UsersPage() {
         )}
       </section>
 
-      {/* --- Modals --- */}
-
       {/* Add/Edit Group Modal */}
       {(modal.type === "addGroup" || modal.type === "editGroup") && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 8,
-              padding: 24,
-              minWidth: 320,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>
+        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">
               {modal.type === "addGroup" ? u.addGroup : u.editGroup}
-            </h3>
-            <div style={{ marginTop: 12 }}>
-              <label>{u.groupName}</label>
+            </div>
+            <div className="modal-field">
+              <label className="modal-label">{u.groupName}</label>
               <input
                 ref={groupNameRef}
                 type="text"
-                defaultValue={
-                  modal.type === "editGroup" ? modal.group.name : ""
-                }
-                style={{ display: "block", width: "100%", padding: "6px 8px", marginTop: 4 }}
+                className="modal-input"
+                defaultValue={modal.type === "editGroup" ? modal.group.name : ""}
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleSaveGroup()}
               />
             </div>
-            <div
-              style={{
-                marginTop: 16,
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-              }}
-            >
-              <button onClick={() => setModal({ type: "none" })}>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setModal({ type: "none" })}>
                 {c.cancel}
               </button>
-              <button onClick={handleSaveGroup}>{c.save}</button>
+              <button className="btn btn-primary" onClick={handleSaveGroup}>
+                {c.save}
+              </button>
             </div>
           </div>
         </div>
@@ -376,47 +263,20 @@ export function UsersPage() {
 
       {/* Delete Group Modal */}
       {modal.type === "deleteGroup" && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 8,
-              padding: 24,
-              minWidth: 320,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>{u.deleteGroup}</h3>
-            <p>
-              <strong>{modal.group.name}</strong>
+        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">{u.deleteGroup}</div>
+            <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 8 }}>
+              {modal.group.name}
             </p>
-            <p>{u.confirmDeleteGroup}</p>
-            <div
-              style={{
-                marginTop: 16,
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-              }}
-            >
-              <button onClick={() => setModal({ type: "none" })}>
+            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 16 }}>
+              {u.confirmDeleteGroup}
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setModal({ type: "none" })}>
                 {c.cancel}
               </button>
-              <button
-                onClick={handleDeleteGroup}
-                style={{ color: "red" }}
-              >
+              <button className="btn btn-danger" onClick={handleDeleteGroup}>
                 {c.delete}
               </button>
             </div>
@@ -426,80 +286,37 @@ export function UsersPage() {
 
       {/* Assign to Group Modal */}
       {modal.type === "assignGroup" && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 8,
-              padding: 24,
-              minWidth: 320,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>{u.assignToGroup}</h3>
-            <p>
-              <strong>{modal.user.name}</strong> ({roleLabel(modal.user.role)})
+        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">{u.assignToGroup}</div>
+            <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 16 }}>
+              {modal.user.name}
+              <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 8 }}>
+                {roleLabel(modal.user.role)}
+              </span>
             </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                marginTop: 12,
-              }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {groups.map((group) => (
                 <button
                   key={group.id}
+                  className={`group-pick-btn ${modal.user.orgGroupId === group.id ? "group-pick-btn-active" : ""}`}
                   onClick={() => handleAssignGroup(group.id)}
-                  style={{
-                    padding: "8px 12px",
-                    textAlign: "left",
-                    border: "1px solid #ccc",
-                    borderRadius: 4,
-                    background:
-                      modal.user.orgGroupId === group.id ? "#e0e8ff" : "#fff",
-                    cursor: "pointer",
-                  }}
                 >
-                  {group.name} ({membersOfGroup(group.id).length}
-                  {u.memberCount})
+                  {group.name}
+                  <span className="group-pick-count">
+                    ({membersOfGroup(group.id).length}{u.memberCount})
+                  </span>
                 </button>
               ))}
               <button
+                className={`group-pick-btn group-pick-btn-unassigned ${!modal.user.orgGroupId ? "group-pick-btn-active" : ""}`}
                 onClick={() => handleAssignGroup("")}
-                style={{
-                  padding: "8px 12px",
-                  textAlign: "left",
-                  border: "1px dashed #aaa",
-                  borderRadius: 4,
-                  background:
-                    !modal.user.orgGroupId ? "#fff8e0" : "#fff",
-                  cursor: "pointer",
-                }}
               >
                 {u.unassigned}
               </button>
             </div>
-            <div
-              style={{
-                marginTop: 16,
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button onClick={() => setModal({ type: "none" })}>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setModal({ type: "none" })}>
                 {c.cancel}
               </button>
             </div>

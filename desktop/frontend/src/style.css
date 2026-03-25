@@ -1225,3 +1225,254 @@ section {
 .edge-context-menu-item:hover {
   background: rgba(71, 85, 105, 0.6);
 }
+
+/* --- Users Page --- */
+
+.users-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.users-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.btn {
+  padding: 6px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.btn-secondary {
+  background: #fff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btn-secondary:hover {
+  background: #f1f5f9;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #64748b;
+  border-color: transparent;
+  padding: 4px 8px;
+}
+
+.btn-ghost:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.search-input {
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #334155;
+  outline: none;
+  background: #fff;
+}
+
+.search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.group-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+}
+
+.group-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.group-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.group-card-count {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.group-card-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.group-unassigned {
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fefce8;
+}
+
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.member-chip-role {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.member-chip-remove {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.member-chip-remove:hover {
+  color: #ef4444;
+}
+
+.member-chip-unassigned {
+  background: #fff;
+  border-color: #fde68a;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.member-chip-unassigned:hover {
+  background: #fef9c3;
+  border-color: #fbbf24;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.member-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.member-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.member-table td {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.member-table tr:hover td {
+  background: #f8fafc;
+}
+
+.member-table-group {
+  cursor: pointer;
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.member-table-group:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.group-pick-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  color: #334155;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.group-pick-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.group-pick-btn-active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.group-pick-btn-unassigned {
+  border-style: dashed;
+}
+
+.group-pick-count {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-left: 4px;
+}
