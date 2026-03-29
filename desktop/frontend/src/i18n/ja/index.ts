@@ -4,7 +4,7 @@ const ja: Translations = {
   nav: {
     dashboard: "ダッシュボード",
     map: "区域地図",
-    users: "ユーザー管理",
+    users: "メンバー管理",
     activities: "訪問活動",
     coverage: "網羅管理",
     requests: "申請管理",
@@ -70,7 +70,7 @@ const ja: Translations = {
     defaultParentAreaName: "名前なし",
   },
   users: {
-    title: "ユーザー管理",
+    title: "メンバー管理",
     members: "メンバー",
     noMembers: "メンバーはいません",
     groups: "グループ",
@@ -84,6 +84,7 @@ const ja: Translations = {
     unassigned: "未所属",
     assignToGroup: "グループに所属",
     removeFromGroup: "グループから外す",
+    confirmRemoveFromGroup: "{group}から{name}を未所属に移動しますか？",
     memberCount: "名",
     role: "ロール",
     roles: {

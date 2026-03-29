@@ -87,8 +87,8 @@ var groupDefs = []struct {
 
 func seedUsers(repos *Repos) error {
 	// グループ作成
-	for _, g := range groupDefs {
-		if err := repos.User.SaveGroup(&models.Group{ID: g.id, Name: g.name}); err != nil {
+	for i, g := range groupDefs {
+		if err := repos.User.SaveGroup(&models.Group{ID: g.id, Name: g.name, SortOrder: i + 1}); err != nil {
 			return err
 		}
 	}

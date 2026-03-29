@@ -50,6 +50,21 @@ func (b *UserBinding) DeleteGroup(id string) error {
 	return b.repo.DeleteGroup(id)
 }
 
+// ReorderGroups はグループの表示順を更新する。orderedIDs は並び順どおりのグループIDスライス。
+func (b *UserBinding) ReorderGroups(orderedIDs []string) error {
+	for i, id := range orderedIDs {
+		g, err := b.repo.GetGroup(id)
+		if err != nil {
+			return err
+		}
+		g.SortOrder = i + 1
+		if err := b.repo.SaveGroup(g); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // --- Tag ---
 
 func (b *UserBinding) ListTags() ([]models.Tag, error) {

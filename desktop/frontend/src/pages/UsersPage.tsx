@@ -8,7 +8,8 @@ type ModalState =
   | { type: "addGroup" }
   | { type: "editGroup"; group: models.Group }
   | { type: "deleteGroup"; group: models.Group }
-  | { type: "assignGroup"; user: models.User };
+  | { type: "assignGroup"; user: models.User }
+  | { type: "confirmRemove"; user: models.User; group: models.Group };
 
 export function UsersPage() {
   const { t } = useI18n();
@@ -21,6 +22,8 @@ export function UsersPage() {
   const [search, setSearch] = useState("");
 
   const groupNameRef = useRef<HTMLInputElement>(null);
+  const [dragGroupId, setDragGroupId] = useState<string | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -114,6 +117,7 @@ export function UsersPage() {
       await UserBinding.SaveGroup({
         id: `grp-${Date.now()}`,
         name,
+        sortOrder: groups.length + 1,
       } as models.Group);
     } else if (modal.type === "editGroup") {
       await UserBinding.SaveGroup({ ...modal.group, name } as models.Group);
@@ -148,6 +152,42 @@ export function UsersPage() {
     reload();
   };
 
+  const handleGroupDragStart = (e: React.DragEvent, groupId: string) => {
+    setDragGroupId(groupId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleGroupDragOver = (e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (groupId !== dragGroupId) {
+      setDragOverGroupId(groupId);
+    }
+  };
+
+  const handleGroupDrop = async (e: React.DragEvent, targetGroupId: string) => {
+    e.preventDefault();
+    setDragOverGroupId(null);
+    if (!dragGroupId || dragGroupId === targetGroupId) {
+      setDragGroupId(null);
+      return;
+    }
+    const fromIdx = groups.findIndex((g) => g.id === dragGroupId);
+    const toIdx = groups.findIndex((g) => g.id === targetGroupId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const reordered = [...groups];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setGroups(reordered);
+    setDragGroupId(null);
+    await UserBinding.ReorderGroups(reordered.map((g) => g.id));
+  };
+
+  const handleGroupDragEnd = () => {
+    setDragGroupId(null);
+    setDragOverGroupId(null);
+  };
+
   return (
     <>
       <div className="users-header">
@@ -173,8 +213,23 @@ export function UsersPage() {
             {groups.map((group) => {
               const members = membersOfGroup(group.id);
               return (
-                <div key={group.id} className="group-card">
+                <div
+                  key={group.id}
+                  className={`group-card${dragGroupId === group.id ? " group-card-dragging" : ""}${dragOverGroupId === group.id ? " group-card-dragover" : ""}`}
+                  onDragOver={(e) => handleGroupDragOver(e, group.id)}
+                  onDrop={(e) => handleGroupDrop(e, group.id)}
+                  onDragLeave={() => setDragOverGroupId(null)}
+                >
                   <div className="group-card-header">
+                    <span
+                      className="group-drag-handle"
+                      draggable
+                      onDragStart={(e) => handleGroupDragStart(e, group.id)}
+                      onDragEnd={handleGroupDragEnd}
+                      title="ドラッグで並べ替え"
+                    >
+                      ⠿
+                    </span>
                     <span className="group-card-name">{group.name}</span>
                     <span className="group-card-count">
                       ({members.length}
@@ -204,7 +259,13 @@ export function UsersPage() {
                         {member.name}
                         <button
                           className="member-chip-remove"
-                          onClick={() => handleRemoveFromGroup(member)}
+                          onClick={() =>
+                            setModal({
+                              type: "confirmRemove",
+                              user: member,
+                              group,
+                            })
+                          }
                           title={u.removeFromGroup}
                         >
                           &times;
@@ -358,6 +419,40 @@ export function UsersPage() {
               </button>
               <button className="btn btn-danger" onClick={handleDeleteGroup}>
                 {c.delete}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Remove from Group Modal */}
+      {modal.type === "confirmRemove" && (
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">{u.removeFromGroup}</div>
+            <p style={{ color: "#1e293b", marginBottom: 16 }}>
+              {u.confirmRemoveFromGroup
+                .replace("{group}", modal.group.name)
+                .replace("{name}", modal.user.name)}
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModal({ type: "none" })}
+              >
+                {c.cancel}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={async () => {
+                  await handleRemoveFromGroup(modal.user);
+                  setModal({ type: "none" });
+                }}
+              >
+                {c.confirm}
               </button>
             </div>
           </div>

@@ -4,7 +4,7 @@ const en: Translations = {
   nav: {
     dashboard: "Dashboard",
     map: "Area Map",
-    users: "User Management",
+    users: "Member Management",
     activities: "Visit Activities",
     coverage: "Coverage",
     requests: "Requests",
@@ -70,7 +70,7 @@ const en: Translations = {
     defaultParentAreaName: "Untitled",
   },
   users: {
-    title: "User Management",
+    title: "Member Management",
     members: "Members",
     noMembers: "No members",
     groups: "Groups",
@@ -83,6 +83,7 @@ const en: Translations = {
     unassigned: "Unassigned",
     assignToGroup: "Assign to Group",
     removeFromGroup: "Remove from Group",
+    confirmRemoveFromGroup: "Move {name} from {group} to unassigned?",
     memberCount: "members",
     role: "Role",
     roles: {

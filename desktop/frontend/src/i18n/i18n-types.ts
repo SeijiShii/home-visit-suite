@@ -82,6 +82,7 @@ export interface Translations {
     unassigned: string;
     assignToGroup: string;
     removeFromGroup: string;
+    confirmRemoveFromGroup: string;
     memberCount: string;
     role: string;
     roles: {

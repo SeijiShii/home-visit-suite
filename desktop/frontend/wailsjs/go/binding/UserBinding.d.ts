@@ -20,6 +20,8 @@ export function ListTags():Promise<Array<models.Tag>>;
 
 export function ListUsers():Promise<Array<models.User>>;
 
+export function ReorderGroups(arg1:Array<string>):Promise<void>;
+
 export function SaveGroup(arg1:models.Group):Promise<void>;
 
 export function SaveInvitation(arg1:models.Invitation):Promise<void>;

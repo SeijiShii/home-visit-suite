@@ -1322,6 +1322,35 @@ section {
   border-radius: 8px;
   padding: 16px;
   background: #fff;
+  transition: box-shadow 0.15s, opacity 0.15s;
+}
+
+.group-card-dragging {
+  opacity: 0.4;
+}
+
+.group-card-dragover {
+  box-shadow: 0 -2px 0 0 #3b82f6;
+}
+
+.group-drag-handle {
+  cursor: grab;
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  user-select: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.group-drag-handle:hover {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.group-drag-handle:active {
+  cursor: grabbing;
 }
 
 .group-card-header {

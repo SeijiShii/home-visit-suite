@@ -36,8 +36,9 @@ type User struct {
 // Group は管理者が作成するメンバーグループを表す。
 // メンバーは排他的に1つのグループにのみ所属する。
 type Group struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sortOrder"`
 }
 
 // Tag は編集スタッフがメンバーに付与するタグ。

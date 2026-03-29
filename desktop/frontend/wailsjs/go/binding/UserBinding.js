@@ -38,6 +38,10 @@ export function ListUsers() {
   return window['go']['binding']['UserBinding']['ListUsers']();
 }
 
+export function ReorderGroups(arg1) {
+  return window['go']['binding']['UserBinding']['ReorderGroups'](arg1);
+}
+
 export function SaveGroup(arg1) {
   return window['go']['binding']['UserBinding']['SaveGroup'](arg1);
 }

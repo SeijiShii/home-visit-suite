@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
@@ -79,6 +80,9 @@ func (r *InMemoryUserRepository) ListGroups() ([]models.Group, error) {
 	for _, v := range r.groups {
 		result = append(result, *v)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].SortOrder < result[j].SortOrder
+	})
 	return result, nil
 }
 
