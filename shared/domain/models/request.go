@@ -20,7 +20,7 @@ const (
 	RequestStatusResolved RequestStatus = "resolved" // 処理済み
 )
 
-// Request は活動スタッフからの申請。
+// Request は活動メンバーからの申請。
 type Request struct {
 	ID          string        `json:"id"`
 	Type        RequestType   `json:"type"`
@@ -31,5 +31,5 @@ type Request struct {
 	Description string        `json:"description"`
 	CreatedAt   time.Time     `json:"createdAt"`
 	ResolvedAt  *time.Time    `json:"resolvedAt"`
-	ResolvedBy  string        `json:"resolvedBy"` // 処理した編集スタッフ
+	ResolvedBy  string        `json:"resolvedBy"` // 処理した編集メンバー
 }

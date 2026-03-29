@@ -89,8 +89,8 @@ const ja: Translations = {
     role: "ロール",
     roles: {
       admin: "管理者",
-      editor: "編集スタッフ",
-      member: "活動スタッフ",
+      editor: "編集メンバー",
+      member: "活動メンバー",
     },
   },
   activities: {

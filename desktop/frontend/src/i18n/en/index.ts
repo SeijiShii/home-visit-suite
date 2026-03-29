@@ -89,7 +89,7 @@ const en: Translations = {
     roles: {
       admin: "Admin",
       editor: "Editor",
-      member: "Field Staff",
+      member: "Field Member",
     },
   },
   activities: {

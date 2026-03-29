@@ -65,7 +65,7 @@ func SeedAll(repos *Repos) error {
 	return nil
 }
 
-// --- ユーザー（50名） ---
+// --- メンバー（50名） ---
 
 var familyNames = []string{
 	"田中", "鈴木", "佐藤", "高橋", "伊藤", "渡辺", "山本", "中村", "小林", "加藤",
@@ -105,7 +105,7 @@ func seedUsers(repos *Repos) error {
 		}
 	}
 
-	// ユーザー50名作成
+	// メンバー50名作成
 	baseTime := time.Date(2025, 4, 1, 0, 0, 0, 0, time.Local)
 	for i := 0; i < 50; i++ {
 		var role models.Role
@@ -310,7 +310,7 @@ func seedPlaces(repos *Repos) error {
 
 func seedTeams(repos *Repos) error {
 	for i := 0; i < 15; i++ {
-		leaderIdx := 7 + i*3 // member領域のユーザー
+		leaderIdx := 7 + i*3 // member領域のメンバー
 		if leaderIdx >= 50 {
 			leaderIdx = leaderIdx % 43 + 7
 		}
@@ -524,7 +524,7 @@ func seedNotifications(repos *Repos) error {
 			InviterID:   did(1), // admin
 			InviteeID:   did(40 + i + 1),
 			TargetRole:  models.RoleEditor,
-			Description: fmt.Sprintf("%sさんを編集スタッフに任命", familyNames[40+i]),
+			Description: fmt.Sprintf("%sさんを編集メンバーに任命", familyNames[40+i]),
 			CreatedAt:   now.Add(-time.Duration(i*24) * time.Hour),
 		}
 		if err := repos.User.SaveInvitation(inv); err != nil {

@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("failed to initialize repository: %v", err)
 	}
 
-	// ユーザー・グループ管理用リポジトリ（開発中: InMemory + シードデータ）
+	// メンバー・グループ管理用リポジトリ（開発中: InMemory + シードデータ）
 	seedRepos := testdata.NewInMemoryRepos()
 	if err := testdata.SeedAll(seedRepos); err != nil {
 		log.Fatalf("failed to seed data: %v", err)

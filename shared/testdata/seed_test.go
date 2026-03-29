@@ -142,7 +142,7 @@ func TestSeedAll_Notifications(t *testing.T) {
 	repos := testdata.NewInMemoryRepos()
 	testdata.SeedAll(repos)
 
-	// did:key:z6Mk0011のユーザーに通知があるはず
+	// did:key:z6Mk0011のメンバーに通知があるはず
 	notifs, _ := repos.Notification.ListNotifications("did:key:z6Mk0011")
 	if len(notifs) == 0 {
 		t.Error("expected notifications")

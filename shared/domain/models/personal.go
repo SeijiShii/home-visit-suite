@@ -11,7 +11,7 @@ type PersonalNote struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
-// PersonalTag は活動スタッフが個人的に定義するタグ（DeviceDB）。
+// PersonalTag は活動メンバーが個人的に定義するタグ（DeviceDB）。
 type PersonalTag struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`

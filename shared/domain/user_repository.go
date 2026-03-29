@@ -2,7 +2,7 @@ package domain
 
 import "github.com/SeijiShii/home-visit-suite/shared/domain/models"
 
-// UserRepository はユーザー・グループ・招待の永続化インターフェース。
+// UserRepository はメンバー・グループ・招待の永続化インターフェース。
 type UserRepository interface {
 	// User
 	ListUsers() ([]models.User, error)

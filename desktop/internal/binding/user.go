@@ -5,7 +5,7 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
 
-// UserBinding はユーザー・グループ管理のフロントエンド向けAPI。
+// UserBinding はメンバー・グループ管理のフロントエンド向けAPI。
 type UserBinding struct {
 	repo domain.UserRepository
 }

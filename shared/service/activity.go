@@ -17,7 +17,7 @@ type ActivityService interface {
 	// Return は区域を返却する。担当者またはチームメンバーが実行可能。
 	Return(actorID string, activityID string) error
 
-	// ForceReturn は編集スタッフが強制回収する。editor+のみ。
+	// ForceReturn は編集メンバーが強制回収する。editor+のみ。
 	ForceReturn(actorID string, activityID string) error
 
 	// RecordVisit は訪問記録を作成する。activity staffが実行。

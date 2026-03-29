@@ -10,11 +10,11 @@ const (
 	VisitResultAbsent VisitResult = "absent" // 留守
 )
 
-// VisitRecord は活動スタッフの訪問記録。
+// VisitRecord は活動メンバーの訪問記録。
 // 個人メモ（Note）はDeviceDBのPersonalNoteに移動済み。
 type VisitRecord struct {
 	ID         string      `json:"id"`
-	UserID     string      `json:"userId"`     // 記録した活動スタッフ
+	UserID     string      `json:"userId"`     // 記録した活動メンバー
 	PlaceID    string      `json:"placeId"`    // NULL可: 場所モデルへの参照
 	Coord      *Coordinate `json:"coord"`      // NULL可: 場所未登録地点
 	AreaID     string      `json:"areaId"`     // 活動中の区域
@@ -30,7 +30,7 @@ type Team struct {
 	ID       string   `json:"id"`
 	Name     string   `json:"name"`
 	LeaderID string   `json:"leaderId"` // チーム責任者
-	Members  []string `json:"members"`  // メンバーのユーザーID
+	Members  []string `json:"members"`  // メンバーのID
 }
 
 // ActivityStatus は訪問活動のステータス。

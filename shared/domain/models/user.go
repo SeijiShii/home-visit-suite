@@ -7,9 +7,9 @@ import "time"
 type Role string
 
 const (
-	RoleAdmin  Role = "admin"  // 管理者スタッフ
-	RoleEditor Role = "editor" // 編集スタッフ
-	RoleMember Role = "member" // 活動スタッフ
+	RoleAdmin  Role = "admin"  // 管理者
+	RoleEditor Role = "editor" // 編集メンバー
+	RoleMember Role = "member" // 活動メンバー
 )
 
 var roleLevel = map[Role]int{
@@ -41,7 +41,7 @@ type Group struct {
 	SortOrder int    `json:"sortOrder"`
 }
 
-// Tag は編集スタッフがメンバーに付与するタグ。
+// Tag は編集メンバーが他のメンバーに付与するタグ。
 type Tag struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`

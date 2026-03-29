@@ -63,7 +63,7 @@ interface StorageAdapter {
 
 **変更点**:
 - `saveAll()` を廃止し、エンティティ単位の `put/delete` に分割
-- `onRemoteChange` で他ユーザーからの変更をリアルタイムに受信
+- `onRemoteChange` で他メンバーからの変更をリアルタイムに受信
 
 ### 2. NetworkPolygonEditorに外部変更の適用メソッドを追加
 
@@ -90,16 +90,16 @@ class NetworkPolygonEditor {
 
 現在:
 ```
-ユーザー操作 → ChangeSet生成 → 内部状態更新 → (後で) save() → saveAll()
+メンバー操作 → ChangeSet生成 → 内部状態更新 → (後で) save() → saveAll()
 ```
 
 変更後:
 ```
-ユーザー操作 → ChangeSet生成 → 内部状態更新 → put/delete即時呼び出し
+メンバー操作 → ChangeSet生成 → 内部状態更新 → put/delete即時呼び出し
                                                 ↓
                                     StorageAdapter経由でGroupShareに伝播
                                                 ↓
-                                    他ユーザーのonRemoteChangeが発火
+                                    他メンバーのonRemoteChangeが発火
                                                 ↓
                                     applyRemoteChange → UI更新
 ```
@@ -114,7 +114,7 @@ LinkSelfはLast-Write-Wins（タイムスタンプ比較）。ポリゴン編集
 | 同じ辺を一方が分割、他方が削除 | 極低 | LWWで片方が消える → orphan pruneで整合 |
 | 同じポリゴンの属性を同時変更 | 低 | LWWで許容 |
 
-**前提**: 編集スタッフは通常異なる領域・区域を担当するため、同一エンティティへの同時操作は稀。LWWで実用上問題ない。
+**前提**: 編集メンバーは通常異なる領域・区域を担当するため、同一エンティティへの同時操作は稀。LWWで実用上問題ない。
 
 ---
 
@@ -127,7 +127,7 @@ channel: map_polygons    topic: {regionId}    レコード: PolygonSnapshot (id,
 ```
 
 - 現行の `map_networks` チャネル（JSON丸ごと）を3チャネルに分割
-- topicはregionId単位。活動スタッフは自分の領域のみSubscribe
+- topicはregionId単位。活動メンバーは自分の領域のみSubscribe
 
 ---
 

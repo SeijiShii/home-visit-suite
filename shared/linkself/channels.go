@@ -22,7 +22,7 @@ var (
 	ChannelMapEdges    = Channel{Name: "map_edges", Retention: 0}
 	ChannelMapPolygons = Channel{Name: "map_polygons", Retention: 0}
 
-	// --- ユーザー・組織（マスターデータ、永続） ---
+	// --- メンバー・組織（マスターデータ、永続） ---
 	ChannelUsers      = Channel{Name: "users", Retention: 0}
 	ChannelOrgGroups  = Channel{Name: "org_groups", Retention: 0}
 	ChannelMemberTags = Channel{Name: "member_tags", Retention: 0}
