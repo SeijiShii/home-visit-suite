@@ -35,6 +35,9 @@ func (r *InMemoryUserRepository) ListUsers() ([]models.User, error) {
 	for _, v := range r.users {
 		result = append(result, *v)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
 	return result, nil
 }
 
@@ -51,6 +54,10 @@ func (r *InMemoryUserRepository) GetUser(id string) (*models.User, error) {
 }
 
 func (r *InMemoryUserRepository) SaveUser(user *models.User) error {
+	if len(user.TagIDs) > 10 {
+		return fmt.Errorf("a member can have at most 10 tags (got %d)", len(user.TagIDs))
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -128,12 +135,44 @@ func (r *InMemoryUserRepository) ListTags() ([]models.Tag, error) {
 	for _, v := range r.tags {
 		result = append(result, *v)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
 	return result, nil
 }
 
 func (r *InMemoryUserRepository) SaveTag(tag *models.Tag) error {
+	if err := tag.Validate(); err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	// Duplicate name check (case-sensitive). Allow update of same ID.
+	for _, existing := range r.tags {
+		if existing.Name == tag.Name && existing.ID != tag.ID {
+			return fmt.Errorf("tag name %q already exists", tag.Name)
+		}
+	}
+
+	// Auto-assign color from palette if empty
+	if tag.Color == "" {
+		used := make(map[string]bool, len(r.tags))
+		for _, t := range r.tags {
+			used[t.Color] = true
+		}
+		for _, c := range models.TagColorPalette {
+			if !used[c] {
+				tag.Color = c
+				break
+			}
+		}
+		// All palette colors used — cycle back to first
+		if tag.Color == "" {
+			tag.Color = models.TagColorPalette[0]
+		}
+	}
 
 	copy := *tag
 	r.tags[tag.ID] = &copy

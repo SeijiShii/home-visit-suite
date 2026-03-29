@@ -90,6 +90,19 @@ export interface Translations {
       editor: string;
       member: string;
     };
+    tags: string;
+    noTags: string;
+    addTag: string;
+    editTag: string;
+    deleteTag: string;
+    tagName: string;
+    tagColor: string;
+    confirmDeleteTag: string;
+    tagLimit: string;
+    duplicateTagName: string;
+    filterByTag: string;
+    allTags: string;
+    assignTags: string;
   };
   activities: {
     title: string;

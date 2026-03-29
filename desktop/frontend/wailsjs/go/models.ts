@@ -207,6 +207,7 @@ export namespace models {
 	export class Tag {
 	    id: string;
 	    name: string;
+	    color: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Tag(source);
@@ -216,6 +217,7 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.color = source["color"];
 	    }
 	}
 	export class User {
