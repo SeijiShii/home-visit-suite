@@ -8,16 +8,18 @@ import (
 )
 
 type InMemoryCoverageRepository struct {
-	mu             sync.RWMutex
-	coverages      map[string]*models.Coverage
-	plans          map[string]*models.CoveragePlan
-	availabilities map[string]*models.AreaAvailability
+	mu              sync.RWMutex
+	coverages       map[string]*models.Coverage
+	periods         map[string]*models.SchedulePeriod
+	scopes          map[string]*models.Scope
+	availabilities  map[string]*models.AreaAvailability
 }
 
 func NewInMemoryCoverageRepository() *InMemoryCoverageRepository {
 	return &InMemoryCoverageRepository{
 		coverages:      make(map[string]*models.Coverage),
-		plans:          make(map[string]*models.CoveragePlan),
+		periods:        make(map[string]*models.SchedulePeriod),
+		scopes:         make(map[string]*models.Scope),
 		availabilities: make(map[string]*models.AreaAvailability),
 	}
 }
@@ -69,62 +71,129 @@ func (r *InMemoryCoverageRepository) DeleteCoverage(id string) error {
 	return nil
 }
 
-// --- CoveragePlan ---
+// --- SchedulePeriod ---
 
-func (r *InMemoryCoverageRepository) ListCoveragePlans(coverageID string) ([]models.CoveragePlan, error) {
+func (r *InMemoryCoverageRepository) ListSchedulePeriods() ([]models.SchedulePeriod, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var result []models.CoveragePlan
-	for _, v := range r.plans {
-		if v.CoverageID == coverageID {
-			result = append(result, *v)
-		}
+	var result []models.SchedulePeriod
+	for _, v := range r.periods {
+		result = append(result, *v)
 	}
 	return result, nil
 }
 
-func (r *InMemoryCoverageRepository) GetCoveragePlan(id string) (*models.CoveragePlan, error) {
+func (r *InMemoryCoverageRepository) GetSchedulePeriod(id string) (*models.SchedulePeriod, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	v, ok := r.plans[id]
+	v, ok := r.periods[id]
 	if !ok {
-		return nil, fmt.Errorf("coverage plan not found: %s", id)
+		return nil, fmt.Errorf("schedule period not found: %s", id)
 	}
 	copy := *v
 	return &copy, nil
 }
 
-func (r *InMemoryCoverageRepository) SaveCoveragePlan(cp *models.CoveragePlan) error {
+func (r *InMemoryCoverageRepository) SaveSchedulePeriod(sp *models.SchedulePeriod) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	copy := *cp
-	r.plans[cp.ID] = &copy
+	copy := *sp
+	r.periods[sp.ID] = &copy
 	return nil
 }
 
-func (r *InMemoryCoverageRepository) DeleteCoveragePlan(id string) error {
+func (r *InMemoryCoverageRepository) DeleteSchedulePeriod(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.plans[id]; !ok {
-		return fmt.Errorf("coverage plan not found: %s", id)
+	if _, ok := r.periods[id]; !ok {
+		return fmt.Errorf("schedule period not found: %s", id)
 	}
-	delete(r.plans, id)
+	delete(r.periods, id)
+	return nil
+}
+
+// --- Scope ---
+
+func (r *InMemoryCoverageRepository) ListScopes(schedulePeriodID string) ([]models.Scope, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []models.Scope
+	for _, v := range r.scopes {
+		if v.SchedulePeriodID == schedulePeriodID {
+			result = append(result, deepCopyScope(v))
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryCoverageRepository) ListAllScopes() ([]models.Scope, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []models.Scope
+	for _, v := range r.scopes {
+		result = append(result, deepCopyScope(v))
+	}
+	return result, nil
+}
+
+// deepCopyScope はスライスフィールドを含む Scope のディープコピーを返す。
+func deepCopyScope(v *models.Scope) models.Scope {
+	copied := *v
+	if v.ParentAreaIDs != nil {
+		ids := make([]string, len(v.ParentAreaIDs))
+		copy(ids, v.ParentAreaIDs)
+		copied.ParentAreaIDs = ids
+	}
+	return copied
+}
+
+func (r *InMemoryCoverageRepository) GetScope(id string) (*models.Scope, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	v, ok := r.scopes[id]
+	if !ok {
+		return nil, fmt.Errorf("scope not found: %s", id)
+	}
+	copied := deepCopyScope(v)
+	return &copied, nil
+}
+
+func (r *InMemoryCoverageRepository) SaveScope(sc *models.Scope) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	copied := deepCopyScope(sc)
+	r.scopes[sc.ID] = &copied
+	return nil
+}
+
+func (r *InMemoryCoverageRepository) DeleteScope(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.scopes[id]; !ok {
+		return fmt.Errorf("scope not found: %s", id)
+	}
+	delete(r.scopes, id)
 	return nil
 }
 
 // --- AreaAvailability ---
 
-func (r *InMemoryCoverageRepository) ListAreaAvailabilities(coveragePlanID string) ([]models.AreaAvailability, error) {
+func (r *InMemoryCoverageRepository) ListAreaAvailabilities(scopeID string) ([]models.AreaAvailability, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	var result []models.AreaAvailability
 	for _, v := range r.availabilities {
-		if v.CoveragePlanID == coveragePlanID {
+		if v.ScopeID == scopeID {
 			result = append(result, *v)
 		}
 	}

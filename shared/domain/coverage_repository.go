@@ -10,14 +10,21 @@ type CoverageRepository interface {
 	SaveCoverage(c *models.Coverage) error
 	DeleteCoverage(id string) error
 
-	// CoveragePlan
-	ListCoveragePlans(coverageID string) ([]models.CoveragePlan, error)
-	GetCoveragePlan(id string) (*models.CoveragePlan, error)
-	SaveCoveragePlan(cp *models.CoveragePlan) error
-	DeleteCoveragePlan(id string) error
+	// SchedulePeriod
+	ListSchedulePeriods() ([]models.SchedulePeriod, error)
+	GetSchedulePeriod(id string) (*models.SchedulePeriod, error)
+	SaveSchedulePeriod(sp *models.SchedulePeriod) error
+	DeleteSchedulePeriod(id string) error
+
+	// Scope
+	ListScopes(schedulePeriodID string) ([]models.Scope, error)
+	ListAllScopes() ([]models.Scope, error)
+	GetScope(id string) (*models.Scope, error)
+	SaveScope(sc *models.Scope) error
+	DeleteScope(id string) error
 
 	// AreaAvailability
-	ListAreaAvailabilities(coveragePlanID string) ([]models.AreaAvailability, error)
+	ListAreaAvailabilities(scopeID string) ([]models.AreaAvailability, error)
 	SaveAreaAvailability(aa *models.AreaAvailability) error
 	DeleteAreaAvailability(id string) error
 }

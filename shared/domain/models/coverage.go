@@ -22,15 +22,26 @@ type Coverage struct {
 	UpdatedAt     time.Time      `json:"updatedAt"`
 }
 
-// CoveragePlan は網羅予定。グループごとに期間と区域親番を割り当てる。
-type CoveragePlan struct {
-	ID            string    `json:"id"`
-	CoverageID    string    `json:"coverageId"`
-	GroupID       string    `json:"groupId"`       // 対象グループ（""=全メンバー）
-	ParentAreaIDs []string  `json:"parentAreaIds"` // 対象区域親番リスト
-	StartDate     time.Time `json:"startDate"`
-	EndDate       time.Time `json:"endDate"`
-	Approved      bool      `json:"approved"` // 承認フロー対象
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+// SchedulePeriod は予定期間。複数の期間は時間的に重複できない。
+type SchedulePeriod struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	StartDate time.Time `json:"startDate"`
+	EndDate   time.Time `json:"endDate"`
+	Approved  bool      `json:"approved"` // 承認フロー対象
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// Scope はスコープ。予定期間内で区域親番をグループまたは任意名称に割り当てる。
+// GroupID が空でない場合はグループスコープ（メンバーグループからコピー）。
+// 同一 SchedulePeriod 内で ParentAreaID は一つの Scope にのみ属せる。
+type Scope struct {
+	ID               string    `json:"id"`
+	SchedulePeriodID string    `json:"schedulePeriodId"`
+	Name             string    `json:"name"`
+	GroupID          string    `json:"groupId"`       // ""=グループ外スコープ
+	ParentAreaIDs    []string  `json:"parentAreaIds"` // 対象区域親番リスト
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }

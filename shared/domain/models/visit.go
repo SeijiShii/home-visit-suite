@@ -56,7 +56,7 @@ const (
 type Activity struct {
 	ID             string         `json:"id"`
 	AreaID         string         `json:"areaId"`
-	CoveragePlanID string         `json:"coveragePlanId"` // 網羅予定との紐づけ
+	ScopeID        string         `json:"scopeId"`        // スコープとの紐づけ
 	CheckoutType   CheckoutType   `json:"checkoutType"`   // 貸出 or 持ち出し
 	OwnerID        string         `json:"ownerId"`        // 担当者
 	LentByID       string         `json:"lentById"`       // 貸し出した編集staff（持ち出し時は空）

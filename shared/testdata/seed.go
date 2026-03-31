@@ -466,20 +466,33 @@ func seedCoverages(repos *Repos) error {
 				return err
 			}
 
-			// 網羅予定
-			cpID := fmt.Sprintf("cp-%s-%s", rd.symbol, pad.num)
-			cp := &models.CoveragePlan{
-				ID:            cpID,
-				CoverageID:    covID,
-				GroupID:       groupDefs[pi%4].id,
-				ParentAreaIDs: []string{pad.id},
-				StartDate:     now.Add(-60 * 24 * time.Hour),
-				EndDate:       now.Add(30 * 24 * time.Hour),
-				Approved:      pi < len(rd.pas)-1,
-				CreatedAt:     now.Add(-60 * 24 * time.Hour),
-				UpdatedAt:     now,
+			// 予定期間（区域親番ごとに1期間）
+			spID := fmt.Sprintf("sp-%s-%s", rd.symbol, pad.num)
+			sp := &models.SchedulePeriod{
+				ID:        spID,
+				Name:      fmt.Sprintf("%s %s 活動期間", rd.name, pad.name),
+				StartDate: now.Add(-60 * 24 * time.Hour),
+				EndDate:   now.Add(30 * 24 * time.Hour),
+				Approved:  pi < len(rd.pas)-1,
+				CreatedAt: now.Add(-60 * 24 * time.Hour),
+				UpdatedAt: now,
 			}
-			if err := repos.Coverage.SaveCoveragePlan(cp); err != nil {
+			if err := repos.Coverage.SaveSchedulePeriod(sp); err != nil {
+				return err
+			}
+
+			// スコープ（グループ割り当て）
+			scID := fmt.Sprintf("sc-%s-%s", rd.symbol, pad.num)
+			sc := &models.Scope{
+				ID:               scID,
+				SchedulePeriodID: spID,
+				Name:             groupDefs[pi%4].name,
+				GroupID:          groupDefs[pi%4].id,
+				ParentAreaIDs:    []string{pad.id},
+				CreatedAt:        now.Add(-60 * 24 * time.Hour),
+				UpdatedAt:        now,
+			}
+			if err := repos.Coverage.SaveScope(sc); err != nil {
 				return err
 			}
 
@@ -491,9 +504,9 @@ func seedCoverages(repos *Repos) error {
 					aaType = models.AvailabilitySelfTake
 				}
 				aa := &models.AreaAvailability{
-					ID:             fmt.Sprintf("aa-%s-%02d", pad.id, j),
-					CoveragePlanID: cpID,
-					AreaID:         areaID,
+					ID:      fmt.Sprintf("aa-%s-%02d", pad.id, j),
+					ScopeID: scID,
+					AreaID:  areaID,
 					Type:           aaType,
 					ScopeGroupID:   groupDefs[pi%4].id,
 					StartDate:      now.Add(-60 * 24 * time.Hour),

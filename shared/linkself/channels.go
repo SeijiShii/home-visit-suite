@@ -36,7 +36,8 @@ var (
 
 	// --- 網羅管理（管理者設定の保持期間） ---
 	ChannelCoverages         = Channel{Name: "coverages", Retention: 0}
-	ChannelCoveragePlans     = Channel{Name: "coverage_plans", Retention: 0}
+	ChannelSchedulePeriods   = Channel{Name: "schedule_periods", Retention: 0}
+	ChannelScopes            = Channel{Name: "scopes", Retention: 0}
 	ChannelAreaAvailability  = Channel{Name: "area_availability", Retention: 0}
 
 	// --- 申請・通知（期限付き） ---
@@ -57,7 +58,7 @@ func AllChannels() []Channel {
 		ChannelUsers, ChannelOrgGroups, ChannelMemberTags,
 		ChannelTeams, ChannelActivities, ChannelActivityAssignments,
 		ChannelVisitRecords, ChannelVisitRecordEdits,
-		ChannelCoverages, ChannelCoveragePlans, ChannelAreaAvailability,
+		ChannelCoverages, ChannelSchedulePeriods, ChannelScopes, ChannelAreaAvailability,
 		ChannelRequests, ChannelInvitations, ChannelNotifications,
 		ChannelAuditLog, ChannelAppConfig,
 	}

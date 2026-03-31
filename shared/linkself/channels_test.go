@@ -9,8 +9,8 @@ import (
 
 func TestAllChannels_Count(t *testing.T) {
 	channels := linkself.AllChannels()
-	if len(channels) != 23 {
-		t.Errorf("AllChannels() returned %d channels, want 23", len(channels))
+	if len(channels) != 24 {
+		t.Errorf("AllChannels() returned %d channels, want 24", len(channels))
 	}
 }
 

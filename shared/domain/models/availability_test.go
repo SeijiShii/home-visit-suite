@@ -12,9 +12,9 @@ func TestAreaAvailability_Fields(t *testing.T) {
 	end := now.Add(14 * 24 * time.Hour)
 
 	aa := models.AreaAvailability{
-		ID:             "aa-1",
-		CoveragePlanID: "cp-1",
-		AreaID:         "area-1",
+		ID:      "aa-1",
+		ScopeID: "sc-1",
+		AreaID:  "area-1",
 		Type:           models.AvailabilityLendable,
 		ScopeGroupID:   "group-a",
 		StartDate:      now,

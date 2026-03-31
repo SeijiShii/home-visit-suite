@@ -15,21 +15,21 @@ func TestActivity_NewFields(t *testing.T) {
 	completed := now.Add(48 * time.Hour)
 
 	a := models.Activity{
-		ID:             "act-1",
-		AreaID:         "area-1",
-		CoveragePlanID: "cp-1",
-		CheckoutType:   models.CheckoutTypeLending,
-		OwnerID:        "did:key:owner",
-		LentByID:       "did:key:editor",
-		Status:         models.ActivityStatusActive,
-		CreatedAt:      now,
-		ReturnedAt:     &returned,
-		CompletedAt:    &completed,
-		UpdatedAt:      now,
+		ID:           "act-1",
+		AreaID:       "area-1",
+		ScopeID:      "sc-1",
+		CheckoutType: models.CheckoutTypeLending,
+		OwnerID:      "did:key:owner",
+		LentByID:     "did:key:editor",
+		Status:       models.ActivityStatusActive,
+		CreatedAt:    now,
+		ReturnedAt:   &returned,
+		CompletedAt:  &completed,
+		UpdatedAt:    now,
 	}
 
-	if a.CoveragePlanID != "cp-1" {
-		t.Errorf("CoveragePlanID = %q, want %q", a.CoveragePlanID, "cp-1")
+	if a.ScopeID != "sc-1" {
+		t.Errorf("ScopeID = %q, want %q", a.ScopeID, "sc-1")
 	}
 	if a.CheckoutType != models.CheckoutTypeLending {
 		t.Errorf("CheckoutType = %q, want %q", a.CheckoutType, models.CheckoutTypeLending)

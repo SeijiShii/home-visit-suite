@@ -42,7 +42,7 @@ func TestCanWrite_AdminOnly(t *testing.T) {
 func TestCanWrite_EditorPlus(t *testing.T) {
 	editorChannels := []string{"parent_areas", "areas", "places", "map_vertices", "map_edges", "map_polygons",
 		"member_tags", "activity_assignments", "visit_record_edits",
-		"coverages", "coverage_plans", "area_availability", "invitations"}
+		"coverages", "schedule_periods", "scopes", "area_availability", "invitations"}
 	for _, ch := range editorChannels {
 		if !newPolicy("admin").CanWrite("", ch) {
 			t.Errorf("admin should write to %s", ch)

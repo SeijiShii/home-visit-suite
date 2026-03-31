@@ -44,7 +44,7 @@ func (p *RoleBasedAccessPolicy) CanWrite(did string, channel string) bool {
 		ChannelMapVertices.Name, ChannelMapEdges.Name, ChannelMapPolygons.Name,
 		ChannelMemberTags.Name,
 		ChannelActivityAssignments.Name, ChannelVisitRecordEdits.Name,
-		ChannelCoverages.Name, ChannelCoveragePlans.Name, ChannelAreaAvailability.Name:
+		ChannelCoverages.Name, ChannelSchedulePeriods.Name, ChannelScopes.Name, ChannelAreaAvailability.Name:
 		return role == "admin" || role == "editor"
 
 	// editor+ and activity staff
