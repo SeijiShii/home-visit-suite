@@ -154,6 +154,9 @@ const en: Translations = {
     enterSymbolToConfirm: "Enter symbol to confirm",
     symbolChangeWarning: "Changing the symbol will update all child area IDs.",
     parentAreaCount: "parent areas",
+    parentAreaCountLabel: "Parent Area Count",
+    decreaseWarning:
+      "Reducing the count will delete parent areas from the end along with their child areas. Polygon links will also be removed.",
   },
   common: {
     save: "Save",

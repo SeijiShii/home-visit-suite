@@ -22,10 +22,12 @@ export function RegionManagementPage() {
   // Add modal refs
   const addNameRef = useRef<HTMLInputElement>(null);
   const addSymbolRef = useRef<HTMLInputElement>(null);
+  const addCountRef = useRef<HTMLInputElement>(null);
 
   // Edit modal refs
   const editNameRef = useRef<HTMLInputElement>(null);
   const editSymbolRef = useRef<HTMLInputElement>(null);
+  const editCountRef = useRef<HTMLInputElement>(null);
 
   // Delete modal refs
   const deleteNameRef = useRef<HTMLInputElement>(null);
@@ -59,9 +61,13 @@ export function RegionManagementPage() {
   const handleAdd = async () => {
     const name = addNameRef.current?.value.trim() ?? "";
     const symbol = addSymbolRef.current?.value.trim() ?? "";
+    const count = parseInt(addCountRef.current?.value ?? "0", 10) || 0;
     if (!name || !symbol) return;
     try {
       await service.addRegion(name, symbol);
+      if (count > 0) {
+        await service.setParentAreaCount(symbol, count);
+      }
       closeModal();
       await reload();
     } catch (e) {
@@ -74,17 +80,31 @@ export function RegionManagementPage() {
     if (modal.type !== "edit") return;
     const name = editNameRef.current?.value.trim() ?? "";
     const symbol = editSymbolRef.current?.value.trim() ?? "";
-    const changed = name !== modal.region.name || symbol !== modal.region.symbol;
-    setCanSubmit(name !== "" && symbol !== "" && changed);
+    const count = parseInt(editCountRef.current?.value ?? "0", 10);
+    const currentCount = modal.region.parentAreas.length;
+    const changed =
+      name !== modal.region.name ||
+      symbol !== modal.region.symbol ||
+      count !== currentCount;
+    setCanSubmit(
+      name !== "" && symbol !== "" && !isNaN(count) && count >= 0 && changed,
+    );
   };
 
   const handleEdit = async () => {
     if (modal.type !== "edit") return;
     const name = editNameRef.current?.value.trim() ?? "";
     const symbol = editSymbolRef.current?.value.trim() ?? "";
-    if (!name || !symbol) return;
+    const count = parseInt(editCountRef.current?.value ?? "0", 10);
+    if (!name || !symbol || isNaN(count) || count < 0) return;
     try {
       await service.updateRegion(modal.region.id, name, symbol);
+      // シンボル変更後はIDが変わるので新しいIDを使う
+      const regionId = symbol;
+      const currentCount = modal.region.parentAreas.length;
+      if (count !== currentCount) {
+        await service.setParentAreaCount(regionId, count);
+      }
       closeModal();
       await reload();
     } catch (e) {
@@ -153,7 +173,14 @@ export function RegionManagementPage() {
                 disabled={index === 0}
                 onClick={() => handleMove(region.id, "up")}
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <polyline points="18 15 12 9 6 15" />
                 </svg>
               </button>
@@ -163,7 +190,14 @@ export function RegionManagementPage() {
                 disabled={index === regions.length - 1}
                 onClick={() => handleMove(region.id, "down")}
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
@@ -172,7 +206,14 @@ export function RegionManagementPage() {
                 title={t.common.edit}
                 onClick={() => setModal({ type: "edit", region })}
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
@@ -182,7 +223,14 @@ export function RegionManagementPage() {
                 title={m.deleteRegion}
                 onClick={() => setModal({ type: "delete", region })}
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                 </svg>
@@ -215,6 +263,16 @@ export function RegionManagementPage() {
                 defaultValue=""
                 onInput={updateAddCanSubmit}
                 placeholder="NRT"
+              />
+            </div>
+            <div className="modal-field">
+              <label className="modal-label">{m.parentAreaCountLabel}</label>
+              <input
+                ref={addCountRef}
+                className="modal-input"
+                type="number"
+                min="0"
+                defaultValue="0"
               />
             </div>
             <div className="modal-actions">
@@ -257,11 +315,29 @@ export function RegionManagementPage() {
                 onInput={updateEditCanSubmit}
               />
             </div>
+            <div className="modal-field">
+              <label className="modal-label">{m.parentAreaCountLabel}</label>
+              <input
+                ref={editCountRef}
+                className="modal-input"
+                type="number"
+                min="0"
+                defaultValue={modal.region.parentAreas.length}
+                onInput={updateEditCanSubmit}
+              />
+            </div>
             {editSymbolRef.current &&
               editSymbolRef.current.value.trim() !== modal.region.symbol &&
               editSymbolRef.current.value.trim() !== "" && (
                 <div className="region-management-warning">
                   {m.symbolChangeWarning}
+                </div>
+              )}
+            {editCountRef.current &&
+              parseInt(editCountRef.current.value, 10) <
+                modal.region.parentAreas.length && (
+                <div className="region-management-warning">
+                  {m.decreaseWarning}
                 </div>
               )}
             <div className="modal-actions">

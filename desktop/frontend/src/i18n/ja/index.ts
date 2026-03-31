@@ -156,6 +156,9 @@ const ja: Translations = {
     symbolChangeWarning:
       "記号を変更すると、配下のすべての区域IDが更新されます。",
     parentAreaCount: "区域親番",
+    parentAreaCountLabel: "区域親番数",
+    decreaseWarning:
+      "区域親番数を減らすと、末尾の区域親番と配下の区域が削除されます。ポリゴンの紐づけも解除されます。",
   },
   common: {
     save: "保存",

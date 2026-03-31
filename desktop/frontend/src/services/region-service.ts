@@ -18,6 +18,7 @@ export interface RegionBindingAPI {
   DeleteArea(id: string): Promise<void>;
   RestoreArea(id: string): Promise<void>;
   ReorderRegions(ids: string[]): Promise<void>;
+  SetParentAreaCount(regionId: string, count: number): Promise<void>;
   BindPolygonToArea(areaId: string, polygonId: string): Promise<void>;
   UnbindPolygonFromArea(areaId: string): Promise<void>;
 }
@@ -113,6 +114,10 @@ export class RegionService {
     if (targetIdx < 0 || targetIdx >= ids.length) return;
     [ids[idx], ids[targetIdx]] = [ids[targetIdx], ids[idx]];
     await this.api.ReorderRegions(ids);
+  }
+
+  async setParentAreaCount(regionId: string, count: number): Promise<void> {
+    await this.api.SetParentAreaCount(regionId, count);
   }
 
   async addParentArea(regionId: string, name: string): Promise<void> {

@@ -40,6 +40,8 @@ export function SaveParentArea(arg1:models.ParentArea):Promise<void>;
 
 export function SaveRegion(arg1:models.Region):Promise<void>;
 
+export function SetParentAreaCount(arg1:string,arg2:number):Promise<void>;
+
 export function UnbindPolygonFromArea(arg1:string):Promise<void>;
 
 export function UpdateRegion(arg1:string,arg2:string,arg3:string):Promise<void>;

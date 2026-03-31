@@ -78,6 +78,10 @@ export function SaveRegion(arg1) {
   return window['go']['binding']['RegionBinding']['SaveRegion'](arg1);
 }
 
+export function SetParentAreaCount(arg1, arg2) {
+  return window['go']['binding']['RegionBinding']['SetParentAreaCount'](arg1, arg2);
+}
+
 export function UnbindPolygonFromArea(arg1) {
   return window['go']['binding']['RegionBinding']['UnbindPolygonFromArea'](arg1);
 }

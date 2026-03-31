@@ -76,16 +76,6 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
       });
     };
 
-    const handleAddParentArea = async (regionId: string) => {
-      try {
-        await service.addParentArea(regionId, m.defaultParentAreaName);
-        setExpanded((prev) => new Set(prev).add(regionId));
-        await reload();
-      } catch (e) {
-        console.error("addParentArea failed:", e);
-      }
-    };
-
     const handleAddArea = async (parentAreaId: string) => {
       try {
         await service.addArea(parentAreaId);
@@ -169,15 +159,6 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                 <span className="tree-label">
                   {region.symbol} ({region.name})
                 </span>
-                <span className="tree-actions">
-                  <button
-                    className="tree-action-btn"
-                    title={m.addChild}
-                    onClick={() => handleAddParentArea(region.id)}
-                  >
-                    ⊕
-                  </button>
-                </span>
               </div>
               {expanded.has(region.id) &&
                 region.parentAreas.map((ap) => (
@@ -209,17 +190,6 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                         >
                           ⊕
                         </button>
-                        {service.isLastParentArea(region, ap.id) && (
-                          <button
-                            className="tree-action-btn tree-action-delete"
-                            title={m.remove}
-                            onClick={() =>
-                              handleDeleteClick("parentArea", ap.id)
-                            }
-                          >
-                            🗑
-                          </button>
-                        )}
                       </span>
                     </div>
                     {expanded.has(ap.id) &&

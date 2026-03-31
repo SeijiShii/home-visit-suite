@@ -151,6 +151,8 @@ export interface Translations {
     enterSymbolToConfirm: string;
     symbolChangeWarning: string;
     parentAreaCount: string;
+    parentAreaCountLabel: string;
+    decreaseWarning: string;
   };
   common: {
     save: string;

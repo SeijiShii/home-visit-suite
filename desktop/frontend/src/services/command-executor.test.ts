@@ -19,6 +19,7 @@ const createMockAPI = (): RegionBindingAPI => ({
   DeleteArea: vi.fn().mockResolvedValue(undefined),
   RestoreArea: vi.fn().mockResolvedValue(undefined),
   ReorderRegions: vi.fn().mockResolvedValue(undefined),
+  SetParentAreaCount: vi.fn().mockResolvedValue(undefined),
   BindPolygonToArea: vi.fn().mockResolvedValue(undefined),
   UnbindPolygonFromArea: vi.fn().mockResolvedValue(undefined),
 });

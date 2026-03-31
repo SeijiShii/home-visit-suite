@@ -218,6 +218,193 @@ func TestBindPolygonToArea_NotFound(t *testing.T) {
 	}
 }
 
+// --- SetParentAreaCount ---
+
+func TestSetParentAreaCount_Increase(t *testing.T) {
+	b, repo := setupRegionBinding()
+
+	// NRTは現在2つの親番を持つ → 5に増やす
+	err := b.SetParentAreaCount("NRT", 5)
+	if err != nil {
+		t.Fatalf("SetParentAreaCount: %v", err)
+	}
+
+	pas, err := repo.ListParentAreas("NRT")
+	if err != nil {
+		t.Fatalf("ListParentAreas: %v", err)
+	}
+	if len(pas) != 5 {
+		t.Fatalf("got %d parent areas, want 5", len(pas))
+	}
+
+	// 既存の001, 002は保持されている
+	pa1, err := repo.GetParentArea("NRT-001")
+	if err != nil {
+		t.Fatalf("GetParentArea(NRT-001): %v", err)
+	}
+	if pa1.Name != "加良部1丁目" {
+		t.Errorf("got Name=%s, want 加良部1丁目", pa1.Name)
+	}
+
+	// 新規作成された003, 004, 005が存在する
+	for _, num := range []string{"003", "004", "005"} {
+		id := "NRT-" + num
+		pa, err := repo.GetParentArea(id)
+		if err != nil {
+			t.Fatalf("GetParentArea(%s): %v", id, err)
+		}
+		if pa.RegionID != "NRT" {
+			t.Errorf("got RegionID=%s, want NRT", pa.RegionID)
+		}
+		if pa.Number != num {
+			t.Errorf("got Number=%s, want %s", pa.Number, num)
+		}
+	}
+}
+
+func TestSetParentAreaCount_Decrease(t *testing.T) {
+	b, repo := setupRegionBinding()
+
+	// NRTは現在2つの親番を持つ → 1に減らす
+	err := b.SetParentAreaCount("NRT", 1)
+	if err != nil {
+		t.Fatalf("SetParentAreaCount: %v", err)
+	}
+
+	pas, err := repo.ListParentAreas("NRT")
+	if err != nil {
+		t.Fatalf("ListParentAreas: %v", err)
+	}
+	if len(pas) != 1 {
+		t.Fatalf("got %d parent areas, want 1", len(pas))
+	}
+
+	// 001は残っている
+	_, err = repo.GetParentArea("NRT-001")
+	if err != nil {
+		t.Fatal("expected NRT-001 to still exist")
+	}
+
+	// 002は削除された
+	_, err = repo.GetParentArea("NRT-002")
+	if err == nil {
+		t.Error("expected NRT-002 to be deleted")
+	}
+
+	// 002配下の区域も削除された
+	_, err = repo.GetArea("NRT-002-01")
+	if err == nil {
+		t.Error("expected NRT-002-01 to be deleted")
+	}
+}
+
+func TestSetParentAreaCount_Decrease_UnbindsPolygons(t *testing.T) {
+	b, repo := setupRegionBinding()
+
+	// NRT-002-01にポリゴンを紐づける
+	err := b.BindPolygonToArea("NRT-002-01", "poly-999")
+	if err != nil {
+		t.Fatalf("BindPolygonToArea: %v", err)
+	}
+
+	// 親番を1に減らす → NRT-002が削除され、NRT-002-01のポリゴン紐づきが解除される
+	err = b.SetParentAreaCount("NRT", 1)
+	if err != nil {
+		t.Fatalf("SetParentAreaCount: %v", err)
+	}
+
+	// 削除された区域のポリゴン紐づきが解除されていることを確認
+	// (論理削除された区域をRawで取得して確認)
+	a, err := repo.GetAreaRaw("NRT-002-01")
+	if err != nil {
+		t.Fatalf("GetAreaRaw(NRT-002-01): %v", err)
+	}
+	if a.PolygonID != "" {
+		t.Errorf("got PolygonID=%s, want empty (unbound)", a.PolygonID)
+	}
+}
+
+func TestSetParentAreaCount_NoChange(t *testing.T) {
+	b, repo := setupRegionBinding()
+
+	// 同数を指定 → 何も変わらない
+	err := b.SetParentAreaCount("NRT", 2)
+	if err != nil {
+		t.Fatalf("SetParentAreaCount: %v", err)
+	}
+
+	pas, err := repo.ListParentAreas("NRT")
+	if err != nil {
+		t.Fatalf("ListParentAreas: %v", err)
+	}
+	if len(pas) != 2 {
+		t.Fatalf("got %d parent areas, want 2", len(pas))
+	}
+}
+
+func TestSetParentAreaCount_ToZero(t *testing.T) {
+	b, repo := setupRegionBinding()
+
+	err := b.SetParentAreaCount("NRT", 0)
+	if err != nil {
+		t.Fatalf("SetParentAreaCount: %v", err)
+	}
+
+	pas, err := repo.ListParentAreas("NRT")
+	if err != nil {
+		t.Fatalf("ListParentAreas: %v", err)
+	}
+	if len(pas) != 0 {
+		t.Fatalf("got %d parent areas, want 0", len(pas))
+	}
+
+	// 全区域も削除された
+	areas001, _ := repo.ListAreas("NRT-001")
+	areas002, _ := repo.ListAreas("NRT-002")
+	if len(areas001)+len(areas002) != 0 {
+		t.Errorf("expected all areas to be deleted, got %d", len(areas001)+len(areas002))
+	}
+}
+
+func TestSetParentAreaCount_NegativeReturnsError(t *testing.T) {
+	b, _ := setupRegionBinding()
+
+	err := b.SetParentAreaCount("NRT", -1)
+	if err == nil {
+		t.Fatal("expected error for negative count")
+	}
+}
+
+func TestSetParentAreaCount_NotFoundReturnsError(t *testing.T) {
+	b, _ := setupRegionBinding()
+
+	err := b.SetParentAreaCount("NONEXISTENT", 5)
+	if err == nil {
+		t.Fatal("expected error for nonexistent region")
+	}
+}
+
+func TestSetParentAreaCount_DoesNotAffectOtherRegions(t *testing.T) {
+	b, repo := setupRegionBinding()
+
+	// TMSにも親番を追加
+	repo.SaveParentArea(&models.ParentArea{ID: "TMS-001", RegionID: "TMS", Number: "001", Name: "七栄"})
+
+	err := b.SetParentAreaCount("NRT", 0)
+	if err != nil {
+		t.Fatalf("SetParentAreaCount: %v", err)
+	}
+
+	// TMSの親番は影響を受けない
+	tmsPas, err := repo.ListParentAreas("TMS")
+	if err != nil {
+		t.Fatalf("ListParentAreas(TMS): %v", err)
+	}
+	if len(tmsPas) != 1 {
+		t.Errorf("TMS parent areas got %d, want 1", len(tmsPas))
+	}
+}
+
 func TestUnbindPolygonFromArea(t *testing.T) {
 	b, repo := setupRegionBinding()
 

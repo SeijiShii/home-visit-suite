@@ -180,6 +180,99 @@ func (b *RegionBinding) RemapPolygonIds(idMap map[string]string) error {
 	return nil
 }
 
+// --- 区域親番数の管理 ---
+
+// SetParentAreaCount は指定領域の区域親番数を変更する。
+// 増加時は連番で新規ParentAreaを作成し、減少時は末尾から削除する。
+// 削除される親番配下の区域のポリゴン紐づきは解除される。
+func (b *RegionBinding) SetParentAreaCount(regionID string, count int) error {
+	if count < 0 {
+		return fmt.Errorf("count must be >= 0, got %d", count)
+	}
+
+	// 領域の存在確認
+	if _, err := b.repo.GetRegion(regionID); err != nil {
+		return fmt.Errorf("get region %s: %w", regionID, err)
+	}
+
+	current, err := b.repo.ListParentAreas(regionID)
+	if err != nil {
+		return fmt.Errorf("list parent areas: %w", err)
+	}
+
+	if len(current) == count {
+		return nil
+	}
+
+	if count > len(current) {
+		// 増加: 最大番号の次から連番で作成
+		maxNum := 0
+		for _, pa := range current {
+			n := 0
+			fmt.Sscanf(pa.Number, "%d", &n)
+			if n > maxNum {
+				maxNum = n
+			}
+		}
+		for i := maxNum + 1; i <= maxNum+(count-len(current)); i++ {
+			number := fmt.Sprintf("%03d", i)
+			id := fmt.Sprintf("%s-%s", regionID, number)
+			pa := &models.ParentArea{
+				ID:       id,
+				RegionID: regionID,
+				Number:   number,
+				Name:     "",
+			}
+			if err := b.repo.SaveParentArea(pa); err != nil {
+				return fmt.Errorf("save parent area %s: %w", id, err)
+			}
+		}
+		return nil
+	}
+
+	// 減少: 番号が大きい順に削除
+	// 番号降順でソート
+	sorted := make([]models.ParentArea, len(current))
+	copy(sorted, current)
+	for i := 0; i < len(sorted)-1; i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[i].Number < sorted[j].Number {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	toDelete := len(current) - count
+	for i := 0; i < toDelete; i++ {
+		pa := sorted[i]
+		// 配下の区域を処理
+		areas, err := b.repo.ListAreas(pa.ID)
+		if err != nil {
+			return fmt.Errorf("list areas for %s: %w", pa.ID, err)
+		}
+		for _, area := range areas {
+			// ポリゴン紐づき解除
+			if area.PolygonID != "" {
+				area := area
+				area.PolygonID = ""
+				if err := b.repo.SaveArea(&area); err != nil {
+					return fmt.Errorf("unbind polygon from area %s: %w", area.ID, err)
+				}
+			}
+			// 区域を論理削除
+			if err := b.repo.DeleteArea(area.ID); err != nil {
+				return fmt.Errorf("delete area %s: %w", area.ID, err)
+			}
+		}
+		// 親番を論理削除
+		if err := b.repo.DeleteParentArea(pa.ID); err != nil {
+			return fmt.Errorf("delete parent area %s: %w", pa.ID, err)
+		}
+	}
+
+	return nil
+}
+
 // --- 領域更新 ---
 
 // UpdateRegion は領域の名前・記号を更新する。
