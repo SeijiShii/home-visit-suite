@@ -2,22 +2,26 @@ package main
 
 import (
 	"context"
+
+	"github.com/SeijiShii/home-visit-suite/shared/linkself"
 )
 
 // App はWailsアプリケーションのライフサイクルを管理する。
 type App struct {
-	ctx context.Context
+	ctx       context.Context
+	lsService *linkself.Service
 }
 
-func NewApp() *App {
-	return &App{}
+func NewApp(lsService *linkself.Service) *App {
+	return &App{lsService: lsService}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	// TODO: LinkSelf接続初期化
 }
 
 func (a *App) shutdown(ctx context.Context) {
-	// TODO: LinkSelf切断
+	if a.lsService != nil {
+		a.lsService.Stop(ctx)
+	}
 }

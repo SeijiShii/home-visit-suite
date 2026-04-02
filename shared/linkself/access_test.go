@@ -12,67 +12,89 @@ func newPolicy(role string) *linkself.RoleBasedAccessPolicy {
 	}
 }
 
-func TestCanRead_AllRolesAllChannels(t *testing.T) {
-	channels := linkself.AllChannels()
+func TestCanRead_AllRolesAllTables(t *testing.T) {
+	tables := append(linkself.NetworkTables, linkself.DeviceTables...)
 	for _, role := range []string{"admin", "editor", "member"} {
 		policy := newPolicy(role)
-		for _, ch := range channels {
-			if !policy.CanRead("did:key:test", ch.Name) {
-				t.Errorf("role=%s should be able to read channel=%s", role, ch.Name)
+		for _, tbl := range tables {
+			if !policy.CanRead("did:key:test", tbl) {
+				t.Errorf("role=%s should be able to read table=%s", role, tbl)
 			}
 		}
 	}
 }
 
 func TestCanWrite_AdminOnly(t *testing.T) {
-	adminChannels := []string{"regions", "users", "org_groups", "app_config"}
-	for _, ch := range adminChannels {
-		if !newPolicy("admin").CanWrite("", ch) {
-			t.Errorf("admin should write to %s", ch)
+	adminTables := []string{linkself.TableRegions, linkself.TableUsers, linkself.TableOrgGroups}
+	for _, tbl := range adminTables {
+		if !newPolicy("admin").CanWrite("", tbl) {
+			t.Errorf("admin should write to %s", tbl)
 		}
-		if newPolicy("editor").CanWrite("", ch) {
-			t.Errorf("editor should NOT write to %s", ch)
+		if newPolicy("editor").CanWrite("", tbl) {
+			t.Errorf("editor should NOT write to %s", tbl)
 		}
-		if newPolicy("member").CanWrite("", ch) {
-			t.Errorf("member should NOT write to %s", ch)
+		if newPolicy("member").CanWrite("", tbl) {
+			t.Errorf("member should NOT write to %s", tbl)
 		}
 	}
 }
 
 func TestCanWrite_EditorPlus(t *testing.T) {
-	editorChannels := []string{"parent_areas", "areas", "places", "map_vertices", "map_edges", "map_polygons",
-		"member_tags", "activity_assignments", "visit_record_edits",
-		"coverages", "schedule_periods", "scopes", "area_availability", "invitations"}
-	for _, ch := range editorChannels {
-		if !newPolicy("admin").CanWrite("", ch) {
-			t.Errorf("admin should write to %s", ch)
+	editorTables := []string{
+		linkself.TableParentAreas, linkself.TableAreas, linkself.TablePlaces,
+		linkself.TableMapNetwork, linkself.TableMemberTags,
+		linkself.TableActivityAssignments, linkself.TableVisitRecordEdits,
+		linkself.TableCoverages, linkself.TableSchedulePeriods,
+		linkself.TableScopes, linkself.TableAreaAvailability,
+		linkself.TableInvitations,
+	}
+	for _, tbl := range editorTables {
+		if !newPolicy("admin").CanWrite("", tbl) {
+			t.Errorf("admin should write to %s", tbl)
 		}
-		if !newPolicy("editor").CanWrite("", ch) {
-			t.Errorf("editor should write to %s", ch)
+		if !newPolicy("editor").CanWrite("", tbl) {
+			t.Errorf("editor should write to %s", tbl)
 		}
-		if newPolicy("member").CanWrite("", ch) {
-			t.Errorf("member should NOT write to %s", ch)
+		if newPolicy("member").CanWrite("", tbl) {
+			t.Errorf("member should NOT write to %s", tbl)
 		}
 	}
 }
 
 func TestCanWrite_AllMembers(t *testing.T) {
-	memberChannels := []string{"teams", "activities", "visit_records", "requests"}
-	for _, ch := range memberChannels {
+	memberTables := []string{
+		linkself.TableTeams, linkself.TableActivities,
+		linkself.TableVisitRecords, linkself.TableRequests,
+	}
+	for _, tbl := range memberTables {
 		for _, role := range []string{"admin", "editor", "member"} {
-			if !newPolicy(role).CanWrite("", ch) {
-				t.Errorf("role=%s should write to %s", role, ch)
+			if !newPolicy(role).CanWrite("", tbl) {
+				t.Errorf("role=%s should write to %s", role, tbl)
 			}
 		}
 	}
 }
 
 func TestCanWrite_SystemOnly(t *testing.T) {
-	systemChannels := []string{"audit_log", "notifications"}
-	for _, ch := range systemChannels {
+	systemTables := []string{linkself.TableAuditLog, linkself.TableNotifications}
+	for _, tbl := range systemTables {
 		for _, role := range []string{"admin", "editor", "member"} {
-			if newPolicy(role).CanWrite("", ch) {
-				t.Errorf("role=%s should NOT directly write to %s", role, ch)
+			if newPolicy(role).CanWrite("", tbl) {
+				t.Errorf("role=%s should NOT directly write to %s", role, tbl)
+			}
+		}
+	}
+}
+
+func TestCanWrite_PersonalTables(t *testing.T) {
+	personalTables := []string{
+		linkself.TablePersonalNotes, linkself.TablePersonalTags,
+		linkself.TablePersonalTagAssignments,
+	}
+	for _, tbl := range personalTables {
+		for _, role := range []string{"admin", "editor", "member"} {
+			if !newPolicy(role).CanWrite("", tbl) {
+				t.Errorf("role=%s should write to personal table %s", role, tbl)
 			}
 		}
 	}

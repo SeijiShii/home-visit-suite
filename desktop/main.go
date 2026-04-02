@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
-	"os"
-	"path/filepath"
+	"time"
 
 	"github.com/SeijiShii/home-visit-suite/desktop/internal/binding"
+	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 	"github.com/SeijiShii/home-visit-suite/shared/domain/repository"
-	"github.com/SeijiShii/home-visit-suite/shared/testdata"
+	"github.com/SeijiShii/home-visit-suite/shared/linkself"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -18,34 +19,37 @@ import (
 var assets embed.FS
 
 func main() {
-	// データ保存ディレクトリ: ~/.home-visit-suite/data
-	homeDir, err := os.UserHomeDir()
+	ctx := context.Background()
+
+	// LinkSelf起動
+	lsService := linkself.NewService()
+	info, err := lsService.Start(ctx)
 	if err != nil {
-		log.Fatalf("failed to get home directory: %v", err)
+		log.Fatalf("failed to start LinkSelf: %v", err)
 	}
-	dataDir := filepath.Join(homeDir, ".home-visit-suite", "data")
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		log.Fatalf("failed to create data directory: %v", err)
+	log.Printf("LinkSelf started: DID=%s", info.DID)
+
+	// リポジトリ生成（全てLinkSelf MyDB経由）
+	repo := repository.NewLinkSelfRepository(lsService.DB())
+
+	// 初回起動: 自分自身をadminとして登録
+	userRepo := repo.User()
+	if _, err := userRepo.GetUser(info.DID); err != nil {
+		if err := userRepo.SaveUser(&models.User{
+			ID:       info.DID,
+			Name:     "自分",
+			Role:     models.RoleAdmin,
+			JoinedAt: time.Now(),
+		}); err != nil {
+			log.Fatalf("failed to register self: %v", err)
+		}
+		log.Printf("Registered self as admin: %s", info.DID)
 	}
 
-	repo, err := repository.NewJSONFileRepository(dataDir)
-	if err != nil {
-		log.Fatalf("failed to initialize repository: %v", err)
-	}
-
-	// メンバー・グループ管理用リポジトリ（開発中: InMemory + シードデータ）
-	seedRepos := testdata.NewInMemoryRepos()
-	if err := testdata.SeedAll(seedRepos); err != nil {
-		log.Fatalf("failed to seed data: %v", err)
-	}
-
-	app := NewApp()
-	regionBinding := binding.NewRegionBinding(repo)
-	mapBinding, err := binding.NewMapBinding(dataDir)
-	if err != nil {
-		log.Fatalf("failed to initialize map binding: %v", err)
-	}
-	userBinding := binding.NewUserBinding(seedRepos.User)
+	app := NewApp(lsService)
+	regionBinding := binding.NewRegionBinding(repo.Region())
+	mapBinding := binding.NewMapBinding(repo.Map())
+	userBinding := binding.NewUserBinding(repo.User())
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",
