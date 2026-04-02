@@ -10,6 +10,19 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/repository"
 )
 
+// NewLinkSelfRepos はLinkSelfリポジトリからReposを生成する。
+func NewLinkSelfRepos(repo *repository.LinkSelfRepository) *Repos {
+	return &Repos{
+		Region:       repo.Region(),
+		User:         repo.User(),
+		Place:        repo.Place(),
+		Activity:     repo.Activity(),
+		Coverage:     repo.Coverage(),
+		Notification: repo.Notification(),
+		Personal:     repo.Personal(),
+	}
+}
+
 // Repos は全リポジトリを保持する構造体。
 type Repos struct {
 	Region       domain.RegionRepository

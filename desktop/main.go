@@ -10,6 +10,7 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 	"github.com/SeijiShii/home-visit-suite/shared/domain/repository"
 	"github.com/SeijiShii/home-visit-suite/shared/linkself"
+	"github.com/SeijiShii/home-visit-suite/shared/testdata"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -44,6 +45,16 @@ func main() {
 			log.Fatalf("failed to register self: %v", err)
 		}
 		log.Printf("Registered self as admin: %s", info.DID)
+	}
+
+	// 開発用: ユーザーが自分だけならダミーデータを投入
+	if users, _ := userRepo.ListUsers(); len(users) <= 1 {
+		seedRepos := testdata.NewLinkSelfRepos(repo)
+		if err := testdata.SeedAll(seedRepos); err != nil {
+			log.Printf("seed failed: %v", err)
+		} else {
+			log.Println("Dummy data seeded")
+		}
 	}
 
 	app := NewApp(lsService)
