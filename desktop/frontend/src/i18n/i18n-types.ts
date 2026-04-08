@@ -166,4 +166,29 @@ export interface Translations {
     loading: string;
     noData: string;
   };
+  settings: {
+    title: string;
+    helpSection: string;
+    resetHelp: string;
+    resetHelpDone: string;
+    language: string;
+    languageJa: string;
+    languageEn: string;
+  };
+  tips: {
+    dontShowAgain: string;
+    map: {
+      polygon: {
+        startDraw: string;
+        continueVertex: string;
+        confirmDraw: string;
+        cancelDraw: string;
+        moveVertex: string;
+        deleteVertex: string;
+        splitEdge: string;
+        selectPolygon: string;
+        deletePolygon: string;
+      };
+    };
+  };
 }

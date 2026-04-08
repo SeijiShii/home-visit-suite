@@ -1743,3 +1743,66 @@ section {
 .member-table-tags-empty:hover {
   color: #3b82f6;
 }
+
+/* --- TipStack / TipCard --- */
+.tip-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: 360px;
+}
+
+.tip-card {
+  pointer-events: auto;
+  background: rgba(30, 41, 59, 0.95);
+  color: #f1f5f9;
+  border-radius: 6px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: tip-card-enter 280ms ease-out;
+}
+
+.tip-card__message {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tip-card__dismiss {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: #93c5fd;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.tip-card__dismiss:hover {
+  color: #bfdbfe;
+}
+
+@keyframes tip-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip-card {
+    animation: none;
+  }
+}

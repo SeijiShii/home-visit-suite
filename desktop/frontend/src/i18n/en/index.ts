@@ -170,6 +170,33 @@ const en: Translations = {
     loading: "Loading...",
     noData: "No data",
   },
+  settings: {
+    title: "Settings",
+    helpSection: "Help display",
+    resetHelp: "Reset hidden help tips",
+    resetHelpDone: "Hidden help tips have been reset",
+    language: "Language",
+    languageJa: "日本語",
+    languageEn: "English",
+  },
+  tips: {
+    dontShowAgain: "Don't show this again",
+    map: {
+      polygon: {
+        startDraw:
+          "Click on the map to add a vertex and start drawing a polygon",
+        continueVertex: "Keep clicking to add more vertices",
+        confirmDraw:
+          "Click the first vertex or double-click to finish the polygon",
+        cancelDraw: "Press Esc to cancel drawing",
+        moveVertex: "Drag a vertex to move it",
+        deleteVertex: "Right-click a vertex to delete it",
+        splitEdge: "Right-click an edge to insert a new vertex",
+        selectPolygon: "Click inside a polygon to select it",
+        deletePolygon: "Press Delete to remove the selected polygon",
+      },
+    },
+  },
 };
 
 export default en;

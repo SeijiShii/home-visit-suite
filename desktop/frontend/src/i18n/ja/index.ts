@@ -172,6 +172,31 @@ const ja: Translations = {
     loading: "読み込み中...",
     noData: "データがありません",
   },
+  settings: {
+    title: "設定",
+    helpSection: "ヘルプ表示",
+    resetHelp: "ヘルプ表示をリセット",
+    resetHelpDone: "ヘルプ表示をリセットしました",
+    language: "言語",
+    languageJa: "日本語",
+    languageEn: "English",
+  },
+  tips: {
+    dontShowAgain: "このメッセージを表示しない",
+    map: {
+      polygon: {
+        startDraw: "地図上をクリックして頂点を追加し、ポリゴン描画を開始します",
+        continueVertex: "クリックし続けて頂点を追加します",
+        confirmDraw: "始点をクリック、またはダブルクリックで描画を確定します",
+        cancelDraw: "Esc キーで描画をキャンセルします",
+        moveVertex: "頂点をドラッグで移動できます",
+        deleteVertex: "頂点を右クリックで削除します",
+        splitEdge: "辺を右クリックで新しい頂点を追加します",
+        selectPolygon: "ポリゴン内部をクリックで選択します",
+        deletePolygon: "選択したポリゴンは Delete キーで削除します",
+      },
+    },
+  },
 };
 
 export default ja;
