@@ -6,7 +6,22 @@ import ls "github.com/SeijiShii/link-self/core/pkg/linkself"
 var AllMigrations = []ls.Migration{
 	{Version: 1, SQL: migrationV1},
 	{Version: 2, SQL: migrationV2},
+	{Version: 3, SQL: migrationV3},
 }
+
+// migrationV3: area_availability から start_date / end_date を削除（持ち出しステータスは親期間に従属）
+const migrationV3 = `
+DROP TABLE IF EXISTS area_availability;
+CREATE TABLE area_availability (
+    id TEXT PRIMARY KEY,
+    scope_id TEXT NOT NULL,
+    area_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'lendable',
+    scope_group_id TEXT NOT NULL DEFAULT '',
+    set_by_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+`
 
 // migrationV2: アプリ設定 kv ストア（ヘルプ表示状態、locale 等、ScopeDevice で同期）
 const migrationV2 = `
@@ -182,9 +197,7 @@ CREATE TABLE IF NOT EXISTS area_availability (
     area_id TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'lendable',
     scope_group_id TEXT NOT NULL DEFAULT '',
-    start_date TEXT NOT NULL,
-    end_date TEXT NOT NULL,
-    set_by_id TEXT NOT NULL,
+    set_by_id TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 

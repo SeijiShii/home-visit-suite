@@ -159,7 +159,23 @@ export interface Translations {
       errorExclusive: string;
       errorPermission: string;
       errorGeneric: string;
+      errorDateOrder: string;
+      errorOutOfRange: string;
+      assigned: string;
+      bulkLendable: string;
+      bulkSelfTake: string;
+      bulkChangeStatus: string;
+      bulkSelectedCount: string;
     };
+  };
+  settingsDev: {
+    title: string;
+    description: string;
+    deleteAllRegions: string;
+    deleteAllSchedules: string;
+    confirmRegions: string;
+    confirmSchedules: string;
+    done: string;
   };
   requests: {
     title: string;

@@ -61,10 +61,6 @@ export namespace models {
 	    areaId: string;
 	    type: string;
 	    scopeGroupId: string;
-	    // Go type: time
-	    startDate: any;
-	    // Go type: time
-	    endDate: any;
 	    setById: string;
 	    // Go type: time
 	    createdAt: any;
@@ -80,8 +76,6 @@ export namespace models {
 	        this.areaId = source["areaId"];
 	        this.type = source["type"];
 	        this.scopeGroupId = source["scopeGroupId"];
-	        this.startDate = this.convertValues(source["startDate"], null);
-	        this.endDate = this.convertValues(source["endDate"], null);
 	        this.setById = source["setById"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	    }

@@ -30,7 +30,10 @@ function parseError(err: unknown, tx: Tx): string {
 export function CoveragePage() {
   const { t } = useI18n();
   const tx = t.coverage.schedule;
-  const scheduleService = useMemo(() => new ScheduleService(ScheduleBinding), []);
+  const scheduleService = useMemo(
+    () => new ScheduleService(ScheduleBinding),
+    [],
+  );
   const regionService = useMemo(() => new RegionService(RegionBinding), []);
 
   const [view, setView] = useState<View>({ kind: "list" });
@@ -50,9 +53,9 @@ export function CoveragePage() {
   }, [reloadPeriods]);
 
   return (
-    <>
+    <div className="coverage-page">
       <h1>{t.coverage.title}</h1>
-      {error && <div className="error-banner" style={{ color: "red" }}>{error}</div>}
+      {error && <div className="coverage-error">{error}</div>}
       {view.kind === "list" ? (
         <PeriodListView
           periods={periods}
@@ -79,7 +82,7 @@ export function CoveragePage() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -122,13 +125,18 @@ function PeriodListView(props: {
 
   return (
     <section>
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={() => setCreating(true)}>{tx.newPeriod}</button>
+      <div className="coverage-toolbar">
+        <button
+          className="coverage-btn coverage-btn-primary"
+          onClick={() => setCreating(true)}
+        >
+          {tx.newPeriod}
+        </button>
       </div>
       {periods.length === 0 ? (
-        <p>—</p>
+        <p className="coverage-empty">—</p>
       ) : (
-        <table>
+        <table className="coverage-table">
           <thead>
             <tr>
               <th>{tx.periodName}</th>
@@ -142,19 +150,32 @@ function PeriodListView(props: {
             {periods.map((p) => (
               <tr key={p.id}>
                 <td>
-                  <a
-                    onClick={() => onOpen(p.id)}
-                    style={{ cursor: "pointer", textDecoration: "underline" }}
-                  >
+                  <a className="coverage-link" onClick={() => onOpen(p.id)}>
                     {p.name}
                   </a>
                 </td>
                 <td>{isoDate(p.startDate)}</td>
                 <td>{isoDate(p.endDate)}</td>
-                <td>{p.approved ? tx.approved : tx.notApproved}</td>
                 <td>
-                  <button onClick={() => setEditing(p)}>{tx.edit}</button>{" "}
-                  <button onClick={() => handleDelete(p.id)}>{tx.delete}</button>
+                  <span
+                    className={`coverage-badge ${p.approved ? "coverage-badge-approved" : "coverage-badge-pending"}`}
+                  >
+                    {p.approved ? tx.approved : tx.notApproved}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    className="coverage-btn"
+                    onClick={() => setEditing(p)}
+                  >
+                    {tx.edit}
+                  </button>{" "}
+                  <button
+                    className="coverage-btn coverage-btn-danger"
+                    onClick={() => handleDelete(p.id)}
+                  >
+                    {tx.delete}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -188,40 +209,67 @@ function PeriodEditor(props: {
   const [start, setStart] = useState(isoDate(initial?.startDate));
   const [end, setEnd] = useState(isoDate(initial?.endDate));
 
+  const dateOrderInvalid = !!start && !!end && start >= end;
+  const canSave = !!name && !!start && !!end && !dateOrderInvalid;
+
   const handleSave = () => {
-    const sp = models.SchedulePeriod.createFrom({
+    if (!canSave) return;
+    const sp = {
       id: initial?.id ?? `sp-${Date.now()}`,
       name,
-      startDate: new Date(start),
-      endDate: new Date(end),
+      startDate: new Date(start).toISOString(),
+      endDate: new Date(end).toISOString(),
       approved: initial?.approved ?? false,
-      createdAt: initial?.createdAt ?? new Date(),
-      updatedAt: new Date(),
-    });
+      createdAt: initial?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as unknown as models.SchedulePeriod;
     onSave(sp);
   };
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{initial ? tx.edit : tx.newPeriod}</h3>
-        <label>
-          {tx.periodName}
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          {tx.startDate}
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-        </label>
-        <label>
-          {tx.endDate}
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </label>
-        <div style={{ marginTop: 12 }}>
-          <button onClick={handleSave} disabled={!name || !start || !end}>
+        <h3 className="modal-title">{initial ? tx.edit : tx.newPeriod}</h3>
+        <div className="modal-field">
+          <label className="modal-label">{tx.periodName}</label>
+          <input
+            className="modal-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="modal-field">
+          <label className="modal-label">{tx.startDate}</label>
+          <input
+            className="modal-input"
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+          />
+        </div>
+        <div className="modal-field">
+          <label className="modal-label">{tx.endDate}</label>
+          <input
+            className="modal-input"
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+          />
+        </div>
+        {dateOrderInvalid && (
+          <div className="coverage-error">{tx.errorDateOrder}</div>
+        )}
+        <div className="modal-actions">
+          <button className="modal-btn" onClick={onCancel}>
+            {tx.cancel}
+          </button>
+          <button
+            className="modal-btn modal-btn-primary"
+            onClick={handleSave}
+            disabled={!canSave}
+          >
             {tx.save}
-          </button>{" "}
-          <button onClick={onCancel}>{tx.cancel}</button>
+          </button>
         </div>
       </div>
     </div>
@@ -240,7 +288,8 @@ function PeriodDetailView(props: {
   onError: (e: unknown) => void;
   onBack: () => void;
 }) {
-  const { periodId, scheduleService, regionService, tx, onError, onBack } = props;
+  const { periodId, scheduleService, regionService, tx, onError, onBack } =
+    props;
   const [period, setPeriod] = useState<models.SchedulePeriod | null>(null);
   const [scopes, setScopes] = useState<models.Scope[]>([]);
   const [tree, setTree] = useState<AreaTreeNode[]>([]);
@@ -286,15 +335,15 @@ function PeriodDetailView(props: {
 
   const handleCreateScope = async (name: string) => {
     try {
-      const sc = models.Scope.createFrom({
+      const sc = {
         id: `scope-${Date.now()}`,
         schedulePeriodId: periodId,
         name,
         groupId: "",
         parentAreaIds: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as unknown as models.Scope;
       await scheduleService.createScope(sc);
       setCreatingScope(false);
       await reload();
@@ -330,35 +379,48 @@ function PeriodDetailView(props: {
   return (
     <section>
       <div>
-        <button onClick={onBack}>← {tx.back}</button>
+        <button className="coverage-btn" onClick={onBack}>
+          ← {tx.back}
+        </button>
       </div>
-      <h2>
-        {period.name}{" "}
-        <span style={{ fontSize: "0.7em" }}>
-          ({isoDate(period.startDate)} 〜 {isoDate(period.endDate)})
-        </span>{" "}
-        <span style={{ color: period.approved ? "green" : "gray" }}>
-          [{period.approved ? tx.approved : tx.notApproved}]
-        </span>{" "}
-        <button onClick={handleApprove}>
+      <div className="coverage-detail-header">
+        <h2>{period.name}</h2>
+        <span className="coverage-detail-meta">
+          {isoDate(period.startDate)} 〜 {isoDate(period.endDate)}
+        </span>
+        <span
+          className={`coverage-badge ${period.approved ? "coverage-badge-approved" : "coverage-badge-pending"}`}
+        >
+          {period.approved ? tx.approved : tx.notApproved}
+        </span>
+        <button className="coverage-btn" onClick={handleApprove}>
           {period.approved ? tx.revokeApproval : tx.approve}
         </button>
-      </h2>
+      </div>
 
       <h3>{tx.scopes}</h3>
-      <div style={{ marginBottom: 8 }}>
-        <button onClick={() => setCreatingScope(true)}>{tx.newScope}</button>{" "}
-        <button onClick={() => setCopyingFromGroups(true)}>{tx.copyFromGroups}</button>
+      <div className="coverage-toolbar">
+        <button
+          className="coverage-btn coverage-btn-primary"
+          onClick={() => setCreatingScope(true)}
+        >
+          {tx.newScope}
+        </button>
+        <button
+          className="coverage-btn"
+          onClick={() => setCopyingFromGroups(true)}
+        >
+          {tx.copyFromGroups}
+        </button>
       </div>
 
       {scopes.length === 0 ? (
-        <p>{tx.noScopes}</p>
+        <p className="coverage-empty">{tx.noScopes}</p>
       ) : (
         scopes.map((sc) => (
           <ScopeCard
             key={sc.id}
             scope={sc}
-            period={period}
             tree={tree}
             usedParentAreaIds={usedParentAreaIds}
             scheduleService={scheduleService}
@@ -380,7 +442,9 @@ function PeriodDetailView(props: {
       {copyingFromGroups && (
         <GroupSelectorDialog
           groups={groups}
-          existingGroupIds={new Set(scopes.map((s) => s.groupId).filter(Boolean))}
+          existingGroupIds={
+            new Set(scopes.map((s) => s.groupId).filter(Boolean))
+          }
           tx={tx}
           onConfirm={handleCopyFromGroups}
           onCancel={() => setCopyingFromGroups(false)}
@@ -399,16 +463,26 @@ function ScopeNameEditor(props: {
   return (
     <div className="modal-overlay" onClick={props.onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{props.tx.newScope}</h3>
-        <label>
-          {props.tx.scopeName}
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <div style={{ marginTop: 12 }}>
-          <button onClick={() => props.onSave(name)} disabled={!name}>
+        <h3 className="modal-title">{props.tx.newScope}</h3>
+        <div className="modal-field">
+          <label className="modal-label">{props.tx.scopeName}</label>
+          <input
+            className="modal-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="modal-btn" onClick={props.onCancel}>
+            {props.tx.cancel}
+          </button>
+          <button
+            className="modal-btn modal-btn-primary"
+            onClick={() => props.onSave(name)}
+            disabled={!name}
+          >
             {props.tx.save}
-          </button>{" "}
-          <button onClick={props.onCancel}>{props.tx.cancel}</button>
+          </button>
         </div>
       </div>
     </div>
@@ -434,11 +508,11 @@ function GroupSelectorDialog(props: {
   return (
     <div className="modal-overlay" onClick={props.onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{props.tx.selectGroups}</h3>
+        <h3 className="modal-title">{props.tx.selectGroups}</h3>
         {props.groups.length === 0 ? (
-          <p>—</p>
+          <p className="coverage-empty">—</p>
         ) : (
-          <ul>
+          <ul className="group-selector-list">
             {props.groups.map((g) => {
               const used = props.existingGroupIds.has(g.id);
               return (
@@ -450,21 +524,24 @@ function GroupSelectorDialog(props: {
                       checked={selected.has(g.id)}
                       onChange={() => toggle(g.id)}
                     />
-                    {g.name} {used && <small>(已)</small>}
+                    {g.name} {used && <small>({props.tx.assigned})</small>}
                   </label>
                 </li>
               );
             })}
           </ul>
         )}
-        <div style={{ marginTop: 12 }}>
+        <div className="modal-actions">
+          <button className="modal-btn" onClick={props.onCancel}>
+            {props.tx.cancel}
+          </button>
           <button
+            className="modal-btn modal-btn-primary"
             onClick={() => props.onConfirm(Array.from(selected))}
             disabled={selected.size === 0}
           >
             {props.tx.save}
-          </button>{" "}
-          <button onClick={props.onCancel}>{props.tx.cancel}</button>
+          </button>
         </div>
       </div>
     </div>
@@ -477,7 +554,6 @@ function GroupSelectorDialog(props: {
 
 function ScopeCard(props: {
   scope: models.Scope;
-  period: models.SchedulePeriod;
   tree: AreaTreeNode[];
   usedParentAreaIds: Set<string>;
   scheduleService: ScheduleService;
@@ -487,13 +563,36 @@ function ScopeCard(props: {
   onDelete: () => void;
 }) {
   const {
-    scope, period, tree, usedParentAreaIds, scheduleService, tx,
-    onError, onChange, onDelete,
+    scope,
+    tree,
+    usedParentAreaIds,
+    scheduleService,
+    tx,
+    onError,
+    onChange,
+    onDelete,
   } = props;
   const [pickingPA, setPickingPA] = useState(false);
-  const [availabilities, setAvailabilities] = useState<models.AreaAvailability[]>([]);
-  const [showAvailability, setShowAvailability] = useState(false);
-  const [addingAvailability, setAddingAvailability] = useState(false);
+  const [availabilities, setAvailabilities] = useState<
+    models.AreaAvailability[]
+  >([]);
+  const [expanded, setExpanded] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDialog, setBulkDialog] = useState(false);
+
+  const toggleSelected = (paId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(paId)) next.delete(paId);
+      else next.add(paId);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    const ids = scope.parentAreaIds ?? [];
+    if (selected.size === ids.length) setSelected(new Set());
+    else setSelected(new Set(ids));
+  };
 
   const reloadAvailability = useCallback(async () => {
     try {
@@ -504,35 +603,8 @@ function ScopeCard(props: {
   }, [scheduleService, scope.id, onError]);
 
   useEffect(() => {
-    if (showAvailability) void reloadAvailability();
-  }, [showAvailability, reloadAvailability]);
-
-  const handleAddParentArea = async (paId: string) => {
-    try {
-      const updated = models.Scope.createFrom({
-        ...scope,
-        parentAreaIds: [...(scope.parentAreaIds ?? []), paId],
-      });
-      await scheduleService.updateScope(updated);
-      setPickingPA(false);
-      await onChange();
-    } catch (e) {
-      onError(e);
-    }
-  };
-
-  const handleRemoveParentArea = async (paId: string) => {
-    try {
-      const updated = models.Scope.createFrom({
-        ...scope,
-        parentAreaIds: (scope.parentAreaIds ?? []).filter((id) => id !== paId),
-      });
-      await scheduleService.updateScope(updated);
-      await onChange();
-    } catch (e) {
-      onError(e);
-    }
-  };
+    void reloadAvailability();
+  }, [reloadAvailability]);
 
   const paLabel = new Map<string, string>();
   tree.forEach((r) =>
@@ -541,96 +613,218 @@ function ScopeCard(props: {
     ),
   );
 
-  const areasInScope: { id: string; label: string }[] = [];
-  tree.forEach((r) =>
-    r.parentAreas.forEach((pa) => {
-      if ((scope.parentAreaIds ?? []).includes(pa.id)) {
-        pa.areas.forEach((a) =>
-          areasInScope.push({
-            id: a.id,
-            label: `${r.symbol}-${pa.number}-${a.number}`,
-          }),
-        );
+  // areaId -> AreaAvailability の引きやすさのためのマップ
+  const aaByPA = new Map<string, models.AreaAvailability>();
+  availabilities.forEach((aa) => aaByPA.set(aa.areaId, aa));
+
+  const handleAddParentAreas = async (paIds: string[]) => {
+    try {
+      const updated = {
+        ...scope,
+        parentAreaIds: [...(scope.parentAreaIds ?? []), ...paIds],
+      } as unknown as models.Scope;
+      await scheduleService.updateScope(updated);
+      const now = new Date().toISOString();
+      for (let i = 0; i < paIds.length; i++) {
+        const aa = {
+          id: `aa-${Date.now()}-${i}`,
+          scopeId: scope.id,
+          areaId: paIds[i],
+          type: "lendable",
+          scopeGroupId: "",
+          setById: "",
+          createdAt: now,
+        } as unknown as models.AreaAvailability;
+        await scheduleService.createAvailability(aa);
       }
-    }),
-  );
+      setPickingPA(false);
+      await onChange();
+      await reloadAvailability();
+    } catch (e) {
+      onError(e);
+    }
+  };
+
+  const handleRemoveParentArea = async (paId: string) => {
+    try {
+      const aa = aaByPA.get(paId);
+      if (aa) await scheduleService.deleteAvailability(aa.id);
+      const updated = {
+        ...scope,
+        parentAreaIds: (scope.parentAreaIds ?? []).filter((id) => id !== paId),
+      } as unknown as models.Scope;
+      await scheduleService.updateScope(updated);
+      await onChange();
+      await reloadAvailability();
+    } catch (e) {
+      onError(e);
+    }
+  };
+
+  const setStatus = async (paId: string, type: "lendable" | "self_take") => {
+    try {
+      const existing = aaByPA.get(paId);
+      if (existing) {
+        const updated = {
+          ...existing,
+          type,
+        } as unknown as models.AreaAvailability;
+        await scheduleService.updateAvailability(updated);
+      } else {
+        const aa = {
+          id: `aa-${Date.now()}`,
+          scopeId: scope.id,
+          areaId: paId,
+          type,
+          scopeGroupId: "",
+          setById: "",
+          createdAt: new Date().toISOString(),
+        } as unknown as models.AreaAvailability;
+        await scheduleService.createAvailability(aa);
+      }
+      await reloadAvailability();
+    } catch (e) {
+      onError(e);
+    }
+  };
+
+  const applyBulkStatus = async (type: "lendable" | "self_take") => {
+    for (const paId of selected) {
+      await setStatus(paId, type);
+    }
+    setSelected(new Set());
+    setBulkDialog(false);
+  };
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: 12, marginBottom: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h4>
+    <div className="scope-card">
+      <div className="scope-card-header">
+        <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="coverage-btn"
+            style={{ padding: "2px 8px" }}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "▼" : "▶"}
+          </button>
           {scope.name} {scope.groupId && <small>(group)</small>}
         </h4>
-        <button onClick={onDelete}>{tx.delete}</button>
-      </div>
-
-      <div>
-        <strong>{tx.parentAreas}:</strong>{" "}
-        {(scope.parentAreaIds ?? []).length === 0 ? (
-          <em>{tx.noParentAreas}</em>
-        ) : (
-          (scope.parentAreaIds ?? []).map((id) => (
-            <span key={id} style={{ marginRight: 8 }}>
-              {paLabel.get(id) ?? id}{" "}
-              <button onClick={() => handleRemoveParentArea(id)}>×</button>
-            </span>
-          ))
-        )}{" "}
-        <button onClick={() => setPickingPA(true)}>{tx.addParentArea}</button>
-      </div>
-
-      <div style={{ marginTop: 8 }}>
-        <button onClick={() => setShowAvailability((v) => !v)}>
-          {tx.availability} {showAvailability ? "▼" : "▶"}
+        <button className="coverage-btn coverage-btn-danger" onClick={onDelete}>
+          {tx.delete}
         </button>
       </div>
 
-      {showAvailability && (
-        <div style={{ marginTop: 8, paddingLeft: 12 }}>
-          {availabilities.length === 0 ? (
-            <p>
-              <em>{tx.noAvailability}</em>
-            </p>
+      {expanded && (
+        <>
+          <div className="coverage-toolbar">
+            <button
+              className="coverage-btn coverage-btn-primary"
+              onClick={() => setPickingPA(true)}
+            >
+              {tx.addParentArea}
+            </button>
+            <button
+              className="coverage-btn"
+              disabled={selected.size === 0}
+              onClick={() => setBulkDialog(true)}
+            >
+              {tx.bulkChangeStatus} ({selected.size})
+            </button>
+          </div>
+
+          {(scope.parentAreaIds ?? []).length === 0 ? (
+            <p className="coverage-empty">{tx.noParentAreas}</p>
           ) : (
-            <table>
+            <table className="coverage-table">
               <thead>
                 <tr>
-                  <th>{tx.area}</th>
+                  <th style={{ width: 32 }}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        (scope.parentAreaIds ?? []).length > 0 &&
+                        selected.size === (scope.parentAreaIds ?? []).length
+                      }
+                      ref={(el) => {
+                        if (el)
+                          el.indeterminate =
+                            selected.size > 0 &&
+                            selected.size < (scope.parentAreaIds ?? []).length;
+                      }}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th>{tx.parentAreas}</th>
                   <th>{tx.type}</th>
-                  <th>{tx.startDate}</th>
-                  <th>{tx.endDate}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {availabilities.map((aa) => (
-                  <tr key={aa.id}>
-                    <td>{aa.areaId}</td>
-                    <td>{aa.type === "lendable" ? tx.lendable : tx.selfTake}</td>
-                    <td>{isoDate(aa.startDate)}</td>
-                    <td>{isoDate(aa.endDate)}</td>
-                    <td>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await scheduleService.deleteAvailability(aa.id);
-                            await reloadAvailability();
-                          } catch (e) {
-                            onError(e);
-                          }
-                        }}
-                      >
-                        {tx.delete}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {(scope.parentAreaIds ?? []).map((paId) => {
+                  const aa = aaByPA.get(paId);
+                  const t = aa?.type ?? "lendable";
+                  return (
+                    <tr key={paId}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(paId)}
+                          onChange={() => toggleSelected(paId)}
+                        />
+                      </td>
+                      <td>{paLabel.get(paId) ?? paId}</td>
+                      <td>
+                        <span
+                          className={`coverage-badge ${t === "lendable" ? "coverage-badge-lendable" : "coverage-badge-selftake"}`}
+                        >
+                          {t === "lendable" ? tx.lendable : tx.selfTake}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="coverage-btn coverage-btn-danger"
+                          onClick={() => handleRemoveParentArea(paId)}
+                        >
+                          {tx.delete}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
-          <button onClick={() => setAddingAvailability(true)}>
-            {tx.addAvailability}
-          </button>
+        </>
+      )}
+
+      {bulkDialog && (
+        <div className="modal-overlay" onClick={() => setBulkDialog(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">{tx.bulkChangeStatus}</h3>
+            <p style={{ marginBottom: 12 }}>
+              {tx.bulkSelectedCount.replace("{n}", String(selected.size))}
+            </p>
+            <div className="modal-actions">
+              <button
+                className="modal-btn"
+                onClick={() => setBulkDialog(false)}
+              >
+                {tx.cancel}
+              </button>
+              <button
+                className="modal-btn"
+                onClick={() => void applyBulkStatus("lendable")}
+              >
+                {tx.lendable}
+              </button>
+              <button
+                className="modal-btn modal-btn-primary"
+                onClick={() => void applyBulkStatus("self_take")}
+              >
+                {tx.selfTake}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -639,27 +833,8 @@ function ScopeCard(props: {
           tree={tree}
           excludeIds={usedParentAreaIds}
           tx={tx}
-          onPick={handleAddParentArea}
+          onConfirm={handleAddParentAreas}
           onCancel={() => setPickingPA(false)}
-        />
-      )}
-
-      {addingAvailability && (
-        <AvailabilityEditor
-          scopeId={scope.id}
-          period={period}
-          areas={areasInScope}
-          tx={tx}
-          onSave={async (aa) => {
-            try {
-              await scheduleService.createAvailability(aa);
-              setAddingAvailability(false);
-              await reloadAvailability();
-            } catch (e) {
-              onError(e);
-            }
-          }}
-          onCancel={() => setAddingAvailability(false)}
         />
       )}
     </div>
@@ -670,14 +845,23 @@ function ParentAreaPicker(props: {
   tree: AreaTreeNode[];
   excludeIds: Set<string>;
   tx: Tx;
-  onPick: (paId: string) => void;
+  onConfirm: (paIds: string[]) => void;
   onCancel: () => void;
 }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   return (
     <div className="modal-overlay" onClick={props.onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{props.tx.addParentArea}</h3>
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+        <h3 className="modal-title">{props.tx.addParentArea}</h3>
+        <div className="parent-area-picker-list">
           {props.tree.map((r) => (
             <div key={r.id}>
               <strong>
@@ -688,9 +872,24 @@ function ParentAreaPicker(props: {
                   const used = props.excludeIds.has(pa.id);
                   return (
                     <li key={pa.id}>
-                      <button disabled={used} onClick={() => props.onPick(pa.id)}>
-                        {pa.number} {pa.name} {used && <small>(已)</small>}
-                      </button>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          cursor: used ? "not-allowed" : "pointer",
+                          color: used ? "#94a3b8" : undefined,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={used}
+                          checked={selected.has(pa.id)}
+                          onChange={() => toggle(pa.id)}
+                        />
+                        {pa.number} {pa.name}{" "}
+                        {used && <small>({props.tx.assigned})</small>}
+                      </label>
                     </li>
                   );
                 })}
@@ -698,77 +897,17 @@ function ParentAreaPicker(props: {
             </div>
           ))}
         </div>
-        <button onClick={props.onCancel}>{props.tx.cancel}</button>
-      </div>
-    </div>
-  );
-}
-
-function AvailabilityEditor(props: {
-  scopeId: string;
-  period: models.SchedulePeriod;
-  areas: { id: string; label: string }[];
-  tx: Tx;
-  onSave: (aa: models.AreaAvailability) => void;
-  onCancel: () => void;
-}) {
-  const [areaId, setAreaId] = useState(props.areas[0]?.id ?? "");
-  const [type, setType] = useState<"lendable" | "self_take">("lendable");
-  const [start, setStart] = useState(isoDate(props.period.startDate));
-  const [end, setEnd] = useState(isoDate(props.period.endDate));
-
-  const handleSave = () => {
-    const aa = models.AreaAvailability.createFrom({
-      id: `aa-${Date.now()}`,
-      scopeId: props.scopeId,
-      areaId,
-      type,
-      scopeGroupId: "",
-      startDate: new Date(start),
-      endDate: new Date(end),
-      setById: "",
-      createdAt: new Date(),
-    });
-    props.onSave(aa);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={props.onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{props.tx.addAvailability}</h3>
-        <label>
-          {props.tx.area}
-          <select value={areaId} onChange={(e) => setAreaId(e.target.value)}>
-            {props.areas.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {props.tx.type}
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as "lendable" | "self_take")}
+        <div className="modal-actions">
+          <button className="modal-btn" onClick={props.onCancel}>
+            {props.tx.cancel}
+          </button>
+          <button
+            className="modal-btn modal-btn-primary"
+            disabled={selected.size === 0}
+            onClick={() => props.onConfirm(Array.from(selected))}
           >
-            <option value="lendable">{props.tx.lendable}</option>
-            <option value="self_take">{props.tx.selfTake}</option>
-          </select>
-        </label>
-        <label>
-          {props.tx.startDate}
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-        </label>
-        <label>
-          {props.tx.endDate}
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </label>
-        <div style={{ marginTop: 12 }}>
-          <button onClick={handleSave} disabled={!areaId || !start || !end}>
             {props.tx.save}
-          </button>{" "}
-          <button onClick={props.onCancel}>{props.tx.cancel}</button>
+          </button>
         </div>
       </div>
     </div>

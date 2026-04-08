@@ -305,76 +305,22 @@ func (s *schedulePeriodService) validateAreaAvailability(aa *models.AreaAvailabi
 	if aa.Type != models.AvailabilityLendable && aa.Type != models.AvailabilitySelfTake {
 		return Errorf(ErrInvalidInput, "invalid availability type: %q", aa.Type)
 	}
-	if err := validatePeriodDates(aa.StartDate, aa.EndDate); err != nil {
-		return err
-	}
 
 	scope, err := s.repo.GetScope(aa.ScopeID)
 	if err != nil {
 		return Errorf(ErrNotFound, "scope not found: %s", aa.ScopeID)
 	}
 
-	// 親 SchedulePeriod 期間内であること
-	sp, err := s.repo.GetSchedulePeriod(scope.SchedulePeriodID)
-	if err != nil {
-		return Errorf(ErrNotFound, "schedule period not found: %s", scope.SchedulePeriodID)
-	}
-	if aa.StartDate.Before(sp.StartDate) || aa.EndDate.After(sp.EndDate) {
-		return Errorf(ErrInvalidInput,
-			"availability period [%s, %s] must be within schedule period [%s, %s]",
-			aa.StartDate.Format("2006-01-02"), aa.EndDate.Format("2006-01-02"),
-			sp.StartDate.Format("2006-01-02"), sp.EndDate.Format("2006-01-02"),
-		)
-	}
-
-	// AreaID の親 ParentArea が Scope.ParentAreaIDs に含まれること
-	if s.regionRepo != nil {
-		area, err := s.regionRepo.GetArea(aa.AreaID)
-		if err != nil {
-			return Errorf(ErrNotFound, "area not found: %s", aa.AreaID)
-		}
-		ok := false
-		for _, paID := range scope.ParentAreaIDs {
-			if paID == area.ParentAreaID {
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			return Errorf(ErrInvalidInput,
-				"area %q (parent %q) is not in scope %q",
-				aa.AreaID, area.ParentAreaID, scope.ID,
-			)
+	// AreaID は区域親番 ID として扱い、Scope.ParentAreaIDs に含まれること
+	for _, paID := range scope.ParentAreaIDs {
+		if paID == aa.AreaID {
+			return nil
 		}
 	}
-
-	// self_take は同一 areaId の lendable エントリ（期間を内包）が必要
-	if aa.Type == models.AvailabilitySelfTake {
-		existing, err := s.repo.ListAreaAvailabilities(aa.ScopeID)
-		if err != nil {
-			return fmt.Errorf("list area availabilities: %w", err)
-		}
-		covered := false
-		for _, ex := range existing {
-			if ex.ID == aa.ID {
-				continue
-			}
-			if ex.AreaID == aa.AreaID && ex.Type == models.AvailabilityLendable &&
-				!aa.StartDate.Before(ex.StartDate) && !aa.EndDate.After(ex.EndDate) {
-				covered = true
-				break
-			}
-		}
-		if !covered {
-			return Errorf(ErrInvalidInput,
-				"self_take availability for area %q requires a lendable entry covering [%s, %s]",
-				aa.AreaID,
-				aa.StartDate.Format("2006-01-02"), aa.EndDate.Format("2006-01-02"),
-			)
-		}
-	}
-
-	return nil
+	return Errorf(ErrInvalidInput,
+		"parent area %q is not in scope %q",
+		aa.AreaID, scope.ID,
+	)
 }
 
 // =============================================================================

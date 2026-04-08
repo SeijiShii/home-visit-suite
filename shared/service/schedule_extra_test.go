@@ -208,14 +208,12 @@ func setupScopeWithPeriod(t *testing.T, f *schedFixture) {
 	}
 }
 
-func makeAvailability(id, scopeID, areaID string, typ models.AvailabilityType, start, end time.Time) *models.AreaAvailability {
+func makeAvailability(id, scopeID, areaID string, typ models.AvailabilityType) *models.AreaAvailability {
 	return &models.AreaAvailability{
-		ID:        id,
-		ScopeID:   scopeID,
-		AreaID:    areaID,
-		Type:      typ,
-		StartDate: start,
-		EndDate:   end,
+		ID:      id,
+		ScopeID: scopeID,
+		AreaID:  areaID,
+		Type:    typ,
 	}
 }
 
@@ -223,8 +221,7 @@ func TestCreateAreaAvailability_LendableSuccess(t *testing.T) {
 	f := newSchedFixture(t)
 	setupScopeWithPeriod(t, f)
 
-	aa := makeAvailability("aa-1", "scope-1", "area-1",
-		models.AvailabilityLendable, makeDate(2026, 2, 1), makeDate(2026, 3, 1))
+	aa := makeAvailability("aa-1", "scope-1", "pa-001", models.AvailabilityLendable)
 	if err := f.svc.CreateAreaAvailability(aa); err != nil {
 		t.Fatalf("CreateAreaAvailability: %v", err)
 	}
@@ -239,33 +236,7 @@ func TestCreateAreaAvailability_InvalidType(t *testing.T) {
 	f := newSchedFixture(t)
 	setupScopeWithPeriod(t, f)
 
-	aa := makeAvailability("aa-1", "scope-1", "area-1",
-		models.AvailabilityType("bogus"), makeDate(2026, 2, 1), makeDate(2026, 3, 1))
-	err := f.svc.CreateAreaAvailability(aa)
-	if !service.IsCode(err, service.ErrInvalidInput) {
-		t.Errorf("error = %v, want invalid_input", err)
-	}
-}
-
-func TestCreateAreaAvailability_PeriodOutsideSchedule(t *testing.T) {
-	f := newSchedFixture(t)
-	setupScopeWithPeriod(t, f)
-
-	// schedule period is 2026-01-01 .. 2026-06-30
-	aa := makeAvailability("aa-1", "scope-1", "area-1",
-		models.AvailabilityLendable, makeDate(2025, 12, 1), makeDate(2026, 2, 1))
-	err := f.svc.CreateAreaAvailability(aa)
-	if !service.IsCode(err, service.ErrInvalidInput) {
-		t.Errorf("error = %v, want invalid_input (out of range)", err)
-	}
-}
-
-func TestCreateAreaAvailability_InvalidDates(t *testing.T) {
-	f := newSchedFixture(t)
-	setupScopeWithPeriod(t, f)
-
-	aa := makeAvailability("aa-1", "scope-1", "area-1",
-		models.AvailabilityLendable, makeDate(2026, 3, 1), makeDate(2026, 2, 1))
+	aa := makeAvailability("aa-1", "scope-1", "pa-001", models.AvailabilityType("bogus"))
 	err := f.svc.CreateAreaAvailability(aa)
 	if !service.IsCode(err, service.ErrInvalidInput) {
 		t.Errorf("error = %v, want invalid_input", err)
@@ -274,57 +245,20 @@ func TestCreateAreaAvailability_InvalidDates(t *testing.T) {
 
 func TestCreateAreaAvailability_ScopeNotFound(t *testing.T) {
 	f := newSchedFixture(t)
-	aa := makeAvailability("aa-1", "scope-missing", "area-1",
-		models.AvailabilityLendable, makeDate(2026, 2, 1), makeDate(2026, 3, 1))
+	aa := makeAvailability("aa-1", "scope-missing", "pa-001", models.AvailabilityLendable)
 	err := f.svc.CreateAreaAvailability(aa)
 	if !service.IsCode(err, service.ErrNotFound) {
 		t.Errorf("error = %v, want not_found", err)
 	}
 }
 
-func TestCreateAreaAvailability_SelfTakeRequiresLendable(t *testing.T) {
+func TestCreateAreaAvailability_SelfTakeStandalone(t *testing.T) {
 	f := newSchedFixture(t)
 	setupScopeWithPeriod(t, f)
 
-	st := makeAvailability("aa-st", "scope-1", "area-1",
-		models.AvailabilitySelfTake, makeDate(2026, 2, 1), makeDate(2026, 3, 1))
-	err := f.svc.CreateAreaAvailability(st)
-	if !service.IsCode(err, service.ErrInvalidInput) {
-		t.Errorf("error = %v, want invalid_input (no lendable)", err)
-	}
-}
-
-func TestCreateAreaAvailability_SelfTakeWithCoveringLendable(t *testing.T) {
-	f := newSchedFixture(t)
-	setupScopeWithPeriod(t, f)
-
-	lend := makeAvailability("aa-lend", "scope-1", "area-1",
-		models.AvailabilityLendable, makeDate(2026, 1, 15), makeDate(2026, 4, 1))
-	if err := f.svc.CreateAreaAvailability(lend); err != nil {
-		t.Fatalf("setup lendable: %v", err)
-	}
-
-	st := makeAvailability("aa-st", "scope-1", "area-1",
-		models.AvailabilitySelfTake, makeDate(2026, 2, 1), makeDate(2026, 3, 1))
+	st := makeAvailability("aa-st", "scope-1", "pa-001", models.AvailabilitySelfTake)
 	if err := f.svc.CreateAreaAvailability(st); err != nil {
-		t.Errorf("self_take with covering lendable should succeed: %v", err)
-	}
-}
-
-func TestCreateAreaAvailability_SelfTakeExceedsLendable(t *testing.T) {
-	f := newSchedFixture(t)
-	setupScopeWithPeriod(t, f)
-
-	lend := makeAvailability("aa-lend", "scope-1", "area-1",
-		models.AvailabilityLendable, makeDate(2026, 2, 1), makeDate(2026, 3, 1))
-	_ = f.svc.CreateAreaAvailability(lend)
-
-	// self_take extends beyond lendable end
-	st := makeAvailability("aa-st", "scope-1", "area-1",
-		models.AvailabilitySelfTake, makeDate(2026, 2, 1), makeDate(2026, 4, 1))
-	err := f.svc.CreateAreaAvailability(st)
-	if !service.IsCode(err, service.ErrInvalidInput) {
-		t.Errorf("error = %v, want invalid_input (self_take exceeds lendable)", err)
+		t.Errorf("self_take standalone should succeed: %v", err)
 	}
 }
 
@@ -332,8 +266,7 @@ func TestDeleteAreaAvailability(t *testing.T) {
 	f := newSchedFixture(t)
 	setupScopeWithPeriod(t, f)
 
-	aa := makeAvailability("aa-1", "scope-1", "area-1",
-		models.AvailabilityLendable, makeDate(2026, 2, 1), makeDate(2026, 3, 1))
+	aa := makeAvailability("aa-1", "scope-1", "pa-001", models.AvailabilityLendable)
 	_ = f.svc.CreateAreaAvailability(aa)
 
 	if err := f.svc.DeleteAreaAvailability("aa-1"); err != nil {

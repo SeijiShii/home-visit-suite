@@ -9,18 +9,15 @@ import (
 
 func TestAreaAvailability_Fields(t *testing.T) {
 	now := time.Now()
-	end := now.Add(14 * 24 * time.Hour)
 
 	aa := models.AreaAvailability{
-		ID:      "aa-1",
-		ScopeID: "sc-1",
-		AreaID:  "area-1",
-		Type:           models.AvailabilityLendable,
-		ScopeGroupID:   "group-a",
-		StartDate:      now,
-		EndDate:        end,
-		SetByID:        "did:key:editor1",
-		CreatedAt:      now,
+		ID:           "aa-1",
+		ScopeID:      "sc-1",
+		AreaID:       "area-1",
+		Type:         models.AvailabilityLendable,
+		ScopeGroupID: "group-a",
+		SetByID:      "did:key:editor1",
+		CreatedAt:    now,
 	}
 
 	if aa.Type != models.AvailabilityLendable {

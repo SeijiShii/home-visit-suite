@@ -202,8 +202,8 @@ func (r *LinkSelfCoverageRepo) DeleteScope(id string) error {
 
 func (r *LinkSelfCoverageRepo) ListAreaAvailabilities(scopeID string) ([]models.AreaAvailability, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, scope_id, area_id, type, scope_group_id, start_date, end_date, set_by_id, created_at
-		 FROM area_availability WHERE scope_id = ? ORDER BY start_date`, scopeID)
+		`SELECT id, scope_id, area_id, type, scope_group_id, set_by_id, created_at
+		 FROM area_availability WHERE scope_id = ? ORDER BY created_at`, scopeID)
 	if err != nil {
 		return nil, err
 	}
@@ -223,10 +223,10 @@ func (r *LinkSelfCoverageRepo) ListAreaAvailabilities(scopeID string) ([]models.
 func (r *LinkSelfCoverageRepo) SaveAreaAvailability(aa *models.AreaAvailability) error {
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO area_availability
-		 (id, scope_id, area_id, type, scope_group_id, start_date, end_date, set_by_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 (id, scope_id, area_id, type, scope_group_id, set_by_id, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		aa.ID, aa.ScopeID, aa.AreaID, string(aa.Type), aa.ScopeGroupID,
-		formatTime(aa.StartDate), formatTime(aa.EndDate), aa.SetByID, formatTime(aa.CreatedAt))
+		aa.SetByID, formatTime(aa.CreatedAt))
 	return err
 }
 
@@ -286,15 +286,13 @@ func scanScope(row scannable) (models.Scope, error) {
 
 func scanAreaAvailability(row scannable) (models.AreaAvailability, error) {
 	var aa models.AreaAvailability
-	var typeStr, startDate, endDate, createdAt string
+	var typeStr, createdAt string
 	err := row.Scan(&aa.ID, &aa.ScopeID, &aa.AreaID, &typeStr, &aa.ScopeGroupID,
-		&startDate, &endDate, &aa.SetByID, &createdAt)
+		&aa.SetByID, &createdAt)
 	if err != nil {
 		return aa, err
 	}
 	aa.Type = models.AvailabilityType(typeStr)
-	aa.StartDate = parseTime(startDate)
-	aa.EndDate = parseTime(endDate)
 	aa.CreatedAt = parseTime(createdAt)
 	return aa, nil
 }
