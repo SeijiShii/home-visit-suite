@@ -81,7 +81,7 @@ func main() {
 	userBinding := binding.NewUserBinding(repo.User())
 	settingsBinding := binding.NewSettingsBinding(repo.Personal())
 	scheduleSvc := service.NewSchedulePeriodService(repo.Coverage(), repo.User(), repo.Notification(), repo.Region())
-	scheduleBinding := binding.NewScheduleBinding(scheduleSvc)
+	scheduleBinding := binding.NewScheduleBinding(scheduleSvc, info.DID)
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",

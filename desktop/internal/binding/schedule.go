@@ -7,11 +7,18 @@ import (
 
 // ScheduleBinding は予定期間・スコープ・区域可用性のフロントエンド向けAPI。
 type ScheduleBinding struct {
-	svc service.SchedulePeriodService
+	svc    service.SchedulePeriodService
+	selfID string
 }
 
-func NewScheduleBinding(svc service.SchedulePeriodService) *ScheduleBinding {
-	return &ScheduleBinding{svc: svc}
+func NewScheduleBinding(svc service.SchedulePeriodService, selfID string) *ScheduleBinding {
+	return &ScheduleBinding{svc: svc, selfID: selfID}
+}
+
+// GetSelfID は LinkSelf が発行した自デバイスの DID を返す。
+// 承認操作で actor として利用される。
+func (b *ScheduleBinding) GetSelfID() string {
+	return b.selfID
 }
 
 // --- SchedulePeriod ---

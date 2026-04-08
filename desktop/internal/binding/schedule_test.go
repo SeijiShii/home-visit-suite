@@ -16,7 +16,7 @@ func setupScheduleBinding(t *testing.T) (*binding.ScheduleBinding, *repository.I
 	user := repository.NewInMemoryUserRepository()
 	notif := repository.NewInMemoryNotificationRepository()
 	svc := service.NewSchedulePeriodService(cov, user, notif, nil)
-	return binding.NewScheduleBinding(svc), user
+	return binding.NewScheduleBinding(svc, "self-test"), user
 }
 
 func dt(y, m, d int) time.Time {

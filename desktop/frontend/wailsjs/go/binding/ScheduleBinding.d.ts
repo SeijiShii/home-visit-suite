@@ -22,6 +22,8 @@ export function GetSchedulePeriod(arg1:string):Promise<models.SchedulePeriod>;
 
 export function GetScope(arg1:string):Promise<models.Scope>;
 
+export function GetSelfID():Promise<string>;
+
 export function ListAreaAvailabilities(arg1:string):Promise<Array<models.AreaAvailability>>;
 
 export function ListSchedulePeriods():Promise<Array<models.SchedulePeriod>>;

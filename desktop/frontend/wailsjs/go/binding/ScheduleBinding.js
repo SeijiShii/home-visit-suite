@@ -42,6 +42,10 @@ export function GetScope(arg1) {
   return window['go']['binding']['ScheduleBinding']['GetScope'](arg1);
 }
 
+export function GetSelfID() {
+  return window['go']['binding']['ScheduleBinding']['GetSelfID']();
+}
+
 export function ListAreaAvailabilities(arg1) {
   return window['go']['binding']['ScheduleBinding']['ListAreaAvailabilities'](arg1);
 }
