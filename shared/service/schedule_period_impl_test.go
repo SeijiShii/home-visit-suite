@@ -13,7 +13,9 @@ import (
 
 func newSchedulePeriodService() service.SchedulePeriodService {
 	repo := repository.NewInMemoryCoverageRepository()
-	return service.NewSchedulePeriodService(repo)
+	userRepo := repository.NewInMemoryUserRepository()
+	notifRepo := repository.NewInMemoryNotificationRepository()
+	return service.NewSchedulePeriodService(repo, userRepo, notifRepo, nil)
 }
 
 func makeDate(y, m, d int) time.Time {

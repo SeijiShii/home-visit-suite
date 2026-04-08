@@ -10,6 +10,7 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 	"github.com/SeijiShii/home-visit-suite/shared/domain/repository"
 	"github.com/SeijiShii/home-visit-suite/shared/linkself"
+	"github.com/SeijiShii/home-visit-suite/shared/service"
 	"github.com/SeijiShii/home-visit-suite/shared/testdata"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -47,6 +48,23 @@ func main() {
 		log.Printf("Registered self as admin: %s", info.DID)
 	}
 
+	// 旧ダミー領域のクリーンアップ（過去シードで投入された reg-nrt / reg-tms を削除）
+	regionRepo := repo.Region()
+	for _, dummyRegionID := range []string{"reg-nrt", "reg-tms"} {
+		pas, _ := regionRepo.ListParentAreas(dummyRegionID)
+		for _, pa := range pas {
+			areas, _ := regionRepo.ListAreas(pa.ID)
+			for _, a := range areas {
+				_ = regionRepo.DeleteArea(a.ID)
+			}
+			_ = regionRepo.DeleteParentArea(pa.ID)
+		}
+		if _, err := regionRepo.GetRegion(dummyRegionID); err == nil {
+			_ = regionRepo.DeleteRegion(dummyRegionID)
+			log.Printf("Deleted dummy region: %s", dummyRegionID)
+		}
+	}
+
 	// 開発用: ユーザーが自分だけならダミーデータを投入
 	if users, _ := userRepo.ListUsers(); len(users) <= 1 {
 		seedRepos := testdata.NewLinkSelfRepos(repo)
@@ -62,6 +80,8 @@ func main() {
 	mapBinding := binding.NewMapBinding(repo.Map())
 	userBinding := binding.NewUserBinding(repo.User())
 	settingsBinding := binding.NewSettingsBinding(repo.Personal())
+	scheduleSvc := service.NewSchedulePeriodService(repo.Coverage(), repo.User(), repo.Notification(), repo.Region())
+	scheduleBinding := binding.NewScheduleBinding(scheduleSvc)
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",
@@ -78,6 +98,7 @@ func main() {
 			mapBinding,
 			userBinding,
 			settingsBinding,
+			scheduleBinding,
 		},
 	})
 
