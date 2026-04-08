@@ -61,6 +61,7 @@ func main() {
 	regionBinding := binding.NewRegionBinding(repo.Region())
 	mapBinding := binding.NewMapBinding(repo.Map())
 	userBinding := binding.NewUserBinding(repo.User())
+	settingsBinding := binding.NewSettingsBinding(repo.Personal())
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",
@@ -76,6 +77,7 @@ func main() {
 			regionBinding,
 			mapBinding,
 			userBinding,
+			settingsBinding,
 		},
 	})
 

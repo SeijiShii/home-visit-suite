@@ -5,7 +5,16 @@ import ls "github.com/SeijiShii/link-self/core/pkg/linkself"
 // AllMigrations はスキーママイグレーション定義。
 var AllMigrations = []ls.Migration{
 	{Version: 1, SQL: migrationV1},
+	{Version: 2, SQL: migrationV2},
 }
+
+// migrationV2: アプリ設定 kv ストア（ヘルプ表示状態、locale 等、ScopeDevice で同期）
+const migrationV2 = `
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+`
 
 const migrationV1 = `
 -- 領域・区域

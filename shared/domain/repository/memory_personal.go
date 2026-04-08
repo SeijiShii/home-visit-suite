@@ -9,9 +9,11 @@ import (
 
 type InMemoryPersonalRepository struct {
 	mu          sync.RWMutex
-	notes       map[string]*models.PersonalNote       // key: visitRecordID
-	tags        map[string]*models.PersonalTag         // key: tag ID
+	notes       map[string]*models.PersonalNote          // key: visitRecordID
+	tags        map[string]*models.PersonalTag           // key: tag ID
 	assignments map[string]*models.PersonalTagAssignment // key: assignment ID
+	hiddenTips  map[string]bool                          // key: tip i18n key
+	locale      string
 }
 
 func NewInMemoryPersonalRepository() *InMemoryPersonalRepository {
@@ -19,7 +21,49 @@ func NewInMemoryPersonalRepository() *InMemoryPersonalRepository {
 		notes:       make(map[string]*models.PersonalNote),
 		tags:        make(map[string]*models.PersonalTag),
 		assignments: make(map[string]*models.PersonalTagAssignment),
+		hiddenTips:  make(map[string]bool),
 	}
+}
+
+// --- AppSettings: HiddenTipKeys ---
+
+func (r *InMemoryPersonalRepository) GetHiddenTipKeys() ([]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]string, 0, len(r.hiddenTips))
+	for k := range r.hiddenTips {
+		result = append(result, k)
+	}
+	return result, nil
+}
+
+func (r *InMemoryPersonalRepository) AddHiddenTipKey(key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.hiddenTips[key] = true
+	return nil
+}
+
+func (r *InMemoryPersonalRepository) ClearHiddenTipKeys() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.hiddenTips = make(map[string]bool)
+	return nil
+}
+
+// --- AppSettings: Locale ---
+
+func (r *InMemoryPersonalRepository) GetLocale() (string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.locale, nil
+}
+
+func (r *InMemoryPersonalRepository) SetLocale(locale string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.locale = locale
+	return nil
 }
 
 // --- PersonalNote ---

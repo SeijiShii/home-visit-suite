@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"encoding/json"
+
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
 
@@ -111,5 +113,79 @@ func (r *LinkSelfPersonalRepo) SavePersonalTagAssignment(a *models.PersonalTagAs
 func (r *LinkSelfPersonalRepo) DeletePersonalTagAssignment(id string) error {
 	_, err := r.db.Exec(r.ctx, `DELETE FROM personal_tag_assignments WHERE id = ?`, id)
 	return err
+}
+
+// --- AppSettings (key-value) ---
+
+const (
+	appSettingKeyHiddenTipKeys = "ui.hiddenTipKeys"
+	appSettingKeyLocale        = "ui.locale"
+)
+
+func (r *LinkSelfPersonalRepo) getAppSetting(key string) (string, error) {
+	rows, err := r.db.Query(r.ctx, `SELECT value FROM app_settings WHERE key = ?`, key)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return "", nil
+	}
+	var v string
+	if err := rows.Scan(&v); err != nil {
+		return "", err
+	}
+	return v, nil
+}
+
+func (r *LinkSelfPersonalRepo) setAppSetting(key, value string) error {
+	_, err := r.db.Exec(r.ctx,
+		`INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)`, key, value)
+	return err
+}
+
+func (r *LinkSelfPersonalRepo) GetHiddenTipKeys() ([]string, error) {
+	v, err := r.getAppSetting(appSettingKeyHiddenTipKeys)
+	if err != nil {
+		return nil, err
+	}
+	if v == "" {
+		return []string{}, nil
+	}
+	var keys []string
+	if err := json.Unmarshal([]byte(v), &keys); err != nil {
+		return nil, err
+	}
+	return keys, nil
+}
+
+func (r *LinkSelfPersonalRepo) AddHiddenTipKey(key string) error {
+	existing, err := r.GetHiddenTipKeys()
+	if err != nil {
+		return err
+	}
+	for _, k := range existing {
+		if k == key {
+			return nil
+		}
+	}
+	existing = append(existing, key)
+	b, err := json.Marshal(existing)
+	if err != nil {
+		return err
+	}
+	return r.setAppSetting(appSettingKeyHiddenTipKeys, string(b))
+}
+
+func (r *LinkSelfPersonalRepo) ClearHiddenTipKeys() error {
+	return r.setAppSetting(appSettingKeyHiddenTipKeys, "[]")
+}
+
+func (r *LinkSelfPersonalRepo) GetLocale() (string, error) {
+	return r.getAppSetting(appSettingKeyLocale)
+}
+
+func (r *LinkSelfPersonalRepo) SetLocale(locale string) error {
+	return r.setAppSetting(appSettingKeyLocale, locale)
 }
 

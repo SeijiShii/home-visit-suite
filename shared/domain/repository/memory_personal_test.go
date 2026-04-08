@@ -56,3 +56,87 @@ func TestPersonalTagAssignment_SaveAndList(t *testing.T) {
 		t.Errorf("got %d, want 2", len(list))
 	}
 }
+
+// --- AppSettings: HiddenTipKeys ---
+
+func TestHiddenTipKeys_EmptyByDefault(t *testing.T) {
+	repo := newPersonalRepo()
+	got, err := repo.GetHiddenTipKeys()
+	if err != nil {
+		t.Fatalf("GetHiddenTipKeys: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("want empty, got %v", got)
+	}
+}
+
+func TestHiddenTipKeys_AddAndGet(t *testing.T) {
+	repo := newPersonalRepo()
+	if err := repo.AddHiddenTipKey("tips.map.polygon.startDraw"); err != nil {
+		t.Fatalf("AddHiddenTipKey: %v", err)
+	}
+	if err := repo.AddHiddenTipKey("tips.map.polygon.moveVertex"); err != nil {
+		t.Fatalf("AddHiddenTipKey: %v", err)
+	}
+	got, _ := repo.GetHiddenTipKeys()
+	if len(got) != 2 {
+		t.Fatalf("got %d, want 2: %v", len(got), got)
+	}
+	set := map[string]bool{got[0]: true, got[1]: true}
+	if !set["tips.map.polygon.startDraw"] || !set["tips.map.polygon.moveVertex"] {
+		t.Errorf("missing expected keys: %v", got)
+	}
+}
+
+func TestHiddenTipKeys_AddDuplicate(t *testing.T) {
+	repo := newPersonalRepo()
+	_ = repo.AddHiddenTipKey("tips.map.polygon.startDraw")
+	_ = repo.AddHiddenTipKey("tips.map.polygon.startDraw")
+	got, _ := repo.GetHiddenTipKeys()
+	if len(got) != 1 {
+		t.Errorf("duplicate should be ignored, got %v", got)
+	}
+}
+
+func TestHiddenTipKeys_Clear(t *testing.T) {
+	repo := newPersonalRepo()
+	_ = repo.AddHiddenTipKey("tips.map.polygon.startDraw")
+	_ = repo.AddHiddenTipKey("tips.map.polygon.moveVertex")
+	if err := repo.ClearHiddenTipKeys(); err != nil {
+		t.Fatalf("ClearHiddenTipKeys: %v", err)
+	}
+	got, _ := repo.GetHiddenTipKeys()
+	if len(got) != 0 {
+		t.Errorf("after clear, want empty, got %v", got)
+	}
+}
+
+// --- AppSettings: Locale ---
+
+func TestLocale_EmptyByDefault(t *testing.T) {
+	repo := newPersonalRepo()
+	got, err := repo.GetLocale()
+	if err != nil {
+		t.Fatalf("GetLocale: %v", err)
+	}
+	if got != "" {
+		t.Errorf("want empty string, got %q", got)
+	}
+}
+
+func TestLocale_SetAndGet(t *testing.T) {
+	repo := newPersonalRepo()
+	if err := repo.SetLocale("en"); err != nil {
+		t.Fatalf("SetLocale: %v", err)
+	}
+	got, _ := repo.GetLocale()
+	if got != "en" {
+		t.Errorf("got %q, want en", got)
+	}
+	// overwrite
+	_ = repo.SetLocale("ja")
+	got, _ = repo.GetLocale()
+	if got != "ja" {
+		t.Errorf("after overwrite, got %q, want ja", got)
+	}
+}
