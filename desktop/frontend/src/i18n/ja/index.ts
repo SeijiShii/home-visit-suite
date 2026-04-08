@@ -9,6 +9,7 @@ const ja: Translations = {
     coverage: "網羅管理",
     requests: "申請管理",
     regions: "領域管理",
+    settings: "設定",
   },
   dashboard: {
     title: "ダッシュボード",

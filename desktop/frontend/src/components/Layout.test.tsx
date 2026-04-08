@@ -16,10 +16,10 @@ function renderLayout(initialRoute = "/") {
 }
 
 describe("Layout", () => {
-  it("7つのナビゲーションリンクが表示される", () => {
+  it("8つのナビゲーションリンクが表示される", () => {
     renderLayout();
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(7);
+    expect(links).toHaveLength(8);
   });
 
   it("ダッシュボードリンクがアクティブ", () => {
@@ -39,8 +39,8 @@ describe("Layout", () => {
     expect(sidebar?.className).toContain("collapsed");
   });
 
-  it("ロケール切替ボタンが表示される", () => {
+  it("設定ナビゲーションが含まれる", () => {
     renderLayout();
-    expect(screen.getByText("EN")).toBeInTheDocument();
+    expect(screen.getByText("設定")).toBeInTheDocument();
   });
 });

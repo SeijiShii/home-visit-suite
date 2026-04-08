@@ -9,6 +9,7 @@ const en: Translations = {
     coverage: "Coverage",
     requests: "Requests",
     regions: "Region Management",
+    settings: "Settings",
   },
   dashboard: {
     title: "Dashboard",

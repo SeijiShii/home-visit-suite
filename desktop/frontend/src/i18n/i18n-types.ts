@@ -9,6 +9,7 @@ export interface Translations {
     coverage: string;
     requests: string;
     regions: string;
+    settings: string;
   };
   dashboard: {
     title: string;
