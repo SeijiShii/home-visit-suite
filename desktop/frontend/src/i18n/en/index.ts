@@ -185,16 +185,13 @@ const en: Translations = {
     map: {
       polygon: {
         startDraw:
-          "Click on the map to add a vertex and start drawing a polygon",
-        continueVertex: "Keep clicking to add more vertices",
-        confirmDraw:
-          "Click the first vertex or double-click to finish the polygon",
-        cancelDraw: "Press Esc to cancel drawing",
-        moveVertex: "Drag a vertex to move it",
-        deleteVertex: "Right-click a vertex to delete it",
-        splitEdge: "Right-click an edge to insert a new vertex",
-        selectPolygon: "Click inside a polygon to select it",
-        deletePolygon: "Press Delete to remove the selected polygon",
+          "Click the 'Draw' button in the toolbar to start drawing a polygon",
+        continueVertex: "Click on the map to add vertices",
+        confirmDraw: "Click the first vertex to close and finish the polygon",
+        cancelDraw: "Right-click while drawing to undo the last vertex",
+        moveVertex: "While a polygon is selected, drag a vertex to move it",
+        splitEdge: "In edit mode, right-click an edge to insert a new vertex",
+        selectPolygon: "Click inside a polygon to select and edit it",
       },
     },
   },

@@ -53,6 +53,8 @@ export interface MapRendererCallbacks {
     containerX: number,
     containerY: number,
   ) => void;
+  onVertexHover?: (id: VertexID) => void;
+  onEdgeHover?: (id: EdgeID) => void;
 }
 
 export class MapRenderer {
@@ -82,6 +84,10 @@ export class MapRenderer {
   // 頂点ドラッグ
   private vertexDragCallbacks: VertexDragCallbacks | null = null;
   private draggableVertexIds = new Set<string>();
+
+  // ホバーコールバック（ヘルプツールチップ用）
+  private vertexHoverCallback: ((id: VertexID) => void) | null = null;
+  private edgeHoverCallback: ((id: EdgeID) => void) | null = null;
 
   mount(container: HTMLElement, callbacks: MapRendererCallbacks = {}): void {
     const saved = this.loadView();
@@ -123,6 +129,8 @@ export class MapRenderer {
     }
 
     this.polygonClickCallback = callbacks.onPolygonClick ?? null;
+    this.vertexHoverCallback = callbacks.onVertexHover ?? null;
+    this.edgeHoverCallback = callbacks.onEdgeHover ?? null;
   }
 
   setEditor(editor: NetworkPolygonEditor): void {
@@ -319,6 +327,11 @@ export class MapRenderer {
       this.makeVertexDraggable(id, marker);
     }
 
+    // ホバー通知
+    if (this.vertexHoverCallback) {
+      marker.on("mouseover", () => this.vertexHoverCallback?.(id));
+    }
+
     this.vertexLayers.set(id as string, marker);
   }
 
@@ -387,6 +400,10 @@ export class MapRenderer {
       ],
       { color: "#666", weight: 2, opacity: 0.6 },
     ).addTo(this.map);
+
+    if (this.edgeHoverCallback) {
+      line.on("mouseover", () => this.edgeHoverCallback?.(id));
+    }
 
     this.edgeLayers.set(id as string, line);
   }

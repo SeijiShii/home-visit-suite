@@ -4,6 +4,7 @@ import type {
   ChangeSet,
   PolygonID,
   VertexID,
+  EdgeID,
   NetworkPolygonEditor,
 } from "map-polygon-editor";
 
@@ -35,16 +36,30 @@ interface MapViewProps {
     containerX: number,
     containerY: number,
   ) => void;
+  onVertexHover?: (id: VertexID) => void;
+  onEdgeHover?: (id: EdgeID) => void;
 }
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { onMapClick, onPolygonClick, onContextMenu },
+  { onMapClick, onPolygonClick, onContextMenu, onVertexHover, onEdgeHover },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
-  const callbacksRef = useRef({ onMapClick, onPolygonClick, onContextMenu });
-  callbacksRef.current = { onMapClick, onPolygonClick, onContextMenu };
+  const callbacksRef = useRef({
+    onMapClick,
+    onPolygonClick,
+    onContextMenu,
+    onVertexHover,
+    onEdgeHover,
+  });
+  callbacksRef.current = {
+    onMapClick,
+    onPolygonClick,
+    onContextMenu,
+    onVertexHover,
+    onEdgeHover,
+  };
 
   useImperativeHandle(ref, () => ({
     applyChangeSet(cs) {
@@ -105,6 +120,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       onPolygonClick: (id) => callbacksRef.current.onPolygonClick?.(id),
       onContextMenu: (lat, lng, cx, cy) =>
         callbacksRef.current.onContextMenu?.(lat, lng, cx, cy),
+      onVertexHover: (id) => callbacksRef.current.onVertexHover?.(id),
+      onEdgeHover: (id) => callbacksRef.current.onEdgeHover?.(id),
     });
     rendererRef.current = renderer;
     return () => {

@@ -2,6 +2,24 @@ import { useRef, useCallback, useMemo, useState, useEffect } from "react";
 import { useMapState, MapMode } from "../hooks/useMapState";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
 import { useI18n } from "../contexts/I18nContext";
+import { useTips } from "../contexts/TipsContext";
+
+/**
+ * 地図画面表示時に自動で流すポリゴン描画ヘルプキー（実装済み操作のみ）。
+ * 実装変更時は i18n の tips.map.polygon と齟齬がないよう注意 (MEMORY.json feedback 参照)。
+ */
+const POLYGON_DRAWING_TIP_KEYS = [
+  "tips.map.polygon.startDraw",
+  "tips.map.polygon.continueVertex",
+  "tips.map.polygon.confirmDraw",
+  "tips.map.polygon.cancelDraw",
+  "tips.map.polygon.selectPolygon",
+  "tips.map.polygon.moveVertex",
+  "tips.map.polygon.splitEdge",
+] as const;
+
+// セッション中 1 回のみ初期表示するためのフラグ（モジュールスコープで保持）
+let __mapTipsInitialShown = false;
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { EdgeContextMenu } from "../components/EdgeContextMenu";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
@@ -25,6 +43,7 @@ type SidebarTab = "areas" | "polygons";
 
 export function MapPage() {
   const { t } = useI18n();
+  const { showTips } = useTips();
   const { snapshot, actions } = useMapState();
   const mapRef = useRef<MapViewHandle>(null);
   const treeRef = useRef<AreaTreeHandle>(null);
@@ -90,6 +109,24 @@ export function MapPage() {
     mapRef.current?.setEditor(editor);
     reloadPolygons();
   }, [editorReady, editor, reloadPolygons]);
+
+  // 地図データロード完了後、セッション中 1 回だけポリゴン描画ヘルプを流す
+  useEffect(() => {
+    if (!editorReady) return;
+    if (__mapTipsInitialShown) return;
+    __mapTipsInitialShown = true;
+    showTips([...POLYGON_DRAWING_TIP_KEYS]);
+  }, [editorReady, showTips]);
+
+  // --- 地図要素ホバーでヘルプ表示 ---
+
+  const handleVertexHover = useCallback(() => {
+    showTips(["tips.map.polygon.moveVertex"]);
+  }, [showTips]);
+
+  const handleEdgeHover = useCallback(() => {
+    showTips(["tips.map.polygon.splitEdge"]);
+  }, [showTips]);
 
   // --- ポリゴンクリック ---
 
@@ -453,6 +490,8 @@ export function MapPage() {
         onMapClick={handleMapClick}
         onPolygonClick={handlePolygonClick}
         onContextMenu={handleContextMenu}
+        onVertexHover={handleVertexHover}
+        onEdgeHover={handleEdgeHover}
       />
 
       {edgeMenu && (

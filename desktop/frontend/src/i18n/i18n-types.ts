@@ -185,10 +185,8 @@ export interface Translations {
         confirmDraw: string;
         cancelDraw: string;
         moveVertex: string;
-        deleteVertex: string;
         splitEdge: string;
         selectPolygon: string;
-        deletePolygon: string;
       };
     };
   };
