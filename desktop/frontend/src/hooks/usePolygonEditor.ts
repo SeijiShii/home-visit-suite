@@ -55,9 +55,7 @@ async function remapPolygonIds(
   // ただし areaId が分からない。
 
   // より堅実なアプローチ: regionAPI に remapPolygonId メソッドを追加
-  await regionAPI.RemapPolygonIds(
-    Object.fromEntries(idMap),
-  );
+  await regionAPI.RemapPolygonIds(Object.fromEntries(idMap));
 }
 
 export function usePolygonEditor(

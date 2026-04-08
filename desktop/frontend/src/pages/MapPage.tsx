@@ -236,7 +236,15 @@ export function MapPage() {
         return;
       }
 
-      if (snapshot.mode !== MapMode.Drawing || !ed) return;
+      // 非描画・非編集モード → 選択解除
+      if (snapshot.mode !== MapMode.Drawing) {
+        if (actions.selectedPolygonId != null) {
+          actions.selectPolygon(null);
+          mapRef.current?.highlightPolygon(null);
+        }
+        return;
+      }
+      if (!ed) return;
 
       // スナップ判定
       const thresholdDeg =
@@ -397,7 +405,7 @@ export function MapPage() {
       try {
         await polygonService.bindPolygonToArea(polygonId, areaId);
         await reloadPolygons();
-        treeRef.current?.reload();
+        await treeRef.current?.reload();
       } catch (err) {
         console.error("link polygon failed:", err);
       }
