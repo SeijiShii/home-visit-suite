@@ -12,10 +12,12 @@ import { SettingsService } from "../services/settings-service";
 export const TIP_INTERVAL_MS = 1500;
 export const TIP_DISPLAY_MS = 5000;
 export const TIP_MAX_ACTIVE = 5;
+export const TIP_EXIT_MS = 280;
 
 export interface TipInstance {
   id: string;
   key: string;
+  exiting?: boolean;
 }
 
 interface TipsContextValue {
@@ -45,7 +47,9 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
 
   const queueRef = useRef<string[]>([]);
   const intervalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const displayTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const displayTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
   const activeTipsRef = useRef<TipInstance[]>([]);
   const hiddenKeysRef = useRef<Set<string>>(new Set());
 
@@ -74,12 +78,19 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
   }, [service]);
 
   const removeTip = useCallback((id: string) => {
-    setActiveTips((prev) => prev.filter((t) => t.id !== id));
-    const timer = displayTimersRef.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
+    // まず exiting フラグを立てて CSS でフェードアウトを開始
+    setActiveTips((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
+    );
+    const displayTimer = displayTimersRef.current.get(id);
+    if (displayTimer) {
+      clearTimeout(displayTimer);
       displayTimersRef.current.delete(id);
     }
+    // フェード完了後に state から除去
+    setTimeout(() => {
+      setActiveTips((prev) => prev.filter((t) => t.id !== id));
+    }, TIP_EXIT_MS);
   }, []);
 
   const pushOne = useCallback(

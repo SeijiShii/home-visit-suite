@@ -128,6 +128,11 @@ export function MapPage() {
     showTips(["tips.map.polygon.splitEdge"]);
   }, [showTips]);
 
+  // 通常表示中はポリゴン全体への hover で「選択して編集」ヒントを案内
+  const handlePolygonHover = useCallback(() => {
+    showTips(["tips.map.polygon.selectPolygon", "tips.map.polygon.splitEdge"]);
+  }, [showTips]);
+
   // --- ポリゴンクリック ---
 
   const polygonClickRef = useRef<(id: PolygonID) => void>(() => {});
@@ -492,6 +497,7 @@ export function MapPage() {
         onContextMenu={handleContextMenu}
         onVertexHover={handleVertexHover}
         onEdgeHover={handleEdgeHover}
+        onPolygonHover={handlePolygonHover}
       />
 
       {edgeMenu && (

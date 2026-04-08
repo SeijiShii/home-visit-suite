@@ -38,10 +38,18 @@ interface MapViewProps {
   ) => void;
   onVertexHover?: (id: VertexID) => void;
   onEdgeHover?: (id: EdgeID) => void;
+  onPolygonHover?: (id: PolygonID) => void;
 }
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { onMapClick, onPolygonClick, onContextMenu, onVertexHover, onEdgeHover },
+  {
+    onMapClick,
+    onPolygonClick,
+    onContextMenu,
+    onVertexHover,
+    onEdgeHover,
+    onPolygonHover,
+  },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +60,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     onContextMenu,
     onVertexHover,
     onEdgeHover,
+    onPolygonHover,
   });
   callbacksRef.current = {
     onMapClick,
@@ -59,6 +68,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     onContextMenu,
     onVertexHover,
     onEdgeHover,
+    onPolygonHover,
   };
 
   useImperativeHandle(ref, () => ({
@@ -122,6 +132,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         callbacksRef.current.onContextMenu?.(lat, lng, cx, cy),
       onVertexHover: (id) => callbacksRef.current.onVertexHover?.(id),
       onEdgeHover: (id) => callbacksRef.current.onEdgeHover?.(id),
+      onPolygonHover: (id) => callbacksRef.current.onPolygonHover?.(id),
     });
     rendererRef.current = renderer;
     return () => {

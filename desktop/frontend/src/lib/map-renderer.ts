@@ -47,6 +47,7 @@ export interface VertexDragCallbacks {
 export interface MapRendererCallbacks {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
+  onPolygonHover?: (id: PolygonID) => void;
   onContextMenu?: (
     lat: number,
     lng: number,
@@ -88,6 +89,7 @@ export class MapRenderer {
   // ホバーコールバック（ヘルプツールチップ用）
   private vertexHoverCallback: ((id: VertexID) => void) | null = null;
   private edgeHoverCallback: ((id: EdgeID) => void) | null = null;
+  private polygonHoverCallback: ((id: PolygonID) => void) | null = null;
 
   mount(container: HTMLElement, callbacks: MapRendererCallbacks = {}): void {
     const saved = this.loadView();
@@ -131,6 +133,7 @@ export class MapRenderer {
     this.polygonClickCallback = callbacks.onPolygonClick ?? null;
     this.vertexHoverCallback = callbacks.onVertexHover ?? null;
     this.edgeHoverCallback = callbacks.onEdgeHover ?? null;
+    this.polygonHoverCallback = callbacks.onPolygonHover ?? null;
   }
 
   setEditor(editor: NetworkPolygonEditor): void {
@@ -434,6 +437,10 @@ export class MapRenderer {
       layer.on("click", () => {
         this.polygonClickCallback!(id);
       });
+    }
+
+    if (this.polygonHoverCallback) {
+      layer.on("mouseover", () => this.polygonHoverCallback?.(id));
     }
 
     this.polygonLayers.set(id as string, layer);

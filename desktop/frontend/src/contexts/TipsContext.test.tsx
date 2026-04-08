@@ -6,6 +6,7 @@ import {
   TIP_INTERVAL_MS,
   TIP_DISPLAY_MS,
   TIP_MAX_ACTIVE,
+  TIP_EXIT_MS,
 } from "./TipsContext";
 import {
   SettingsService,
@@ -115,7 +116,7 @@ describe("TipsContext", () => {
     expect(screen.getByTestId("active").children).toHaveLength(1);
 
     act(() => {
-      vi.advanceTimersByTime(TIP_DISPLAY_MS + 10);
+      vi.advanceTimersByTime(TIP_DISPLAY_MS + TIP_EXIT_MS + 10);
     });
     expect(screen.getByTestId("active").children).toHaveLength(0);
   });

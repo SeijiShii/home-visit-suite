@@ -1768,6 +1768,15 @@ section {
   flex-direction: column;
   gap: 6px;
   animation: tip-card-enter 280ms ease-out;
+  transition:
+    opacity 280ms ease-out,
+    transform 280ms ease-out;
+}
+
+.tip-card--exiting {
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
 }
 
 .tip-card__message {
@@ -1804,5 +1813,6 @@ section {
 @media (prefers-reduced-motion: reduce) {
   .tip-card {
     animation: none;
+    transition: none;
   }
 }
