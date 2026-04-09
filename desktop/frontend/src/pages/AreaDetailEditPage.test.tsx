@@ -14,6 +14,12 @@ import type { RegionService, AreaTreeNode } from "../services/region-service";
 const mapCalls: Array<[string, unknown[]]> = [];
 const mockMapProps: {
   onContextMenu?: (lat: number, lng: number, x: number, y: number) => void;
+  placeContextHandler?: (
+    placeId: string,
+    type: string,
+    x: number,
+    y: number,
+  ) => void;
 } = {};
 vi.mock("../components/MapView", () => ({
   MapView: React.forwardRef(function MockMapView(
@@ -33,6 +39,11 @@ vi.mock("../components/MapView", () => ({
       setMinZoom: (...a: unknown[]) => mapCalls.push(["setMinZoom", a]),
       clearMinZoom: () => mapCalls.push(["clearMinZoom", []]),
       focusPolygon: (...a: unknown[]) => mapCalls.push(["focusPolygon", a]),
+      setPlaceContextMenuHandler: (cb: unknown) => {
+        mockMapProps.placeContextHandler =
+          cb as typeof mockMapProps.placeContextHandler;
+        mapCalls.push(["setPlaceContextMenuHandler", []]);
+      },
     }));
     return <div data-testid="mock-mapview" />;
   }),
@@ -331,5 +342,109 @@ describe("AreaDetailEditPage", () => {
       lng: 140.319,
       restoredFromId: "old-1",
     });
+  });
+
+  it("場所マーカー右クリック → 削除 → 確認ダイアログ → onCommitDeletePlace", async () => {
+    mapCalls.length = 0;
+    mockMapProps.placeContextHandler = undefined;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const placeService = {
+      listPlaces: vi.fn(async () => []),
+      getPlace: vi.fn(async () => null),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const onDelete = vi.fn<(id: string) => Promise<void>>(async () => {});
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                  onCommitDeletePlace={onDelete}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(mockMapProps.placeContextHandler).toBeDefined());
+    mockMapProps.placeContextHandler!("place-99", "house", 80, 90);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("削除"));
+    // 確認ダイアログが出る
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getAllByText("削除")[0]);
+    await waitFor(() => expect(onDelete).toHaveBeenCalledOnce());
+    expect(onDelete.mock.calls[0][0]).toBe("place-99");
+  });
+
+  it("場所マーカー右クリック → 移動 → onMovePlaceStart", async () => {
+    mapCalls.length = 0;
+    mockMapProps.placeContextHandler = undefined;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const onMove = vi.fn();
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  onMovePlaceStart={onMove}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(mockMapProps.placeContextHandler).toBeDefined());
+    mockMapProps.placeContextHandler!("place-7", "house", 80, 90);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("移動"));
+    expect(onMove).toHaveBeenCalledWith("place-7");
   });
 });

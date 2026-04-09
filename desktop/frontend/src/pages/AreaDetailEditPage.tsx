@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
 import { RegionService } from "../services/region-service";
@@ -6,6 +13,7 @@ import type { PlaceService, PlaceType } from "../services/place-service";
 import type { SettingsService } from "../services/settings-service";
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
+import { DeletePlaceConfirmDialog } from "../components/DeletePlaceConfirmDialog";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import { formatAreaLabel } from "../lib/area-detail-geo";
 import {
@@ -38,11 +46,16 @@ export interface AreaDetailEditPageProps {
   linkedPolygonIds?: Set<string>;
   /** 家を追加 commit の副作用フック。指定時はこちらが優先される。 */
   onCommitAddPlace?: (args: AddPlaceCommitArgs) => Promise<void> | void;
+  /** 場所削除 commit の副作用フック。指定時はこちらが優先される。 */
+  onCommitDeletePlace?: (placeId: string) => Promise<void> | void;
+  /** 場所移動開始の通知。実際のマウス追従配線は次フェーズで MapView 側に。 */
+  onMovePlaceStart?: (placeId: string) => void;
 }
 
 type ContextMenuState =
   | null
-  | { variant: "blank"; x: number; y: number; lat: number; lng: number };
+  | { variant: "blank"; x: number; y: number; lat: number; lng: number }
+  | { variant: "place"; x: number; y: number; placeId: string };
 
 const initialFlow: AddPlaceFlowState = { kind: "idle" };
 
@@ -54,6 +67,8 @@ export function AreaDetailEditPage({
   settingsService,
   linkedPolygonIds,
   onCommitAddPlace,
+  onCommitDeletePlace,
+  onMovePlaceStart,
 }: AreaDetailEditPageProps = {}) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -67,6 +82,7 @@ export function AreaDetailEditPage({
   const containerRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [flow, dispatchFlow] = useReducer(addPlaceFlowReducer, initialFlow);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +138,10 @@ export function AreaDetailEditPage({
         })),
         linked,
       );
+      // 場所マーカー右クリックを page 側 state へ橋渡し
+      handle.setPlaceContextMenuHandler((placeId, _type, x, y) => {
+        setContextMenu({ variant: "place", placeId, x, y });
+      });
     };
     run();
     return () => {
@@ -223,6 +243,32 @@ export function AreaDetailEditPage({
     dispatchFlow({ type: "cancel" });
   }, [flow, commit]);
 
+  const handleMovePlace = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    const { placeId } = contextMenu;
+    setContextMenu(null);
+    onMovePlaceStart?.(placeId);
+  }, [contextMenu, onMovePlaceStart]);
+
+  const handleDeletePlace = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    setDeleteTargetId(contextMenu.placeId);
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    const id = deleteTargetId;
+    if (!id) return;
+    setDeleteTargetId(null);
+    if (onCommitDeletePlace) {
+      await onCommitDeletePlace(id);
+      return;
+    }
+    if (placeService) {
+      await placeService.deletePlace(id);
+    }
+  }, [deleteTargetId, onCommitDeletePlace, placeService]);
+
   const mapEnabled = Boolean(editor && polygonToArea);
 
   return (
@@ -251,10 +297,18 @@ export function AreaDetailEditPage({
             y={contextMenu.y}
             variant={contextMenu.variant}
             onAddHouse={handleAddHouse}
+            onMovePlace={handleMovePlace}
+            onDeletePlace={handleDeletePlace}
             onClose={() => setContextMenu(null)}
           />
         )}
       </div>
+      {deleteTargetId && (
+        <DeletePlaceConfirmDialog
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTargetId(null)}
+        />
+      )}
       {flow.kind === "confirmingRestore" && (
         <div
           role="dialog"
