@@ -14,6 +14,7 @@ type InMemoryPersonalRepository struct {
 	assignments map[string]*models.PersonalTagAssignment // key: assignment ID
 	hiddenTips  map[string]bool                          // key: tip i18n key
 	locale      string
+	areaDetailRadiusKm float64
 }
 
 func NewInMemoryPersonalRepository() *InMemoryPersonalRepository {
@@ -63,6 +64,21 @@ func (r *InMemoryPersonalRepository) SetLocale(locale string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.locale = locale
+	return nil
+}
+
+// --- AppSettings: AreaDetailRadiusKm ---
+
+func (r *InMemoryPersonalRepository) GetAreaDetailRadiusKm() (float64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.areaDetailRadiusKm, nil
+}
+
+func (r *InMemoryPersonalRepository) SetAreaDetailRadiusKm(km float64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.areaDetailRadiusKm = km
 	return nil
 }
 

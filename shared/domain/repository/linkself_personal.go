@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
@@ -118,8 +119,9 @@ func (r *LinkSelfPersonalRepo) DeletePersonalTagAssignment(id string) error {
 // --- AppSettings (key-value) ---
 
 const (
-	appSettingKeyHiddenTipKeys = "ui.hiddenTipKeys"
-	appSettingKeyLocale        = "ui.locale"
+	appSettingKeyHiddenTipKeys      = "ui.hiddenTipKeys"
+	appSettingKeyLocale             = "ui.locale"
+	appSettingKeyAreaDetailRadiusKm = "ui.areaDetailRadiusKm"
 )
 
 func (r *LinkSelfPersonalRepo) getAppSetting(key string) (string, error) {
@@ -187,5 +189,21 @@ func (r *LinkSelfPersonalRepo) GetLocale() (string, error) {
 
 func (r *LinkSelfPersonalRepo) SetLocale(locale string) error {
 	return r.setAppSetting(appSettingKeyLocale, locale)
+}
+
+func (r *LinkSelfPersonalRepo) GetAreaDetailRadiusKm() (float64, error) {
+	v, err := r.getAppSetting(appSettingKeyAreaDetailRadiusKm)
+	if err != nil || v == "" {
+		return 0, err
+	}
+	var f float64
+	if _, err := fmt.Sscanf(v, "%f", &f); err != nil {
+		return 0, nil
+	}
+	return f, nil
+}
+
+func (r *LinkSelfPersonalRepo) SetAreaDetailRadiusKm(km float64) error {
+	return r.setAppSetting(appSettingKeyAreaDetailRadiusKm, fmt.Sprintf("%g", km))
 }
 

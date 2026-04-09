@@ -4,6 +4,7 @@ export enum MapMode {
   Idle = "idle",
   Drawing = "drawing",
   Editing = "editing",
+  AreaDetailEditing = "areaDetailEditing",
 }
 
 type ChangeListener = () => void;
@@ -11,6 +12,7 @@ type ChangeListener = () => void;
 export class MapState {
   mode: MapMode = MapMode.Idle;
   selectedPolygonId: PolygonID | null = null;
+  detailAreaId: string | null = null;
 
   private listeners: ChangeListener[] = [];
 
@@ -34,6 +36,19 @@ export class MapState {
   endEditing(): void {
     this.mode = MapMode.Idle;
     this.selectedPolygonId = null;
+    this.notify();
+  }
+
+  startAreaDetailEditing(areaId: string, polygonId: PolygonID): void {
+    this.mode = MapMode.AreaDetailEditing;
+    this.selectedPolygonId = polygonId;
+    this.detailAreaId = areaId;
+    this.notify();
+  }
+
+  endAreaDetailEditing(): void {
+    this.mode = MapMode.Idle;
+    this.detailAreaId = null;
     this.notify();
   }
 

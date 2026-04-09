@@ -33,4 +33,9 @@ type PersonalRepository interface {
 	GetLocale() (string, error)
 	// SetLocale は UI 言語コードを保存する。
 	SetLocale(locale string) error
+
+	// GetAreaDetailRadiusKm は区域詳細編集モードの隣接半径(km)を返す。未設定時は 0 を返す。
+	GetAreaDetailRadiusKm() (float64, error)
+	// SetAreaDetailRadiusKm は隣接半径(km)を保存する。
+	SetAreaDetailRadiusKm(km float64) error
 }

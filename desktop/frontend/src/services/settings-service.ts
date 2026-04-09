@@ -5,6 +5,8 @@ export interface SettingsBindingAPI {
   ResetHiddenTips(): Promise<void>;
   GetLocale(): Promise<string>;
   SetLocale(locale: string): Promise<void>;
+  GetAreaDetailRadiusKm(): Promise<number>;
+  SetAreaDetailRadiusKm(km: number): Promise<void>;
 }
 
 // フロントエンド向けサービス（Wails バインディングの薄いラッパ）
@@ -30,5 +32,13 @@ export class SettingsService {
 
   async setLocale(locale: string): Promise<void> {
     await this.api.SetLocale(locale);
+  }
+
+  async getAreaDetailRadiusKm(): Promise<number> {
+    return await this.api.GetAreaDetailRadiusKm();
+  }
+
+  async setAreaDetailRadiusKm(km: number): Promise<void> {
+    await this.api.SetAreaDetailRadiusKm(km);
   }
 }

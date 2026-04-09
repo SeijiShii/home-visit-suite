@@ -80,6 +80,7 @@ func main() {
 	mapBinding := binding.NewMapBinding(repo.Map())
 	userBinding := binding.NewUserBinding(repo.User())
 	settingsBinding := binding.NewSettingsBinding(repo.Personal())
+	placeBinding := binding.NewPlaceBinding(repo.Place())
 	scheduleSvc := service.NewSchedulePeriodService(repo.Coverage(), repo.User(), repo.Notification(), repo.Region())
 	scheduleBinding := binding.NewScheduleBinding(scheduleSvc, info.DID)
 
@@ -98,6 +99,7 @@ func main() {
 			mapBinding,
 			userBinding,
 			settingsBinding,
+			placeBinding,
 			scheduleBinding,
 		},
 	})
