@@ -29,6 +29,8 @@ import {
   type AddPlaceCommitArgs,
   type AddPlaceFlowState,
 } from "../lib/add-place-flow";
+import type { MovePlaceCommitArgs } from "../lib/move-place-flow";
+import { movePlaceFlowReducer, selectMoveCommit } from "../lib/move-place-flow";
 import type { NetworkPolygonEditor } from "map-polygon-editor";
 
 export interface AreaDetailEditPageProps {
@@ -48,7 +50,12 @@ export interface AreaDetailEditPageProps {
   onCommitAddPlace?: (args: AddPlaceCommitArgs) => Promise<void> | void;
   /** 場所削除 commit の副作用フック。指定時はこちらが優先される。 */
   onCommitDeletePlace?: (placeId: string) => Promise<void> | void;
-  /** 場所移動開始の通知。実際のマウス追従配線は次フェーズで MapView 側に。 */
+  /** 場所移動 commit の副作用フック。指定時はこちらが優先される。 */
+  onCommitMovePlace?: (args: MovePlaceCommitArgs) => Promise<void> | void;
+  /**
+   * 場所移動開始の通知 (テスト用)。指定時は MapView の startPlaceMove は呼ばれず
+   * このコールバックのみが発火する。
+   */
   onMovePlaceStart?: (placeId: string) => void;
 }
 
@@ -68,6 +75,7 @@ export function AreaDetailEditPage({
   linkedPolygonIds,
   onCommitAddPlace,
   onCommitDeletePlace,
+  onCommitMovePlace,
   onMovePlaceStart,
 }: AreaDetailEditPageProps = {}) {
   const { t } = useI18n();
@@ -82,6 +90,9 @@ export function AreaDetailEditPage({
   const containerRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [flow, dispatchFlow] = useReducer(addPlaceFlowReducer, initialFlow);
+  const [moveFlow, dispatchMove] = useReducer(movePlaceFlowReducer, {
+    kind: "idle",
+  } as const);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -243,12 +254,99 @@ export function AreaDetailEditPage({
     dispatchFlow({ type: "cancel" });
   }, [flow, commit]);
 
+  const moveCommit = useCallback(
+    async (args: MovePlaceCommitArgs) => {
+      if (onCommitMovePlace) {
+        await onCommitMovePlace(args);
+        return;
+      }
+      if (!placeService) return;
+      const cur = await placeService.getPlace(args.placeId).catch(() => null);
+      if (!cur) return;
+      await placeService.savePlace({
+        ...cur,
+        coord: { lat: args.lat, lng: args.lng },
+        restoredFromId: args.restoredFromId ?? cur.restoredFromId ?? null,
+      });
+    },
+    [onCommitMovePlace, placeService],
+  );
+
+  const handleMoveConfirmAt = useCallback(
+    async (lat: number, lng: number) => {
+      // moveFlow が tracking 状態であることを期待
+      const placeId = moveFlow.kind === "tracking" ? moveFlow.placeId : null;
+      if (!placeId) return;
+      // 5m チェック用に削除済みを取得 (自身は move-flow 内で除外)
+      const nearby = placeService
+        ? await placeService
+            .listDeletedPlacesNear(lat, lng, ADD_PLACE_RESTORE_RADIUS_M)
+            .catch(() => [])
+        : [];
+      // tracking の現在位置を確定値で更新してから confirm
+      dispatchMove({ type: "updatePosition", lat, lng });
+      dispatchMove({
+        type: "confirm",
+        nearbyDeleted: nearby.map((p) => ({
+          id: p.id,
+          lat: p.coord.lat,
+          lng: p.coord.lng,
+          deletedAt: p.deletedAt ?? null,
+        })),
+      });
+    },
+    [moveFlow, placeService],
+  );
+
+  const handleMoveCancel = useCallback(() => {
+    dispatchMove({ type: "cancel" });
+  }, []);
+
   const handleMovePlace = useCallback(() => {
     if (!contextMenu || contextMenu.variant !== "place") return;
     const { placeId } = contextMenu;
     setContextMenu(null);
-    onMovePlaceStart?.(placeId);
-  }, [contextMenu, onMovePlaceStart]);
+    dispatchMove({ type: "start", placeId, lat: 0, lng: 0 });
+    if (onMovePlaceStart) {
+      onMovePlaceStart(placeId);
+      return;
+    }
+    mapRef.current?.startPlaceMove(
+      placeId,
+      (lat, lng) => {
+        // 確定: handleMoveConfirmAt 経由で flow を進める
+        void handleMoveConfirmAt(lat, lng);
+      },
+      () => {
+        handleMoveCancel();
+      },
+    );
+  }, [contextMenu, onMovePlaceStart, handleMoveConfirmAt, handleMoveCancel]);
+
+  // committed → savePlace → reset
+  useEffect(() => {
+    if (moveFlow.kind !== "committed") return;
+    const args = selectMoveCommit(moveFlow);
+    if (!args) return;
+    let cancelled = false;
+    (async () => {
+      await moveCommit(args);
+      if (!cancelled) dispatchMove({ type: "reset" });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [moveFlow, moveCommit]);
+
+  const handleMoveRestoreYes = useCallback(() => {
+    if (moveFlow.kind !== "confirmingRestore") return;
+    dispatchMove({ type: "restoreYes" });
+  }, [moveFlow]);
+
+  const handleMoveRestoreNo = useCallback(() => {
+    if (moveFlow.kind !== "confirmingRestore") return;
+    dispatchMove({ type: "restoreNo" });
+  }, [moveFlow]);
 
   const handleDeletePlace = useCallback(() => {
     if (!contextMenu || contextMenu.variant !== "place") return;
@@ -318,6 +416,17 @@ export function AreaDetailEditPage({
           <p>{t.areaDetail.linkRestoredPrompt}</p>
           <button onClick={handleRestoreYes}>{t.areaDetail.yes}</button>
           <button onClick={handleRestoreNo}>{t.areaDetail.no}</button>
+        </div>
+      )}
+      {moveFlow.kind === "confirmingRestore" && (
+        <div
+          role="dialog"
+          aria-label={t.areaDetail.linkRestoredPrompt}
+          className="area-detail-restore-dialog"
+        >
+          <p>{t.areaDetail.linkRestoredPrompt}</p>
+          <button onClick={handleMoveRestoreYes}>{t.areaDetail.yes}</button>
+          <button onClick={handleMoveRestoreNo}>{t.areaDetail.no}</button>
         </div>
       )}
     </div>

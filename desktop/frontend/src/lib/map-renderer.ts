@@ -129,6 +129,16 @@ export class MapRenderer {
     | null = null;
   private placeZoomHandler: (() => void) | null = null;
 
+  // 場所マーカー移動追従モード
+  private placeMoveSession: {
+    placeId: string;
+    onConfirm: (lat: number, lng: number) => void;
+    onCancel: () => void;
+    moveHandler: (e: L.LeafletMouseEvent) => void;
+    clickHandler: (e: L.LeafletMouseEvent) => void;
+    keyHandler: (e: KeyboardEvent) => void;
+  } | null = null;
+
   // 頂点表示制御
   private verticesVisible = false;
 
@@ -639,6 +649,75 @@ export class MapRenderer {
       this.map.off("zoomend", this.placeZoomHandler);
       this.placeZoomHandler = null;
     }
+  }
+
+  /**
+   * 場所マーカー移動の追従モードを開始する。
+   * 仕様 03_地図機能.md「場所操作 / 移動」: 選択直後からマウス追従。
+   * クリックで確定 / Esc キャンセル。移動中は地図ドラッグを無効化。
+   */
+  startPlaceMove(
+    placeId: string,
+    onConfirm: (lat: number, lng: number) => void,
+    onCancel: () => void,
+  ): void {
+    if (!this.map) return;
+    if (this.placeMoveSession) this.cancelPlaceMove();
+    const map = this.map;
+    const marker = this.placeMarkers.get(placeId);
+    map.dragging.disable();
+    map.getContainer().style.cursor = "crosshair";
+
+    const moveHandler = (e: L.LeafletMouseEvent) => {
+      if (marker) marker.setLatLng(e.latlng);
+    };
+    const clickHandler = (e: L.LeafletMouseEvent) => {
+      L.DomEvent.stop(e.originalEvent);
+      const { lat, lng } = e.latlng;
+      this.endPlaceMoveSession();
+      onConfirm(lat, lng);
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      this.endPlaceMoveSession();
+      onCancel();
+    };
+
+    map.on("mousemove", moveHandler);
+    map.on("click", clickHandler);
+    document.addEventListener("keydown", keyHandler);
+
+    this.placeMoveSession = {
+      placeId,
+      onConfirm,
+      onCancel,
+      moveHandler,
+      clickHandler,
+      keyHandler,
+    };
+  }
+
+  /** 移動セッションを破棄してハンドラを外す (確定/キャンセル共通)。 */
+  private endPlaceMoveSession(): void {
+    const s = this.placeMoveSession;
+    if (!s || !this.map) return;
+    this.map.off("mousemove", s.moveHandler);
+    this.map.off("click", s.clickHandler);
+    document.removeEventListener("keydown", s.keyHandler);
+    this.map.dragging.enable();
+    this.map.getContainer().style.cursor = "";
+    this.placeMoveSession = null;
+  }
+
+  cancelPlaceMove(): void {
+    const s = this.placeMoveSession;
+    if (!s) return;
+    this.endPlaceMoveSession();
+    s.onCancel();
+  }
+
+  isPlaceMoving(): boolean {
+    return this.placeMoveSession !== null;
   }
 
   private updatePlaceMarkerRadii(): void {
