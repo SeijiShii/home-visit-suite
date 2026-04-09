@@ -101,6 +101,9 @@ export class MapRenderer {
     this.map = L.map(container, {
       doubleClickZoom: false,
       maxZoom: 19,
+      zoomSnap: 0.25,
+      zoomDelta: 0.25,
+      wheelPxPerZoomLevel: 120,
       clickTolerance: 8,
     } as L.MapOptions).setView(center, zoom);
 
