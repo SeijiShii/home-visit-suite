@@ -5,7 +5,10 @@ import { MemoryRouter } from "react-router-dom";
 import { SettingsPage } from "./SettingsPage";
 import { I18nProvider } from "../contexts/I18nContext";
 import { TipsProvider } from "../contexts/TipsContext";
-import { SettingsService, type SettingsBindingAPI } from "../services/settings-service";
+import {
+  SettingsService,
+  type SettingsBindingAPI,
+} from "../services/settings-service";
 import { setLocale as resetI18nLocale } from "../i18n/i18n-util";
 
 function createMockApi(): SettingsBindingAPI {
@@ -15,6 +18,8 @@ function createMockApi(): SettingsBindingAPI {
     ResetHiddenTips: vi.fn(async () => {}),
     GetLocale: vi.fn(async () => ""),
     SetLocale: vi.fn(async () => {}),
+    GetAreaDetailRadiusKm: vi.fn(async () => 5),
+    SetAreaDetailRadiusKm: vi.fn(async () => {}),
   };
 }
 
@@ -50,7 +55,9 @@ describe("SettingsPage", () => {
       await Promise.resolve();
     });
 
-    await user.click(screen.getByRole("button", { name: "ヘルプ表示をリセット" }));
+    await user.click(
+      screen.getByRole("button", { name: "ヘルプ表示をリセット" }),
+    );
     expect(api.ResetHiddenTips).toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toContain("リセット");
   });

@@ -8,6 +8,8 @@ function createMockApi(): SettingsBindingAPI {
     ResetHiddenTips: vi.fn().mockResolvedValue(undefined),
     GetLocale: vi.fn().mockResolvedValue(""),
     SetLocale: vi.fn().mockResolvedValue(undefined),
+    GetAreaDetailRadiusKm: vi.fn().mockResolvedValue(5),
+    SetAreaDetailRadiusKm: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -21,16 +23,23 @@ describe("SettingsService", () => {
 
   it("getHiddenTipKeys: 配列をそのまま返す", async () => {
     const api = createMockApi();
-    api.GetHiddenTipKeys = vi.fn().mockResolvedValue(["tips.map.polygon.startDraw"]);
+    api.GetHiddenTipKeys = vi
+      .fn()
+      .mockResolvedValue(["tips.map.polygon.startDraw"]);
     const svc = new SettingsService(api);
-    expect(await svc.getHiddenTipKeys()).toEqual(["tips.map.polygon.startDraw"]);
+    expect(await svc.getHiddenTipKeys()).toEqual([
+      "tips.map.polygon.startDraw",
+    ]);
   });
 
   it("setTipHidden: バインディングに委譲", async () => {
     const api = createMockApi();
     const svc = new SettingsService(api);
     await svc.setTipHidden("tips.map.polygon.startDraw", true);
-    expect(api.SetTipHidden).toHaveBeenCalledWith("tips.map.polygon.startDraw", true);
+    expect(api.SetTipHidden).toHaveBeenCalledWith(
+      "tips.map.polygon.startDraw",
+      true,
+    );
   });
 
   it("resetHiddenTips: バインディングに委譲", async () => {

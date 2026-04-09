@@ -25,6 +25,8 @@ function createMockApi(initialHidden: string[] = []): SettingsBindingAPI {
     }),
     GetLocale: vi.fn(async () => ""),
     SetLocale: vi.fn(async () => {}),
+    GetAreaDetailRadiusKm: vi.fn(async () => 5),
+    SetAreaDetailRadiusKm: vi.fn(async () => {}),
   };
 }
 
