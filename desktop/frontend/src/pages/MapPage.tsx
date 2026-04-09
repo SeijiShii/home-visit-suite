@@ -1,4 +1,5 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMapState, MapMode } from "../hooks/useMapState";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
 import { useI18n } from "../contexts/I18nContext";
@@ -43,6 +44,7 @@ type SidebarTab = "areas" | "polygons";
 
 export function MapPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { showTips } = useTips();
   const { snapshot, actions } = useMapState();
   const mapRef = useRef<MapViewHandle>(null);
@@ -502,6 +504,10 @@ export function MapPage() {
         ref={mapRef}
         onMapClick={handleMapClick}
         onPolygonClick={handlePolygonClick}
+        onPolygonDoubleClick={(id) => {
+          const info = polygonAreaMap.get(id as string);
+          if (info) navigate(`/map/area/${info.areaId}/detail`);
+        }}
         onContextMenu={handleContextMenu}
         onVertexHover={handleVertexHover}
         onEdgeHover={handleEdgeHover}
@@ -588,6 +594,9 @@ export function MapPage() {
               }
               selectedPolygonId={snapshot.selectedPolygonId as string | null}
               onTreeChanged={handleTreeChanged}
+              onOpenAreaDetail={(areaId) =>
+                navigate(`/map/area/${areaId}/detail`)
+              }
             />
           </div>
           <div

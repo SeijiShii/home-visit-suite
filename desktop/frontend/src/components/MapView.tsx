@@ -53,6 +53,7 @@ export interface MapViewHandle {
 interface MapViewProps {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
+  onPolygonDoubleClick?: (id: PolygonID) => void;
   onContextMenu?: (
     lat: number,
     lng: number,
@@ -68,6 +69,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   {
     onMapClick,
     onPolygonClick,
+    onPolygonDoubleClick,
     onContextMenu,
     onVertexHover,
     onEdgeHover,
@@ -80,6 +82,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const callbacksRef = useRef({
     onMapClick,
     onPolygonClick,
+    onPolygonDoubleClick,
     onContextMenu,
     onVertexHover,
     onEdgeHover,
@@ -88,6 +91,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   callbacksRef.current = {
     onMapClick,
     onPolygonClick,
+    onPolygonDoubleClick,
     onContextMenu,
     onVertexHover,
     onEdgeHover,
@@ -172,6 +176,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     renderer.mount(containerRef.current, {
       onMapClick: (lat, lng) => callbacksRef.current.onMapClick?.(lat, lng),
       onPolygonClick: (id) => callbacksRef.current.onPolygonClick?.(id),
+      onPolygonDoubleClick: (id) =>
+        callbacksRef.current.onPolygonDoubleClick?.(id),
       onContextMenu: (lat, lng, cx, cy) =>
         callbacksRef.current.onContextMenu?.(lat, lng, cx, cy),
       onVertexHover: (id) => callbacksRef.current.onVertexHover?.(id),

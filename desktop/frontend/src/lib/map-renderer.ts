@@ -82,6 +82,7 @@ export interface VertexDragCallbacks {
 export interface MapRendererCallbacks {
   onMapClick?: (lat: number, lng: number) => void;
   onPolygonClick?: (id: PolygonID) => void;
+  onPolygonDoubleClick?: (id: PolygonID) => void;
   onPolygonHover?: (id: PolygonID) => void;
   onContextMenu?: (
     lat: number,
@@ -113,6 +114,7 @@ export class MapRenderer {
   private linkedPolygonIds: Set<string> = new Set();
   private selectedId: string | null = null;
   private polygonClickCallback: ((id: PolygonID) => void) | null = null;
+  private polygonDoubleClickCallback: ((id: PolygonID) => void) | null = null;
 
   // 区域詳細編集モード: target/neighbor のみ描画 (それ以外は非表示)
   private detailMode: {
@@ -182,6 +184,7 @@ export class MapRenderer {
     }
 
     this.polygonClickCallback = callbacks.onPolygonClick ?? null;
+    this.polygonDoubleClickCallback = callbacks.onPolygonDoubleClick ?? null;
     this.vertexHoverCallback = callbacks.onVertexHover ?? null;
     this.edgeHoverCallback = callbacks.onEdgeHover ?? null;
     this.polygonHoverCallback = callbacks.onPolygonHover ?? null;
@@ -504,6 +507,13 @@ export class MapRenderer {
       layer.on("click", (e: L.LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(e);
         this.polygonClickCallback!(id);
+      });
+    }
+
+    if (this.polygonDoubleClickCallback) {
+      layer.on("dblclick", (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        this.polygonDoubleClickCallback!(id);
       });
     }
 

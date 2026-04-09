@@ -27,6 +27,8 @@ interface AreaTreeProps {
   onSelectPolygon?: (polygonId: string) => void;
   selectedPolygonId?: string | null;
   onTreeChanged?: (tree: AreaTreeNode[]) => void;
+  /** 区域詳細編集モードへ遷移する際のハンドラ。指定時は行 dblclick / 三点メニューに表示。 */
+  onOpenAreaDetail?: (areaId: string) => void;
 }
 
 export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
@@ -38,6 +40,7 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
       onSelectPolygon,
       selectedPolygonId,
       onTreeChanged,
+      onOpenAreaDetail,
     },
     ref,
   ) {
@@ -219,6 +222,11 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                                 onSelectPolygon(area.polygonId);
                               }
                             }}
+                            onDoubleClick={() => {
+                              if (area.polygonId && onOpenAreaDetail) {
+                                onOpenAreaDetail(area.id);
+                              }
+                            }}
                             style={
                               area.polygonId && onSelectPolygon
                                 ? { cursor: "pointer" }
@@ -236,7 +244,7 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                                   >
                                     ⬡
                                   </span>
-                                  {onUnlinkPolygon && (
+                                  {(onUnlinkPolygon || onOpenAreaDetail) && (
                                     <div className="tree-action-menu-wrapper">
                                       <button
                                         className="tree-action-btn"
@@ -252,18 +260,31 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                                       </button>
                                       {menuTarget === area.id && (
                                         <div className="tree-action-dropdown">
-                                          <button
-                                            className="tree-action-dropdown-item"
-                                            onClick={() => {
-                                              setMenuTarget(null);
-                                              setUnlinkConfirm({
-                                                areaId: area.id,
-                                                areaLabel: area.id,
-                                              });
-                                            }}
-                                          >
-                                            {t.map.unlinkPolygon}
-                                          </button>
+                                          {onOpenAreaDetail && (
+                                            <button
+                                              className="tree-action-dropdown-item"
+                                              onClick={() => {
+                                                setMenuTarget(null);
+                                                onOpenAreaDetail(area.id);
+                                              }}
+                                            >
+                                              {t.areaDetail.title}
+                                            </button>
+                                          )}
+                                          {onUnlinkPolygon && (
+                                            <button
+                                              className="tree-action-dropdown-item"
+                                              onClick={() => {
+                                                setMenuTarget(null);
+                                                setUnlinkConfirm({
+                                                  areaId: area.id,
+                                                  areaLabel: area.id,
+                                                });
+                                              }}
+                                            >
+                                              {t.map.unlinkPolygon}
+                                            </button>
+                                          )}
                                         </div>
                                       )}
                                     </div>
