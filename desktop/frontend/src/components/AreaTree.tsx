@@ -24,11 +24,23 @@ interface AreaTreeProps {
   service: RegionService;
   api: RegionBindingAPI;
   onUnlinkPolygon?: (areaId: string) => void;
+  onSelectPolygon?: (polygonId: string) => void;
+  selectedPolygonId?: string | null;
   onTreeChanged?: (tree: AreaTreeNode[]) => void;
 }
 
 export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
-  function AreaTree({ service, api, onUnlinkPolygon, onTreeChanged }, ref) {
+  function AreaTree(
+    {
+      service,
+      api,
+      onUnlinkPolygon,
+      onSelectPolygon,
+      selectedPolygonId,
+      onTreeChanged,
+    },
+    ref,
+  ) {
     const { t } = useI18n();
     const m = t.areaTree;
     const [tree, setTree] = useState<AreaTreeNode[]>([]);
@@ -195,7 +207,24 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                     {expanded.has(ap.id) &&
                       ap.areas.map((area) => (
                         <div key={area.id} className="tree-node tree-indent-2">
-                          <div className="tree-row tree-row-area">
+                          <div
+                            className={`tree-row tree-row-area${
+                              area.polygonId &&
+                              selectedPolygonId === area.polygonId
+                                ? " tree-row-selected"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              if (area.polygonId && onSelectPolygon) {
+                                onSelectPolygon(area.polygonId);
+                              }
+                            }}
+                            style={
+                              area.polygonId && onSelectPolygon
+                                ? { cursor: "pointer" }
+                                : undefined
+                            }
+                          >
                             <span className="tree-leaf">•</span>
                             <span className="tree-label">{area.number}</span>
                             <span className="tree-actions">

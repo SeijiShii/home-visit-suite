@@ -3,7 +3,7 @@ import type { Translations } from "../i18n-types";
 const ja: Translations = {
   nav: {
     dashboard: "ダッシュボード",
-    map: "区域地図",
+    map: "区域編集",
     users: "メンバー管理",
     activities: "訪問活動",
     coverage: "網羅管理",
@@ -54,7 +54,7 @@ const ja: Translations = {
     unlinkPolygon: "ポリゴン紐づけ解除",
   },
   areaTree: {
-    title: "区域地図",
+    title: "区域編集",
     region: "領域",
     areaParent: "区域親番",
     area: "区域",

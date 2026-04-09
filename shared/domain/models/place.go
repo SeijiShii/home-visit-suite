@@ -26,4 +26,6 @@ type Place struct {
 	DoNotVisitNote string     `json:"doNotVisitNote"` // 訪問不可理由
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
+	DeletedAt      *time.Time `json:"deletedAt,omitempty"`      // 論理削除時刻
+	RestoredFromID *string    `json:"restoredFromId,omitempty"` // 過去場所からの再生元 PlaceID
 }

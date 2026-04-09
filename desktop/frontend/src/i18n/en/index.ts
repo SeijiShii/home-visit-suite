@@ -3,7 +3,7 @@ import type { Translations } from "../i18n-types";
 const en: Translations = {
   nav: {
     dashboard: "Dashboard",
-    map: "Area Map",
+    map: "Area Editor",
     users: "Member Management",
     activities: "Visit Activities",
     coverage: "Coverage",
@@ -54,7 +54,7 @@ const en: Translations = {
     unlinkPolygon: "Unlink polygon",
   },
   areaTree: {
-    title: "Area Map",
+    title: "Area Editor",
     region: "Region",
     areaParent: "Area Parent",
     area: "Area",

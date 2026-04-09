@@ -583,6 +583,10 @@ export function MapPage() {
               service={regionService}
               api={RegionBinding}
               onUnlinkPolygon={handleUnlinkArea}
+              onSelectPolygon={(polygonId) =>
+                handlePolygonFocus(polygonId as PolygonID)
+              }
+              selectedPolygonId={snapshot.selectedPolygonId as string | null}
               onTreeChanged={handleTreeChanged}
             />
           </div>

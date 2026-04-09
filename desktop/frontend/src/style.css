@@ -326,6 +326,11 @@ section {
   font-weight: 500;
 }
 
+.tree-row-selected {
+  background: #dbeafe;
+  font-weight: 500;
+}
+
 .polygon-list-item-label {
   flex: 1;
   min-width: 0;

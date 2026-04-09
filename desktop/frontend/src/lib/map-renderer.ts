@@ -437,7 +437,8 @@ export class MapRenderer {
     }).addTo(this.map);
 
     if (this.polygonClickCallback) {
-      layer.on("click", () => {
+      layer.on("click", (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
         this.polygonClickCallback!(id);
       });
     }
