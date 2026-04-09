@@ -181,7 +181,9 @@ export function AreaDetailEditPage({
         return;
       }
       // 既定: PlaceService.savePlace を最小フィールドで呼ぶ
+      // Go 側 (time.Time) は空文字を JSON パースできないため ISO 文字列を渡す
       if (!placeService) return;
+      const nowIso = new Date().toISOString();
       await placeService.savePlace({
         id: "",
         areaId,
@@ -194,8 +196,8 @@ export function AreaDetailEditPage({
         languages: [],
         doNotVisit: false,
         doNotVisitNote: "",
-        createdAt: "",
-        updatedAt: "",
+        createdAt: nowIso,
+        updatedAt: nowIso,
         deletedAt: null,
         restoredFromId: args.restoredFromId ?? null,
       });
