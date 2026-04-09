@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import {
   getPolygonStyle,
   getAreaDetailPolygonStyle,
+  getPlaceMarkerColor,
+  getPlaceMarkerRadius,
   type VertexDragCallbacks,
   type MapRendererCallbacks,
 } from "./map-renderer";
@@ -67,6 +69,30 @@ describe("getAreaDetailPolygonStyle", () => {
     expect(getAreaDetailPolygonStyle("target").color).not.toBe(
       getAreaDetailPolygonStyle("neighbor").color,
     );
+  });
+});
+
+describe("getPlaceMarkerColor", () => {
+  it("house は青系", () => {
+    expect(getPlaceMarkerColor("house")).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+  it("type ごとに色が異なる", () => {
+    const c1 = getPlaceMarkerColor("house");
+    const c2 = getPlaceMarkerColor("building");
+    const c3 = getPlaceMarkerColor("room");
+    expect(new Set([c1, c2, c3]).size).toBe(3);
+  });
+});
+
+describe("getPlaceMarkerRadius", () => {
+  it("ズームレベルが上がると半径も増える", () => {
+    const small = getPlaceMarkerRadius(13);
+    const big = getPlaceMarkerRadius(19);
+    expect(big).toBeGreaterThan(small);
+  });
+  it("最小 8px / 最大 14px の範囲にクランプ", () => {
+    expect(getPlaceMarkerRadius(0)).toBe(8);
+    expect(getPlaceMarkerRadius(99)).toBe(14);
   });
 });
 

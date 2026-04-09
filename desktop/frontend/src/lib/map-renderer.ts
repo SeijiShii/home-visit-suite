@@ -48,6 +48,26 @@ export function getAreaDetailPolygonStyle(
   return { color: "#86efac", weight: 2, fillOpacity: 0 };
 }
 
+export type PlaceType = "house" | "building" | "room";
+
+/** 仕様: house=青 / building=緑 / room=橙 */
+export function getPlaceMarkerColor(type: PlaceType): string {
+  switch (type) {
+    case "house":
+      return "#2563eb"; // 青
+    case "building":
+      return "#16a34a"; // 緑
+    case "room":
+      return "#ea580c"; // 橙
+  }
+}
+
+/** ズーム連動の場所マーカー半径 (8〜14px)。zoom 13 で 8、zoom 19 で 14。 */
+export function getPlaceMarkerRadius(zoom: number): number {
+  const r = 8 + (zoom - 13);
+  return Math.max(8, Math.min(14, r));
+}
+
 // 日本の中心付近（成田市）
 const DEFAULT_CENTER: L.LatLngExpression = [35.776, 140.318];
 const DEFAULT_ZOOM = 14;
@@ -99,6 +119,13 @@ export class MapRenderer {
     targetId: string;
     neighborIds: Set<string>;
   } | null = null;
+
+  // 場所マーカー (詳細編集モード時のみ表示)
+  private placeMarkers = new Map<string, L.CircleMarker>();
+  private placeContextMenuCallback:
+    | ((placeId: string, type: PlaceType, x: number, y: number) => void)
+    | null = null;
+  private placeZoomHandler: (() => void) | null = null;
 
   // 頂点表示制御
   private verticesVisible = false;
@@ -532,6 +559,84 @@ export class MapRenderer {
   clearMinZoom(): void {
     if (!this.map) return;
     this.map.setMinZoom(0);
+  }
+
+  // --- 場所マーカー（区域詳細編集モード専用） ---
+
+  /**
+   * 場所マーカー右クリック時のコールバックを登録する。
+   * (placeId, type, containerX, containerY) を受け取る。
+   */
+  setPlaceContextMenuHandler(
+    cb:
+      | ((placeId: string, type: PlaceType, x: number, y: number) => void)
+      | null,
+  ): void {
+    this.placeContextMenuCallback = cb;
+  }
+
+  /**
+   * 場所マーカー一覧を地図に反映する。既存マーカーは全て破棄してから再描画する。
+   * 詳細編集モード専用 (区域編集モードでは表示しない)。
+   */
+  setPlaces(
+    places: ReadonlyArray<{
+      id: string;
+      lat: number;
+      lng: number;
+      type: PlaceType;
+    }>,
+  ): void {
+    this.clearPlaces();
+    if (!this.map) return;
+    const zoom = this.map.getZoom();
+    const radius = getPlaceMarkerRadius(zoom);
+    for (const p of places) {
+      const color = getPlaceMarkerColor(p.type);
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius,
+        color: "#fff",
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 1,
+      }).addTo(this.map);
+      marker.on("contextmenu", (e: L.LeafletMouseEvent) => {
+        e.originalEvent.preventDefault();
+        L.DomEvent.stopPropagation(e);
+        this.placeContextMenuCallback?.(
+          p.id,
+          p.type,
+          e.containerPoint.x,
+          e.containerPoint.y,
+        );
+      });
+      this.placeMarkers.set(p.id, marker);
+    }
+
+    // ズーム変更時に半径を更新
+    if (!this.placeZoomHandler) {
+      this.placeZoomHandler = () => this.updatePlaceMarkerRadii();
+      this.map.on("zoomend", this.placeZoomHandler);
+    }
+  }
+
+  clearPlaces(): void {
+    for (const m of this.placeMarkers.values()) {
+      m.remove();
+    }
+    this.placeMarkers.clear();
+    if (this.placeZoomHandler && this.map) {
+      this.map.off("zoomend", this.placeZoomHandler);
+      this.placeZoomHandler = null;
+    }
+  }
+
+  private updatePlaceMarkerRadii(): void {
+    if (!this.map) return;
+    const r = getPlaceMarkerRadius(this.map.getZoom());
+    for (const m of this.placeMarkers.values()) {
+      m.setRadius(r);
+    }
   }
 
   focusPolygon(id: PolygonID): void {
