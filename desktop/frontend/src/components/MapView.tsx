@@ -1,5 +1,9 @@
 import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
-import { MapRenderer, type VertexDragCallbacks } from "../lib/map-renderer";
+import {
+  MapRenderer,
+  type VertexDragCallbacks,
+  type PlaceType,
+} from "../lib/map-renderer";
 import type {
   ChangeSet,
   PolygonID,
@@ -25,6 +29,25 @@ export interface MapViewHandle {
   hideVertices(): void;
   pixelsToDegrees(px: number): number;
   getSnapThresholdPx(): number;
+  // --- 区域詳細編集モード ---
+  setDetailMode(targetId: PolygonID, neighborIds: Set<string>): void;
+  clearDetailMode(): void;
+  setPlaces(
+    places: ReadonlyArray<{
+      id: string;
+      lat: number;
+      lng: number;
+      type: PlaceType;
+    }>,
+  ): void;
+  clearPlaces(): void;
+  setMinZoom(zoom: number): void;
+  clearMinZoom(): void;
+  setPlaceContextMenuHandler(
+    cb:
+      | ((placeId: string, type: PlaceType, x: number, y: number) => void)
+      | null,
+  ): void;
 }
 
 interface MapViewProps {
@@ -119,6 +142,27 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     getSnapThresholdPx() {
       return rendererRef.current?.getSnapThresholdPx() ?? 20;
+    },
+    setDetailMode(targetId, neighborIds) {
+      rendererRef.current?.setDetailMode(targetId, neighborIds);
+    },
+    clearDetailMode() {
+      rendererRef.current?.clearDetailMode();
+    },
+    setPlaces(places) {
+      rendererRef.current?.setPlaces(places);
+    },
+    clearPlaces() {
+      rendererRef.current?.clearPlaces();
+    },
+    setMinZoom(zoom) {
+      rendererRef.current?.setMinZoom(zoom);
+    },
+    clearMinZoom() {
+      rendererRef.current?.clearMinZoom();
+    },
+    setPlaceContextMenuHandler(cb) {
+      rendererRef.current?.setPlaceContextMenuHandler(cb);
     },
   }));
 
