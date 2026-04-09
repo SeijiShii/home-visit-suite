@@ -94,6 +94,8 @@ export function AreaDetailEditPage({
     kind: "idle",
   } as const);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +167,7 @@ export function AreaDetailEditPage({
     settingsService,
     areaId,
     linkedPolygonIds,
+    refreshKey,
   ]);
 
   const handleMapContextMenu = useCallback(
@@ -236,25 +239,28 @@ export function AreaDetailEditPage({
       if (!args || cancelled) return;
       await commit(args);
       dispatchFlow({ type: "cancel" });
+      bumpRefresh();
     })();
     return () => {
       cancelled = true;
     };
-  }, [flow, commit]);
+  }, [flow, commit, bumpRefresh]);
 
   const handleRestoreYes = useCallback(async () => {
     if (flow.kind !== "confirmingRestore") return;
     const args = selectCommit(flow, "yes");
     if (args) await commit(args);
     dispatchFlow({ type: "cancel" });
-  }, [flow, commit]);
+    bumpRefresh();
+  }, [flow, commit, bumpRefresh]);
 
   const handleRestoreNo = useCallback(async () => {
     if (flow.kind !== "confirmingRestore") return;
     const args = selectCommit(flow, "no");
     if (args) await commit(args);
     dispatchFlow({ type: "cancel" });
-  }, [flow, commit]);
+    bumpRefresh();
+  }, [flow, commit, bumpRefresh]);
 
   const moveCommit = useCallback(
     async (args: MovePlaceCommitArgs) => {
@@ -333,12 +339,14 @@ export function AreaDetailEditPage({
     let cancelled = false;
     (async () => {
       await moveCommit(args);
-      if (!cancelled) dispatchMove({ type: "reset" });
+      if (cancelled) return;
+      dispatchMove({ type: "reset" });
+      bumpRefresh();
     })();
     return () => {
       cancelled = true;
     };
-  }, [moveFlow, moveCommit]);
+  }, [moveFlow, moveCommit, bumpRefresh]);
 
   const handleMoveRestoreYes = useCallback(() => {
     if (moveFlow.kind !== "confirmingRestore") return;
@@ -362,12 +370,11 @@ export function AreaDetailEditPage({
     setDeleteTargetId(null);
     if (onCommitDeletePlace) {
       await onCommitDeletePlace(id);
-      return;
-    }
-    if (placeService) {
+    } else if (placeService) {
       await placeService.deletePlace(id);
     }
-  }, [deleteTargetId, onCommitDeletePlace, placeService]);
+    bumpRefresh();
+  }, [deleteTargetId, onCommitDeletePlace, placeService, bumpRefresh]);
 
   const mapEnabled = Boolean(editor && polygonToArea);
 
