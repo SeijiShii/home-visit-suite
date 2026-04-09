@@ -7,7 +7,15 @@ var AllMigrations = []ls.Migration{
 	{Version: 1, SQL: migrationV1},
 	{Version: 2, SQL: migrationV2},
 	{Version: 3, SQL: migrationV3},
+	{Version: 4, SQL: migrationV4},
 }
+
+// migrationV4: places に論理削除用 deleted_at と RestoredFromID を追加
+// 仕様 docs/wants/03_地図機能.md「場所の論理削除と訪問記録の紐付け」
+const migrationV4 = `
+ALTER TABLE places ADD COLUMN deleted_at TEXT;
+ALTER TABLE places ADD COLUMN restored_from_id TEXT NOT NULL DEFAULT '';
+`
 
 // migrationV3: area_availability から start_date / end_date を削除（持ち出しステータスは親期間に従属）
 const migrationV3 = `
