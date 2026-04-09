@@ -53,6 +53,18 @@ const ja: Translations = {
     areaAlreadyLinked: "この区域は他のポリゴンに紐づけ済み",
     unlinkPolygon: "ポリゴン紐づけ解除",
   },
+  areaDetail: {
+    back: "戻る",
+    title: "区域詳細編集",
+    addHouse: "家を追加",
+    addBuilding: "集合住宅を追加",
+    movePlace: "移動",
+    deletePlace: "削除",
+    confirmDeletePlace: "この場所を削除しますか？",
+    linkRestoredPrompt: "過去のこの地点の場所の訪問記録と紐づけますか？",
+    yes: "はい",
+    no: "いいえ",
+  },
   areaTree: {
     title: "区域編集",
     region: "領域",

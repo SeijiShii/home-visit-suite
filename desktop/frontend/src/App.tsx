@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { TipStack } from "./components/TipStack";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
+import { AreaDetailEditPage } from "./pages/AreaDetailEditPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { CoveragePage } from "./pages/CoveragePage";
@@ -16,7 +17,10 @@ import { SettingsService } from "./services/settings-service";
 import * as SettingsBinding from "../wailsjs/go/binding/SettingsBinding";
 
 export function App() {
-  const settingsService = useMemo(() => new SettingsService(SettingsBinding), []);
+  const settingsService = useMemo(
+    () => new SettingsService(SettingsBinding),
+    [],
+  );
 
   return (
     <HashRouter>
@@ -26,6 +30,10 @@ export function App() {
             <Route element={<Layout />}>
               <Route index element={<DashboardPage />} />
               <Route path="map" element={<MapPage />} />
+              <Route
+                path="map/area/:areaId/detail"
+                element={<AreaDetailEditPage />}
+              />
               <Route path="regions" element={<RegionManagementPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="activities" element={<ActivitiesPage />} />

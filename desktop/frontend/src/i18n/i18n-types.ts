@@ -52,6 +52,18 @@ export interface Translations {
     areaAlreadyLinked: string;
     unlinkPolygon: string;
   };
+  areaDetail: {
+    back: string;
+    title: string;
+    addHouse: string;
+    addBuilding: string;
+    movePlace: string;
+    deletePlace: string;
+    confirmDeletePlace: string;
+    linkRestoredPrompt: string;
+    yes: string;
+    no: string;
+  };
   areaTree: {
     title: string;
     region: string;

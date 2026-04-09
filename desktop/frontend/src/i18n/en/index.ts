@@ -53,6 +53,19 @@ const en: Translations = {
     areaAlreadyLinked: "This area is already linked to another polygon",
     unlinkPolygon: "Unlink polygon",
   },
+  areaDetail: {
+    back: "Back",
+    title: "Area detail edit",
+    addHouse: "Add house",
+    addBuilding: "Add building",
+    movePlace: "Move",
+    deletePlace: "Delete",
+    confirmDeletePlace: "Delete this place?",
+    linkRestoredPrompt:
+      "Link to visit records of the previous place at this location?",
+    yes: "Yes",
+    no: "No",
+  },
   areaTree: {
     title: "Area Editor",
     region: "Region",
