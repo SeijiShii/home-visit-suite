@@ -1,9 +1,45 @@
+import type { Polygon as GeoPolygon } from "geojson";
 import {
   findNeighborPolygons,
   minZoomForRadius,
+  polygonCenter,
+  type LatLng,
   type PolygonCenter,
   type PlaceLike,
 } from "./area-detail-geo";
+
+/**
+ * NetworkPolygonEditor から polygonId と GeoJSON を取り出すための最小インタフェース。
+ * 本物の NetworkPolygonEditor はより広いが、ここでは純関数に必要な分のみ要求する。
+ */
+export interface PolygonGeoSource {
+  getPolygons(): ReadonlyArray<{ id: string; active?: boolean }>;
+  getPolygonGeoJSON(id: string): GeoPolygon | null;
+}
+
+/**
+ * エディタから全ての活性ポリゴンの中心座標を計算する純関数。
+ * GeoJSON の外周リング (coordinates[0]) の頂点を平均する。
+ * 閉じたリングの終点は始点と重複するため除外する。
+ */
+export function polygonCentersFromEditor(
+  editor: PolygonGeoSource,
+): PolygonCenter[] {
+  const centers: PolygonCenter[] = [];
+  for (const p of editor.getPolygons()) {
+    if (p.active === false) continue;
+    const geo = editor.getPolygonGeoJSON(p.id);
+    if (!geo || geo.coordinates.length === 0) continue;
+    const ring = geo.coordinates[0];
+    if (ring.length < 2) continue;
+    // 閉じたリングの末尾 (= 始点) を除外
+    const open = ring.slice(0, ring.length - 1);
+    const vertices: LatLng[] = open.map(([lng, lat]) => ({ lat, lng }));
+    if (vertices.length === 0) continue;
+    centers.push({ id: p.id, center: polygonCenter(vertices) });
+  }
+  return centers;
+}
 
 export interface AreaDetailInputs {
   /** 全 (活性) ポリゴンの中心座標 */
@@ -47,8 +83,14 @@ export interface AreaDetailViewModel {
 export function buildAreaDetailViewModel(
   inputs: AreaDetailInputs,
 ): AreaDetailViewModel | null {
-  const { polygonCenters, polygonToArea, targetAreaId, places, radiusKm, viewportPx } =
-    inputs;
+  const {
+    polygonCenters,
+    polygonToArea,
+    targetAreaId,
+    places,
+    radiusKm,
+    viewportPx,
+  } = inputs;
 
   // areaId → polygonId 逆引き
   let targetPolygonId: string | null = null;
