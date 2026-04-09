@@ -517,6 +517,23 @@ export class MapRenderer {
     return this.detailMode !== null;
   }
 
+  /**
+   * 区域詳細編集モード中の最小ズーム制限。
+   * 半径 N km が画面に収まるズームを下回らないようにロックする。
+   */
+  setMinZoom(zoom: number): void {
+    if (!this.map) return;
+    this.map.setMinZoom(zoom);
+    if (this.map.getZoom() < zoom) {
+      this.map.setZoom(zoom);
+    }
+  }
+
+  clearMinZoom(): void {
+    if (!this.map) return;
+    this.map.setMinZoom(0);
+  }
+
   focusPolygon(id: PolygonID): void {
     if (!this.map) return;
     const layer = this.polygonLayers.get(id as string);
