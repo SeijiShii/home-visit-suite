@@ -33,6 +33,21 @@ export function getPolygonStyle(
     : { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
 }
 
+export type AreaDetailPolygonRole = "target" | "neighbor";
+
+/**
+ * 区域詳細編集モード用ポリゴンスタイル。塗りつぶしなし、対象=濃色太線/隣接=薄色細線。
+ * 仕様: docs/wants/03_地図機能.md「区域詳細編集モード」描画ルール。
+ */
+export function getAreaDetailPolygonStyle(
+  role: AreaDetailPolygonRole,
+): PolygonStyle {
+  if (role === "target") {
+    return { color: "#166534", weight: 4, fillOpacity: 0 };
+  }
+  return { color: "#86efac", weight: 2, fillOpacity: 0 };
+}
+
 // 日本の中心付近（成田市）
 const DEFAULT_CENTER: L.LatLngExpression = [35.776, 140.318];
 const DEFAULT_ZOOM = 14;
@@ -78,6 +93,12 @@ export class MapRenderer {
   private linkedPolygonIds: Set<string> = new Set();
   private selectedId: string | null = null;
   private polygonClickCallback: ((id: PolygonID) => void) | null = null;
+
+  // 区域詳細編集モード: target/neighbor のみ描画 (それ以外は非表示)
+  private detailMode: {
+    targetId: string;
+    neighborIds: Set<string>;
+  } | null = null;
 
   // 頂点表示制御
   private verticesVisible = false;
@@ -414,6 +435,23 @@ export class MapRenderer {
     this.edgeLayers.set(id as string, line);
   }
 
+  private computePolygonStyle(id: PolygonID): PolygonStyle | null {
+    const idStr = id as string;
+    if (this.detailMode) {
+      if (this.detailMode.targetId === idStr) {
+        return getAreaDetailPolygonStyle("target");
+      }
+      if (this.detailMode.neighborIds.has(idStr)) {
+        return getAreaDetailPolygonStyle("neighbor");
+      }
+      // detail モード中は対象/隣接以外を非表示
+      return null;
+    }
+    const isLinked = this.linkedPolygonIds.has(idStr);
+    const isSelected = this.selectedId === idStr;
+    return getPolygonStyle(isLinked, isSelected);
+  }
+
   private addPolygonLayer(id: PolygonID): void {
     if (!this.map || !this.editor) return;
 
@@ -423,9 +461,8 @@ export class MapRenderer {
     const geo = this.editor.getPolygonGeoJSON(id);
     if (!geo) return;
 
-    const isLinked = this.linkedPolygonIds.has(id as string);
-    const isSelected = this.selectedId === (id as string);
-    const style = getPolygonStyle(isLinked, isSelected);
+    const style = this.computePolygonStyle(id);
+    if (!style) return;
 
     const feature = {
       type: "Feature" as const,
@@ -456,10 +493,28 @@ export class MapRenderer {
     this.selectedId = id as string | null;
     // ポリゴンレイヤーを再スタイル
     for (const [layerId, layer] of this.polygonLayers) {
-      const isLinked = this.linkedPolygonIds.has(layerId);
-      const isSelected = layerId === (id as string);
-      layer.setStyle(getPolygonStyle(isLinked, isSelected));
+      const style = this.computePolygonStyle(layerId as PolygonID);
+      if (style) layer.setStyle(style);
     }
+  }
+
+  /**
+   * 区域詳細編集モードに入る。target は濃色、neighbors は薄色で描画され、
+   * それ以外のポリゴンは非表示。再描画は呼び出し側で renderAll() を実行すること。
+   */
+  setDetailMode(targetId: PolygonID, neighborIds: Set<string>): void {
+    this.detailMode = {
+      targetId: targetId as string,
+      neighborIds: new Set(neighborIds),
+    };
+  }
+
+  clearDetailMode(): void {
+    this.detailMode = null;
+  }
+
+  isDetailMode(): boolean {
+    return this.detailMode !== null;
   }
 
   focusPolygon(id: PolygonID): void {
