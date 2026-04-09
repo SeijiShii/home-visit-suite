@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
 import { RegionService } from "../services/region-service";
 import type { PlaceService, PlaceType } from "../services/place-service";
 import type { SettingsService } from "../services/settings-service";
 import { MapView, type MapViewHandle } from "../components/MapView";
+import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import { formatAreaLabel } from "../lib/area-detail-geo";
 import {
@@ -13,6 +14,13 @@ import {
   type PolygonGeoSource,
 } from "../lib/area-detail-controller";
 import { applyDetailViewModelToMap } from "../lib/area-detail-map-integration";
+import {
+  addPlaceFlowReducer,
+  selectCommit,
+  ADD_PLACE_RESTORE_RADIUS_M,
+  type AddPlaceCommitArgs,
+  type AddPlaceFlowState,
+} from "../lib/add-place-flow";
 import type { NetworkPolygonEditor } from "map-polygon-editor";
 
 export interface AreaDetailEditPageProps {
@@ -28,7 +36,15 @@ export interface AreaDetailEditPageProps {
   settingsService?: SettingsService;
   /** 初期リンク済みポリゴン ID 集合 (renderAll 用)。 */
   linkedPolygonIds?: Set<string>;
+  /** 家を追加 commit の副作用フック。指定時はこちらが優先される。 */
+  onCommitAddPlace?: (args: AddPlaceCommitArgs) => Promise<void> | void;
 }
+
+type ContextMenuState =
+  | null
+  | { variant: "blank"; x: number; y: number; lat: number; lng: number };
+
+const initialFlow: AddPlaceFlowState = { kind: "idle" };
 
 export function AreaDetailEditPage({
   regionService,
@@ -37,6 +53,7 @@ export function AreaDetailEditPage({
   placeService,
   settingsService,
   linkedPolygonIds,
+  onCommitAddPlace,
 }: AreaDetailEditPageProps = {}) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -48,6 +65,8 @@ export function AreaDetailEditPage({
   const [label, setLabel] = useState<string | null>(null);
   const mapRef = useRef<MapViewHandle>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [flow, dispatchFlow] = useReducer(addPlaceFlowReducer, initialFlow);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,7 +127,101 @@ export function AreaDetailEditPage({
     return () => {
       cancelled = true;
     };
-  }, [editor, polygonToArea, placeService, settingsService, areaId, linkedPolygonIds]);
+  }, [
+    editor,
+    polygonToArea,
+    placeService,
+    settingsService,
+    areaId,
+    linkedPolygonIds,
+  ]);
+
+  const handleMapContextMenu = useCallback(
+    (lat: number, lng: number, x: number, y: number) => {
+      setContextMenu({ variant: "blank", lat, lng, x, y });
+    },
+    [],
+  );
+
+  const commit = useCallback(
+    async (args: AddPlaceCommitArgs) => {
+      if (onCommitAddPlace) {
+        await onCommitAddPlace(args);
+        return;
+      }
+      // 既定: PlaceService.savePlace を最小フィールドで呼ぶ
+      if (!placeService) return;
+      await placeService.savePlace({
+        id: "",
+        areaId,
+        coord: { lat: args.lat, lng: args.lng },
+        type: "house",
+        label: "",
+        displayName: "",
+        parentId: "",
+        sortOrder: 0,
+        languages: [],
+        doNotVisit: false,
+        doNotVisitNote: "",
+        createdAt: "",
+        updatedAt: "",
+        deletedAt: null,
+        restoredFromId: args.restoredFromId ?? null,
+      });
+    },
+    [onCommitAddPlace, placeService, areaId],
+  );
+
+  const handleAddHouse = useCallback(async () => {
+    if (!contextMenu || contextMenu.variant !== "blank") return;
+    const { lat, lng } = contextMenu;
+    setContextMenu(null);
+    const nearby = placeService
+      ? await placeService
+          .listDeletedPlacesNear(lat, lng, ADD_PLACE_RESTORE_RADIUS_M)
+          .catch(() => [])
+      : [];
+    dispatchFlow({
+      type: "open",
+      lat,
+      lng,
+      nearbyDeleted: nearby.map((p) => ({
+        id: p.id,
+        lat: p.coord.lat,
+        lng: p.coord.lng,
+        deletedAt: p.deletedAt ?? null,
+      })),
+    });
+  }, [contextMenu, placeService]);
+
+  // ready 状態に来たら即 commit (確認不要パス)
+  useEffect(() => {
+    if (flow.kind !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      const args = selectCommit(flow);
+      if (!args || cancelled) return;
+      await commit(args);
+      dispatchFlow({ type: "cancel" });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [flow, commit]);
+
+  const handleRestoreYes = useCallback(async () => {
+    if (flow.kind !== "confirmingRestore") return;
+    const args = selectCommit(flow, "yes");
+    if (args) await commit(args);
+    dispatchFlow({ type: "cancel" });
+  }, [flow, commit]);
+
+  const handleRestoreNo = useCallback(async () => {
+    if (flow.kind !== "confirmingRestore") return;
+    const args = selectCommit(flow, "no");
+    if (args) await commit(args);
+    dispatchFlow({ type: "cancel" });
+  }, [flow, commit]);
 
   const mapEnabled = Boolean(editor && polygonToArea);
 
@@ -129,8 +242,30 @@ export function AreaDetailEditPage({
         className="area-detail-map"
         data-testid="area-detail-map"
       >
-        {mapEnabled && <MapView ref={mapRef} />}
+        {mapEnabled && (
+          <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
+        )}
+        {contextMenu && (
+          <AreaDetailContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            variant={contextMenu.variant}
+            onAddHouse={handleAddHouse}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
       </div>
+      {flow.kind === "confirmingRestore" && (
+        <div
+          role="dialog"
+          aria-label={t.areaDetail.linkRestoredPrompt}
+          className="area-detail-restore-dialog"
+        >
+          <p>{t.areaDetail.linkRestoredPrompt}</p>
+          <button onClick={handleRestoreYes}>{t.areaDetail.yes}</button>
+          <button onClick={handleRestoreNo}>{t.areaDetail.no}</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,11 +12,17 @@ import type { RegionService, AreaTreeNode } from "../services/region-service";
 
 // MapView を軽量なスタブに差し替え (leaflet を jsdom で起動しない)
 const mapCalls: Array<[string, unknown[]]> = [];
+const mockMapProps: {
+  onContextMenu?: (lat: number, lng: number, x: number, y: number) => void;
+} = {};
 vi.mock("../components/MapView", () => ({
   MapView: React.forwardRef(function MockMapView(
-    _props: unknown,
+    props: {
+      onContextMenu?: (lat: number, lng: number, x: number, y: number) => void;
+    },
     ref: React.Ref<unknown>,
   ) {
+    mockMapProps.onContextMenu = props.onContextMenu;
     React.useImperativeHandle(ref, () => ({
       setEditor: (...a: unknown[]) => mapCalls.push(["setEditor", a]),
       setDetailMode: (...a: unknown[]) => mapCalls.push(["setDetailMode", a]),
@@ -181,5 +187,149 @@ describe("AreaDetailEditPage", () => {
     expect(names).toContain("focusPolygon");
     const setDetail = mapCalls.find(([n]) => n === "setDetailMode")!;
     expect(setDetail[1][0]).toBe("poly-a1");
+  });
+
+  it("コンテキストメニュー: 家を追加 → 5m 内に削除済み無し → onCommitAddPlace", async () => {
+    mapCalls.length = 0;
+    mockMapProps.onContextMenu = undefined;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const placeService = {
+      listPlaces: vi.fn(async () => []),
+      getPlace: vi.fn(async () => null),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const onCommit = vi.fn<
+      (a: import("../lib/add-place-flow").AddPlaceCommitArgs) => Promise<void>
+    >(async () => {});
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                  onCommitAddPlace={onCommit}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(mockMapProps.onContextMenu).toBeDefined());
+    // 地図上で右クリック相当
+    mockMapProps.onContextMenu!(35.7771, 140.319, 100, 200);
+    const item = await screen.findByText("家を追加");
+    const user = userEvent.setup();
+    await user.click(item);
+    await waitFor(() => {
+      expect(onCommit).toHaveBeenCalledOnce();
+    });
+    expect(onCommit.mock.calls[0][0]).toEqual({ lat: 35.7771, lng: 140.319 });
+  });
+
+  it("コンテキストメニュー: 5m 内に削除済みあり → 確認ダイアログ → はい", async () => {
+    mapCalls.length = 0;
+    mockMapProps.onContextMenu = undefined;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const placeService = {
+      listPlaces: vi.fn(async () => []),
+      getPlace: vi.fn(async () => null),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: vi.fn(async () => {}),
+      // 約 1m 以内
+      listDeletedPlacesNear: vi.fn(async () => [
+        {
+          id: "old-1",
+          areaId: "a1",
+          coord: { lat: 35.777101, lng: 140.319 },
+          type: "house",
+          label: "",
+          displayName: "",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "",
+          updatedAt: "",
+          deletedAt: "2026-01-01T00:00:00Z",
+          restoredFromId: null,
+        },
+      ]),
+    } as unknown as import("../services/place-service").PlaceService;
+    const onCommit = vi.fn<
+      (a: import("../lib/add-place-flow").AddPlaceCommitArgs) => Promise<void>
+    >(async () => {});
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                  onCommitAddPlace={onCommit}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(mockMapProps.onContextMenu).toBeDefined());
+    mockMapProps.onContextMenu!(35.7771, 140.319, 100, 200);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("家を追加"));
+    // 確認ダイアログが出る
+    const yes = await screen.findByText("はい");
+    await user.click(yes);
+    await waitFor(() => expect(onCommit).toHaveBeenCalledOnce());
+    expect(onCommit.mock.calls[0][0]).toEqual({
+      lat: 35.7771,
+      lng: 140.319,
+      restoredFromId: "old-1",
+    });
   });
 });
