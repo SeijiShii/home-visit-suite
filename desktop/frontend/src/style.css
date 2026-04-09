@@ -678,6 +678,79 @@ section {
   overflow: hidden;
 }
 
+/* 区域詳細編集モード */
+.area-detail-edit-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.area-detail-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  flex: 0 0 auto;
+}
+.area-detail-back-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.area-detail-label {
+  font-weight: 600;
+}
+.area-detail-map {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
+.area-detail-map > .map-container {
+  flex: 1;
+}
+.area-detail-context-menu,
+.delete-place-confirm-dialog,
+.area-detail-restore-dialog {
+  position: absolute;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+}
+.area-detail-context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+.area-detail-context-menu-item:hover {
+  background: #f3f4f6;
+}
+.delete-place-confirm-dialog,
+.area-detail-restore-dialog {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 20px;
+  min-width: 280px;
+}
+.delete-place-confirm-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .map-container path.leaflet-interactive:focus {
   outline: none;
 }

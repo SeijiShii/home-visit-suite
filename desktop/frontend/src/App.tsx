@@ -6,7 +6,7 @@ import { Layout } from "./components/Layout";
 import { TipStack } from "./components/TipStack";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
-import { AreaDetailEditPage } from "./pages/AreaDetailEditPage";
+import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
 import { UsersPage } from "./pages/UsersPage";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { CoveragePage } from "./pages/CoveragePage";
@@ -32,7 +32,7 @@ export function App() {
               <Route path="map" element={<MapPage />} />
               <Route
                 path="map/area/:areaId/detail"
-                element={<AreaDetailEditPage />}
+                element={<AreaDetailEditPageContainer />}
               />
               <Route path="regions" element={<RegionManagementPage />} />
               <Route path="users" element={<UsersPage />} />
