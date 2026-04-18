@@ -14,7 +14,7 @@ type LinkSelfPlaceRepo struct{ *LinkSelfRepository }
 
 func (r *LinkSelfPlaceRepo) ListPlaces(areaID string) ([]models.Place, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, lat, lng, type, label, display_name, parent_id,
+		`SELECT id, area_id, lat, lng, type, label, display_name, address, parent_id,
 		        sort_order, languages, do_not_visit, do_not_visit_note, created_at, updated_at,
 		        deleted_at, restored_from_id
 		 FROM places WHERE area_id = ? AND (deleted_at IS NULL OR deleted_at = '') ORDER BY sort_order`, areaID)
@@ -36,7 +36,7 @@ func (r *LinkSelfPlaceRepo) ListPlaces(areaID string) ([]models.Place, error) {
 
 func (r *LinkSelfPlaceRepo) GetPlace(id string) (*models.Place, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, lat, lng, type, label, display_name, parent_id,
+		`SELECT id, area_id, lat, lng, type, label, display_name, address, parent_id,
 		        sort_order, languages, do_not_visit, do_not_visit_note, created_at, updated_at,
 		        deleted_at, restored_from_id
 		 FROM places WHERE id = ?`, id)
@@ -66,12 +66,13 @@ func (r *LinkSelfPlaceRepo) SavePlace(place *models.Place) error {
 	}
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO places
-		 (id, area_id, lat, lng, type, label, display_name, parent_id,
+		 (id, area_id, lat, lng, type, label, display_name, address, parent_id,
 		  sort_order, languages, do_not_visit, do_not_visit_note, created_at, updated_at,
 		  deleted_at, restored_from_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		place.ID, place.AreaID, place.Coord.Lat, place.Coord.Lng,
-		string(place.Type), place.Label, place.DisplayName, place.ParentID,
+		string(place.Type), place.Label, place.DisplayName, place.Address,
+		place.ParentID,
 		place.SortOrder, marshalJSON(place.Languages),
 		boolToInt(place.DoNotVisit), place.DoNotVisitNote,
 		formatTime(place.CreatedAt), formatTime(place.UpdatedAt),
@@ -91,7 +92,7 @@ func (r *LinkSelfPlaceRepo) DeletePlace(id string) error {
 // 件数が増えたらバウンディングボックスで一次フィルタを追加する。
 func (r *LinkSelfPlaceRepo) ListDeletedPlacesNear(lat, lng, radiusMeters float64) ([]models.Place, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, lat, lng, type, label, display_name, parent_id,
+		`SELECT id, area_id, lat, lng, type, label, display_name, address, parent_id,
 		        sort_order, languages, do_not_visit, do_not_visit_note, created_at, updated_at,
 		        deleted_at, restored_from_id
 		 FROM places WHERE deleted_at IS NOT NULL AND deleted_at != ''`)
@@ -120,7 +121,7 @@ func scanPlace(row scannable) (models.Place, error) {
 	var doNotVisit int
 	var createdAt, updatedAt, deletedAt, restoredFromID string
 	err := row.Scan(&p.ID, &p.AreaID, &p.Coord.Lat, &p.Coord.Lng,
-		&typeStr, &p.Label, &p.DisplayName, &p.ParentID,
+		&typeStr, &p.Label, &p.DisplayName, &p.Address, &p.ParentID,
 		&p.SortOrder, &languagesJSON, &doNotVisit, &p.DoNotVisitNote,
 		&createdAt, &updatedAt, &deletedAt, &restoredFromID)
 	if err != nil {

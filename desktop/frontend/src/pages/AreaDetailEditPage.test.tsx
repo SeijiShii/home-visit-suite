@@ -255,10 +255,17 @@ describe("AreaDetailEditPage", () => {
     const item = await screen.findByText("家を追加");
     const user = userEvent.setup();
     await user.click(item);
+    // 入力ダイアログが開く (未入力でそのまま保存)
+    await user.click(await screen.findByText("保存"));
     await waitFor(() => {
       expect(onCommit).toHaveBeenCalledOnce();
     });
-    expect(onCommit.mock.calls[0][0]).toEqual({ lat: 35.7771, lng: 140.319 });
+    expect(onCommit.mock.calls[0][0]).toEqual({
+      lat: 35.7771,
+      lng: 140.319,
+      address: "",
+      label: "",
+    });
   });
 
   it("コンテキストメニュー: 5m 内に削除済みあり → 確認ダイアログ → はい", async () => {
@@ -336,11 +343,15 @@ describe("AreaDetailEditPage", () => {
     // 確認ダイアログが出る
     const yes = await screen.findByText("はい");
     await user.click(yes);
+    // 入力ダイアログが続けて出る
+    await user.click(await screen.findByText("保存"));
     await waitFor(() => expect(onCommit).toHaveBeenCalledOnce());
     expect(onCommit.mock.calls[0][0]).toEqual({
       lat: 35.7771,
       lng: 140.319,
       restoredFromId: "old-1",
+      address: "",
+      label: "",
     });
   });
 

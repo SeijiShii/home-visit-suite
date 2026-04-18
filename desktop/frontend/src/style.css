@@ -686,20 +686,29 @@ section {
   min-height: 0;
 }
 .area-detail-topbar {
-  display: flex;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 500;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
-  flex: 0 0 auto;
-}
-.area-detail-back-btn {
+  gap: 10px;
+  padding: 6px 14px 6px 10px;
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid #d1d5db;
-  background: #fff;
-  border-radius: 4px;
-  padding: 4px 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   cursor: pointer;
+  font: inherit;
+  color: #374151;
+}
+.area-detail-topbar:hover {
+  background: rgba(255, 255, 255, 1);
+  color: #111827;
+}
+.area-detail-back-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 .area-detail-label {
   font-weight: 600;
@@ -713,9 +722,30 @@ section {
 .area-detail-map > .map-container {
   flex: 1;
 }
+/* トップバーと Leaflet ズームコントロールが重ならないよう下にずらす */
+.area-detail-map .leaflet-top.leaflet-left {
+  padding-top: 44px;
+}
+.area-detail-error-banner {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  background: #dc2626;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 80%;
+  text-align: center;
+}
 .area-detail-context-menu,
 .delete-place-confirm-dialog,
-.area-detail-restore-dialog {
+.area-detail-restore-dialog,
+.add-place-input-dialog {
   position: absolute;
   z-index: 1000;
   background: #fff;
@@ -723,6 +753,56 @@ section {
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 6px;
+}
+.add-place-input-dialog {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 20px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.add-place-input-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.add-place-input-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.add-place-input-dialog-field input {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+}
+.add-place-input-dialog-optional {
+  margin-left: 6px;
+  color: #6b7280;
+  font-size: 12px;
+}
+.add-place-input-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.add-place-input-dialog-actions button {
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+}
+.add-place-input-dialog-save {
+  background: #2563eb !important;
+  color: #fff;
+  border-color: #2563eb !important;
 }
 .area-detail-context-menu-item {
   display: block;
@@ -742,13 +822,41 @@ section {
   left: 50%;
   transform: translate(-50%, -50%);
   padding: 16px 20px;
-  min-width: 280px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.delete-place-confirm-dialog p,
+.area-detail-restore-dialog p {
+  margin: 0;
+  font-size: 14px;
 }
 .delete-place-confirm-dialog-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 12px;
+}
+.delete-place-confirm-dialog-actions button,
+.area-detail-restore-dialog button {
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.delete-place-confirm-dialog-actions button:hover,
+.area-detail-restore-dialog button:hover {
+  background: #f9fafb;
+}
+.delete-place-confirm-dialog-confirm {
+  background: #dc2626 !important;
+  color: #fff;
+  border-color: #dc2626 !important;
+}
+.delete-place-confirm-dialog-confirm:hover {
+  background: #b91c1c !important;
 }
 
 .map-container path.leaflet-interactive:focus {

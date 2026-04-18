@@ -6,7 +6,7 @@ import { useI18n } from "../contexts/I18nContext";
  * 仕様: docs/wants/03_地図機能.md「区域詳細編集モード / 場所操作」
  * - variant="blank": ポリゴン内の空白右クリック → 「家を追加」
  *   （Phase 1 では集合住宅は表示しない）
- * - variant="place": 場所アイコン右クリック → 「移動」「削除」
+ * - variant="place": 場所アイコン右クリック → 「場所編集」「移動」「削除」
  */
 export type AreaDetailContextMenuVariant = "blank" | "place";
 
@@ -15,6 +15,7 @@ interface AreaDetailContextMenuProps {
   y: number;
   variant: AreaDetailContextMenuVariant;
   onAddHouse?: () => void;
+  onEditPlace?: () => void;
   onMovePlace?: () => void;
   onDeletePlace?: () => void;
   onClose: () => void;
@@ -25,6 +26,7 @@ export function AreaDetailContextMenu({
   y,
   variant,
   onAddHouse,
+  onEditPlace,
   onMovePlace,
   onDeletePlace,
   onClose,
@@ -74,6 +76,13 @@ export function AreaDetailContextMenu({
       )}
       {variant === "place" && (
         <>
+          <button
+            role="menuitem"
+            className="area-detail-context-menu-item"
+            onClick={wrap(onEditPlace)}
+          >
+            {t.areaDetail.editPlace}
+          </button>
           <button
             role="menuitem"
             className="area-detail-context-menu-item"

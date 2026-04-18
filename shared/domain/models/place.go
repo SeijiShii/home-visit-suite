@@ -19,6 +19,7 @@ type Place struct {
 	Type           PlaceType  `json:"type"`
 	Label          string     `json:"label"`          // 表札名等
 	DisplayName    string     `json:"displayName"`    // 部屋番号等の表示名（文字列）
+	Address        string     `json:"address"`        // 住所（任意、自由記述）
 	ParentID       string     `json:"parentId"`       // 集合住宅の場合、親建物のID
 	SortOrder      int        `json:"sortOrder"`      // 並び順（編集staff変更可）
 	Languages      []string   `json:"languages"`      // ISO 639-1コード

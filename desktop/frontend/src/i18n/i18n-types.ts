@@ -63,6 +63,16 @@ export interface Translations {
     linkRestoredPrompt: string;
     yes: string;
     no: string;
+    addPlaceDialogTitle: string;
+    editPlaceDialogTitle: string;
+    editPlace: string;
+    addPlaceAddressLabel: string;
+    addPlaceNameLabel: string;
+    addPlaceOptional: string;
+    save: string;
+    cancel: string;
+    noName: string;
+    outsideAreaError: string;
   };
   areaTree: {
     title: string;

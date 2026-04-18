@@ -35,6 +35,10 @@ export interface AddPlaceCommitArgs {
   lng: number;
   /** 削除済み場所と紐付ける場合のみ設定される */
   restoredFromId?: string;
+  /** 任意入力: 表札名等 (空文字の場合は未入力) */
+  label?: string;
+  /** 任意入力: 住所 (空文字の場合は未入力) */
+  address?: string;
 }
 
 /** 5m 以内に削除済みがあれば最も近いものに紐付け確認、なければ即 ready。 */

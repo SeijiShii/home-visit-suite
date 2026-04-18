@@ -362,6 +362,7 @@ export function MapPage() {
 
   const handleFinishEditing = useCallback(() => {
     mapRef.current?.disableVertexDrag();
+    mapRef.current?.highlightPolygon(null);
     actions.endEditing();
     if (editorRef.current) {
       editorRef.current.save().catch(console.error);

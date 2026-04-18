@@ -225,6 +225,7 @@ export namespace models {
 	    type: string;
 	    label: string;
 	    displayName: string;
+	    address: string;
 	    parentId: string;
 	    sortOrder: number;
 	    languages: string[];
@@ -250,6 +251,7 @@ export namespace models {
 	        this.type = source["type"];
 	        this.label = source["label"];
 	        this.displayName = source["displayName"];
+	        this.address = source["address"];
 	        this.parentId = source["parentId"];
 	        this.sortOrder = source["sortOrder"];
 	        this.languages = source["languages"];

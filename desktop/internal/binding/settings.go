@@ -48,9 +48,9 @@ func (b *SettingsBinding) SetLocale(locale string) error {
 
 // --- AreaDetailRadius ---
 
-const defaultAreaDetailRadiusKm = 5.0
+const defaultAreaDetailRadiusKm = 2.5
 
-// GetAreaDetailRadiusKm は区域詳細編集モードの隣接半径(km)を返す。未設定時は既定値 5.0 を返す。
+// GetAreaDetailRadiusKm は区域詳細編集モードの隣接半径(km)を返す。未設定時は既定値 2.5 を返す。
 func (b *SettingsBinding) GetAreaDetailRadiusKm() (float64, error) {
 	v, err := b.repo.GetAreaDetailRadiusKm()
 	if err != nil {

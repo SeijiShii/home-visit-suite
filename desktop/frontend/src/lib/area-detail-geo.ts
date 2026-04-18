@@ -23,6 +23,33 @@ export function polygonCenter(vertices: readonly LatLng[]): LatLng {
   return { lat: lat / vertices.length, lng: lng / vertices.length };
 }
 
+/**
+ * 点がポリゴン内に含まれるか判定する (ray casting algorithm)。
+ * `ring` は [lng, lat] の配列（GeoJSON の coordinates[0]）。
+ * 閉じたリングでも開いたリングでも動作する。
+ */
+export function pointInRing(
+  point: LatLng,
+  ring: readonly [number, number][],
+): boolean {
+  let inside = false;
+  const n = ring.length;
+  if (n < 3) return false;
+  // 閉じたリングの末尾 (= 始点) を除外
+  const last = ring[n - 1];
+  const first = ring[0];
+  const count = last[0] === first[0] && last[1] === first[1] ? n - 1 : n;
+  for (let i = 0, j = count - 1; i < count; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersect =
+      yi > point.lat !== yj > point.lat &&
+      point.lng < ((xj - xi) * (point.lat - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
 export function haversineKm(a: LatLng, b: LatLng): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);

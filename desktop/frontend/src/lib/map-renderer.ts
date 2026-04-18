@@ -605,6 +605,7 @@ export class MapRenderer {
       lat: number;
       lng: number;
       type: PlaceType;
+      tooltip?: string;
     }>,
   ): void {
     this.clearPlaces();
@@ -617,9 +618,17 @@ export class MapRenderer {
         radius,
         color: "#fff",
         weight: 2,
+        opacity: 0.85,
         fillColor: color,
-        fillOpacity: 1,
+        fillOpacity: 0.55,
       }).addTo(this.map);
+      if (p.tooltip) {
+        marker.bindTooltip(p.tooltip, {
+          direction: "top",
+          offset: [0, -radius],
+          opacity: 0.9,
+        });
+      }
       marker.on("contextmenu", (e: L.LeafletMouseEvent) => {
         e.originalEvent.preventDefault();
         L.DomEvent.stopPropagation(e);

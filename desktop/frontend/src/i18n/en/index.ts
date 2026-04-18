@@ -65,6 +65,17 @@ const en: Translations = {
       "Link to visit records of the previous place at this location?",
     yes: "Yes",
     no: "No",
+    addPlaceDialogTitle: "Add house",
+    editPlaceDialogTitle: "Edit place",
+    editPlace: "Edit",
+    addPlaceAddressLabel: "Address",
+    addPlaceNameLabel: "Name",
+    addPlaceOptional: "optional",
+    save: "Save",
+    cancel: "Cancel",
+    noName: "No name",
+    outsideAreaError:
+      "Places can only be added or moved within the area being edited",
   },
   areaTree: {
     title: "Area Editor",

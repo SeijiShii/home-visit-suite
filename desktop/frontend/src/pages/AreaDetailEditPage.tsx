@@ -9,13 +9,14 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
 import { RegionService } from "../services/region-service";
-import type { PlaceService, PlaceType } from "../services/place-service";
+import type { Place, PlaceService, PlaceType } from "../services/place-service";
 import type { SettingsService } from "../services/settings-service";
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
 import { DeletePlaceConfirmDialog } from "../components/DeletePlaceConfirmDialog";
+import { AddPlaceInputDialog } from "../components/AddPlaceInputDialog";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
-import { formatAreaLabel } from "../lib/area-detail-geo";
+import { formatAreaLabel, pointInRing } from "../lib/area-detail-geo";
 import {
   buildAreaDetailViewModel,
   polygonCentersFromEditor,
@@ -31,7 +32,7 @@ import {
 } from "../lib/add-place-flow";
 import type { MovePlaceCommitArgs } from "../lib/move-place-flow";
 import { movePlaceFlowReducer, selectMoveCommit } from "../lib/move-place-flow";
-import type { NetworkPolygonEditor } from "map-polygon-editor";
+import type { NetworkPolygonEditor, PolygonID } from "map-polygon-editor";
 
 export interface AreaDetailEditPageProps {
   /** テスト用に注入可能。未指定なら本番 RegionBinding を使う。 */
@@ -42,7 +43,7 @@ export interface AreaDetailEditPageProps {
   polygonToArea?: ReadonlyMap<string, string>;
   /** 対象区域の場所取得。未指定なら場所は描画しない。 */
   placeService?: PlaceService;
-  /** ui.areaDetailRadiusKm の取得。未指定なら既定 5km。 */
+  /** ui.areaDetailRadiusKm の取得。未指定なら既定 2.5km。 */
   settingsService?: SettingsService;
   /** 初期リンク済みポリゴン ID 集合 (renderAll 用)。 */
   linkedPolygonIds?: Set<string>;
@@ -94,8 +95,30 @@ export function AreaDetailEditPage({
     kind: "idle",
   } as const);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [pendingAddArgs, setPendingAddArgs] =
+    useState<AddPlaceCommitArgs | null>(null);
+  const [editingPlace, setEditingPlace] = useState<Place | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const targetRingRef = useRef<[number, number][] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const isInsideTarget = useCallback((lat: number, lng: number): boolean => {
+    const ring = targetRingRef.current;
+    if (!ring) return true; // ring 未取得時は制限しない (初期化前のガード)
+    return pointInRing({ lat, lng }, ring);
+  }, []);
+
+  const showOutsideError = useCallback(() => {
+    setErrorMessage(t.areaDetail.outsideAreaError);
+  }, [t]);
+
+  // エラーメッセージは 4 秒で自動消去 (クリックでも消える)
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,7 +142,8 @@ export function AreaDetailEditPage({
       handle.setEditor(editor as NetworkPolygonEditor);
       const centers = polygonCentersFromEditor(editor);
       const radiusKm =
-        (await settingsService?.getAreaDetailRadiusKm().catch(() => 5)) ?? 5;
+        (await settingsService?.getAreaDetailRadiusKm().catch(() => 2.5)) ??
+        2.5;
       const places = placeService
         ? await placeService.listPlaces(areaId).catch(() => [])
         : [];
@@ -139,17 +163,31 @@ export function AreaDetailEditPage({
         viewportPx,
       });
       if (!vm || cancelled) return;
+      // target polygon の外周リング ([lng, lat] の配列) を内外判定用に保持
+      const targetGeo =
+        "getPolygonGeoJSON" in editor
+          ? editor.getPolygonGeoJSON(vm.targetPolygonId as PolygonID)
+          : null;
+      targetRingRef.current =
+        targetGeo && targetGeo.coordinates[0]
+          ? (targetGeo.coordinates[0] as [number, number][])
+          : null;
       const linked = linkedPolygonIds ?? new Set<string>();
       applyDetailViewModelToMap(
         handle,
         vm,
-        places.map((p) => ({
-          id: p.id,
-          lat: p.coord.lat,
-          lng: p.coord.lng,
-          type: p.type as PlaceType,
-        })),
+        places.map((p) => {
+          const parts = [p.label.trim(), p.address.trim()].filter(Boolean);
+          return {
+            id: p.id,
+            lat: p.coord.lat,
+            lng: p.coord.lng,
+            type: p.type as PlaceType,
+            tooltip: parts.length > 0 ? parts.join(" / ") : t.areaDetail.noName,
+          };
+        }),
         linked,
+        refreshKey > 0,
       );
       // 場所マーカー右クリックを page 側 state へ橋渡し
       handle.setPlaceContextMenuHandler((placeId, _type, x, y) => {
@@ -192,8 +230,9 @@ export function AreaDetailEditPage({
         areaId,
         coord: { lat: args.lat, lng: args.lng },
         type: "house",
-        label: "",
+        label: args.label ?? "",
         displayName: "",
+        address: args.address ?? "",
         parentId: "",
         sortOrder: 0,
         languages: [],
@@ -212,6 +251,10 @@ export function AreaDetailEditPage({
     if (!contextMenu || contextMenu.variant !== "blank") return;
     const { lat, lng } = contextMenu;
     setContextMenu(null);
+    if (!isInsideTarget(lat, lng)) {
+      showOutsideError();
+      return;
+    }
     const nearby = placeService
       ? await placeService
           .listDeletedPlacesNear(lat, lng, ADD_PLACE_RESTORE_RADIUS_M)
@@ -228,39 +271,53 @@ export function AreaDetailEditPage({
         deletedAt: p.deletedAt ?? null,
       })),
     });
-  }, [contextMenu, placeService]);
+  }, [contextMenu, placeService, isInsideTarget, showOutsideError]);
 
-  // ready 状態に来たら即 commit (確認不要パス)
+  // ready 状態に来たら入力ダイアログを開く (commit は入力確定後)
   useEffect(() => {
     if (flow.kind !== "ready") return;
-    let cancelled = false;
-    (async () => {
-      const args = selectCommit(flow);
-      if (!args || cancelled) return;
-      await commit(args);
-      dispatchFlow({ type: "cancel" });
-      bumpRefresh();
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [flow, commit, bumpRefresh]);
+    const args = selectCommit(flow);
+    if (!args) return;
+    setPendingAddArgs(args);
+    dispatchFlow({ type: "cancel" });
+  }, [flow]);
 
-  const handleRestoreYes = useCallback(async () => {
+  const handleRestoreYes = useCallback(() => {
     if (flow.kind !== "confirmingRestore") return;
     const args = selectCommit(flow, "yes");
-    if (args) await commit(args);
+    if (args) setPendingAddArgs(args);
     dispatchFlow({ type: "cancel" });
-    bumpRefresh();
-  }, [flow, commit, bumpRefresh]);
+  }, [flow]);
 
-  const handleRestoreNo = useCallback(async () => {
+  const handleRestoreNo = useCallback(() => {
     if (flow.kind !== "confirmingRestore") return;
     const args = selectCommit(flow, "no");
-    if (args) await commit(args);
+    if (args) setPendingAddArgs(args);
     dispatchFlow({ type: "cancel" });
-    bumpRefresh();
-  }, [flow, commit, bumpRefresh]);
+  }, [flow]);
+
+  const handleAddPlaceSave = useCallback(
+    async (values: { address: string; label: string }) => {
+      if (!pendingAddArgs) return;
+      const args: AddPlaceCommitArgs = {
+        ...pendingAddArgs,
+        address: values.address,
+        label: values.label,
+      };
+      setPendingAddArgs(null); // ダイアログを先に閉じて二重保存を防止
+      try {
+        await commit(args);
+      } catch (err) {
+        console.error("[AreaDetailEditPage] savePlace failed:", err);
+      }
+      bumpRefresh();
+    },
+    [pendingAddArgs, commit, bumpRefresh],
+  );
+
+  const handleAddPlaceCancel = useCallback(() => {
+    setPendingAddArgs(null);
+  }, []);
 
   const moveCommit = useCallback(
     async (args: MovePlaceCommitArgs) => {
@@ -282,16 +339,20 @@ export function AreaDetailEditPage({
 
   const handleMoveConfirmAt = useCallback(
     async (lat: number, lng: number) => {
-      // moveFlow が tracking 状態であることを期待
-      const placeId = moveFlow.kind === "tracking" ? moveFlow.placeId : null;
-      if (!placeId) return;
+      if (!isInsideTarget(lat, lng)) {
+        showOutsideError();
+        dispatchMove({ type: "cancel" });
+        bumpRefresh(); // マーカー位置を元に戻すために再描画
+        return;
+      }
       // 5m チェック用に削除済みを取得 (自身は move-flow 内で除外)
       const nearby = placeService
         ? await placeService
             .listDeletedPlacesNear(lat, lng, ADD_PLACE_RESTORE_RADIUS_M)
             .catch(() => [])
         : [];
-      // tracking の現在位置を確定値で更新してから confirm
+      // reducer 側で state.kind === "tracking" をチェックするため
+      // ここでの guard は不要 (stale closure 回避)
       dispatchMove({ type: "updatePosition", lat, lng });
       dispatchMove({
         type: "confirm",
@@ -303,7 +364,7 @@ export function AreaDetailEditPage({
         })),
       });
     },
-    [moveFlow, placeService],
+    [placeService, isInsideTarget, showOutsideError, bumpRefresh],
   );
 
   const handleMoveCancel = useCallback(() => {
@@ -364,6 +425,39 @@ export function AreaDetailEditPage({
     setContextMenu(null);
   }, [contextMenu]);
 
+  const handleEditPlace = useCallback(async () => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    const { placeId } = contextMenu;
+    setContextMenu(null);
+    if (!placeService) return;
+    const place = await placeService.getPlace(placeId).catch(() => null);
+    if (!place) return;
+    setEditingPlace(place);
+  }, [contextMenu, placeService]);
+
+  const handleEditPlaceSave = useCallback(
+    async (values: { address: string; label: string }) => {
+      if (!editingPlace) return;
+      const updated: Place = {
+        ...editingPlace,
+        label: values.label,
+        address: values.address,
+      };
+      setEditingPlace(null);
+      try {
+        if (placeService) await placeService.savePlace(updated);
+      } catch (err) {
+        console.error("[AreaDetailEditPage] editPlace failed:", err);
+      }
+      bumpRefresh();
+    },
+    [editingPlace, placeService, bumpRefresh],
+  );
+
+  const handleEditPlaceCancel = useCallback(() => {
+    setEditingPlace(null);
+  }, []);
+
   const handleDeleteConfirm = useCallback(async () => {
     const id = deleteTargetId;
     if (!id) return;
@@ -380,21 +474,24 @@ export function AreaDetailEditPage({
 
   return (
     <div className="area-detail-edit-page">
-      <div className="area-detail-topbar">
-        <button
-          className="area-detail-back-btn"
-          onClick={() => navigate(-1)}
-          aria-label={t.areaDetail.back}
-        >
-          ← {t.areaDetail.back}
-        </button>
-        <span className="area-detail-label">{label ?? t.areaDetail.title}</span>
-      </div>
       <div
         ref={containerRef}
         className="area-detail-map"
         data-testid="area-detail-map"
       >
+        <button
+          type="button"
+          className="area-detail-topbar"
+          onClick={() => navigate(-1)}
+          aria-label={t.areaDetail.back}
+        >
+          <span className="area-detail-back-icon" aria-hidden="true">
+            ←
+          </span>
+          <span className="area-detail-label">
+            {label ?? t.areaDetail.title}
+          </span>
+        </button>
         {mapEnabled && (
           <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
         )}
@@ -404,16 +501,41 @@ export function AreaDetailEditPage({
             y={contextMenu.y}
             variant={contextMenu.variant}
             onAddHouse={handleAddHouse}
+            onEditPlace={handleEditPlace}
             onMovePlace={handleMovePlace}
             onDeletePlace={handleDeletePlace}
             onClose={() => setContextMenu(null)}
           />
+        )}
+        {errorMessage && (
+          <div
+            role="alert"
+            className="area-detail-error-banner"
+            onClick={() => setErrorMessage(null)}
+          >
+            {errorMessage}
+          </div>
         )}
       </div>
       {deleteTargetId && (
         <DeletePlaceConfirmDialog
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTargetId(null)}
+        />
+      )}
+      {pendingAddArgs && (
+        <AddPlaceInputDialog
+          onSave={handleAddPlaceSave}
+          onCancel={handleAddPlaceCancel}
+        />
+      )}
+      {editingPlace && (
+        <AddPlaceInputDialog
+          onSave={handleEditPlaceSave}
+          onCancel={handleEditPlaceCancel}
+          initialLabel={editingPlace.label}
+          initialAddress={editingPlace.address}
+          title={t.areaDetail.editPlaceDialogTitle}
         />
       )}
       {flow.kind === "confirmingRestore" && (

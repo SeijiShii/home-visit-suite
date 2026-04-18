@@ -16,6 +16,7 @@ export interface DetailMapHandleLike {
       lat: number;
       lng: number;
       type: PlaceType;
+      tooltip?: string;
     }>,
   ): void;
   clearPlaces(): void;
@@ -29,6 +30,8 @@ export interface PlaceWithType {
   lat: number;
   lng: number;
   type: PlaceType;
+  /** ツールチップ文字列 (未指定ならバインドしない) */
+  tooltip?: string;
 }
 
 /**
@@ -37,12 +40,16 @@ export interface PlaceWithType {
  * setPlaces → setMinZoom → focusPolygon。
  *
  * places は ViewModel.visiblePlaces の id 集合で絞り込み、種別を付与する。
+ *
+ * skipFocus=true のとき focusPolygon を呼ばない (編集後の再適用で
+ * 現在のビューを維持するため)。
  */
 export function applyDetailViewModelToMap(
   handle: DetailMapHandleLike,
   vm: AreaDetailViewModel,
   allPlaces: ReadonlyArray<PlaceWithType>,
   linkedPolygonIds: Set<string>,
+  skipFocus = false,
 ): void {
   const visibleIds = new Set(vm.visiblePlaces.map((p) => p.id));
   const places = allPlaces.filter((p) => visibleIds.has(p.id));
@@ -51,7 +58,9 @@ export function applyDetailViewModelToMap(
   handle.renderAll(linkedPolygonIds);
   handle.setPlaces(places);
   handle.setMinZoom(vm.minZoom);
-  handle.focusPolygon(vm.targetPolygonId as PolygonID);
+  if (!skipFocus) {
+    handle.focusPolygon(vm.targetPolygonId as PolygonID);
+  }
 }
 
 /**

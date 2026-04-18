@@ -8,7 +8,14 @@ var AllMigrations = []ls.Migration{
 	{Version: 2, SQL: migrationV2},
 	{Version: 3, SQL: migrationV3},
 	{Version: 4, SQL: migrationV4},
+	{Version: 5, SQL: migrationV5},
 }
+
+// migrationV5: places に address (住所、任意) カラムを追加
+// 仕様 docs/wants/03_地図機能.md「場所操作 / 家を追加」
+const migrationV5 = `
+ALTER TABLE places ADD COLUMN address TEXT NOT NULL DEFAULT '';
+`
 
 // migrationV4: places に論理削除用 deleted_at と RestoredFromID を追加
 // 仕様 docs/wants/03_地図機能.md「場所の論理削除と訪問記録の紐付け」

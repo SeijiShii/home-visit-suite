@@ -18,6 +18,7 @@ export interface Place {
   type: PlaceType;
   label: string;
   displayName: string;
+  address: string;
   parentId: string;
   sortOrder: number;
   languages: string[];
@@ -66,8 +67,6 @@ export class PlaceService {
     lng: number,
     radiusMeters: number,
   ): Promise<Place[]> {
-    return (
-      (await this.api.ListDeletedPlacesNear(lat, lng, radiusMeters)) ?? []
-    );
+    return (await this.api.ListDeletedPlacesNear(lat, lng, radiusMeters)) ?? [];
   }
 }
