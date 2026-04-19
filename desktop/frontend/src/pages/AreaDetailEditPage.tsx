@@ -15,6 +15,12 @@ import { MapView, type MapViewHandle } from "../components/MapView";
 import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
 import { DeletePlaceConfirmDialog } from "../components/DeletePlaceConfirmDialog";
 import { AddPlaceInputDialog } from "../components/AddPlaceInputDialog";
+import { PlaceListPanel } from "../components/PlaceListPanel";
+import {
+  assignInitialSortOrder,
+  needsInitialAssignment,
+  reorderPlaces,
+} from "../lib/place-sort-order";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import { formatAreaLabel, pointInRing } from "../lib/area-detail-geo";
 import {
@@ -102,6 +108,31 @@ export function AreaDetailEditPage({
   const targetRingRef = useRef<[number, number][] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [panelOpen, setPanelOpenState] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("ui.areaDetailPlaceListOpen");
+      return v === null ? true : v === "true";
+    } catch {
+      return true;
+    }
+  });
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const initialSortAssignedRef = useRef(false);
+  const viewportInitializedRef = useRef(false);
+  const setPanelOpen = useCallback((next: boolean) => {
+    setPanelOpenState(next);
+    try {
+      localStorage.setItem("ui.areaDetailPlaceListOpen", String(next));
+    } catch {
+      // ignore
+    }
+  }, []);
+  // パネル開閉後に Leaflet のレイアウトを再計算
+  useEffect(() => {
+    const id = requestAnimationFrame(() => mapRef.current?.invalidateSize());
+    return () => cancelAnimationFrame(id);
+  }, [panelOpen]);
 
   const isInsideTarget = useCallback((lat: number, lng: number): boolean => {
     const ring = targetRingRef.current;
@@ -144,10 +175,32 @@ export function AreaDetailEditPage({
       const radiusKm =
         (await settingsService?.getAreaDetailRadiusKm().catch(() => 2.5)) ??
         2.5;
-      const places = placeService
+      let places = placeService
         ? await placeService.listPlaces(areaId).catch(() => [])
         : [];
       if (cancelled) return;
+
+      // 初回のみ: 全件 sortOrder=0 なら CreatedAt 昇順で採番して永続化
+      if (
+        placeService &&
+        !initialSortAssignedRef.current &&
+        needsInitialAssignment(places)
+      ) {
+        const assigned = assignInitialSortOrder(places);
+        try {
+          for (const p of assigned) {
+            await placeService.savePlace(p);
+          }
+          places = assigned;
+          initialSortAssignedRef.current = true;
+        } catch (err) {
+          console.error(
+            "[AreaDetailEditPage] initial sortOrder save failed:",
+            err,
+          );
+        }
+      }
+      setPlaces(places);
       const viewportPx = containerRef.current?.clientWidth || 800;
       const vm = buildAreaDetailViewModel({
         polygonCenters: centers,
@@ -173,6 +226,15 @@ export function AreaDetailEditPage({
           ? (targetGeo.coordinates[0] as [number, number][])
           : null;
       const linked = linkedPolygonIds ?? new Set<string>();
+      const sortedForMap = [...places].sort(
+        (a, b) => a.sortOrder - b.sortOrder,
+      );
+      const indexById = new Map<string, number>();
+      sortedForMap.forEach((p, idx) => indexById.set(p.id, idx));
+      // 初回のみ対象区域にフォーカス。選択変更や place 追加・移動などの
+      // 再描画で flyToBounds が走ると panTo と競合して大きく位置がずれるため、
+      // 2 回目以降は skipFocus=true にする。
+      const skipFocus = viewportInitializedRef.current;
       applyDetailViewModelToMap(
         handle,
         vm,
@@ -184,11 +246,14 @@ export function AreaDetailEditPage({
             lng: p.coord.lng,
             type: p.type as PlaceType,
             tooltip: parts.length > 0 ? parts.join(" / ") : t.areaDetail.noName,
+            index: indexById.get(p.id),
+            selected: p.id === selectedPlaceId,
           };
         }),
         linked,
-        refreshKey > 0,
+        skipFocus,
       );
+      viewportInitializedRef.current = true;
       // 場所マーカー右クリックを page 側 state へ橋渡し
       handle.setPlaceContextMenuHandler((placeId, _type, x, y) => {
         setContextMenu({ variant: "place", placeId, x, y });
@@ -206,6 +271,7 @@ export function AreaDetailEditPage({
     areaId,
     linkedPolygonIds,
     refreshKey,
+    selectedPlaceId,
   ]);
 
   const handleMapContextMenu = useCallback(
@@ -470,52 +536,90 @@ export function AreaDetailEditPage({
     bumpRefresh();
   }, [deleteTargetId, onCommitDeletePlace, placeService, bumpRefresh]);
 
+  const handlePlaceRowClick = useCallback(
+    (placeId: string) => {
+      const p = places.find((x) => x.id === placeId);
+      if (!p) return;
+      setSelectedPlaceId(placeId);
+      mapRef.current?.focusPlace(p.coord.lat, p.coord.lng);
+    },
+    [places],
+  );
+
+  const handleReorder = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      const sorted = [...places].sort((a, b) => a.sortOrder - b.sortOrder);
+      const next = reorderPlaces(sorted, fromIndex, toIndex);
+      setPlaces(next);
+      if (!placeService) return;
+      try {
+        for (const p of next) {
+          await placeService.savePlace(p);
+        }
+      } catch (err) {
+        console.error("[AreaDetailEditPage] reorder save failed:", err);
+      }
+      bumpRefresh();
+    },
+    [places, placeService, bumpRefresh],
+  );
+
   const mapEnabled = Boolean(editor && polygonToArea);
 
   return (
     <div className="area-detail-edit-page">
-      <div
-        ref={containerRef}
-        className="area-detail-map"
-        data-testid="area-detail-map"
-      >
-        <button
-          type="button"
-          className="area-detail-topbar"
-          onClick={() => navigate(-1)}
-          aria-label={t.areaDetail.back}
+      <div className="area-detail-body">
+        <div
+          ref={containerRef}
+          className="area-detail-map"
+          data-testid="area-detail-map"
         >
-          <span className="area-detail-back-icon" aria-hidden="true">
-            ←
-          </span>
-          <span className="area-detail-label">
-            {label ?? t.areaDetail.title}
-          </span>
-        </button>
-        {mapEnabled && (
-          <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
-        )}
-        {contextMenu && (
-          <AreaDetailContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            variant={contextMenu.variant}
-            onAddHouse={handleAddHouse}
-            onEditPlace={handleEditPlace}
-            onMovePlace={handleMovePlace}
-            onDeletePlace={handleDeletePlace}
-            onClose={() => setContextMenu(null)}
-          />
-        )}
-        {errorMessage && (
-          <div
-            role="alert"
-            className="area-detail-error-banner"
-            onClick={() => setErrorMessage(null)}
+          <button
+            type="button"
+            className="area-detail-topbar"
+            onClick={() => navigate(-1)}
+            aria-label={t.areaDetail.back}
           >
-            {errorMessage}
-          </div>
-        )}
+            <span className="area-detail-back-icon" aria-hidden="true">
+              ←
+            </span>
+            <span className="area-detail-label">
+              {label ?? t.areaDetail.title}
+            </span>
+          </button>
+          {mapEnabled && (
+            <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
+          )}
+          {contextMenu && (
+            <AreaDetailContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              variant={contextMenu.variant}
+              onAddHouse={handleAddHouse}
+              onEditPlace={handleEditPlace}
+              onMovePlace={handleMovePlace}
+              onDeletePlace={handleDeletePlace}
+              onClose={() => setContextMenu(null)}
+            />
+          )}
+          {errorMessage && (
+            <div
+              role="alert"
+              className="area-detail-error-banner"
+              onClick={() => setErrorMessage(null)}
+            >
+              {errorMessage}
+            </div>
+          )}
+        </div>
+        <PlaceListPanel
+          places={places}
+          open={panelOpen}
+          onToggleOpen={setPanelOpen}
+          onPlaceClick={handlePlaceRowClick}
+          onReorder={handleReorder}
+          selectedPlaceId={selectedPlaceId}
+        />
       </div>
       {deleteTargetId && (
         <DeletePlaceConfirmDialog

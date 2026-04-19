@@ -68,6 +68,24 @@ export function getPlaceMarkerRadius(zoom: number): number {
   return Math.max(8, Math.min(14, r));
 }
 
+/** 場所マーカーに重ねる通し番号バッジの表示テキスト (index は 0 始まり → 表示は 1 始まり) */
+export function getPlaceBadgeText(index: number): string {
+  return String(index + 1);
+}
+
+/**
+ * 場所マーカーの不透明度 (枠線=opacity, 塗り=fillOpacity)。
+ * 選択時は強調のため高い値を返す。
+ */
+export function getPlaceMarkerOpacity(selected: boolean): {
+  fillOpacity: number;
+  opacity: number;
+} {
+  return selected
+    ? { fillOpacity: 1, opacity: 1 }
+    : { fillOpacity: 0.55, opacity: 0.85 };
+}
+
 // 日本の中心付近（成田市）
 const DEFAULT_CENTER: L.LatLngExpression = [35.776, 140.318];
 const DEFAULT_ZOOM = 14;
@@ -124,6 +142,7 @@ export class MapRenderer {
 
   // 場所マーカー (詳細編集モード時のみ表示)
   private placeMarkers = new Map<string, L.CircleMarker>();
+  private placeBadgeMarkers = new Map<string, L.Marker>();
   private placeContextMenuCallback:
     | ((placeId: string, type: PlaceType, x: number, y: number) => void)
     | null = null;
@@ -606,6 +625,10 @@ export class MapRenderer {
       lng: number;
       type: PlaceType;
       tooltip?: string;
+      /** 1 始まりの通し番号バッジ用 index (0 始まり) */
+      index?: number;
+      /** 選択中なら true。マーカー不透明度を上げて強調表示する。 */
+      selected?: boolean;
     }>,
   ): void {
     this.clearPlaces();
@@ -614,13 +637,16 @@ export class MapRenderer {
     const radius = getPlaceMarkerRadius(zoom);
     for (const p of places) {
       const color = getPlaceMarkerColor(p.type);
+      const { fillOpacity, opacity } = getPlaceMarkerOpacity(
+        Boolean(p.selected),
+      );
       const marker = L.circleMarker([p.lat, p.lng], {
         radius,
         color: "#fff",
-        weight: 2,
-        opacity: 0.85,
+        weight: p.selected ? 3 : 2,
+        opacity,
         fillColor: color,
-        fillOpacity: 0.55,
+        fillOpacity,
       }).addTo(this.map);
       if (p.tooltip) {
         marker.bindTooltip(p.tooltip, {
@@ -640,6 +666,25 @@ export class MapRenderer {
         );
       });
       this.placeMarkers.set(p.id, marker);
+
+      // 通し番号バッジを重ねる (index 指定時のみ)
+      // iconSize=[0,0] + iconAnchor=[0,0] で lat/lng 上に divIcon の左上を置き、
+      // 内部の span を transform で中央に寄せることで、円マーカー半径の変化や
+      // ブラウザ側のフォントメトリクスに依存せず常に中心に表示する。
+      if (typeof p.index === "number") {
+        const badgeIcon = L.divIcon({
+          className: "place-number-badge",
+          html: `<span class="place-number-badge-text">${getPlaceBadgeText(p.index)}</span>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+        const badge = L.marker([p.lat, p.lng], {
+          icon: badgeIcon,
+          interactive: false,
+          keyboard: false,
+        }).addTo(this.map);
+        this.placeBadgeMarkers.set(p.id, badge);
+      }
     }
 
     // ズーム変更時に半径を更新
@@ -654,6 +699,10 @@ export class MapRenderer {
       m.remove();
     }
     this.placeMarkers.clear();
+    for (const b of this.placeBadgeMarkers.values()) {
+      b.remove();
+    }
+    this.placeBadgeMarkers.clear();
     if (this.placeZoomHandler && this.map) {
       this.map.off("zoomend", this.placeZoomHandler);
       this.placeZoomHandler = null;
@@ -746,6 +795,18 @@ export class MapRenderer {
       maxZoom: 17,
       duration: 0.8,
     });
+  }
+
+  /** 指定座標へパン移動する (ズームレベルは変更しない)。 */
+  focusPlace(lat: number, lng: number): void {
+    if (!this.map) return;
+    this.map.panTo([lat, lng]);
+  }
+
+  /** パネル開閉などで地図コンテナサイズが変わった際に呼ぶ。 */
+  invalidateSize(): void {
+    if (!this.map) return;
+    this.map.invalidateSize();
   }
 
   setLinkedPolygonIds(ids: Set<string>): void {

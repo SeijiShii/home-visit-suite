@@ -76,6 +76,10 @@ const en: Translations = {
     noName: "No name",
     outsideAreaError:
       "Places can only be added or moved within the area being edited",
+    placeListTitle: "Places",
+    placeListEmpty: "No places yet",
+    placeListToggleOpen: "Open place-list",
+    placeListToggleClose: "Close place-list",
   },
   areaTree: {
     title: "Area Editor",

@@ -39,6 +39,8 @@ vi.mock("../components/MapView", () => ({
       setMinZoom: (...a: unknown[]) => mapCalls.push(["setMinZoom", a]),
       clearMinZoom: () => mapCalls.push(["clearMinZoom", []]),
       focusPolygon: (...a: unknown[]) => mapCalls.push(["focusPolygon", a]),
+      focusPlace: (...a: unknown[]) => mapCalls.push(["focusPlace", a]),
+      invalidateSize: () => mapCalls.push(["invalidateSize", []]),
       setPlaceContextMenuHandler: (cb: unknown) => {
         mockMapProps.placeContextHandler =
           cb as typeof mockMapProps.placeContextHandler;
@@ -457,5 +459,291 @@ describe("AreaDetailEditPage", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByText("移動"));
     expect(onMove).toHaveBeenCalledWith("place-7");
+  });
+
+  it("場所一覧パネル: 行クリックで MapView.focusPlace(lat,lng) が呼ばれる", async () => {
+    mapCalls.length = 0;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const placeService = {
+      listPlaces: vi.fn(async () => [
+        {
+          id: "p1",
+          areaId: "a1",
+          coord: { lat: 35.777, lng: 140.319 },
+          type: "house",
+          label: "Alpha",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+        {
+          id: "p2",
+          areaId: "a1",
+          coord: { lat: 35.7772, lng: 140.3191 },
+          type: "house",
+          label: "Bravo",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 1,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-02T00:00:00Z",
+          updatedAt: "2026-01-02T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+      ]),
+      getPlace: vi.fn(async () => null),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const bravo = await screen.findByText("Bravo");
+    const user = userEvent.setup();
+    await user.click(bravo);
+    const call = mapCalls.find(([n]) => n === "focusPlace");
+    expect(call).toBeDefined();
+    expect(call![1]).toEqual([35.7772, 140.3191]);
+    // クリック後に setPlaces が再呼び出しされ、該当 place が selected=true で渡される
+    await waitFor(() => {
+      const last = [...mapCalls].reverse().find(([n]) => n === "setPlaces");
+      expect(last).toBeDefined();
+      const passed = last![1][0] as Array<{ id: string; selected?: boolean }>;
+      const byId = new Map(passed.map((p) => [p.id, p.selected]));
+      expect(byId.get("p2")).toBe(true);
+      expect(byId.get("p1")).toBeFalsy();
+    });
+  });
+
+  it("場所一覧パネル: setPlaces には sortOrder 昇順の index が含まれる", async () => {
+    mapCalls.length = 0;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const placeService = {
+      listPlaces: vi.fn(async () => [
+        {
+          id: "p1",
+          areaId: "a1",
+          coord: { lat: 35.777, lng: 140.319 },
+          type: "house",
+          label: "Alpha",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 2,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+        {
+          id: "p2",
+          areaId: "a1",
+          coord: { lat: 35.7772, lng: 140.3191 },
+          type: "house",
+          label: "Bravo",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-02T00:00:00Z",
+          updatedAt: "2026-01-02T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+      ]),
+      getPlace: vi.fn(async () => null),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(mapCalls.some(([n]) => n === "setPlaces")).toBe(true);
+    });
+    const setPlacesCall = mapCalls.find(([n]) => n === "setPlaces")!;
+    const passed = setPlacesCall[1][0] as Array<{
+      id: string;
+      index?: number;
+    }>;
+    const byId = new Map(passed.map((p) => [p.id, p.index]));
+    // p2 has sortOrder=0 → index 0, p1 has sortOrder=2 → index 1 (only 2 places)
+    expect(byId.get("p2")).toBe(0);
+    expect(byId.get("p1")).toBe(1);
+  });
+
+  it("場所一覧パネル: 初回ロード時 sortOrder が全て 0 のとき CreatedAt 昇順で採番して savePlace を呼ぶ", async () => {
+    mapCalls.length = 0;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const saveSpy = vi.fn(async (p) => p);
+    const placeService = {
+      listPlaces: vi.fn(async () => [
+        {
+          id: "newer",
+          areaId: "a1",
+          coord: { lat: 35.777, lng: 140.319 },
+          type: "house",
+          label: "newer",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-02-01T00:00:00Z",
+          updatedAt: "2026-02-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+        {
+          id: "older",
+          areaId: "a1",
+          coord: { lat: 35.7772, lng: 140.3191 },
+          type: "house",
+          label: "older",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+      ]),
+      getPlace: vi.fn(async () => null),
+      savePlace: saveSpy,
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenCalledTimes(2);
+    });
+    const savedIds = saveSpy.mock.calls.map(
+      (c) => c[0] as { id: string; sortOrder: number },
+    );
+    const byId = new Map(savedIds.map((s) => [s.id, s.sortOrder]));
+    expect(byId.get("older")).toBe(0);
+    expect(byId.get("newer")).toBe(1);
   });
 });

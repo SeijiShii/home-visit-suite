@@ -722,6 +722,155 @@ section {
 .area-detail-map > .map-container {
   flex: 1;
 }
+
+/* 場所マーカー中央に重ねる通し番号バッジ */
+/* iconSize=[0,0] の divIcon。lat/lng 位置に左上が来るので
+   内部の span を transform で -50% ずらして中央に配置する。 */
+.place-number-badge {
+  background: transparent !important;
+  border: none !important;
+  padding: 0;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none;
+  overflow: visible;
+}
+.place-number-badge-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* 場所一覧サイドパネル */
+.area-detail-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
+.place-list-panel {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+  background: #fff;
+  transition: width 0.15s ease;
+}
+.place-list-panel.is-closed {
+  width: 32px;
+}
+.place-list-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+.place-list-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 6px;
+  color: #4b5563;
+}
+.place-list-toggle:hover {
+  color: #111827;
+}
+.place-list-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #374151;
+}
+.place-list-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.place-list-empty {
+  padding: 16px;
+  color: #9ca3af;
+  font-size: 13px;
+  text-align: center;
+}
+.place-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.place-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  user-select: none;
+}
+.place-row:hover {
+  background: #f3f4f6;
+}
+.place-row.is-selected {
+  background: #dbeafe;
+}
+.place-badge {
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.place-type-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.place-type-icon.place-type-house {
+  background: #2563eb;
+}
+.place-type-icon.place-type-building {
+  background: #16a34a;
+}
+.place-type-icon.place-type-room {
+  background: #ea580c;
+}
+.place-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.place-label {
+  font-size: 13px;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place-address {
+  font-size: 11px;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* トップバーと Leaflet ズームコントロールが重ならないよう下にずらす */
 .area-detail-map .leaflet-top.leaflet-left {
   padding-top: 44px;

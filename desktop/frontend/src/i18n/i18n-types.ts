@@ -73,6 +73,10 @@ export interface Translations {
     cancel: string;
     noName: string;
     outsideAreaError: string;
+    placeListTitle: string;
+    placeListEmpty: string;
+    placeListToggleOpen: string;
+    placeListToggleClose: string;
   };
   areaTree: {
     title: string;

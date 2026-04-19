@@ -74,6 +74,10 @@ const ja: Translations = {
     cancel: "キャンセル",
     noName: "名前なし",
     outsideAreaError: "場所の追加または移動は編集中の区域内でのみ可能です",
+    placeListTitle: "場所一覧",
+    placeListEmpty: "まだ場所がありません",
+    placeListToggleOpen: "place-list を開く",
+    placeListToggleClose: "place-list を閉じる",
   },
   areaTree: {
     title: "区域編集",

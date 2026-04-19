@@ -4,6 +4,8 @@ import {
   getAreaDetailPolygonStyle,
   getPlaceMarkerColor,
   getPlaceMarkerRadius,
+  getPlaceBadgeText,
+  getPlaceMarkerOpacity,
   type VertexDragCallbacks,
   type MapRendererCallbacks,
 } from "./map-renderer";
@@ -93,6 +95,32 @@ describe("getPlaceMarkerRadius", () => {
   it("最小 8px / 最大 14px の範囲にクランプ", () => {
     expect(getPlaceMarkerRadius(0)).toBe(8);
     expect(getPlaceMarkerRadius(99)).toBe(14);
+  });
+});
+
+describe("getPlaceBadgeText", () => {
+  it("returns 1-based number for zero index", () => {
+    expect(getPlaceBadgeText(0)).toBe("1");
+  });
+  it("returns 1-based number for positive index", () => {
+    expect(getPlaceBadgeText(4)).toBe("5");
+  });
+});
+
+describe("getPlaceMarkerOpacity", () => {
+  it("未選択時は既存の塗り 0.55 / 枠 0.85 を維持する", () => {
+    expect(getPlaceMarkerOpacity(false)).toEqual({
+      fillOpacity: 0.55,
+      opacity: 0.85,
+    });
+  });
+  it("選択時は塗りと枠の不透明度が未選択時より高い", () => {
+    const sel = getPlaceMarkerOpacity(true);
+    const un = getPlaceMarkerOpacity(false);
+    expect(sel.fillOpacity).toBeGreaterThan(un.fillOpacity);
+    expect(sel.opacity).toBeGreaterThanOrEqual(un.opacity);
+    expect(sel.fillOpacity).toBeLessThanOrEqual(1);
+    expect(sel.opacity).toBeLessThanOrEqual(1);
   });
 });
 

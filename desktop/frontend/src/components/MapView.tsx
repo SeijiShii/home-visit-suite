@@ -38,11 +38,16 @@ export interface MapViewHandle {
       lat: number;
       lng: number;
       type: PlaceType;
+      tooltip?: string;
+      index?: number;
+      selected?: boolean;
     }>,
   ): void;
   clearPlaces(): void;
   setMinZoom(zoom: number): void;
   clearMinZoom(): void;
+  focusPlace(lat: number, lng: number): void;
+  invalidateSize(): void;
   setPlaceContextMenuHandler(
     cb:
       | ((placeId: string, type: PlaceType, x: number, y: number) => void)
@@ -183,6 +188,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     isPlaceMoving() {
       return rendererRef.current?.isPlaceMoving() ?? false;
+    },
+    focusPlace(lat, lng) {
+      rendererRef.current?.focusPlace(lat, lng);
+    },
+    invalidateSize() {
+      rendererRef.current?.invalidateSize();
     },
   }));
 

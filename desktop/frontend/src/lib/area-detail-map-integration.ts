@@ -17,6 +17,8 @@ export interface DetailMapHandleLike {
       lng: number;
       type: PlaceType;
       tooltip?: string;
+      index?: number;
+      selected?: boolean;
     }>,
   ): void;
   clearPlaces(): void;
@@ -32,6 +34,10 @@ export interface PlaceWithType {
   type: PlaceType;
   /** ツールチップ文字列 (未指定ならバインドしない) */
   tooltip?: string;
+  /** 通し番号バッジ用 index (0 始まり)。未指定ならバッジ無し。 */
+  index?: number;
+  /** 選択中なら true。マーカーを強調表示する。 */
+  selected?: boolean;
 }
 
 /**
