@@ -550,22 +550,6 @@ export function MapPage() {
 
       <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
       <div className="map-sidebar" style={{ width: sidebarWidth }}>
-        <div className="sidebar-draw-area">
-          <button
-            className="sidebar-draw-btn"
-            onClick={handleStartFreeDrawing}
-            disabled={isDrawing || isEditing}
-          >
-            {t.map.startDrawing}
-          </button>
-          <button
-            className="sidebar-draw-btn sidebar-prune-btn"
-            onClick={handlePruneOrphans}
-            disabled={isDrawing || isEditing}
-          >
-            {t.map.pruneOrphans}
-          </button>
-        </div>
         <div className="sidebar-tabs">
           <button
             className={`sidebar-tab${activeTab === "areas" ? " sidebar-tab-active" : ""}`}
@@ -616,6 +600,9 @@ export function MapPage() {
               onLinkPolygon={handleLinkPolygon}
               onUnlinkPolygon={handleUnlinkPolygon}
               isDrawing={isDrawing}
+              isEditing={isEditing}
+              onStartDrawing={handleStartFreeDrawing}
+              onPruneOrphans={handlePruneOrphans}
             />
           </div>
         </div>

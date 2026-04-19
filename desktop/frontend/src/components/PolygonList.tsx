@@ -17,6 +17,12 @@ interface PolygonListProps {
   onLinkPolygon: (polygonId: PolygonID, areaId: string) => void;
   onUnlinkPolygon: (polygonId: PolygonID, areaId: string) => void;
   isDrawing: boolean;
+  /** 描画開始ボタンの押下ハンドラ (未指定時はツールバー非表示) */
+  onStartDrawing?: () => void;
+  /** 不要要素 (orphan 頂点・辺) 削除ハンドラ */
+  onPruneOrphans?: () => void;
+  /** 編集モード中はツールバーのボタンを非活性にする */
+  isEditing?: boolean;
 }
 
 export function PolygonList({
@@ -31,6 +37,9 @@ export function PolygonList({
   onLinkPolygon,
   onUnlinkPolygon,
   isDrawing,
+  onStartDrawing,
+  onPruneOrphans,
+  isEditing = false,
 }: PolygonListProps) {
   const { t } = useI18n();
   const [pendingDelete, setPendingDelete] = useState<PolygonSnapshot | null>(
@@ -99,6 +108,34 @@ export function PolygonList({
   if (polygons.length === 0) {
     return (
       <div className="polygon-list">
+        {(onStartDrawing || onPruneOrphans) && (
+          <div className="polygon-list-toolbar">
+            {onStartDrawing && (
+              <button
+                type="button"
+                className="polygon-list-tool-btn"
+                onClick={onStartDrawing}
+                disabled={isDrawing || isEditing}
+                title={t.map.startDrawing}
+                aria-label={t.map.startDrawing}
+              >
+                <span aria-hidden="true">✏️</span>
+              </button>
+            )}
+            {onPruneOrphans && (
+              <button
+                type="button"
+                className="polygon-list-tool-btn"
+                onClick={onPruneOrphans}
+                disabled={isDrawing || isEditing}
+                title={t.map.pruneOrphans}
+                aria-label={t.map.pruneOrphans}
+              >
+                <span aria-hidden="true">🧹</span>
+              </button>
+            )}
+          </div>
+        )}
         <div className="polygon-list-body">
           <p className="polygon-list-empty">{t.common.noData}</p>
         </div>
@@ -108,6 +145,34 @@ export function PolygonList({
 
   return (
     <div className="polygon-list">
+      {(onStartDrawing || onPruneOrphans) && (
+        <div className="polygon-list-toolbar">
+          {onStartDrawing && (
+            <button
+              type="button"
+              className="polygon-list-tool-btn"
+              onClick={onStartDrawing}
+              disabled={isDrawing || isEditing}
+              title={t.map.startDrawing}
+              aria-label={t.map.startDrawing}
+            >
+              <span aria-hidden="true">✏️</span>
+            </button>
+          )}
+          {onPruneOrphans && (
+            <button
+              type="button"
+              className="polygon-list-tool-btn"
+              onClick={onPruneOrphans}
+              disabled={isDrawing || isEditing}
+              title={t.map.pruneOrphans}
+              aria-label={t.map.pruneOrphans}
+            >
+              <span aria-hidden="true">🧹</span>
+            </button>
+          )}
+        </div>
+      )}
       <div className="polygon-list-body">
         {polygons.map((poly) => {
           const polyId = poly.id as string;

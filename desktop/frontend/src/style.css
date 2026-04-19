@@ -214,31 +214,36 @@ section {
   overflow: hidden;
 }
 
-/* 描画開始ボタン */
-.sidebar-draw-area {
-  padding: 8px 12px;
-  border-bottom: 1px solid #e2e8f0;
+/* ポリゴンタブ内のツールバー (描画開始 / 不要要素削除) */
+.polygon-list-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
   flex-shrink: 0;
 }
-
-.sidebar-draw-btn {
-  width: 100%;
-  padding: 8px 0;
-  background: #3b82f6;
-  color: #fff;
-  border: none;
+.polygon-list-tool-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  background: #fff;
   border-radius: 6px;
-  font-size: 15px;
-  font-weight: 500;
   cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #374151;
 }
-
-.sidebar-draw-btn:hover {
-  background: #2563eb;
+.polygon-list-tool-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
 }
-
-.sidebar-draw-btn:disabled {
-  background: #93c5fd;
+.polygon-list-tool-btn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
