@@ -77,6 +77,17 @@ export interface Translations {
     placeListEmpty: string;
     placeListToggleOpen: string;
     placeListToggleClose: string;
+    addBuildingDialogTitle: string;
+    editBuildingDialogTitle: string;
+    buildingRoomsLabel: string;
+    buildingRoomNumberPlaceholder: string;
+    buildingAddOneRoom: string;
+    buildingAddFiveRooms: string;
+    buildingAddTenRooms: string;
+    buildingRemoveRow: string;
+    buildingConfirmRemoveExistingRoom: string;
+    buildingRoomCountSuffix: string;
+    buildingConfirmDeleteCascade: string;
   };
   areaTree: {
     title: string;

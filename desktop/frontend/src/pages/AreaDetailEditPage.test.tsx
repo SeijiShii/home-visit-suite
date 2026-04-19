@@ -746,4 +746,300 @@ describe("AreaDetailEditPage", () => {
     expect(byId.get("older")).toBe(0);
     expect(byId.get("newer")).toBe(1);
   });
+
+  it("集合住宅追加: コンテキストメニュー → ダイアログ → 保存で Building + Room が作成される", async () => {
+    mapCalls.length = 0;
+    mockMapProps.onContextMenu = undefined;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const saveSpy = vi.fn(async (p) => ({
+      ...p,
+      id: p.id || `gen-${Math.random().toString(36).slice(2, 7)}`,
+    }));
+    const placeService = {
+      listPlaces: vi.fn(async () => []),
+      getPlace: vi.fn(async () => null),
+      savePlace: saveSpy,
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(mockMapProps.onContextMenu).toBeDefined());
+    mockMapProps.onContextMenu!(35.7771, 140.319, 100, 200);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("集合住宅を追加"));
+    // ダイアログで +1 押して 2 行にし、保存
+    await user.click(await screen.findByRole("button", { name: "+1" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => {
+      // Building 1 件 + Room 2 件 = 3 回
+      expect(saveSpy).toHaveBeenCalledTimes(3);
+    });
+    const saved = saveSpy.mock.calls.map(
+      (c) => c[0] as import("../services/place-service").Place,
+    );
+    const building = saved.find((p) => p.type === "building");
+    const rooms = saved.filter((p) => p.type === "room");
+    expect(building).toBeDefined();
+    expect(building!.coord).toEqual({ lat: 35.7771, lng: 140.319 });
+    expect(rooms).toHaveLength(2);
+    expect(rooms[0].coord).toEqual({ lat: 0, lng: 0 });
+    expect(rooms[0].parentId).not.toBe("");
+    expect(rooms[0].sortOrder).toBe(0);
+    expect(rooms[1].sortOrder).toBe(1);
+  });
+
+  it("集合住宅削除: 確認ダイアログでカスケード削除 (Building + Room 全件)", async () => {
+    mapCalls.length = 0;
+    mockMapProps.placeContextHandler = undefined;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const deleteSpy = vi.fn(async () => {});
+    const placeService = {
+      listPlaces: vi.fn(async () => [
+        {
+          id: "bldg-1",
+          areaId: "a1",
+          coord: { lat: 35.7771, lng: 140.319 },
+          type: "building",
+          label: "Apt",
+          displayName: "",
+          address: "",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+        {
+          id: "room-1",
+          areaId: "a1",
+          coord: { lat: 0, lng: 0 },
+          type: "room",
+          label: "",
+          displayName: "101",
+          address: "",
+          parentId: "bldg-1",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+        {
+          id: "room-2",
+          areaId: "a1",
+          coord: { lat: 0, lng: 0 },
+          type: "room",
+          label: "",
+          displayName: "102",
+          address: "",
+          parentId: "bldg-1",
+          sortOrder: 1,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+      ]),
+      getPlace: vi.fn(async (id: string) => {
+        if (id === "bldg-1") {
+          return {
+            id: "bldg-1",
+            areaId: "a1",
+            coord: { lat: 35.7771, lng: 140.319 },
+            type: "building",
+            label: "Apt",
+            displayName: "",
+            address: "",
+            parentId: "",
+            sortOrder: 0,
+            languages: [],
+            doNotVisit: false,
+            doNotVisitNote: "",
+            createdAt: "",
+            updatedAt: "",
+            deletedAt: null,
+            restoredFromId: null,
+          };
+        }
+        return null;
+      }),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: deleteSpy,
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    // 一覧でダブルクリック → 編集ダイアログ (building) を検証する前に、
+    // ここではコンテキストメニュー経由の「削除」→ カスケードをテスト
+    await waitFor(() => expect(mockMapProps.placeContextHandler).toBeDefined());
+    mockMapProps.placeContextHandler!("bldg-1", "building", 80, 90);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("削除"));
+    // 確認ダイアログに "2 部屋" が含まれる
+    expect(
+      await screen.findByText(/この集合住宅と 2 部屋を削除しますか/),
+    ).toBeInTheDocument();
+    // 削除ボタン押下
+    const dialogDeleteBtn = screen
+      .getByRole("dialog")
+      .querySelectorAll("button")[1] as HTMLButtonElement;
+    await user.click(dialogDeleteBtn);
+    await waitFor(() => {
+      // 3 回 (room-1, room-2, bldg-1)
+      expect(deleteSpy).toHaveBeenCalledTimes(3);
+    });
+    const deletedIds = (
+      deleteSpy as unknown as { mock: { calls: string[][] } }
+    ).mock.calls.map((c) => c[0]);
+    expect(deletedIds).toEqual(
+      expect.arrayContaining(["room-1", "room-2", "bldg-1"]),
+    );
+  });
+
+  it("一覧パネル: 戸建て行ダブルクリックで編集ダイアログが開く", async () => {
+    mapCalls.length = 0;
+    const editor: PolygonGeoSource = {
+      getPolygons: () => [{ id: "poly-a1", active: true }],
+      getPolygonGeoJSON: () => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [140.318, 35.776],
+            [140.318, 35.778],
+            [140.32, 35.778],
+            [140.318, 35.776],
+          ],
+        ],
+      }),
+    };
+    const polygonToArea = new Map([["poly-a1", "a1"]]);
+    const placeService = {
+      listPlaces: vi.fn(async () => [
+        {
+          id: "h1",
+          areaId: "a1",
+          coord: { lat: 35.777, lng: 140.319 },
+          type: "house",
+          label: "Home A",
+          displayName: "",
+          address: "addr-1",
+          parentId: "",
+          sortOrder: 0,
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          deletedAt: null,
+          restoredFromId: null,
+        },
+      ]),
+      getPlace: vi.fn(async () => null),
+      savePlace: vi.fn(async (p) => p),
+      deletePlace: vi.fn(async () => {}),
+      listDeletedPlacesNear: vi.fn(async () => []),
+    } as unknown as import("../services/place-service").PlaceService;
+    const settings = new SettingsService(createSettingsApi());
+    render(
+      <MemoryRouter initialEntries={["/map/area/a1/detail"]}>
+        <I18nProvider service={settings}>
+          <Routes>
+            <Route
+              path="/map/area/:areaId/detail"
+              element={
+                <AreaDetailEditPage
+                  regionService={createMockRegionService(sampleTree)}
+                  editor={editor}
+                  polygonToArea={polygonToArea}
+                  placeService={placeService}
+                />
+              }
+            />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const row = await screen.findByText("Home A");
+    const user = userEvent.setup();
+    await user.dblClick(row);
+    // 編集モードのダイアログが開く (タイトル)
+    expect(
+      await screen.findByRole("dialog", { name: /場所を編集/ }),
+    ).toBeInTheDocument();
+  });
 });

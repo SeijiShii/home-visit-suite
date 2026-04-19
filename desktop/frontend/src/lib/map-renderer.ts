@@ -50,15 +50,15 @@ export function getAreaDetailPolygonStyle(
 
 export type PlaceType = "house" | "building" | "room";
 
-/** 仕様: house=青 / building=緑 / room=橙 */
+/** 仕様: house=青 / building=オレンジ (room は Phase 1 では地図非表示、当面 house と同色) */
 export function getPlaceMarkerColor(type: PlaceType): string {
   switch (type) {
     case "house":
       return "#2563eb"; // 青
     case "building":
-      return "#16a34a"; // 緑
+      return "#ea580c"; // オレンジ
     case "room":
-      return "#ea580c"; // 橙
+      return "#2563eb"; // Phase 1 では地図表示しないので暫定
   }
 }
 

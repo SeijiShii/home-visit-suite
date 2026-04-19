@@ -17,10 +17,17 @@ import { DeletePlaceConfirmDialog } from "../components/DeletePlaceConfirmDialog
 import { AddPlaceInputDialog } from "../components/AddPlaceInputDialog";
 import { PlaceListPanel } from "../components/PlaceListPanel";
 import {
+  BuildingEditDialog,
+  type BuildingDialogMode,
+  type BuildingDialogSaveArgs,
+} from "../components/BuildingEditDialog";
+import {
   assignInitialSortOrder,
   needsInitialAssignment,
+  nextSortOrder,
   reorderPlaces,
 } from "../lib/place-sort-order";
+import { diffRoomRows } from "../lib/building-flow";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import { formatAreaLabel, pointInRing } from "../lib/area-detail-geo";
 import {
@@ -120,6 +127,15 @@ export function AreaDetailEditPage({
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const initialSortAssignedRef = useRef(false);
   const viewportInitializedRef = useRef(false);
+  // 集合住宅関連
+  const [rooms, setRooms] = useState<Place[]>([]);
+  const [buildingDialog, setBuildingDialog] = useState<
+    | { mode: "create"; lat: number; lng: number }
+    | { mode: "edit"; building: Place }
+    | null
+  >(null);
+  const [pendingBuildingDelete, setPendingBuildingDelete] =
+    useState<Place | null>(null);
   const setPanelOpen = useCallback((next: boolean) => {
     setPanelOpenState(next);
     try {
@@ -175,23 +191,27 @@ export function AreaDetailEditPage({
       const radiusKm =
         (await settingsService?.getAreaDetailRadiusKm().catch(() => 2.5)) ??
         2.5;
-      let places = placeService
+      const all = placeService
         ? await placeService.listPlaces(areaId).catch(() => [])
         : [];
       if (cancelled) return;
 
-      // 初回のみ: 全件 sortOrder=0 なら CreatedAt 昇順で採番して永続化
+      // area-level の場所 (house / building) と、集合住宅配下の room を分離
+      let areaPlaces = all.filter((p) => !p.parentId);
+      const loadedRooms = all.filter((p) => p.type === "room");
+
+      // 初回のみ: area-level が全件 sortOrder=0 なら CreatedAt 昇順で採番して永続化
       if (
         placeService &&
         !initialSortAssignedRef.current &&
-        needsInitialAssignment(places)
+        needsInitialAssignment(areaPlaces)
       ) {
-        const assigned = assignInitialSortOrder(places);
+        const assigned = assignInitialSortOrder(areaPlaces);
         try {
           for (const p of assigned) {
             await placeService.savePlace(p);
           }
-          places = assigned;
+          areaPlaces = assigned;
           initialSortAssignedRef.current = true;
         } catch (err) {
           console.error(
@@ -200,7 +220,9 @@ export function AreaDetailEditPage({
           );
         }
       }
-      setPlaces(places);
+      setPlaces(areaPlaces);
+      setRooms(loadedRooms);
+      const places = areaPlaces;
       const viewportPx = containerRef.current?.clientWidth || 800;
       const vm = buildAreaDetailViewModel({
         polygonCenters: centers,
@@ -485,12 +507,6 @@ export function AreaDetailEditPage({
     dispatchMove({ type: "restoreNo" });
   }, [moveFlow]);
 
-  const handleDeletePlace = useCallback(() => {
-    if (!contextMenu || contextMenu.variant !== "place") return;
-    setDeleteTargetId(contextMenu.placeId);
-    setContextMenu(null);
-  }, [contextMenu]);
-
   const handleEditPlace = useCallback(async () => {
     if (!contextMenu || contextMenu.variant !== "place") return;
     const { placeId } = contextMenu;
@@ -498,7 +514,11 @@ export function AreaDetailEditPage({
     if (!placeService) return;
     const place = await placeService.getPlace(placeId).catch(() => null);
     if (!place) return;
-    setEditingPlace(place);
+    if (place.type === "building") {
+      setBuildingDialog({ mode: "edit", building: place });
+    } else {
+      setEditingPlace(place);
+    }
   }, [contextMenu, placeService]);
 
   const handleEditPlaceSave = useCallback(
@@ -548,7 +568,9 @@ export function AreaDetailEditPage({
 
   const handleReorder = useCallback(
     async (fromIndex: number, toIndex: number) => {
-      const sorted = [...places].sort((a, b) => a.sortOrder - b.sortOrder);
+      const sorted = [...places]
+        .filter((p) => p.type !== "room")
+        .sort((a, b) => a.sortOrder - b.sortOrder);
       const next = reorderPlaces(sorted, fromIndex, toIndex);
       setPlaces(next);
       if (!placeService) return;
@@ -564,7 +586,175 @@ export function AreaDetailEditPage({
     [places, placeService, bumpRefresh],
   );
 
+  // --- 集合住宅 ---
+
+  const handleAddBuilding = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "blank") return;
+    const { lat, lng } = contextMenu;
+    setContextMenu(null);
+    if (!isInsideTarget(lat, lng)) {
+      showOutsideError();
+      return;
+    }
+    setBuildingDialog({ mode: "create", lat, lng });
+  }, [contextMenu, isInsideTarget, showOutsideError]);
+
+  const handlePlaceDoubleClick = useCallback(
+    (placeId: string) => {
+      const p = places.find((x) => x.id === placeId);
+      if (!p) return;
+      if (p.type === "building") {
+        setBuildingDialog({ mode: "edit", building: p });
+      } else if (p.type === "house" && placeService) {
+        setEditingPlace(p);
+      }
+    },
+    [places, placeService],
+  );
+
+  const handleBuildingDialogSave = useCallback(
+    async (args: BuildingDialogSaveArgs) => {
+      const snapshot = buildingDialog;
+      setBuildingDialog(null);
+      if (!snapshot || !placeService) return;
+      const nowIso = new Date().toISOString();
+      try {
+        let buildingId: string;
+        if (snapshot.mode === "create") {
+          const building = await placeService.savePlace({
+            id: "",
+            areaId,
+            coord: { lat: snapshot.lat, lng: snapshot.lng },
+            type: "building",
+            label: args.label,
+            displayName: "",
+            address: args.address,
+            parentId: "",
+            sortOrder: nextSortOrder(places),
+            languages: [],
+            doNotVisit: false,
+            doNotVisitNote: "",
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            deletedAt: null,
+            restoredFromId: null,
+          });
+          buildingId = building.id;
+          // 新規作成: すべての行を Room として追加
+          for (let i = 0; i < args.rows.length; i++) {
+            const row = args.rows[i];
+            await placeService.savePlace({
+              id: "",
+              areaId,
+              coord: { lat: 0, lng: 0 },
+              type: "room",
+              label: "",
+              displayName: row.displayName,
+              address: "",
+              parentId: buildingId,
+              sortOrder: i,
+              languages: [],
+              doNotVisit: false,
+              doNotVisitNote: "",
+              createdAt: nowIso,
+              updatedAt: nowIso,
+              deletedAt: null,
+              restoredFromId: null,
+            });
+          }
+        } else {
+          buildingId = snapshot.building.id;
+          const updatedBuilding: Place = {
+            ...snapshot.building,
+            label: args.label,
+            address: args.address,
+          };
+          await placeService.savePlace(updatedBuilding);
+          const existing = rooms.filter(
+            (r) => r.parentId === buildingId && !r.deletedAt,
+          );
+          const { toAdd, toUpdate, toDelete } = diffRoomRows(
+            existing,
+            args.rows,
+            buildingId,
+          );
+          for (const r of toAdd) {
+            await placeService.savePlace({ ...r, areaId });
+          }
+          for (const r of toUpdate) {
+            await placeService.savePlace(r);
+          }
+          for (const id of toDelete) {
+            await placeService.deletePlace(id);
+          }
+        }
+      } catch (err) {
+        console.error("[AreaDetailEditPage] saveBuilding failed:", err);
+      }
+      bumpRefresh();
+    },
+    [buildingDialog, placeService, areaId, places, rooms, bumpRefresh],
+  );
+
+  const handleBuildingDialogCancel = useCallback(() => {
+    setBuildingDialog(null);
+  }, []);
+
+  const handleDeletePlaceGeneric = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    const { placeId } = contextMenu;
+    setContextMenu(null);
+    const p = places.find((x) => x.id === placeId);
+    if (p && p.type === "building") {
+      setPendingBuildingDelete(p);
+      return;
+    }
+    setDeleteTargetId(placeId);
+  }, [contextMenu, places]);
+
+  const buildingRoomCount = useCallback(
+    (buildingId: string): number =>
+      rooms.filter((r) => r.parentId === buildingId && !r.deletedAt).length,
+    [rooms],
+  );
+
+  const handleBuildingDeleteConfirm = useCallback(async () => {
+    const target = pendingBuildingDelete;
+    if (!target || !placeService) {
+      setPendingBuildingDelete(null);
+      return;
+    }
+    setPendingBuildingDelete(null);
+    try {
+      const childRooms = rooms.filter(
+        (r) => r.parentId === target.id && !r.deletedAt,
+      );
+      for (const r of childRooms) {
+        await placeService.deletePlace(r.id);
+      }
+      await placeService.deletePlace(target.id);
+    } catch (err) {
+      console.error(
+        "[AreaDetailEditPage] deleteBuilding (cascade) failed:",
+        err,
+      );
+    }
+    bumpRefresh();
+  }, [pendingBuildingDelete, placeService, rooms, bumpRefresh]);
+
+  const handleBuildingDeleteCancel = useCallback(() => {
+    setPendingBuildingDelete(null);
+  }, []);
+
   const mapEnabled = Boolean(editor && polygonToArea);
+
+  const roomCountsMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of places) {
+      if (p.type === "building") m.set(p.id, buildingRoomCount(p.id));
+    }
+    return m;
+  }, [places, buildingRoomCount]);
 
   return (
     <div className="area-detail-edit-page">
@@ -596,9 +786,10 @@ export function AreaDetailEditPage({
               y={contextMenu.y}
               variant={contextMenu.variant}
               onAddHouse={handleAddHouse}
+              onAddBuilding={handleAddBuilding}
               onEditPlace={handleEditPlace}
               onMovePlace={handleMovePlace}
-              onDeletePlace={handleDeletePlace}
+              onDeletePlace={handleDeletePlaceGeneric}
               onClose={() => setContextMenu(null)}
             />
           )}
@@ -617,8 +808,10 @@ export function AreaDetailEditPage({
           open={panelOpen}
           onToggleOpen={setPanelOpen}
           onPlaceClick={handlePlaceRowClick}
+          onPlaceDoubleClick={handlePlaceDoubleClick}
           onReorder={handleReorder}
           selectedPlaceId={selectedPlaceId}
+          roomCounts={roomCountsMap}
         />
       </div>
       {deleteTargetId && (
@@ -662,6 +855,49 @@ export function AreaDetailEditPage({
           <p>{t.areaDetail.linkRestoredPrompt}</p>
           <button onClick={handleMoveRestoreYes}>{t.areaDetail.yes}</button>
           <button onClick={handleMoveRestoreNo}>{t.areaDetail.no}</button>
+        </div>
+      )}
+      {buildingDialog && (
+        <BuildingEditDialog
+          mode={buildingDialog.mode as BuildingDialogMode}
+          initialLabel={
+            buildingDialog.mode === "edit" ? buildingDialog.building.label : ""
+          }
+          initialAddress={
+            buildingDialog.mode === "edit"
+              ? buildingDialog.building.address
+              : ""
+          }
+          initialRooms={
+            buildingDialog.mode === "edit"
+              ? rooms.filter(
+                  (r) =>
+                    r.parentId === buildingDialog.building.id && !r.deletedAt,
+                )
+              : []
+          }
+          onSave={handleBuildingDialogSave}
+          onCancel={handleBuildingDialogCancel}
+        />
+      )}
+      {pendingBuildingDelete && (
+        <div
+          role="dialog"
+          aria-label={t.areaDetail.buildingConfirmDeleteCascade}
+          className="delete-place-confirm-dialog"
+        >
+          <p>
+            {t.areaDetail.buildingConfirmDeleteCascade.replace(
+              "{count}",
+              String(buildingRoomCount(pendingBuildingDelete.id)),
+            )}
+          </p>
+          <button onClick={handleBuildingDeleteCancel}>
+            {t.areaDetail.cancel}
+          </button>
+          <button onClick={handleBuildingDeleteConfirm}>
+            {t.areaDetail.deletePlace}
+          </button>
         </div>
       )}
     </div>

@@ -149,4 +149,52 @@ describe("PlaceListPanel", () => {
     fireEvent.drop(rows[0]);
     expect(onReorder).not.toHaveBeenCalled();
   });
+
+  it("renders building rows with room count badge (🏢 N部屋)", () => {
+    const places = [
+      makePlace({
+        id: "b1",
+        type: "building",
+        sortOrder: 0,
+        label: "Apt",
+        address: "",
+      }),
+    ];
+    renderPanel({
+      places,
+      roomCounts: new Map([["b1", 5]]),
+    });
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveClass("is-building");
+    expect(within(rows[0]).getByText(/🏢 5部屋/)).toBeInTheDocument();
+  });
+
+  it("hides rooms (type=room) from the list", () => {
+    const places = [
+      makePlace({ id: "h", sortOrder: 0, label: "House", type: "house" }),
+      makePlace({
+        id: "r1",
+        sortOrder: 1,
+        type: "room",
+        parentId: "b1",
+      }),
+    ];
+    renderPanel({ places });
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]).getByText("House")).toBeInTheDocument();
+  });
+
+  it("calls onPlaceDoubleClick with placeId on double-click", async () => {
+    const onPlaceDoubleClick = vi.fn();
+    const places = [
+      makePlace({ id: "a", sortOrder: 0, label: "Alpha", type: "house" }),
+      makePlace({ id: "b", sortOrder: 1, label: "Beta", type: "house" }),
+    ];
+    renderPanel({ places, onPlaceDoubleClick });
+    const user = userEvent.setup();
+    await user.dblClick(screen.getByText("Beta"));
+    expect(onPlaceDoubleClick).toHaveBeenCalledWith("b");
+  });
 });

@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AreaDetailContextMenu } from "./AreaDetailContextMenu";
 import { I18nProvider } from "../contexts/I18nContext";
-import { SettingsService, type SettingsBindingAPI } from "../services/settings-service";
+import {
+  SettingsService,
+  type SettingsBindingAPI,
+} from "../services/settings-service";
 
 function createSettingsApi(): SettingsBindingAPI {
   return {
@@ -24,14 +27,31 @@ function renderWith(ui: React.ReactElement) {
 describe("AreaDetailContextMenu", () => {
   const base = { x: 10, y: 20, onClose: vi.fn() };
 
-  it("blank: 指定位置に家を追加のみ表示", () => {
+  it("blank: 家を追加と集合住宅を追加を表示", () => {
     renderWith(<AreaDetailContextMenu {...base} variant="blank" />);
     const menu = screen.getByRole("menu");
     expect(menu.style.left).toBe("10px");
     expect(menu.style.top).toBe("20px");
     expect(screen.getByText("家を追加")).toBeDefined();
+    expect(screen.getByText("集合住宅を追加")).toBeDefined();
     expect(screen.queryByText("移動")).toBeNull();
     expect(screen.queryByText("削除")).toBeNull();
+  });
+
+  it("blank: 集合住宅を追加クリックで onAddBuilding と onClose", () => {
+    const onAddBuilding = vi.fn();
+    const onClose = vi.fn();
+    renderWith(
+      <AreaDetailContextMenu
+        {...base}
+        variant="blank"
+        onAddBuilding={onAddBuilding}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getByText("集合住宅を追加"));
+    expect(onAddBuilding).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("blank: 家を追加クリックで onAddHouse と onClose", () => {

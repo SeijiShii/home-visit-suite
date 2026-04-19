@@ -7,9 +7,12 @@ export interface PlaceListPanelProps {
   open: boolean;
   onToggleOpen: (next: boolean) => void;
   onPlaceClick: (placeId: string) => void;
+  onPlaceDoubleClick?: (placeId: string) => void;
   /** 並び替え確定時: from/to は sortOrder 昇順に並べた後のインデックス */
   onReorder: (fromIndex: number, toIndex: number) => void;
   selectedPlaceId: string | null;
+  /** buildingId → 生存 Room 数 (集合住宅行の右側に表示)。未指定なら 0 扱い。 */
+  roomCounts?: ReadonlyMap<string, number>;
 }
 
 export function PlaceListPanel({
@@ -17,14 +20,20 @@ export function PlaceListPanel({
   open,
   onToggleOpen,
   onPlaceClick,
+  onPlaceDoubleClick,
   onReorder,
   selectedPlaceId,
+  roomCounts,
 }: PlaceListPanelProps) {
   const { t } = useI18n();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
+  // Phase 1: room (type="room") は一覧に出さない。
   const sorted = useMemo(
-    () => [...places].sort((a, b) => a.sortOrder - b.sortOrder),
+    () =>
+      [...places]
+        .filter((p) => p.type !== "room")
+        .sort((a, b) => a.sortOrder - b.sortOrder),
     [places],
   );
 
@@ -49,7 +58,9 @@ export function PlaceListPanel({
           {open ? "›" : "‹"}
         </button>
         {open && (
-          <span className="place-list-title">{t.areaDetail.placeListTitle}</span>
+          <span className="place-list-title">
+            {t.areaDetail.placeListTitle}
+          </span>
         )}
       </div>
       {open && (
@@ -63,12 +74,22 @@ export function PlaceListPanel({
               {sorted.map((p, index) => {
                 const isSelected = selectedPlaceId === p.id;
                 const label = p.label.trim() || t.areaDetail.noName;
+                const isBuilding = p.type === "building";
+                const roomCount = isBuilding ? (roomCounts?.get(p.id) ?? 0) : 0;
+                const addressText = p.address.trim();
+                const className = [
+                  "place-row",
+                  isSelected ? "is-selected" : "",
+                  isBuilding ? "is-building" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
                 return (
                   <li
                     key={p.id}
                     role="listitem"
                     aria-selected={isSelected}
-                    className={`place-row${isSelected ? " is-selected" : ""}`}
+                    className={className}
                     draggable
                     onDragStart={() => setDragIndex(index)}
                     onDragOver={(e) => {
@@ -85,6 +106,7 @@ export function PlaceListPanel({
                     }}
                     onDragEnd={() => setDragIndex(null)}
                     onClick={() => onPlaceClick(p.id)}
+                    onDoubleClick={() => onPlaceDoubleClick?.(p.id)}
                   >
                     <span className="place-badge" data-testid="place-badge">
                       {p.sortOrder + 1}
@@ -95,8 +117,15 @@ export function PlaceListPanel({
                     />
                     <span className="place-row-text">
                       <span className="place-label">{label}</span>
-                      {p.address.trim() && (
-                        <span className="place-address">{p.address}</span>
+                      {isBuilding ? (
+                        <span className="place-address">
+                          {`🏢 ${roomCount}${t.areaDetail.buildingRoomCountSuffix}`}
+                          {addressText && ` · ${addressText}`}
+                        </span>
+                      ) : (
+                        addressText && (
+                          <span className="place-address">{addressText}</span>
+                        )
                       )}
                     </span>
                   </li>

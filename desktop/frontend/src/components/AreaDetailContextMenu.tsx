@@ -15,6 +15,7 @@ interface AreaDetailContextMenuProps {
   y: number;
   variant: AreaDetailContextMenuVariant;
   onAddHouse?: () => void;
+  onAddBuilding?: () => void;
   onEditPlace?: () => void;
   onMovePlace?: () => void;
   onDeletePlace?: () => void;
@@ -26,6 +27,7 @@ export function AreaDetailContextMenu({
   y,
   variant,
   onAddHouse,
+  onAddBuilding,
   onEditPlace,
   onMovePlace,
   onDeletePlace,
@@ -66,13 +68,22 @@ export function AreaDetailContextMenu({
       onMouseDown={(e) => e.stopPropagation()}
     >
       {variant === "blank" && (
-        <button
-          role="menuitem"
-          className="area-detail-context-menu-item"
-          onClick={wrap(onAddHouse)}
-        >
-          {t.areaDetail.addHouse}
-        </button>
+        <>
+          <button
+            role="menuitem"
+            className="area-detail-context-menu-item"
+            onClick={wrap(onAddHouse)}
+          >
+            {t.areaDetail.addHouse}
+          </button>
+          <button
+            role="menuitem"
+            className="area-detail-context-menu-item"
+            onClick={wrap(onAddBuilding)}
+          >
+            {t.areaDetail.addBuilding}
+          </button>
+        </>
       )}
       {variant === "place" && (
         <>

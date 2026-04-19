@@ -78,11 +78,13 @@ describe("getPlaceMarkerColor", () => {
   it("house は青系", () => {
     expect(getPlaceMarkerColor("house")).toMatch(/^#[0-9a-f]{6}$/i);
   });
-  it("type ごとに色が異なる", () => {
-    const c1 = getPlaceMarkerColor("house");
-    const c2 = getPlaceMarkerColor("building");
-    const c3 = getPlaceMarkerColor("room");
-    expect(new Set([c1, c2, c3]).size).toBe(3);
+  it("building はオレンジ系", () => {
+    expect(getPlaceMarkerColor("building")).toBe("#ea580c");
+  });
+  it("house と building の色が異なる", () => {
+    expect(getPlaceMarkerColor("house")).not.toBe(
+      getPlaceMarkerColor("building"),
+    );
   });
 });
 

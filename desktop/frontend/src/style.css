@@ -837,6 +837,9 @@ section {
   align-items: center;
   justify-content: center;
 }
+.place-row.is-building .place-badge {
+  background: #ea580c;
+}
 .place-type-icon {
   width: 14px;
   height: 14px;
@@ -847,10 +850,10 @@ section {
   background: #2563eb;
 }
 .place-type-icon.place-type-building {
-  background: #16a34a;
+  background: #ea580c;
 }
 .place-type-icon.place-type-room {
-  background: #ea580c;
+  background: #2563eb;
 }
 .place-row-text {
   display: flex;
@@ -894,7 +897,8 @@ section {
 .area-detail-context-menu,
 .delete-place-confirm-dialog,
 .area-detail-restore-dialog,
-.add-place-input-dialog {
+.add-place-input-dialog,
+.building-edit-dialog {
   position: absolute;
   z-index: 1000;
   background: #fff;
@@ -902,6 +906,117 @@ section {
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 6px;
+}
+.building-edit-dialog {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 20px;
+  min-width: 380px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.building-edit-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.building-edit-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.building-edit-dialog-field input {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+}
+.building-edit-dialog-rooms {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 0;
+}
+.building-edit-dialog-rooms > legend {
+  padding: 0 6px;
+  font-size: 12px;
+  color: #4b5563;
+}
+.building-room-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.building-room-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: move;
+}
+.building-room-row input {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+}
+.building-room-remove {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 4px;
+  color: #b91c1c;
+  cursor: pointer;
+}
+.building-room-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.building-room-add-actions {
+  display: flex;
+  gap: 6px;
+}
+.building-room-add-actions button {
+  padding: 4px 10px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.building-room-confirm-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1100;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+}
+.building-room-confirm-dialog button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
 }
 .add-place-input-dialog {
   top: 50%;
