@@ -144,11 +144,18 @@ export function AreaDetailEditPage({
       // ignore
     }
   }, []);
-  // パネル開閉後に Leaflet のレイアウトを再計算
+  // 地図コンテナのサイズ変化を監視して Leaflet のレイアウトを再計算する。
+  // パネルの開閉・ウィンドウリサイズ・CSS transition 完了時のいずれでも
+  // invalidateSize を確実に呼び、タイルの未描画領域が残らないようにする。
   useEffect(() => {
-    const id = requestAnimationFrame(() => mapRef.current?.invalidateSize());
-    return () => cancelAnimationFrame(id);
-  }, [panelOpen]);
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const isInsideTarget = useCallback((lat: number, lng: number): boolean => {
     const ring = targetRingRef.current;
