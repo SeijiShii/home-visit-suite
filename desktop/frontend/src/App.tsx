@@ -7,6 +7,7 @@ import { TipStack } from "./components/TipStack";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
 import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
+import { VisitPageContainer } from "./pages/VisitPageContainer";
 import { UsersPage } from "./pages/UsersPage";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { CoveragePage } from "./pages/CoveragePage";
@@ -35,6 +36,7 @@ export function App() {
                 element={<AreaDetailEditPageContainer />}
               />
               <Route path="regions" element={<RegionManagementPage />} />
+              <Route path="visit" element={<VisitPageContainer />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="activities" element={<ActivitiesPage />} />
               <Route path="coverage" element={<CoveragePage />} />

@@ -10,6 +10,7 @@ const en: Translations = {
     requests: "Requests",
     regions: "Region Management",
     settings: "Settings",
+    visit: "Visit Records",
   },
   dashboard: {
     title: "Dashboard",
@@ -135,6 +136,11 @@ const en: Translations = {
     placeCreateRequestTextPlaceholder:
       "Describe the place (newly built building, store, etc.)",
     placeCreateRequestSubmit: "Submit request",
+    pageTitle: "Visit Records",
+    phase1Banner:
+      "Phase 1 stub: hard-coded redirect to area {areaId} (checkout flow comes later)",
+    placesEmpty: "No places registered in this area",
+    addPlaceCreateRequest: "Request new place",
   },
   areaTree: {
     title: "Area Editor",

@@ -10,6 +10,7 @@ const ja: Translations = {
     requests: "申請管理",
     regions: "領域管理",
     settings: "設定",
+    visit: "訪問記録",
   },
   dashboard: {
     title: "ダッシュボード",
@@ -133,6 +134,11 @@ const ja: Translations = {
     placeCreateRequestTextPlaceholder:
       "新築の集合住宅、店舗など、状況を記入してください",
     placeCreateRequestSubmit: "申請を送信",
+    pageTitle: "訪問記録",
+    phase1Banner:
+      "Phase 1 暫定: 区域 {areaId} に固定遷移しています（チェックアウト連携は次期スコープ）",
+    placesEmpty: "この区域には場所が登録されていません",
+    addPlaceCreateRequest: "場所の追加を申請",
   },
   areaTree: {
     title: "区域編集",

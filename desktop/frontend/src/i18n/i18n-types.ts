@@ -10,6 +10,7 @@ export interface Translations {
     requests: string;
     regions: string;
     settings: string;
+    visit: string;
   };
   dashboard: {
     title: string;
@@ -130,6 +131,10 @@ export interface Translations {
     placeCreateRequestTextLabel: string;
     placeCreateRequestTextPlaceholder: string;
     placeCreateRequestSubmit: string;
+    pageTitle: string;
+    phase1Banner: string;
+    placesEmpty: string;
+    addPlaceCreateRequest: string;
   };
   areaTree: {
     title: string;

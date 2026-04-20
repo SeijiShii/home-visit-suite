@@ -16,10 +16,15 @@ function renderLayout(initialRoute = "/") {
 }
 
 describe("Layout", () => {
-  it("8つのナビゲーションリンクが表示される", () => {
+  it("9つのナビゲーションリンクが表示される", () => {
     renderLayout();
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(8);
+    expect(links).toHaveLength(9);
+  });
+
+  it("訪問記録メニューが含まれる", () => {
+    renderLayout();
+    expect(screen.getByText("訪問記録")).toBeInTheDocument();
   });
 
   it("ダッシュボードリンクがアクティブ", () => {
