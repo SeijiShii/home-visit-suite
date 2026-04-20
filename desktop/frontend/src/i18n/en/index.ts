@@ -121,6 +121,10 @@ const en: Translations = {
     placeModifyTextLabel: "Modification details",
     placeModifyTextPlaceholder: "Describe what should be modified",
     placeModifySubmit: "Submit request",
+    buildingDialogTitle: "Building visit",
+    buildingRoomsTitle: "Rooms",
+    buildingRoomsEmpty: "No rooms",
+    close: "Close",
   },
   areaTree: {
     title: "Area Editor",

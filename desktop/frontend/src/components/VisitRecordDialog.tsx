@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../contexts/I18nContext";
+import { lastVisitColorClass } from "../lib/visit-date-color";
 import {
   VISIT_RESULTS,
   visitResultRequiresApplication,
@@ -26,18 +27,6 @@ export interface VisitRecordDialogProps {
   onCancel: () => void;
   /** 「場所情報の修正を申請」テキスト送信時 */
   onPlaceModifyRequest: (text: string) => void;
-}
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const ONE_MONTH_DAYS = 30;
-const SIX_MONTHS_DAYS = 182;
-
-function lastMetClass(date: Date | null): string {
-  if (!date) return "";
-  const days = Math.floor((Date.now() - date.getTime()) / MS_PER_DAY);
-  if (days <= ONE_MONTH_DAYS) return "last-met-recent";
-  if (days <= SIX_MONTHS_DAYS) return "last-met-mid";
-  return "last-met-old";
 }
 
 function formatDate(d: Date): string {
@@ -104,7 +93,10 @@ export function VisitRecordDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  const lastMetClassName = useMemo(() => lastMetClass(lastMetDate), [lastMetDate]);
+  const lastMetClassName = useMemo(
+    () => lastVisitColorClass(lastMetDate),
+    [lastMetDate],
+  );
 
   const handleResultChange = (next: VisitResult) => {
     if (visitResultRequiresApplication(next)) {

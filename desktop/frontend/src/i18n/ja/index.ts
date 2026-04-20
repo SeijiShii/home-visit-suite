@@ -119,6 +119,10 @@ const ja: Translations = {
     placeModifyTextLabel: "修正内容",
     placeModifyTextPlaceholder: "修正してほしい内容を記入してください",
     placeModifySubmit: "申請を送信",
+    buildingDialogTitle: "集合住宅の訪問",
+    buildingRoomsTitle: "部屋一覧",
+    buildingRoomsEmpty: "部屋情報なし",
+    close: "閉じる",
   },
   areaTree: {
     title: "区域編集",

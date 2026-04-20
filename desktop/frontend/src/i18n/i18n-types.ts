@@ -117,6 +117,10 @@ export interface Translations {
     placeModifyTextLabel: string;
     placeModifyTextPlaceholder: string;
     placeModifySubmit: string;
+    buildingDialogTitle: string;
+    buildingRoomsTitle: string;
+    buildingRoomsEmpty: string;
+    close: string;
   };
   areaTree: {
     title: string;
