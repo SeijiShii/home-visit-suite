@@ -24,6 +24,8 @@ type ActivityRepository interface {
 
 	// VisitRecord
 	ListVisitRecords(areaID string) ([]models.VisitRecord, error)
+	ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error)             // 場所単位の全ネットワーク訪問記録（最近会えた日付の集計用）
+	ListMyVisitRecordsByPlace(placeID, userID string) ([]models.VisitRecord, error)   // 場所単位の個人訪問履歴
 	GetVisitRecord(id string) (*models.VisitRecord, error)
 	SaveVisitRecord(vr *models.VisitRecord) error
 	DeleteVisitRecord(id string) error

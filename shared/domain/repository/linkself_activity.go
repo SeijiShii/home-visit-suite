@@ -206,6 +206,49 @@ func (r *LinkSelfActivityRepo) ListVisitRecords(areaID string) ([]models.VisitRe
 	return result, nil
 }
 
+func (r *LinkSelfActivityRepo) ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
+		        result, applied_request_id, visited_at, created_at, updated_at
+		 FROM visit_records WHERE place_id = ? ORDER BY visited_at DESC`, placeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []models.VisitRecord
+	for rows.Next() {
+		vr, err := scanVisitRecord(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, vr)
+	}
+	return result, nil
+}
+
+func (r *LinkSelfActivityRepo) ListMyVisitRecordsByPlace(placeID, userID string) ([]models.VisitRecord, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
+		        result, applied_request_id, visited_at, created_at, updated_at
+		 FROM visit_records WHERE place_id = ? AND user_id = ? ORDER BY visited_at DESC`,
+		placeID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []models.VisitRecord
+	for rows.Next() {
+		vr, err := scanVisitRecord(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, vr)
+	}
+	return result, nil
+}
+
 func (r *LinkSelfActivityRepo) GetVisitRecord(id string) (*models.VisitRecord, error) {
 	rows, err := r.db.Query(r.ctx,
 		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,

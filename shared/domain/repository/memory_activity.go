@@ -181,6 +181,32 @@ func (r *InMemoryActivityRepository) ListVisitRecords(areaID string) ([]models.V
 	return result, nil
 }
 
+func (r *InMemoryActivityRepository) ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []models.VisitRecord
+	for _, v := range r.records {
+		if v.PlaceID == placeID {
+			result = append(result, *v)
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryActivityRepository) ListMyVisitRecordsByPlace(placeID, userID string) ([]models.VisitRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []models.VisitRecord
+	for _, v := range r.records {
+		if v.PlaceID == placeID && v.UserID == userID {
+			result = append(result, *v)
+		}
+	}
+	return result, nil
+}
+
 func (r *InMemoryActivityRepository) GetVisitRecord(id string) (*models.VisitRecord, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

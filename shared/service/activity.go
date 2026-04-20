@@ -21,7 +21,10 @@ type ActivityService interface {
 	ForceReturn(actorID string, activityID string) error
 
 	// RecordVisit は訪問記録を作成する。activity staffが実行。
-	RecordVisit(actorID string, activityID string, placeID string, result models.VisitResult, visitedAt time.Time) (*models.VisitRecord, error)
+	// applicationText: 申請を伴うステータス（vacant_abandoned / refused）の場合は必須、
+	// それ以外は無視される。
+	// 申請が必要なステータスでは Request も同時に作成し、AppliedRequestID で紐付ける。
+	RecordVisit(actorID string, activityID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error)
 
 	// AssignTeam は訪問活動にチームを割り当てる。
 	AssignTeam(actorID string, activityID, teamID string, activityDate time.Time) error

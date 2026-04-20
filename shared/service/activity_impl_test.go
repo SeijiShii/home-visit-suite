@@ -12,7 +12,7 @@ import (
 func setupActivity() (service.ActivityService, *testdata.Repos) {
 	repos := testdata.NewInMemoryRepos()
 	testdata.SeedAll(repos)
-	svc := service.NewActivityService(repos.Activity, repos.User)
+	svc := service.NewActivityService(repos.Activity, repos.User, repos.Notification)
 	return svc, repos
 }
 
@@ -198,7 +198,7 @@ func TestRecordVisit_Success(t *testing.T) {
 	memberDID := "did:key:z6Mk0010"
 	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
 
-	vr, err := svc.RecordVisit(memberDID, act.ID, "place-0001", models.VisitResultMet, time.Now())
+	vr, err := svc.RecordVisit(memberDID, act.ID, "place-0001", models.VisitResultMet, time.Now(), "")
 	if err != nil {
 		t.Fatalf("RecordVisit: %v", err)
 	}
@@ -230,12 +230,111 @@ func TestRecordVisit_NotActive_Error(t *testing.T) {
 	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
 	svc.Return(memberDID, act.ID)
 
-	_, err := svc.RecordVisit(memberDID, act.ID, "place-0001", models.VisitResultMet, time.Now())
+	_, err := svc.RecordVisit(memberDID, act.ID, "place-0001", models.VisitResultMet, time.Now(), "")
 	if err == nil {
 		t.Fatal("expected error for recording visit on non-active activity")
 	}
 	if !service.IsCode(err, service.ErrInvalidState) {
 		t.Errorf("error code = %v, want invalid_state", err)
+	}
+}
+
+func TestRecordVisit_Refused_CreatesRequest(t *testing.T) {
+	svc, repos := setupActivity()
+
+	areaID := "pa-tms-002-02"
+	editorDID := "did:key:z6Mk0003"
+	memberDID := "did:key:z6Mk0010"
+	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+
+	text := "玄関先で『今後一切来ないでほしい』との明確な意思表示あり"
+	vr, err := svc.RecordVisit(memberDID, act.ID, "place-0001", models.VisitResultRefused, time.Now(), text)
+	if err != nil {
+		t.Fatalf("RecordVisit: %v", err)
+	}
+	if vr.AppliedRequestID == nil {
+		t.Fatal("AppliedRequestID = nil, want non-nil for refused")
+	}
+
+	req, err := repos.Notification.GetRequest(*vr.AppliedRequestID)
+	if err != nil {
+		t.Fatalf("GetRequest: %v", err)
+	}
+	if req.Type != models.RequestTypeDoNotVisit {
+		t.Errorf("Request.Type = %q, want do_not_visit", req.Type)
+	}
+	if req.PlaceID != "place-0001" {
+		t.Errorf("Request.PlaceID = %q, want place-0001", req.PlaceID)
+	}
+	if req.SubmitterID != memberDID {
+		t.Errorf("Request.SubmitterID = %q, want %q", req.SubmitterID, memberDID)
+	}
+	if req.Description != text {
+		t.Errorf("Request.Description = %q, want %q", req.Description, text)
+	}
+	if req.AreaID != act.AreaID {
+		t.Errorf("Request.AreaID = %q, want %q", req.AreaID, act.AreaID)
+	}
+	if req.Status != models.RequestStatusPending {
+		t.Errorf("Request.Status = %q, want pending", req.Status)
+	}
+}
+
+func TestRecordVisit_VacantAbandoned_CreatesMapUpdateRequest(t *testing.T) {
+	svc, repos := setupActivity()
+
+	areaID := "pa-tms-002-03"
+	editorDID := "did:key:z6Mk0003"
+	memberDID := "did:key:z6Mk0010"
+	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+
+	text := "完全に廃屋。屋根が崩落している"
+	vr, err := svc.RecordVisit(memberDID, act.ID, "place-0002", models.VisitResultVacantAbandoned, time.Now(), text)
+	if err != nil {
+		t.Fatalf("RecordVisit: %v", err)
+	}
+	if vr.AppliedRequestID == nil {
+		t.Fatal("AppliedRequestID = nil, want non-nil for vacant_abandoned")
+	}
+
+	req, _ := repos.Notification.GetRequest(*vr.AppliedRequestID)
+	if req.Type != models.RequestTypeMapUpdate {
+		t.Errorf("Request.Type = %q, want map_update", req.Type)
+	}
+}
+
+func TestRecordVisit_Refused_EmptyText_Error(t *testing.T) {
+	svc, _ := setupActivity()
+
+	areaID := "pa-tms-003-04"
+	editorDID := "did:key:z6Mk0003"
+	memberDID := "did:key:z6Mk0010"
+	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+
+	_, err := svc.RecordVisit(memberDID, act.ID, "place-0001", models.VisitResultRefused, time.Now(), "")
+	if err == nil {
+		t.Fatal("expected error for empty applicationText with refused status")
+	}
+	if !service.IsCode(err, service.ErrInvalidInput) {
+		t.Errorf("error code = %v, want invalid_input", err)
+	}
+}
+
+func TestRecordVisit_VacantPossible_NoApplication(t *testing.T) {
+	// vacant_possible は申請を伴わないステータス。テキスト指定不要、Request も作成されない
+	svc, _ := setupActivity()
+
+	areaID := "pa-tms-004-02"
+	editorDID := "did:key:z6Mk0003"
+	memberDID := "did:key:z6Mk0010"
+	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+
+	vr, err := svc.RecordVisit(memberDID, act.ID, "place-0003", models.VisitResultVacantPossible, time.Now(), "")
+	if err != nil {
+		t.Fatalf("RecordVisit: %v", err)
+	}
+	if vr.AppliedRequestID != nil {
+		t.Errorf("AppliedRequestID = %v, want nil for vacant_possible", vr.AppliedRequestID)
 	}
 }
 

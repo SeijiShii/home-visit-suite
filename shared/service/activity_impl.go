@@ -9,13 +9,16 @@ import (
 )
 
 type activityService struct {
-	actRepo  domain.ActivityRepository
-	userRepo domain.UserRepository
+	actRepo   domain.ActivityRepository
+	userRepo  domain.UserRepository
+	notifRepo domain.NotificationRepository
 }
 
 // NewActivityService はActivityServiceの実装を生成する。
-func NewActivityService(actRepo domain.ActivityRepository, userRepo domain.UserRepository) ActivityService {
-	return &activityService{actRepo: actRepo, userRepo: userRepo}
+// notifRepo は申請を伴う訪問ステータス（vacant_abandoned / refused）から
+// Request を作成する際に使用する。
+func NewActivityService(actRepo domain.ActivityRepository, userRepo domain.UserRepository, notifRepo domain.NotificationRepository) ActivityService {
+	return &activityService{actRepo: actRepo, userRepo: userRepo, notifRepo: notifRepo}
 }
 
 func (s *activityService) getActorRole(actorID string) (models.Role, error) {
@@ -94,7 +97,7 @@ func (s *activityService) ForceReturn(actorID string, activityID string) error {
 	return s.Return(actorID, activityID)
 }
 
-func (s *activityService) RecordVisit(actorID string, activityID string, placeID string, result models.VisitResult, visitedAt time.Time) (*models.VisitRecord, error) {
+func (s *activityService) RecordVisit(actorID string, activityID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
 	act, err := s.actRepo.GetActivity(activityID)
 	if err != nil {
 		return nil, Errorf(ErrNotFound, "activity not found: %s", activityID)
@@ -102,6 +105,10 @@ func (s *activityService) RecordVisit(actorID string, activityID string, placeID
 
 	if act.Status != models.ActivityStatusActive {
 		return nil, Errorf(ErrInvalidState, "activity %s is not active", activityID)
+	}
+
+	if result.RequiresApplication() && applicationText == "" {
+		return nil, Errorf(ErrInvalidInput, "applicationText is required for visit result %q", result)
 	}
 
 	now := time.Now()
@@ -117,10 +124,40 @@ func (s *activityService) RecordVisit(actorID string, activityID string, placeID
 		UpdatedAt:  now,
 	}
 
+	if result.RequiresApplication() {
+		req := &models.Request{
+			ID:          fmt.Sprintf("req-%d", now.UnixNano()),
+			Type:        requestTypeForVisitResult(result),
+			Status:      models.RequestStatusPending,
+			SubmitterID: actorID,
+			AreaID:      act.AreaID,
+			PlaceID:     placeID,
+			Description: applicationText,
+			CreatedAt:   now,
+		}
+		if err := s.notifRepo.SaveRequest(req); err != nil {
+			return nil, fmt.Errorf("save request: %w", err)
+		}
+		reqID := req.ID
+		vr.AppliedRequestID = &reqID
+	}
+
 	if err := s.actRepo.SaveVisitRecord(vr); err != nil {
 		return nil, fmt.Errorf("save visit record: %w", err)
 	}
 	return vr, nil
+}
+
+// requestTypeForVisitResult は申請を伴う訪問ステータスから対応する RequestType を返す。
+func requestTypeForVisitResult(result models.VisitResult) models.RequestType {
+	switch result {
+	case models.VisitResultVacantAbandoned:
+		return models.RequestTypeMapUpdate
+	case models.VisitResultRefused:
+		return models.RequestTypeDoNotVisit
+	default:
+		return ""
+	}
 }
 
 func (s *activityService) AssignTeam(actorID string, activityID, teamID string, activityDate time.Time) error {

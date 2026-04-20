@@ -156,6 +156,52 @@ func TestVisitRecord_SaveAndList(t *testing.T) {
 	}
 }
 
+func TestVisitRecord_ListByPlaceAndUser(t *testing.T) {
+	repo := newActivityRepo()
+	now := time.Now()
+
+	// place-1 への訪問: user-A が 3 件、user-B が 1 件
+	// place-2 への訪問: user-A が 1 件
+	for _, vr := range []*models.VisitRecord{
+		{ID: "v1", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now.Add(-72 * time.Hour)},
+		{ID: "v2", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultAbsent, VisitedAt: now.Add(-48 * time.Hour)},
+		{ID: "v3", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now.Add(-24 * time.Hour)},
+		{ID: "v4", PlaceID: "place-1", UserID: "user-B", AreaID: "area-1", ActivityID: "a2", Result: models.VisitResultMet, VisitedAt: now.Add(-12 * time.Hour)},
+		{ID: "v5", PlaceID: "place-2", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now},
+	} {
+		if err := repo.SaveVisitRecord(vr); err != nil {
+			t.Fatalf("SaveVisitRecord: %v", err)
+		}
+	}
+
+	// 全ネットワーク（place-1 への訪問は 4 件）
+	all, err := repo.ListVisitRecordsByPlace("place-1")
+	if err != nil {
+		t.Fatalf("ListVisitRecordsByPlace: %v", err)
+	}
+	if len(all) != 4 {
+		t.Errorf("ListVisitRecordsByPlace len = %d, want 4", len(all))
+	}
+
+	// 個人履歴（user-A の place-1 への訪問は 3 件）
+	mine, err := repo.ListMyVisitRecordsByPlace("place-1", "user-A")
+	if err != nil {
+		t.Fatalf("ListMyVisitRecordsByPlace: %v", err)
+	}
+	if len(mine) != 3 {
+		t.Errorf("ListMyVisitRecordsByPlace len = %d, want 3", len(mine))
+	}
+
+	// 該当なし
+	none, err := repo.ListMyVisitRecordsByPlace("place-1", "user-Z")
+	if err != nil {
+		t.Fatalf("ListMyVisitRecordsByPlace empty: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("ListMyVisitRecordsByPlace empty len = %d, want 0", len(none))
+	}
+}
+
 func TestVisitRecord_AppliedRequestID_RoundTrip(t *testing.T) {
 	repo := newActivityRepo()
 	now := time.Now()
