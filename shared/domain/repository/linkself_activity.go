@@ -188,7 +188,7 @@ func (r *LinkSelfActivityRepo) DeleteAssignment(id string) error {
 func (r *LinkSelfActivityRepo) ListVisitRecords(areaID string) ([]models.VisitRecord, error) {
 	rows, err := r.db.Query(r.ctx,
 		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
-		        result, visited_at, created_at, updated_at
+		        result, applied_request_id, visited_at, created_at, updated_at
 		 FROM visit_records WHERE area_id = ? ORDER BY visited_at DESC`, areaID)
 	if err != nil {
 		return nil, err
@@ -232,13 +232,18 @@ func (r *LinkSelfActivityRepo) SaveVisitRecord(vr *models.VisitRecord) error {
 		lat = sql.NullFloat64{Float64: vr.Coord.Lat, Valid: true}
 		lng = sql.NullFloat64{Float64: vr.Coord.Lng, Valid: true}
 	}
+	appliedReqID := ""
+	if vr.AppliedRequestID != nil {
+		appliedReqID = *vr.AppliedRequestID
+	}
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO visit_records
 		 (id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
-		  result, visited_at, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		  result, applied_request_id, visited_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		vr.ID, vr.UserID, vr.PlaceID, lat, lng, vr.AreaID, vr.ActivityID,
-		string(vr.Result), formatTime(vr.VisitedAt), formatTime(vr.CreatedAt), formatTime(vr.UpdatedAt))
+		string(vr.Result), appliedReqID,
+		formatTime(vr.VisitedAt), formatTime(vr.CreatedAt), formatTime(vr.UpdatedAt))
 	return err
 }
 
@@ -317,16 +322,21 @@ func scanTeam(row scannable) (models.Team, error) {
 func scanVisitRecord(row scannable) (models.VisitRecord, error) {
 	var vr models.VisitRecord
 	var coordLat, coordLng sql.NullFloat64
-	var resultStr string
+	var resultStr, appliedReqID string
 	var visitedAt, createdAt, updatedAt string
 	err := row.Scan(&vr.ID, &vr.UserID, &vr.PlaceID, &coordLat, &coordLng,
-		&vr.AreaID, &vr.ActivityID, &resultStr, &visitedAt, &createdAt, &updatedAt)
+		&vr.AreaID, &vr.ActivityID, &resultStr, &appliedReqID,
+		&visitedAt, &createdAt, &updatedAt)
 	if err != nil {
 		return vr, err
 	}
 	vr.Result = models.VisitResult(resultStr)
 	if coordLat.Valid && coordLng.Valid {
 		vr.Coord = &models.Coordinate{Lat: coordLat.Float64, Lng: coordLng.Float64}
+	}
+	if appliedReqID != "" {
+		s := appliedReqID
+		vr.AppliedRequestID = &s
 	}
 	vr.VisitedAt = parseTime(visitedAt)
 	vr.CreatedAt = parseTime(createdAt)

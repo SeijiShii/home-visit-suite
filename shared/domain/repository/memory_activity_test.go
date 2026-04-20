@@ -156,6 +156,34 @@ func TestVisitRecord_SaveAndList(t *testing.T) {
 	}
 }
 
+func TestVisitRecord_AppliedRequestID_RoundTrip(t *testing.T) {
+	repo := newActivityRepo()
+	now := time.Now()
+	reqID := "req-9"
+	if err := repo.SaveVisitRecord(&models.VisitRecord{
+		ID:               "vr-app",
+		AreaID:           "area-1",
+		ActivityID:       "a1",
+		PlaceID:          "place-1",
+		Result:           models.VisitResultRefused,
+		AppliedRequestID: &reqID,
+		VisitedAt:        now,
+	}); err != nil {
+		t.Fatalf("SaveVisitRecord: %v", err)
+	}
+
+	got, err := repo.GetVisitRecord("vr-app")
+	if err != nil {
+		t.Fatalf("GetVisitRecord: %v", err)
+	}
+	if got.AppliedRequestID == nil || *got.AppliedRequestID != "req-9" {
+		t.Errorf("AppliedRequestID = %v, want %q", got.AppliedRequestID, "req-9")
+	}
+	if got.Result != models.VisitResultRefused {
+		t.Errorf("Result = %q, want refused", got.Result)
+	}
+}
+
 // --- VisitRecordEdit ---
 
 func TestVisitRecordEdit_SaveAndList(t *testing.T) {

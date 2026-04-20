@@ -50,6 +50,26 @@ func TestRequest_SaveAndList(t *testing.T) {
 	}
 }
 
+func TestRequest_PlaceID_RoundTrip(t *testing.T) {
+	repo := newNotificationRepo()
+	repo.SaveRequest(&models.Request{
+		ID:          "req-pim",
+		AreaID:      "a1",
+		Type:        models.RequestTypePlaceInfoModify,
+		Status:      models.RequestStatusPending,
+		PlaceID:     "place-99",
+		Description: "部屋番号修正",
+	})
+
+	got, err := repo.GetRequest("req-pim")
+	if err != nil {
+		t.Fatalf("GetRequest: %v", err)
+	}
+	if got.PlaceID != "place-99" {
+		t.Errorf("PlaceID = %q, want %q", got.PlaceID, "place-99")
+	}
+}
+
 func TestAuditLog_SaveAndList(t *testing.T) {
 	repo := newNotificationRepo()
 	repo.SaveAuditLog(&models.AuditLog{ID: "al-1", RegionID: "r1", Action: models.AuditActionRoleChange, Timestamp: time.Now()})

@@ -9,7 +9,21 @@ var AllMigrations = []ls.Migration{
 	{Version: 3, SQL: migrationV3},
 	{Version: 4, SQL: migrationV4},
 	{Version: 5, SQL: migrationV5},
+	{Version: 6, SQL: migrationV6},
 }
+
+// migrationV6: 訪問記録機能の拡張に伴うカラム追加
+// 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録ダイアログ」、
+//      docs/wants/03_地図機能.md「集合住宅の追加・編集」、
+//      docs/wants/07_通知と申請.md「申請種別」
+//   - visit_records.applied_request_id: 申請を伴うステータス時の Request 参照
+//   - requests.place_id: 既存場所への申請対象 ID
+//   - places.description: 集合住宅の補足情報
+const migrationV6 = `
+ALTER TABLE visit_records ADD COLUMN applied_request_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE requests ADD COLUMN place_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE places ADD COLUMN description TEXT NOT NULL DEFAULT '';
+`
 
 // migrationV5: places に address (住所、任意) カラムを追加
 // 仕様 docs/wants/03_地図機能.md「場所操作 / 家を追加」

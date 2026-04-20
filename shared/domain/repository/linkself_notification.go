@@ -52,7 +52,7 @@ func (r *LinkSelfNotificationRepo) MarkNotificationRead(id string) error {
 
 func (r *LinkSelfNotificationRepo) ListRequests(areaID string) ([]models.Request, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, type, status, submitter_id, area_id, coord_lat, coord_lng,
+		`SELECT id, type, status, submitter_id, area_id, place_id, coord_lat, coord_lng,
 		        description, created_at, resolved_at, resolved_by
 		 FROM requests WHERE area_id = ? ORDER BY created_at DESC`, areaID)
 	if err != nil {
@@ -73,7 +73,7 @@ func (r *LinkSelfNotificationRepo) ListRequests(areaID string) ([]models.Request
 
 func (r *LinkSelfNotificationRepo) GetRequest(id string) (*models.Request, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, type, status, submitter_id, area_id, coord_lat, coord_lng,
+		`SELECT id, type, status, submitter_id, area_id, place_id, coord_lat, coord_lng,
 		        description, created_at, resolved_at, resolved_by
 		 FROM requests WHERE id = ?`, id)
 	if err != nil {
@@ -99,11 +99,11 @@ func (r *LinkSelfNotificationRepo) SaveRequest(req *models.Request) error {
 	}
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO requests
-		 (id, type, status, submitter_id, area_id, coord_lat, coord_lng,
+		 (id, type, status, submitter_id, area_id, place_id, coord_lat, coord_lng,
 		  description, created_at, resolved_at, resolved_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		req.ID, string(req.Type), string(req.Status), req.SubmitterID, req.AreaID,
-		lat, lng, req.Description, formatTime(req.CreatedAt),
+		req.PlaceID, lat, lng, req.Description, formatTime(req.CreatedAt),
 		formatTimePtr(req.ResolvedAt), req.ResolvedBy)
 	return err
 }
@@ -171,7 +171,7 @@ func scanRequest(row scannable) (models.Request, error) {
 	var createdAt string
 	var resolvedAt sql.NullString
 	err := row.Scan(&req.ID, &typeStr, &statusStr, &req.SubmitterID, &req.AreaID,
-		&coordLat, &coordLng, &req.Description, &createdAt, &resolvedAt, &req.ResolvedBy)
+		&req.PlaceID, &coordLat, &coordLng, &req.Description, &createdAt, &resolvedAt, &req.ResolvedBy)
 	if err != nil {
 		return req, err
 	}

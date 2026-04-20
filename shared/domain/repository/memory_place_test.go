@@ -26,6 +26,28 @@ func TestPlace_SaveAndGet(t *testing.T) {
 	}
 }
 
+func TestPlace_Description_RoundTrip(t *testing.T) {
+	repo := newPlaceRepo()
+	desc := "オートロックあり。管理人室は1F北側。"
+	p := &models.Place{
+		ID:          "b1",
+		AreaID:      "area-1",
+		Type:        models.PlaceTypeBuilding,
+		Label:       "○○マンション",
+		Description: desc,
+	}
+	if err := repo.SavePlace(p); err != nil {
+		t.Fatalf("SavePlace: %v", err)
+	}
+	got, err := repo.GetPlace("b1")
+	if err != nil {
+		t.Fatalf("GetPlace: %v", err)
+	}
+	if got.Description != desc {
+		t.Errorf("Description = %q, want %q", got.Description, desc)
+	}
+}
+
 func TestPlace_ListByArea(t *testing.T) {
 	repo := newPlaceRepo()
 	repo.SavePlace(&models.Place{ID: "p1", AreaID: "area-1", Type: models.PlaceTypeHouse})
