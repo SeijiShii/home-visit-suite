@@ -91,6 +91,33 @@ export interface Translations {
     buildingRoomCountSuffix: string;
     buildingConfirmDeleteCascade: string;
   };
+  visitRecord: {
+    dialogTitle: string;
+    visitedAtLabel: string;
+    resultLabel: string;
+    resultMet: string;
+    resultAbsent: string;
+    resultVacantPossible: string;
+    resultVacantAbandoned: string;
+    resultRefused: string;
+    noteLabel: string;
+    notePlaceholder: string;
+    lastMetLabel: string;
+    lastMetNone: string;
+    lastMetSuffix: string;
+    historyToggle: string;
+    historyNone: string;
+    placeModifyRequestButton: string;
+    applicationDialogTitle: string;
+    applicationTextLabel: string;
+    applicationTextPlaceholder: string;
+    applicationConfirmSave: string;
+    applicationCancel: string;
+    placeModifyDialogTitle: string;
+    placeModifyTextLabel: string;
+    placeModifyTextPlaceholder: string;
+    placeModifySubmit: string;
+  };
   areaTree: {
     title: string;
     region: string;
