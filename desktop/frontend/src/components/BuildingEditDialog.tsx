@@ -14,6 +14,7 @@ export type BuildingDialogMode = "create" | "edit";
 export interface BuildingDialogSaveArgs {
   label: string;
   address: string;
+  description: string;
   rows: RoomRow[];
 }
 
@@ -21,6 +22,7 @@ export interface BuildingEditDialogProps {
   mode: BuildingDialogMode;
   initialLabel?: string;
   initialAddress?: string;
+  initialDescription?: string;
   /** 編集モードで既存の Room (`type="room"`, `DeletedAt==null`) を sortOrder 昇順で渡す */
   initialRooms?: readonly Place[];
   onSave: (args: BuildingDialogSaveArgs) => void;
@@ -42,6 +44,7 @@ export function BuildingEditDialog({
   mode,
   initialLabel = "",
   initialAddress = "",
+  initialDescription = "",
   initialRooms,
   onSave,
   onCancel,
@@ -49,6 +52,7 @@ export function BuildingEditDialog({
   const { t } = useI18n();
   const [label, setLabel] = useState(initialLabel);
   const [address, setAddress] = useState(initialAddress);
+  const [description, setDescription] = useState(initialDescription);
   const [rows, setRows] = useState<RoomRow[]>(() =>
     buildInitialRows(initialRooms),
   );
@@ -95,7 +99,7 @@ export function BuildingEditDialog({
   };
 
   const handleSave = () => {
-    onSave({ label, address, rows });
+    onSave({ label, address, description, rows });
   };
 
   const removedRow = useMemo(
@@ -139,6 +143,20 @@ export function BuildingEditDialog({
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
+        />
+      </label>
+      <label className="building-edit-dialog-field">
+        <span>
+          {t.areaDetail.addBuildingDescriptionLabel}
+          <span className="add-place-input-dialog-optional">
+            （{t.areaDetail.addPlaceOptional}）
+          </span>
+        </span>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={t.areaDetail.addBuildingDescriptionPlaceholder}
+          rows={3}
         />
       </label>
       <fieldset className="building-edit-dialog-rooms">

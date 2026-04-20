@@ -80,6 +80,9 @@ const ja: Translations = {
     placeListToggleClose: "place-list を閉じる",
     addBuildingDialogTitle: "集合住宅を追加",
     editBuildingDialogTitle: "集合住宅を編集",
+    addBuildingDescriptionLabel: "補足情報",
+    addBuildingDescriptionPlaceholder:
+      "建物全体の注意事項（オートロックの有無、入口の場所、立入禁止情報など）",
     buildingRoomsLabel: "部屋番号一覧",
     buildingRoomNumberPlaceholder: "部屋番号",
     buildingAddOneRoom: "+1",

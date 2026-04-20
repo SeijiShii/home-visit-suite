@@ -13,6 +13,7 @@ function makeRoom(partial: Partial<Place> & { id: string }): Place {
     label: "",
     displayName: "",
     address: "",
+    description: "",
     parentId: "bldg-1",
     sortOrder: 0,
     languages: [],
@@ -107,10 +108,30 @@ describe("BuildingEditDialog — create mode", () => {
     const arg = onSave.mock.calls[0][0];
     expect(arg.label).toBe("エイプリル荘");
     expect(arg.address).toBe("千葉県1-2-3");
-    expect(arg.rows.map((r: { displayName: string }) => r.displayName)).toEqual([
-      "101",
-      "102",
-    ]);
+    expect(arg.rows.map((r: { displayName: string }) => r.displayName)).toEqual(
+      ["101", "102"],
+    );
+  });
+
+  it("saves with description when entered", async () => {
+    const onSave = vi.fn();
+    renderDialog({ mode: "create", onSave });
+    const user = userEvent.setup();
+    await user.type(
+      screen.getByLabelText(/補足情報/),
+      "オートロックあり。管理人室は1F北側。",
+    );
+    await user.click(screen.getByRole("button", { name: "保存" }));
+    expect(onSave).toHaveBeenCalledOnce();
+    const arg = onSave.mock.calls[0][0];
+    expect(arg.description).toBe("オートロックあり。管理人室は1F北側。");
+  });
+
+  it("description defaults to empty string when not entered", async () => {
+    const onSave = vi.fn();
+    renderDialog({ mode: "create", onSave });
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(onSave.mock.calls[0][0].description).toBe("");
   });
 
   it("Cancel button calls onCancel", async () => {
@@ -158,8 +179,11 @@ describe("BuildingEditDialog — edit mode", () => {
       mode: "edit",
       initialLabel: "Existing",
       initialAddress: "Addr",
+      initialDescription: "事前注意：エレベーター故障中",
       initialRooms: existingRooms,
     });
+    const descInput = screen.getByLabelText(/補足情報/) as HTMLTextAreaElement;
+    expect(descInput.value).toBe("事前注意：エレベーター故障中");
     expect(
       screen.getByRole("dialog", { name: /集合住宅を編集/ }),
     ).toBeInTheDocument();
@@ -178,9 +202,7 @@ describe("BuildingEditDialog — edit mode", () => {
     const user = userEvent.setup();
     const rows = screen.getAllByTestId("room-row");
     await user.click(within(rows[1]).getByRole("button", { name: /行を削除/ }));
-    expect(
-      screen.getByText(/この部屋を削除しますか/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/この部屋を削除しますか/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /はい/ }));
     expect(screen.getAllByTestId("room-row")).toHaveLength(2);
   });

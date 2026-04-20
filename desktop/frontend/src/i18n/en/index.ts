@@ -82,6 +82,9 @@ const en: Translations = {
     placeListToggleClose: "Close place-list",
     addBuildingDialogTitle: "Add building",
     editBuildingDialogTitle: "Edit building",
+    addBuildingDescriptionLabel: "Notes",
+    addBuildingDescriptionPlaceholder:
+      "Building-wide notes (auto-lock, entry location, no-entry info, etc.)",
     buildingRoomsLabel: "Room numbers",
     buildingRoomNumberPlaceholder: "Room #",
     buildingAddOneRoom: "+1",

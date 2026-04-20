@@ -17,6 +17,7 @@ function makeRoom(partial: Partial<Place> & { id: string }): Place {
     label: "",
     displayName: "",
     address: "",
+    description: "",
     parentId: "bldg-1",
     sortOrder: 0,
     languages: [],
@@ -53,7 +54,9 @@ describe("addRoomRows", () => {
     const next = addRoomRows(base, 3);
     expect(next).toHaveLength(4);
     expect(next[0]).toBe(base[0]); // first row unchanged
-    expect(next.slice(1).every((r) => r.displayName === "" && r.existingId === null)).toBe(true);
+    expect(
+      next.slice(1).every((r) => r.displayName === "" && r.existingId === null),
+    ).toBe(true);
   });
 
   it("rejects zero or negative counts by returning the same list", () => {
@@ -87,7 +90,9 @@ describe("removeRoomRow", () => {
   });
 
   it("refuses to remove the last remaining row (returns same list)", () => {
-    const single: RoomRow[] = [{ key: "only", existingId: null, displayName: "" }];
+    const single: RoomRow[] = [
+      { key: "only", existingId: null, displayName: "" },
+    ];
     expect(removeRoomRow(single, "only")).toEqual(single);
   });
 });
@@ -136,7 +141,11 @@ describe("diffRoomRows", () => {
       { key: "k-new", existingId: null, displayName: "301" }, // added
       // r3 is missing → deleted
     ];
-    const { toAdd, toUpdate, toDelete } = diffRoomRows(existing, rows, buildingId);
+    const { toAdd, toUpdate, toDelete } = diffRoomRows(
+      existing,
+      rows,
+      buildingId,
+    );
 
     expect(toDelete).toEqual(["r3"]);
 
@@ -176,7 +185,11 @@ describe("diffRoomRows", () => {
     const rows: RoomRow[] = [
       { key: "k1", existingId: "stale", displayName: "X" },
     ];
-    const { toAdd, toUpdate, toDelete } = diffRoomRows(existing, rows, buildingId);
+    const { toAdd, toUpdate, toDelete } = diffRoomRows(
+      existing,
+      rows,
+      buildingId,
+    );
     expect(toDelete).toEqual([]);
     expect(toUpdate).toEqual([]);
     expect(toAdd).toHaveLength(1);

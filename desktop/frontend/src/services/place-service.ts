@@ -19,6 +19,7 @@ export interface Place {
   label: string;
   displayName: string;
   address: string;
+  description: string;
   parentId: string;
   sortOrder: number;
   languages: string[];

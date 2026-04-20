@@ -328,6 +328,7 @@ export function AreaDetailEditPage({
         label: args.label ?? "",
         displayName: "",
         address: args.address ?? "",
+        description: "",
         parentId: "",
         sortOrder: 0,
         languages: [],
@@ -636,6 +637,7 @@ export function AreaDetailEditPage({
             label: args.label,
             displayName: "",
             address: args.address,
+            description: args.description,
             parentId: "",
             sortOrder: nextSortOrder(places),
             languages: [],
@@ -658,6 +660,7 @@ export function AreaDetailEditPage({
               label: "",
               displayName: row.displayName,
               address: "",
+              description: "",
               parentId: buildingId,
               sortOrder: i,
               languages: [],
@@ -675,6 +678,7 @@ export function AreaDetailEditPage({
             ...snapshot.building,
             label: args.label,
             address: args.address,
+            description: args.description,
           };
           await placeService.savePlace(updatedBuilding);
           const existing = rooms.filter(
@@ -873,6 +877,11 @@ export function AreaDetailEditPage({
           initialAddress={
             buildingDialog.mode === "edit"
               ? buildingDialog.building.address
+              : ""
+          }
+          initialDescription={
+            buildingDialog.mode === "edit"
+              ? buildingDialog.building.description
               : ""
           }
           initialRooms={

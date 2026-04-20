@@ -14,6 +14,7 @@ function makePlace(partial: Partial<Place> & { id: string }): Place {
     label: "",
     displayName: "",
     address: "",
+    description: "",
     parentId: "",
     sortOrder: 0,
     languages: [],

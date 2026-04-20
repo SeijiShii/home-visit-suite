@@ -38,7 +38,10 @@ export function addRoomRows(rows: readonly RoomRow[], n: number): RoomRow[] {
  * - 最後の 1 行は削除できない（行数最小 1 を保つ）
  * - 該当 key が無ければそのまま返す
  */
-export function removeRoomRow(rows: readonly RoomRow[], key: string): RoomRow[] {
+export function removeRoomRow(
+  rows: readonly RoomRow[],
+  key: string,
+): RoomRow[] {
   if (rows.length <= 1) return [...rows];
   const idx = rows.findIndex((r) => r.key === key);
   if (idx < 0) return [...rows];
@@ -105,6 +108,7 @@ export function diffRoomRows(
         label: "",
         displayName: row.displayName,
         address: "",
+        description: "",
         parentId: buildingId,
         sortOrder: idx,
         languages: [],

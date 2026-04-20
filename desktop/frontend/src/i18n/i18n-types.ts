@@ -79,6 +79,8 @@ export interface Translations {
     placeListToggleClose: string;
     addBuildingDialogTitle: string;
     editBuildingDialogTitle: string;
+    addBuildingDescriptionLabel: string;
+    addBuildingDescriptionPlaceholder: string;
     buildingRoomsLabel: string;
     buildingRoomNumberPlaceholder: string;
     buildingAddOneRoom: string;
