@@ -125,6 +125,16 @@ const en: Translations = {
     buildingRoomsTitle: "Rooms",
     buildingRoomsEmpty: "No rooms",
     close: "Close",
+    placeCreateRequestTitle: "Request new place",
+    placeCreateRequestKindLabel: "Kind",
+    placeCreateRequestKindHouse: "House",
+    placeCreateRequestKindBuilding: "Building",
+    placeCreateRequestKindOther: "Other",
+    placeCreateRequestCoordLabel: "Coordinates",
+    placeCreateRequestTextLabel: "Notes",
+    placeCreateRequestTextPlaceholder:
+      "Describe the place (newly built building, store, etc.)",
+    placeCreateRequestSubmit: "Submit request",
   },
   areaTree: {
     title: "Area Editor",

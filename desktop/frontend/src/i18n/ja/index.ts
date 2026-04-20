@@ -123,6 +123,16 @@ const ja: Translations = {
     buildingRoomsTitle: "部屋一覧",
     buildingRoomsEmpty: "部屋情報なし",
     close: "閉じる",
+    placeCreateRequestTitle: "場所の追加を申請",
+    placeCreateRequestKindLabel: "種別",
+    placeCreateRequestKindHouse: "家",
+    placeCreateRequestKindBuilding: "集合住宅",
+    placeCreateRequestKindOther: "その他",
+    placeCreateRequestCoordLabel: "座標",
+    placeCreateRequestTextLabel: "補足情報",
+    placeCreateRequestTextPlaceholder:
+      "新築の集合住宅、店舗など、状況を記入してください",
+    placeCreateRequestSubmit: "申請を送信",
   },
   areaTree: {
     title: "区域編集",

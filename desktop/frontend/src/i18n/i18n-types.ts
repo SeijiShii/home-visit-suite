@@ -121,6 +121,15 @@ export interface Translations {
     buildingRoomsTitle: string;
     buildingRoomsEmpty: string;
     close: string;
+    placeCreateRequestTitle: string;
+    placeCreateRequestKindLabel: string;
+    placeCreateRequestKindHouse: string;
+    placeCreateRequestKindBuilding: string;
+    placeCreateRequestKindOther: string;
+    placeCreateRequestCoordLabel: string;
+    placeCreateRequestTextLabel: string;
+    placeCreateRequestTextPlaceholder: string;
+    placeCreateRequestSubmit: string;
   };
   areaTree: {
     title: string;
