@@ -28,16 +28,17 @@ func (r VisitResult) RequiresApplication() bool {
 // VisitRecord は活動メンバーの訪問記録。
 // 個人メモ（Note）はDeviceDBのPersonalNoteに移動済み。
 type VisitRecord struct {
-	ID         string      `json:"id"`
-	UserID     string      `json:"userId"`     // 記録した活動メンバー
-	PlaceID    string      `json:"placeId"`    // NULL可: 場所モデルへの参照
-	Coord      *Coordinate `json:"coord"`      // NULL可: 場所未登録地点
-	AreaID     string      `json:"areaId"`     // 活動中の区域
-	ActivityID string      `json:"activityId"` // どの訪問活動での記録か
-	Result     VisitResult `json:"result"`
-	VisitedAt  time.Time   `json:"visitedAt"`
-	CreatedAt  time.Time   `json:"createdAt"`
-	UpdatedAt  time.Time   `json:"updatedAt"`
+	ID               string      `json:"id"`
+	UserID           string      `json:"userId"`           // 記録した活動メンバー
+	PlaceID          string      `json:"placeId"`          // NULL可: 場所モデルへの参照
+	Coord            *Coordinate `json:"coord"`            // NULL可: 場所未登録地点
+	AreaID           string      `json:"areaId"`           // 活動中の区域
+	ActivityID       string      `json:"activityId"`       // どの訪問活動での記録か
+	Result           VisitResult `json:"result"`
+	AppliedRequestID *string     `json:"appliedRequestId"` // 申請を伴うステータス時の Request 参照
+	VisitedAt        time.Time   `json:"visitedAt"`
+	CreatedAt        time.Time   `json:"createdAt"`
+	UpdatedAt        time.Time   `json:"updatedAt"`
 }
 
 // Team は訪問活動チーム。

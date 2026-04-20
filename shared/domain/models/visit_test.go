@@ -123,6 +123,36 @@ func TestVisitResult_Values(t *testing.T) {
 	}
 }
 
+func TestVisitRecord_AppliedRequestID(t *testing.T) {
+	// 申請を伴うステータス選択時、AppliedRequestID で対応 Request を参照する
+	reqID := "req-1"
+	vr := models.VisitRecord{
+		ID:               "vr-app-1",
+		UserID:           "did:key:member",
+		PlaceID:          "place-1",
+		AreaID:           "area-1",
+		ActivityID:       "act-1",
+		Result:           models.VisitResultRefused,
+		AppliedRequestID: &reqID,
+		VisitedAt:        time.Now(),
+	}
+	if vr.AppliedRequestID == nil || *vr.AppliedRequestID != "req-1" {
+		t.Errorf("AppliedRequestID = %v, want %q", vr.AppliedRequestID, "req-1")
+	}
+}
+
+func TestVisitRecord_AppliedRequestID_NilForNonApplication(t *testing.T) {
+	// 申請不要なステータス（met/absent/vacant_possible）では AppliedRequestID は nil
+	vr := models.VisitRecord{
+		ID:        "vr-no-app",
+		Result:    models.VisitResultMet,
+		VisitedAt: time.Now(),
+	}
+	if vr.AppliedRequestID != nil {
+		t.Errorf("AppliedRequestID = %v, want nil", vr.AppliedRequestID)
+	}
+}
+
 func TestVisitResult_RequiresApplication(t *testing.T) {
 	// 申請を伴うステータス（テキスト入力 → 編集メンバータスク化）
 	tests := []struct {

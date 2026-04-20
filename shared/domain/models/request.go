@@ -28,6 +28,7 @@ type Request struct {
 	Status      RequestStatus `json:"status"`
 	SubmitterID string        `json:"submitterId"` // 申請者
 	AreaID      string        `json:"areaId"`      // 対象区域
+	PlaceID     string        `json:"placeId"`     // 既存場所への申請対象（place_add は空）
 	Coord       *Coordinate   `json:"coord"`       // 場所追加時の座標
 	Description string        `json:"description"`
 	CreatedAt   time.Time     `json:"createdAt"`
