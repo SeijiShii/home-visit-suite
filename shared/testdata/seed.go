@@ -16,19 +16,22 @@ import (
 // NewLinkSelfRepos はLinkSelfリポジトリからReposを生成する。
 func NewLinkSelfRepos(repo *repository.LinkSelfRepository) *Repos {
 	return &Repos{
-		User: repo.User(),
+		User:     repo.User(),
+		Activity: repo.Activity(),
 	}
 }
 
 // Repos はダミー投入対象のリポジトリを保持する構造体。
 type Repos struct {
-	User domain.UserRepository
+	User     domain.UserRepository
+	Activity domain.ActivityRepository
 }
 
 // NewInMemoryRepos はInMemoryリポジトリのセットを生成する。
 func NewInMemoryRepos() *Repos {
 	return &Repos{
-		User: repository.NewInMemoryUserRepository(),
+		User:     repository.NewInMemoryUserRepository(),
+		Activity: repository.NewInMemoryActivityRepository(),
 	}
 }
 

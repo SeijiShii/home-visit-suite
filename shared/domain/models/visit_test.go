@@ -106,11 +106,39 @@ func TestVisitRecord_ActivityID_NoteRemoved(t *testing.T) {
 }
 
 func TestVisitResult_Values(t *testing.T) {
-	if string(models.VisitResultMet) != "met" {
-		t.Errorf("VisitResultMet = %q, want met", models.VisitResultMet)
+	tests := []struct {
+		r    models.VisitResult
+		want string
+	}{
+		{models.VisitResultMet, "met"},
+		{models.VisitResultAbsent, "absent"},
+		{models.VisitResultVacantPossible, "vacant_possible"},
+		{models.VisitResultVacantAbandoned, "vacant_abandoned"},
+		{models.VisitResultRefused, "refused"},
 	}
-	if string(models.VisitResultAbsent) != "absent" {
-		t.Errorf("VisitResultAbsent = %q, want absent", models.VisitResultAbsent)
+	for _, tt := range tests {
+		if string(tt.r) != tt.want {
+			t.Errorf("VisitResult = %q, want %q", tt.r, tt.want)
+		}
+	}
+}
+
+func TestVisitResult_RequiresApplication(t *testing.T) {
+	// 申請を伴うステータス（テキスト入力 → 編集メンバータスク化）
+	tests := []struct {
+		r    models.VisitResult
+		want bool
+	}{
+		{models.VisitResultMet, false},
+		{models.VisitResultAbsent, false},
+		{models.VisitResultVacantPossible, false},
+		{models.VisitResultVacantAbandoned, true},
+		{models.VisitResultRefused, true},
+	}
+	for _, tt := range tests {
+		if got := tt.r.RequiresApplication(); got != tt.want {
+			t.Errorf("VisitResult(%q).RequiresApplication() = %v, want %v", tt.r, got, tt.want)
+		}
 	}
 }
 

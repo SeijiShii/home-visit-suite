@@ -89,6 +89,29 @@ func TestPlace_MaisonetteOrdering(t *testing.T) {
 	}
 }
 
+func TestPlace_Description_Building(t *testing.T) {
+	// 集合住宅(building)は補足情報フィールド Description を持つ
+	desc := "オートロックあり。管理人室は1F北側。"
+	b := models.Place{
+		ID:          "b1",
+		AreaID:      "area-1",
+		Type:        models.PlaceTypeBuilding,
+		Label:       "○○マンション",
+		Description: desc,
+	}
+
+	if b.Description != desc {
+		t.Errorf("Description = %q, want %q", b.Description, desc)
+	}
+}
+
+func TestPlace_Description_DefaultEmpty(t *testing.T) {
+	p := models.Place{ID: "p1", AreaID: "area-1", Type: models.PlaceTypeHouse}
+	if p.Description != "" {
+		t.Errorf("Description default = %q, want empty", p.Description)
+	}
+}
+
 func TestPlaceType_Values(t *testing.T) {
 	tests := []struct {
 		pt   models.PlaceType

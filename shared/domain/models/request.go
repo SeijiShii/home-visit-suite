@@ -6,9 +6,10 @@ import "time"
 type RequestType string
 
 const (
-	RequestTypePlaceAdd   RequestType = "place_add"    // 場所追加申請
-	RequestTypeMapUpdate  RequestType = "map_update"   // 地図情報更新申請
-	RequestTypeDoNotVisit RequestType = "do_not_visit" // 訪問不可申請
+	RequestTypePlaceAdd        RequestType = "place_add"         // 場所作成申請（活動メンバーが未登録地点を追加）
+	RequestTypePlaceInfoModify RequestType = "place_info_modify" // 場所情報修正申請（既存場所の情報修正依頼）
+	RequestTypeMapUpdate       RequestType = "map_update"        // 地図情報更新申請（廃屋・更地化・新築等）
+	RequestTypeDoNotVisit      RequestType = "do_not_visit"      // 訪問拒否宅報告
 )
 
 // RequestStatus は申請のステータス。

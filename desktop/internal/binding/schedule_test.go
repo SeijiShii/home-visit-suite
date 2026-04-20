@@ -90,8 +90,8 @@ func TestScheduleBinding_ScopeAndAvailability(t *testing.T) {
 	}
 
 	aa := &models.AreaAvailability{
-		ID: "aa-1", ScopeID: "scope-1", AreaID: "area-1",
-		Type: models.AvailabilityLendable, StartDate: dt(2026, 2, 1), EndDate: dt(2026, 3, 1),
+		ID: "aa-1", ScopeID: "scope-1", AreaID: "pa-1",
+		Type: models.AvailabilityLendable,
 	}
 	if err := b.CreateAreaAvailability(aa); err != nil {
 		t.Fatalf("CreateAreaAvailability: %v", err)

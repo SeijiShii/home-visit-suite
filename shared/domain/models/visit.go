@@ -6,9 +6,24 @@ import "time"
 type VisitResult string
 
 const (
-	VisitResultMet    VisitResult = "met"    // 会えた
-	VisitResultAbsent VisitResult = "absent" // 留守
+	VisitResultMet             VisitResult = "met"              // 会えた
+	VisitResultAbsent          VisitResult = "absent"           // 留守
+	VisitResultVacantPossible  VisitResult = "vacant_possible"  // 空き家（入居の可能性あり）
+	VisitResultVacantAbandoned VisitResult = "vacant_abandoned" // 空き家（廃屋）または更地
+	VisitResultRefused         VisitResult = "refused"          // 訪問を望まない
 )
+
+// RequiresApplication は当該ステータス選択時に申請（テキスト入力 + 編集メンバータスク化）を伴うかを返す。
+// 空き家（廃屋）または更地 → 地図情報更新申請
+// 訪問を望まない → 訪問拒否宅報告
+func (r VisitResult) RequiresApplication() bool {
+	switch r {
+	case VisitResultVacantAbandoned, VisitResultRefused:
+		return true
+	default:
+		return false
+	}
+}
 
 // VisitRecord は活動メンバーの訪問記録。
 // 個人メモ（Note）はDeviceDBのPersonalNoteに移動済み。
