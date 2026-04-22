@@ -199,14 +199,11 @@ export function useAreaDetailMap({
     enableInitialSortAssignment,
   ]);
 
-  const isInsideTarget = useCallback(
-    (lat: number, lng: number): boolean => {
-      const ring = targetRingRef.current;
-      if (!ring) return true;
-      return pointInRing({ lat, lng }, ring);
-    },
-    [],
-  );
+  const isInsideTarget = useCallback((lat: number, lng: number): boolean => {
+    const ring = targetRingRef.current;
+    if (!ring) return true;
+    return pointInRing({ lat, lng }, ring);
+  }, []);
 
   return { places, rooms, setPlaces, setRooms, isInsideTarget };
 }

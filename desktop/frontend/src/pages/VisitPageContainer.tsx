@@ -50,7 +50,13 @@ export function VisitPageContainer() {
   );
   const [treeLoaded, setTreeLoaded] = useState(false);
 
+  // usePolygonEditor.init() は読み込み時に polygon ID を再生成し
+  // RemapPolygonIds で backend の area-polygon 紐付けを更新する。
+  // remap 完了より前に loadTree を呼ぶと旧 ID が返って editor 内
+  // polygon と紐付かず地図が描画されない。editor ready 後に loadTree
+  // することで必ず remap 後の polygon ID を取得する。
   useEffect(() => {
+    if (!ready || !editor) return;
     let cancelled = false;
     regionService.loadTree().then((tree) => {
       if (cancelled) return;
@@ -64,16 +70,12 @@ export function VisitPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [regionService]);
+  }, [regionService, ready, editor]);
 
   // TODO: 自分の DID を SettingsService 等から取得する。
   // 現状は空文字（バックエンド側で actor 検証は未実装のため動作はする）。
   const actorId = "";
 
-  // editor / loadTree (polygonToArea) は独立した非同期処理。
-  // どちらかが先に解決すると hook 内 useEffect が空の polygonToArea で
-  // 1 回目を実行し、buildAreaDetailViewModel が null を返して地図セットアップが
-  // スキップされる。両方揃ってから渡すことで初回ロード時の地図未描画を防ぐ。
   const dataReady = ready && editor && treeLoaded;
 
   return (
