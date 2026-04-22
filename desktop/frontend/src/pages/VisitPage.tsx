@@ -50,7 +50,7 @@ export interface VisitPageProps {
 }
 
 type DialogState =
-  | { kind: "house"; place: Place }
+  | { kind: "house"; place: Place; parent?: Place }
   | { kind: "building"; place: Place }
   | { kind: "create-request"; lat: number; lng: number }
   | null;
@@ -162,7 +162,9 @@ export function VisitPage({
 
   const closeDialog = useCallback(() => setDialog(null), []);
 
-  // 集合住宅ダイアログから部屋を選択 → 部屋訪問ダイアログに切替
+  // 集合住宅ダイアログから部屋を選択 → 部屋訪問ダイアログに切替。
+  // 部屋訪問ダイアログ上部の表示は親集合住宅名 + 部屋番号となるため、
+  // dialog state に親 building を持たせる (仕様 docs/wants/08 「部屋訪問ダイアログ」)。
   const openRoomDialog = useCallback(
     async (room: Place) => {
       const [last, history] = await Promise.all([
@@ -171,9 +173,10 @@ export function VisitPage({
       ]);
       setLastMetDate(last);
       setMyHistory(history);
-      setDialog({ kind: "house", place: room });
+      const parent = places.find((p) => p.id === room.parentId);
+      setDialog({ kind: "house", place: room, parent });
     },
-    [visitService, actorId],
+    [visitService, actorId, places],
   );
 
   const handleMapContextMenu = useCallback(
@@ -205,20 +208,32 @@ export function VisitPage({
         )}
       </div>
 
-      {dialog?.kind === "house" && (
-        <VisitRecordDialog
-          placeLabel={dialog.place.label || t.areaDetail.noName}
-          placeAddress={dialog.place.address}
-          placeId={dialog.place.id}
-          lastMetDate={lastMetDate}
-          myHistory={myHistory}
-          onSave={(args) => handleSaveVisit(dialog.place, args)}
-          onCancel={closeDialog}
-          onPlaceModifyRequest={(text) =>
-            onPlaceModifyRequest(dialog.place.id, text)
-          }
-        />
-      )}
+      {dialog?.kind === "house" &&
+        (() => {
+          const isRoom = dialog.place.type === "room";
+          const placeLabel =
+            isRoom && dialog.parent
+              ? `${dialog.parent.label || t.areaDetail.noName} ${dialog.place.displayName}号室`
+              : dialog.place.label || t.areaDetail.noName;
+          const placeAddress =
+            isRoom && dialog.parent
+              ? dialog.parent.address
+              : dialog.place.address;
+          return (
+            <VisitRecordDialog
+              placeLabel={placeLabel}
+              placeAddress={placeAddress}
+              placeId={dialog.place.id}
+              lastMetDate={lastMetDate}
+              myHistory={myHistory}
+              onSave={(args) => handleSaveVisit(dialog.place, args)}
+              onCancel={closeDialog}
+              onPlaceModifyRequest={(text) =>
+                onPlaceModifyRequest(dialog.place.id, text)
+              }
+            />
+          );
+        })()}
 
       {dialog?.kind === "building" && (
         <BuildingVisitDialog

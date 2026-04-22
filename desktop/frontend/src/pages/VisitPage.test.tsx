@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { I18nProvider } from "../contexts/I18nContext";
 import type { Place } from "../services/place-service";
@@ -242,6 +242,34 @@ describe("VisitPage — dialog open flow", () => {
     mockMapProps.onContextMenu!(35.7771, 140.319, 100, 200);
     expect(
       await screen.findByRole("dialog", { name: /場所の追加を申請/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("集合住宅 → 部屋選択 → VisitRecordDialog 上部に '{建物名} {部屋番号}号室' を表示", async () => {
+    const ps = fakePlaceService([
+      makeBuilding({
+        id: "b1",
+        label: "○○マンション",
+        address: "千葉県成田市5-6-7",
+      }),
+      makeRoom({ id: "r1", parentId: "b1", displayName: "101" }),
+    ]);
+    renderPage({ placeService: ps });
+    await waitFor(() => {
+      expect(mockMapProps.placeClickHandler).toBeDefined();
+      expect(mapCalls.find(([n]) => n === "setPlaces")).toBeDefined();
+    });
+    mockMapProps.placeClickHandler!("b1", "building");
+    const buildingDialog = await screen.findByRole("dialog", {
+      name: /集合住宅の訪問/,
+    });
+    const user = userEvent.setup();
+    await user.click(within(buildingDialog).getByText("101"));
+    const roomDialog = await screen.findByRole("dialog", { name: /訪問記録/ });
+    expect(within(roomDialog).getByText(/○○マンション/)).toBeInTheDocument();
+    expect(within(roomDialog).getByText(/101号室/)).toBeInTheDocument();
+    expect(
+      within(roomDialog).getByText(/千葉県成田市5-6-7/),
     ).toBeInTheDocument();
   });
 });
