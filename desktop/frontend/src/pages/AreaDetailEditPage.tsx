@@ -9,7 +9,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
 import { RegionService } from "../services/region-service";
-import type { Place, PlaceService, PlaceType } from "../services/place-service";
+import type { Place, PlaceService } from "../services/place-service";
 import type { SettingsService } from "../services/settings-service";
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
@@ -21,21 +21,12 @@ import {
   type BuildingDialogMode,
   type BuildingDialogSaveArgs,
 } from "../components/BuildingEditDialog";
-import {
-  assignInitialSortOrder,
-  needsInitialAssignment,
-  nextSortOrder,
-  reorderPlaces,
-} from "../lib/place-sort-order";
+import { nextSortOrder, reorderPlaces } from "../lib/place-sort-order";
 import { diffRoomRows } from "../lib/building-flow";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
-import { formatAreaLabel, pointInRing } from "../lib/area-detail-geo";
-import {
-  buildAreaDetailViewModel,
-  polygonCentersFromEditor,
-  type PolygonGeoSource,
-} from "../lib/area-detail-controller";
-import { applyDetailViewModelToMap } from "../lib/area-detail-map-integration";
+import { formatAreaLabel } from "../lib/area-detail-geo";
+import type { PolygonGeoSource } from "../lib/area-detail-controller";
+import { useAreaDetailMap } from "../hooks/useAreaDetailMap";
 import {
   addPlaceFlowReducer,
   selectCommit,
@@ -45,7 +36,7 @@ import {
 } from "../lib/add-place-flow";
 import type { MovePlaceCommitArgs } from "../lib/move-place-flow";
 import { movePlaceFlowReducer, selectMoveCommit } from "../lib/move-place-flow";
-import type { NetworkPolygonEditor, PolygonID } from "map-polygon-editor";
+import type { NetworkPolygonEditor } from "map-polygon-editor";
 
 export interface AreaDetailEditPageProps {
   /** テスト用に注入可能。未指定なら本番 RegionBinding を使う。 */
@@ -112,10 +103,8 @@ export function AreaDetailEditPage({
     useState<AddPlaceCommitArgs | null>(null);
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const targetRingRef = useRef<[number, number][] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
-  const [places, setPlaces] = useState<Place[]>([]);
   const [panelOpen, setPanelOpenState] = useState<boolean>(() => {
     try {
       const v = localStorage.getItem("ui.areaDetailPlaceListOpen");
@@ -125,10 +114,7 @@ export function AreaDetailEditPage({
     }
   });
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
-  const initialSortAssignedRef = useRef(false);
-  const viewportInitializedRef = useRef(false);
   // 集合住宅関連
-  const [rooms, setRooms] = useState<Place[]>([]);
   const [buildingDialog, setBuildingDialog] = useState<
     | { mode: "create"; lat: number; lng: number }
     | { mode: "edit"; building: Place }
@@ -136,6 +122,20 @@ export function AreaDetailEditPage({
   >(null);
   const [pendingBuildingDelete, setPendingBuildingDelete] =
     useState<Place | null>(null);
+  const { places, rooms, setPlaces, isInsideTarget } = useAreaDetailMap({
+    mapRef,
+    containerRef,
+    editor,
+    polygonToArea,
+    areaId,
+    placeService,
+    settingsService,
+    linkedPolygonIds,
+    selectedPlaceId,
+    refreshKey,
+    noNameLabel: t.areaDetail.noName,
+    enableInitialSortAssignment: true,
+  });
   const setPanelOpen = useCallback((next: boolean) => {
     setPanelOpenState(next);
     try {
@@ -155,12 +155,6 @@ export function AreaDetailEditPage({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-
-  const isInsideTarget = useCallback((lat: number, lng: number): boolean => {
-    const ring = targetRingRef.current;
-    if (!ring) return true; // ring 未取得時は制限しない (初期化前のガード)
-    return pointInRing({ lat, lng }, ring);
   }, []);
 
   const showOutsideError = useCallback(() => {
@@ -185,123 +179,18 @@ export function AreaDetailEditPage({
     };
   }, [service, areaId]);
 
-  // --- 地図への ViewModel 適用 (editor 提供時のみ) ---
+  // 場所マーカー右クリックを page 側 state へ橋渡し
   useEffect(() => {
     if (!editor || !polygonToArea) return;
     const handle = mapRef.current;
     if (!handle) return;
-    let cancelled = false;
-
-    const run = async () => {
-      handle.setEditor(editor as NetworkPolygonEditor);
-      const centers = polygonCentersFromEditor(editor);
-      const radiusKm =
-        (await settingsService?.getAreaDetailRadiusKm().catch(() => 2.5)) ??
-        2.5;
-      const all = placeService
-        ? await placeService.listPlaces(areaId).catch(() => [])
-        : [];
-      if (cancelled) return;
-
-      // area-level の場所 (house / building) と、集合住宅配下の room を分離
-      let areaPlaces = all.filter((p) => !p.parentId);
-      const loadedRooms = all.filter((p) => p.type === "room");
-
-      // 初回のみ: area-level が全件 sortOrder=0 なら CreatedAt 昇順で採番して永続化
-      if (
-        placeService &&
-        !initialSortAssignedRef.current &&
-        needsInitialAssignment(areaPlaces)
-      ) {
-        const assigned = assignInitialSortOrder(areaPlaces);
-        try {
-          for (const p of assigned) {
-            await placeService.savePlace(p);
-          }
-          areaPlaces = assigned;
-          initialSortAssignedRef.current = true;
-        } catch (err) {
-          console.error(
-            "[AreaDetailEditPage] initial sortOrder save failed:",
-            err,
-          );
-        }
-      }
-      setPlaces(areaPlaces);
-      setRooms(loadedRooms);
-      const places = areaPlaces;
-      const viewportPx = containerRef.current?.clientWidth || 800;
-      const vm = buildAreaDetailViewModel({
-        polygonCenters: centers,
-        polygonToArea,
-        targetAreaId: areaId,
-        places: places.map((p) => ({
-          id: p.id,
-          lat: p.coord.lat,
-          lng: p.coord.lng,
-          deletedAt: p.deletedAt ?? null,
-        })),
-        radiusKm,
-        viewportPx,
-      });
-      if (!vm || cancelled) return;
-      // target polygon の外周リング ([lng, lat] の配列) を内外判定用に保持
-      const targetGeo =
-        "getPolygonGeoJSON" in editor
-          ? editor.getPolygonGeoJSON(vm.targetPolygonId as PolygonID)
-          : null;
-      targetRingRef.current =
-        targetGeo && targetGeo.coordinates[0]
-          ? (targetGeo.coordinates[0] as [number, number][])
-          : null;
-      const linked = linkedPolygonIds ?? new Set<string>();
-      const sortedForMap = [...places].sort(
-        (a, b) => a.sortOrder - b.sortOrder,
-      );
-      const indexById = new Map<string, number>();
-      sortedForMap.forEach((p, idx) => indexById.set(p.id, idx));
-      // 初回のみ対象区域にフォーカス。選択変更や place 追加・移動などの
-      // 再描画で flyToBounds が走ると panTo と競合して大きく位置がずれるため、
-      // 2 回目以降は skipFocus=true にする。
-      const skipFocus = viewportInitializedRef.current;
-      applyDetailViewModelToMap(
-        handle,
-        vm,
-        places.map((p) => {
-          const parts = [p.label.trim(), p.address.trim()].filter(Boolean);
-          return {
-            id: p.id,
-            lat: p.coord.lat,
-            lng: p.coord.lng,
-            type: p.type as PlaceType,
-            tooltip: parts.length > 0 ? parts.join(" / ") : t.areaDetail.noName,
-            index: indexById.get(p.id),
-            selected: p.id === selectedPlaceId,
-          };
-        }),
-        linked,
-        skipFocus,
-      );
-      viewportInitializedRef.current = true;
-      // 場所マーカー右クリックを page 側 state へ橋渡し
-      handle.setPlaceContextMenuHandler((placeId, _type, x, y) => {
-        setContextMenu({ variant: "place", placeId, x, y });
-      });
-    };
-    run();
+    handle.setPlaceContextMenuHandler((placeId, _type, x, y) => {
+      setContextMenu({ variant: "place", placeId, x, y });
+    });
     return () => {
-      cancelled = true;
+      handle.setPlaceContextMenuHandler(null);
     };
-  }, [
-    editor,
-    polygonToArea,
-    placeService,
-    settingsService,
-    areaId,
-    linkedPolygonIds,
-    refreshKey,
-    selectedPlaceId,
-  ]);
+  }, [editor, polygonToArea]);
 
   const handleMapContextMenu = useCallback(
     (lat: number, lng: number, x: number, y: number) => {

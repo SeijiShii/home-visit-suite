@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { NetworkPolygonEditor } from "map-polygon-editor";
 import { useI18n } from "../contexts/I18nContext";
+import { MapView, type MapViewHandle } from "../components/MapView";
 import { BuildingVisitDialog } from "../components/BuildingVisitDialog";
 import { PlaceCreateRequestDialog } from "../components/PlaceCreateRequestDialog";
 import {
@@ -12,10 +14,14 @@ import type {
   VisitService as VisitServiceClass,
 } from "../services/visit-service";
 import type { PlaceCreateRequestSaveArgs } from "../components/PlaceCreateRequestDialog";
+import type { PolygonGeoSource } from "../lib/area-detail-controller";
+import {
+  useAreaDetailMap,
+  type UseAreaDetailMapPlaceService,
+  type UseAreaDetailMapSettingsService,
+} from "../hooks/useAreaDetailMap";
 
-export interface VisitPagePlaceServiceLike {
-  listPlaces: (areaID: string) => Promise<Place[]>;
-}
+export type VisitPagePlaceServiceLike = UseAreaDetailMapPlaceService;
 
 export type VisitPageVisitServiceLike = Pick<
   VisitServiceClass,
@@ -29,6 +35,14 @@ export interface VisitPageProps {
   actorId: string;
   placeService: VisitPagePlaceServiceLike;
   visitService: VisitPageVisitServiceLike;
+  /** ポリゴンエディタ。テスト用に PolygonGeoSource でも可。 */
+  editor?: NetworkPolygonEditor | PolygonGeoSource;
+  /** polygonId → areaId の紐付け表 */
+  polygonToArea?: ReadonlyMap<string, string>;
+  /** 区域に紐づく polygonId 集合 */
+  linkedPolygonIds?: Set<string>;
+  /** 半径取得 (任意) */
+  settingsService?: UseAreaDetailMapSettingsService;
   /** 場所作成申請の処理は本ページ外（申請サービス）に委譲する */
   onPlaceCreateRequest: (args: PlaceCreateRequestSaveArgs) => void;
   /** 場所修正申請の処理も外部委譲（PlaceID とテキスト） */
@@ -46,33 +60,42 @@ export function VisitPage({
   actorId,
   placeService,
   visitService,
+  editor,
+  polygonToArea,
+  linkedPolygonIds,
+  settingsService,
   onPlaceCreateRequest,
   onPlaceModifyRequest,
 }: VisitPageProps) {
   const { t } = useI18n();
-  const [places, setPlaces] = useState<Place[]>([]);
+  const mapRef = useRef<MapViewHandle | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [lastMetDate, setLastMetDate] = useState<Date | null>(null);
   const [myHistory, setMyHistory] = useState<VisitRecord[]>([]);
 
-  const reload = useCallback(async () => {
-    const list = await placeService.listPlaces(areaId);
-    setPlaces(list);
-  }, [placeService, areaId]);
+  const { places, rooms } = useAreaDetailMap({
+    mapRef,
+    containerRef,
+    editor,
+    polygonToArea,
+    areaId,
+    placeService,
+    settingsService,
+    linkedPolygonIds,
+    noNameLabel: t.areaDetail.noName,
+  });
 
+  // 地図コンテナのサイズ変化に追従して invalidateSize を呼ぶ
   useEffect(() => {
-    reload();
-  }, [reload]);
-
-  const topLevelPlaces = useMemo(
-    () => places.filter((p) => p.parentId === "" && !p.deletedAt),
-    [places],
-  );
-
-  const rooms = useMemo(
-    () => places.filter((p) => p.type === "room" && !p.deletedAt),
-    [places],
-  );
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const openHouseDialog = useCallback(
     async (place: Place) => {
@@ -91,16 +114,35 @@ export function VisitPage({
     setDialog({ kind: "building", place });
   }, []);
 
-  const handlePlaceClick = useCallback(
-    (place: Place) => {
-      if (place.type === "house") {
-        openHouseDialog(place);
-      } else if (place.type === "building") {
-        openBuildingDialog(place);
+  // クリック時に最新の places / dialog opener を参照するための ref。
+  // setPlaceClickHandler のクロージャが古い places で固定化されないようにする。
+  const placesRef = useRef<Place[]>([]);
+  useEffect(() => {
+    placesRef.current = places;
+  }, [places]);
+  const openHouseRef = useRef(openHouseDialog);
+  openHouseRef.current = openHouseDialog;
+  const openBuildingRef = useRef(openBuildingDialog);
+  openBuildingRef.current = openBuildingDialog;
+
+  // 場所マーカー左クリックを訪問ダイアログ起動に変換する
+  useEffect(() => {
+    if (!editor || !polygonToArea) return;
+    const handle = mapRef.current;
+    if (!handle) return;
+    handle.setPlaceClickHandler((placeId) => {
+      const p = placesRef.current.find((x) => x.id === placeId);
+      if (!p) return;
+      if (p.type === "house") {
+        openHouseRef.current(p);
+      } else if (p.type === "building") {
+        openBuildingRef.current(p);
       }
-    },
-    [openHouseDialog, openBuildingDialog],
-  );
+    });
+    return () => {
+      handle.setPlaceClickHandler(null);
+    };
+  }, [editor, polygonToArea]);
 
   const handleSaveVisit = useCallback(
     async (place: Place, args: VisitRecordSaveArgs) => {
@@ -134,6 +176,16 @@ export function VisitPage({
     [visitService, actorId],
   );
 
+  const handleMapContextMenu = useCallback(
+    (lat: number, lng: number, _x: number, _y: number) => {
+      // 空白部分の長押し/右クリック → 場所作成申請ダイアログを開く。
+      // 場所アイコン上の contextmenu は MapRenderer 側で stopPropagation
+      // されているため、ここには到達しない。
+      setDialog({ kind: "create-request", lat, lng });
+    },
+    [],
+  );
+
   return (
     <div className="visit-page">
       <header className="visit-page-header">
@@ -143,51 +195,15 @@ export function VisitPage({
         </p>
       </header>
 
-      <div className="visit-page-actions">
-        <button
-          type="button"
-          onClick={() =>
-            setDialog({ kind: "create-request", lat: 35.7, lng: 140.3 })
-          }
-        >
-          {t.visitRecord.addPlaceCreateRequest}
-        </button>
-      </div>
-
-      <section className="visit-page-places">
-        {topLevelPlaces.length === 0 ? (
-          <p className="visit-page-empty">{t.visitRecord.placesEmpty}</p>
-        ) : (
-          <ul role="list">
-            {topLevelPlaces.map((p) => (
-              <li
-                key={p.id}
-                data-testid="visit-place-row"
-                role="button"
-                tabIndex={0}
-                className={`visit-place-row visit-place-row-${p.type}`}
-                onClick={() => handlePlaceClick(p)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handlePlaceClick(p);
-                  }
-                }}
-              >
-                <span className={`visit-place-badge type-${p.type}`}>
-                  {p.type === "house" ? "家" : "集"}
-                </span>
-                <span className="visit-place-label">
-                  {p.label || t.areaDetail.noName}
-                </span>
-                {p.address && (
-                  <span className="visit-place-address">{p.address}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+      <div
+        ref={containerRef}
+        className="visit-page-map"
+        data-testid="visit-page-map"
+      >
+        {editor && polygonToArea && (
+          <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
         )}
-      </section>
+      </div>
 
       {dialog?.kind === "house" && (
         <VisitRecordDialog

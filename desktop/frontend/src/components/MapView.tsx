@@ -53,6 +53,9 @@ export interface MapViewHandle {
       | ((placeId: string, type: PlaceType, x: number, y: number) => void)
       | null,
   ): void;
+  setPlaceClickHandler(
+    cb: ((placeId: string, type: PlaceType) => void) | null,
+  ): void;
   startPlaceMove(
     placeId: string,
     onConfirm: (lat: number, lng: number) => void,
@@ -179,6 +182,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     setPlaceContextMenuHandler(cb) {
       rendererRef.current?.setPlaceContextMenuHandler(cb);
+    },
+    setPlaceClickHandler(cb) {
+      rendererRef.current?.setPlaceClickHandler(cb);
     },
     startPlaceMove(placeId, onConfirm, onCancel) {
       rendererRef.current?.startPlaceMove(placeId, onConfirm, onCancel);

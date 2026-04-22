@@ -20,8 +20,7 @@ export namespace models {
 	    number: string;
 	    polygonId?: string;
 	    geometry?: GeoJSONPolygon;
-	    // Go type: time
-	    deletedAt?: any;
+	    deletedAt?: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new Area(source);
@@ -34,7 +33,7 @@ export namespace models {
 	        this.number = source["number"];
 	        this.polygonId = source["polygonId"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
-	        this.deletedAt = this.convertValues(source["deletedAt"], null);
+	        this.deletedAt = this.convertValues(source["deletedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -62,8 +61,7 @@ export namespace models {
 	    type: string;
 	    scopeGroupId: string;
 	    setById: string;
-	    // Go type: time
-	    createdAt: any;
+	    createdAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new AreaAvailability(source);
@@ -77,7 +75,7 @@ export namespace models {
 	        this.type = source["type"];
 	        this.scopeGroupId = source["scopeGroupId"];
 	        this.setById = source["setById"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -137,10 +135,8 @@ export namespace models {
 	    inviteeId: string;
 	    targetRole: string;
 	    description: string;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    resolvedAt?: any;
+	    createdAt: time.Time;
+	    resolvedAt?: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new Invitation(source);
@@ -155,8 +151,8 @@ export namespace models {
 	        this.inviteeId = source["inviteeId"];
 	        this.targetRole = source["targetRole"];
 	        this.description = source["description"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.resolvedAt = this.convertValues(source["resolvedAt"], null);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.resolvedAt = this.convertValues(source["resolvedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -183,8 +179,7 @@ export namespace models {
 	    number: string;
 	    name: string;
 	    geometry?: GeoJSONPolygon;
-	    // Go type: time
-	    deletedAt?: any;
+	    deletedAt?: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new ParentArea(source);
@@ -197,7 +192,7 @@ export namespace models {
 	        this.number = source["number"];
 	        this.name = source["name"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
-	        this.deletedAt = this.convertValues(source["deletedAt"], null);
+	        this.deletedAt = this.convertValues(source["deletedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -226,17 +221,15 @@ export namespace models {
 	    label: string;
 	    displayName: string;
 	    address: string;
+	    description: string;
 	    parentId: string;
 	    sortOrder: number;
 	    languages: string[];
 	    doNotVisit: boolean;
 	    doNotVisitNote: string;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
-	    // Go type: time
-	    deletedAt?: any;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
+	    deletedAt?: time.Time;
 	    restoredFromId?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -252,14 +245,15 @@ export namespace models {
 	        this.label = source["label"];
 	        this.displayName = source["displayName"];
 	        this.address = source["address"];
+	        this.description = source["description"];
 	        this.parentId = source["parentId"];
 	        this.sortOrder = source["sortOrder"];
 	        this.languages = source["languages"];
 	        this.doNotVisit = source["doNotVisit"];
 	        this.doNotVisitNote = source["doNotVisitNote"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
-	        this.deletedAt = this.convertValues(source["deletedAt"], null);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
+	        this.deletedAt = this.convertValues(source["deletedAt"], time.Time);
 	        this.restoredFromId = source["restoredFromId"];
 	    }
 	
@@ -288,8 +282,7 @@ export namespace models {
 	    approved: boolean;
 	    geometry?: GeoJSONPolygon;
 	    order: number;
-	    // Go type: time
-	    deletedAt?: any;
+	    deletedAt?: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new Region(source);
@@ -303,7 +296,7 @@ export namespace models {
 	        this.approved = source["approved"];
 	        this.geometry = this.convertValues(source["geometry"], GeoJSONPolygon);
 	        this.order = source["order"];
-	        this.deletedAt = this.convertValues(source["deletedAt"], null);
+	        this.deletedAt = this.convertValues(source["deletedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -327,15 +320,11 @@ export namespace models {
 	export class SchedulePeriod {
 	    id: string;
 	    name: string;
-	    // Go type: time
-	    startDate: any;
-	    // Go type: time
-	    endDate: any;
+	    startDate: time.Time;
+	    endDate: time.Time;
 	    approved: boolean;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new SchedulePeriod(source);
@@ -345,11 +334,11 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
-	        this.startDate = this.convertValues(source["startDate"], null);
-	        this.endDate = this.convertValues(source["endDate"], null);
+	        this.startDate = this.convertValues(source["startDate"], time.Time);
+	        this.endDate = this.convertValues(source["endDate"], time.Time);
 	        this.approved = source["approved"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -376,10 +365,8 @@ export namespace models {
 	    name: string;
 	    groupId: string;
 	    parentAreaIds: string[];
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new Scope(source);
@@ -392,8 +379,8 @@ export namespace models {
 	        this.name = source["name"];
 	        this.groupId = source["groupId"];
 	        this.parentAreaIds = source["parentAreaIds"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -436,8 +423,7 @@ export namespace models {
 	    role: string;
 	    orgGroupId: string;
 	    tagIds: string[];
-	    // Go type: time
-	    joinedAt: any;
+	    joinedAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
 	        return new User(source);
@@ -450,7 +436,7 @@ export namespace models {
 	        this.role = source["role"];
 	        this.orgGroupId = source["orgGroupId"];
 	        this.tagIds = source["tagIds"];
-	        this.joinedAt = this.convertValues(source["joinedAt"], null);
+	        this.joinedAt = this.convertValues(source["joinedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -470,6 +456,73 @@ export namespace models {
 		    }
 		    return a;
 		}
+	}
+	export class VisitRecord {
+	    id: string;
+	    userId: string;
+	    placeId: string;
+	    coord?: Coordinate;
+	    areaId: string;
+	    activityId: string;
+	    result: string;
+	    appliedRequestId?: string;
+	    visitedAt: time.Time;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
+	
+	    static createFrom(source: any = {}) {
+	        return new VisitRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.userId = source["userId"];
+	        this.placeId = source["placeId"];
+	        this.coord = this.convertValues(source["coord"], Coordinate);
+	        this.areaId = source["areaId"];
+	        this.activityId = source["activityId"];
+	        this.result = source["result"];
+	        this.appliedRequestId = source["appliedRequestId"];
+	        this.visitedAt = this.convertValues(source["visitedAt"], time.Time);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace time {
+	
+	export class Time {
+	
+	
+	    static createFrom(source: any = {}) {
+	        return new Time(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	
+	    }
 	}
 
 }

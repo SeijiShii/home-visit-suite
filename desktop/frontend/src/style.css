@@ -1138,6 +1138,456 @@ section {
   padding: 0;
 }
 
+/* 訪問記録画面: ヘッダ + フルスクリーン地図 */
+.content:has(.visit-page) {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.visit-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.visit-page-header {
+  padding: 12px 16px;
+  background: #1e293b;
+  color: #e2e8f0;
+  border-bottom: 1px solid #334155;
+}
+.visit-page-header h2 {
+  margin: 0 0 4px;
+  color: #f1f5f9;
+}
+.visit-page-banner {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+.visit-page-map {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
+.visit-page-map > .map-container {
+  flex: 1;
+}
+
+/* ===== 訪問記録ダイアログ群 (戸建て / 集合住宅 / 場所作成申請) ===== */
+
+/* 共通: モーダル風の中央配置 + バックドロップ */
+.visit-record-dialog,
+.building-visit-dialog,
+.place-create-request-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1200;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    0 0 0 100vmax rgba(15, 23, 42, 0.45);
+  padding: 18px 22px;
+  min-width: 360px;
+  max-width: min(560px, calc(100vw - 32px));
+  max-height: min(85vh, 720px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+/* 戸建て / 部屋: VisitRecordDialog */
+.visit-record-dialog-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.visit-record-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+.visit-record-dialog-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #4b5563;
+}
+.visit-record-last-met {
+  font-size: 13px;
+}
+.visit-record-last-met.last-met-recent {
+  color: #dc2626;
+  font-weight: 600;
+}
+.visit-record-last-met.last-met-mid {
+  color: #ea580c;
+}
+.visit-record-last-met.last-met-old {
+  color: #374151;
+}
+.visit-record-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.visit-record-field > span {
+  color: #4b5563;
+  font-weight: 500;
+}
+.visit-record-field input,
+.visit-record-field select,
+.visit-record-field textarea {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+  background: #fff;
+}
+.visit-record-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.visit-record-history {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.visit-record-history-toggle {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: #374151;
+}
+.visit-record-history-toggle:hover {
+  background: #f3f4f6;
+}
+.visit-record-history-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.visit-record-history-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+.visit-record-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.visit-record-actions button {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.visit-record-actions button:hover {
+  background: #f9fafb;
+}
+.visit-record-save {
+  background: #2563eb !important;
+  color: #fff;
+  border-color: #2563eb !important;
+}
+.visit-record-save:hover {
+  background: #1d4ed8 !important;
+}
+.visit-record-modify-request {
+  align-self: center;
+  background: none;
+  border: none;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px;
+}
+
+/* 集合住宅: BuildingVisitDialog */
+.building-visit-dialog-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.building-visit-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+.building-visit-dialog-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #4b5563;
+}
+.building-visit-description {
+  margin-top: 6px !important;
+  padding: 8px 10px;
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-radius: 3px;
+  color: #78350f !important;
+  white-space: pre-wrap;
+}
+.building-visit-rooms h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.building-visit-rooms-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+.building-visit-room-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.building-visit-room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #fff;
+}
+.building-visit-room-row:hover {
+  background: #f9fafb;
+  border-color: #93c5fd;
+}
+.building-visit-room-number {
+  font-weight: 600;
+}
+.building-visit-room-last {
+  font-size: 12px;
+}
+.building-visit-room-last.last-met-recent {
+  color: #dc2626;
+  font-weight: 600;
+}
+.building-visit-room-last.last-met-mid {
+  color: #ea580c;
+}
+.building-visit-room-last.last-met-old {
+  color: #374151;
+}
+.building-visit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+.building-visit-cancel {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.building-visit-cancel:hover {
+  background: #f9fafb;
+}
+.building-visit-modify-request {
+  background: none;
+  border: none;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px;
+}
+
+/* 場所作成申請: PlaceCreateRequestDialog */
+.place-create-request-dialog h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+.place-create-request-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.place-create-request-field > span {
+  color: #4b5563;
+  font-weight: 500;
+}
+.place-create-request-field select,
+.place-create-request-field textarea {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+  background: #fff;
+}
+.place-create-request-field textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.place-create-request-coord {
+  margin: 0;
+  padding: 6px 10px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #4b5563;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.place-create-request-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.place-create-request-actions button {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.place-create-request-actions button:hover:not(:disabled) {
+  background: #f9fafb;
+}
+.place-create-request-actions button[type="submit"] {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.place-create-request-actions button[type="submit"]:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+.place-create-request-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 入れ子サブダイアログ: 申請テキスト入力 / 場所修正申請 */
+.visit-record-application-dialog,
+.visit-record-modify-dialog,
+.building-visit-modify-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1300;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.3),
+    0 0 0 100vmax rgba(15, 23, 42, 0.55);
+  padding: 18px 22px;
+  min-width: 360px;
+  max-width: min(520px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.visit-record-application-dialog h4,
+.visit-record-modify-dialog h4,
+.building-visit-modify-dialog h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+.visit-record-application-dialog label,
+.visit-record-modify-dialog label,
+.building-visit-modify-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #4b5563;
+}
+.visit-record-application-dialog textarea,
+.visit-record-modify-dialog textarea,
+.building-visit-modify-dialog textarea {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+  resize: vertical;
+}
+.visit-record-application-actions,
+.visit-record-modify-actions,
+.building-visit-modify-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.visit-record-application-actions button,
+.visit-record-modify-actions button,
+.building-visit-modify-actions button {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.visit-record-application-actions button:last-child,
+.visit-record-modify-actions button:last-child,
+.building-visit-modify-actions button:last-child {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.visit-record-application-actions button:disabled,
+.visit-record-modify-actions button:disabled,
+.building-visit-modify-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* アンドゥバー */
 .undo-bar {
   display: flex;

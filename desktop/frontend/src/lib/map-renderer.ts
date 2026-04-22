@@ -146,6 +146,9 @@ export class MapRenderer {
   private placeContextMenuCallback:
     | ((placeId: string, type: PlaceType, x: number, y: number) => void)
     | null = null;
+  private placeClickCallback:
+    | ((placeId: string, type: PlaceType) => void)
+    | null = null;
   private placeZoomHandler: (() => void) | null = null;
 
   // 場所マーカー移動追従モード
@@ -615,6 +618,16 @@ export class MapRenderer {
   }
 
   /**
+   * 場所マーカー左クリック時のコールバックを登録する。
+   * 訪問記録画面でアイコンタップ → 訪問ダイアログを開くために使う。
+   */
+  setPlaceClickHandler(
+    cb: ((placeId: string, type: PlaceType) => void) | null,
+  ): void {
+    this.placeClickCallback = cb;
+  }
+
+  /**
    * 場所マーカー一覧を地図に反映する。既存マーカーは全て破棄してから再描画する。
    * 詳細編集モード専用 (区域編集モードでは表示しない)。
    */
@@ -664,6 +677,10 @@ export class MapRenderer {
           e.containerPoint.x,
           e.containerPoint.y,
         );
+      });
+      marker.on("click", (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        this.placeClickCallback?.(p.id, p.type);
       });
       this.placeMarkers.set(p.id, marker);
 
