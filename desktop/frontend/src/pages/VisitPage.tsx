@@ -213,7 +213,7 @@ export function VisitPage({
           const isRoom = dialog.place.type === "room";
           const placeLabel =
             isRoom && dialog.parent
-              ? `${dialog.parent.label || t.areaDetail.noName} ${dialog.place.displayName}号室`
+              ? `${dialog.parent.label || t.areaDetail.noName} ${dialog.place.displayName}`
               : dialog.place.label || t.areaDetail.noName;
           const placeAddress =
             isRoom && dialog.parent

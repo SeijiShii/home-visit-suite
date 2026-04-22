@@ -245,7 +245,7 @@ describe("VisitPage — dialog open flow", () => {
     ).toBeInTheDocument();
   });
 
-  it("集合住宅 → 部屋選択 → VisitRecordDialog 上部に '{建物名} {部屋番号}号室' を表示", async () => {
+  it("集合住宅 → 部屋選択 → VisitRecordDialog 上部に '{建物名} {部屋番号}' を表示", async () => {
     const ps = fakePlaceService([
       makeBuilding({
         id: "b1",
@@ -266,8 +266,9 @@ describe("VisitPage — dialog open flow", () => {
     const user = userEvent.setup();
     await user.click(within(buildingDialog).getByText("101"));
     const roomDialog = await screen.findByRole("dialog", { name: /訪問記録/ });
-    expect(within(roomDialog).getByText(/○○マンション/)).toBeInTheDocument();
-    expect(within(roomDialog).getByText(/101号室/)).toBeInTheDocument();
+    expect(
+      within(roomDialog).getByText(/○○マンション\s+101/),
+    ).toBeInTheDocument();
     expect(
       within(roomDialog).getByText(/千葉県成田市5-6-7/),
     ).toBeInTheDocument();
