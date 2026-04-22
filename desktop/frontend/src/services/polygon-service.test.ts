@@ -43,7 +43,6 @@ const createMockEditor = () => ({
 const createMockRegionAPI = () => ({
   BindPolygonToArea: vi.fn().mockResolvedValue(undefined),
   UnbindPolygonFromArea: vi.fn().mockResolvedValue(undefined),
-  RemapPolygonIds: vi.fn().mockResolvedValue(undefined),
 });
 
 const makePolygonSnapshot = (id: string): PolygonSnapshot => ({

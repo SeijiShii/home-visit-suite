@@ -46,10 +46,6 @@ export function ListRegions() {
   return window['go']['binding']['RegionBinding']['ListRegions']();
 }
 
-export function RemapPolygonIds(arg1) {
-  return window['go']['binding']['RegionBinding']['RemapPolygonIds'](arg1);
-}
-
 export function ReorderRegions(arg1) {
   return window['go']['binding']['RegionBinding']['ReorderRegions'](arg1);
 }

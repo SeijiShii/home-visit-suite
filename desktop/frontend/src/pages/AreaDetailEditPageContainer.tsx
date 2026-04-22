@@ -28,7 +28,6 @@ export function AreaDetailEditPageContainer() {
     () => ({
       BindPolygonToArea: RegionBinding.BindPolygonToArea,
       UnbindPolygonFromArea: RegionBinding.UnbindPolygonFromArea,
-      RemapPolygonIds: RegionBinding.RemapPolygonIds,
     }),
     [],
   );
@@ -40,12 +39,7 @@ export function AreaDetailEditPageContainer() {
     new Set(),
   );
 
-  // usePolygonEditor.init() は polygon ID を再生成し RemapPolygonIds で
-  // backend の area-polygon 紐付けを更新する。この remap 完了より前に
-  // loadTree を呼ぶと旧 ID が返って editor 内 polygon と紐付かない。
-  // editor ready 後に loadTree することで必ず remap 後の polygon ID を取得する。
   useEffect(() => {
-    if (!ready || !editor) return;
     let cancelled = false;
     regionService.loadTree().then((tree) => {
       if (cancelled) return;
@@ -58,7 +52,7 @@ export function AreaDetailEditPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [regionService, ready, editor]);
+  }, [regionService]);
 
   if (!ready || !editor) {
     return (

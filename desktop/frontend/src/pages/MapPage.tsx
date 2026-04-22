@@ -71,7 +71,6 @@ export function MapPage() {
     () => ({
       BindPolygonToArea: RegionBinding.BindPolygonToArea,
       UnbindPolygonFromArea: RegionBinding.UnbindPolygonFromArea,
-      RemapPolygonIds: RegionBinding.RemapPolygonIds,
     }),
     [],
   );

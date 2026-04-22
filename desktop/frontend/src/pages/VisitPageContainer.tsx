@@ -37,7 +37,6 @@ export function VisitPageContainer() {
     () => ({
       BindPolygonToArea: RegionBinding.BindPolygonToArea,
       UnbindPolygonFromArea: RegionBinding.UnbindPolygonFromArea,
-      RemapPolygonIds: RegionBinding.RemapPolygonIds,
     }),
     [],
   );
@@ -48,15 +47,8 @@ export function VisitPageContainer() {
   const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(
     new Set(),
   );
-  const [treeLoaded, setTreeLoaded] = useState(false);
 
-  // usePolygonEditor.init() は読み込み時に polygon ID を再生成し
-  // RemapPolygonIds で backend の area-polygon 紐付けを更新する。
-  // remap 完了より前に loadTree を呼ぶと旧 ID が返って editor 内
-  // polygon と紐付かず地図が描画されない。editor ready 後に loadTree
-  // することで必ず remap 後の polygon ID を取得する。
   useEffect(() => {
-    if (!ready || !editor) return;
     let cancelled = false;
     regionService.loadTree().then((tree) => {
       if (cancelled) return;
@@ -65,18 +57,17 @@ export function VisitPageContainer() {
       for (const [polyId, info] of areaMap) m.set(polyId, info.areaId);
       setPolygonToArea(m);
       setLinkedPolygonIds(new Set(m.keys()));
-      setTreeLoaded(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [regionService, ready, editor]);
+  }, [regionService]);
 
   // TODO: 自分の DID を SettingsService 等から取得する。
   // 現状は空文字（バックエンド側で actor 検証は未実装のため動作はする）。
   const actorId = "";
 
-  const dataReady = ready && editor && treeLoaded;
+  const editorReady = ready && editor;
 
   return (
     <VisitPage
@@ -84,9 +75,9 @@ export function VisitPageContainer() {
       actorId={actorId}
       placeService={placeService}
       visitService={visitService}
-      editor={dataReady ? editor : undefined}
-      polygonToArea={dataReady ? polygonToArea : undefined}
-      linkedPolygonIds={dataReady ? linkedPolygonIds : undefined}
+      editor={editorReady ? editor : undefined}
+      polygonToArea={editorReady ? polygonToArea : undefined}
+      linkedPolygonIds={editorReady ? linkedPolygonIds : undefined}
       settingsService={settingsService}
       onPlaceCreateRequest={(args) => {
         console.log("[VisitPage] place create request:", args);
