@@ -51,6 +51,18 @@ export interface VisitBindingAPI {
     visitedAt: string,
     applicationText: string,
   ): Promise<VisitRecord>;
+  /**
+   * Phase 1 暫定: Activity 不要で訪問記録を作成する。
+   * チェックアウト/Activity 配線完了時に削除予定。
+   */
+  RecordVisitPhase1(
+    actorID: string,
+    areaID: string,
+    placeID: string,
+    result: VisitResult,
+    visitedAt: string,
+    applicationText: string,
+  ): Promise<VisitRecord>;
   ListVisitRecords(areaID: string): Promise<VisitRecord[] | null>;
   ListMyVisitHistory(
     placeID: string,
@@ -74,6 +86,28 @@ export class VisitService {
     return await this.api.RecordVisit(
       actorID,
       activityID,
+      placeID,
+      result,
+      visitedAt.toISOString(),
+      applicationText,
+    );
+  }
+
+  /**
+   * Phase 1 暫定: Activity 不要で訪問記録を作成する。
+   * チェックアウトモデル本実装時に削除し recordVisit へ統合する。
+   */
+  async recordVisitPhase1(
+    actorID: string,
+    areaID: string,
+    placeID: string,
+    result: VisitResult,
+    visitedAt: Date,
+    applicationText: string,
+  ): Promise<VisitRecord> {
+    return await this.api.RecordVisitPhase1(
+      actorID,
+      areaID,
       placeID,
       result,
       visitedAt.toISOString(),

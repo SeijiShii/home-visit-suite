@@ -21,3 +21,7 @@ export function ListVisitRecords(arg1) {
 export function RecordVisit(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['binding']['VisitBinding']['RecordVisit'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
+
+export function RecordVisitPhase1(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['binding']['VisitBinding']['RecordVisitPhase1'](arg1, arg2, arg3, arg4, arg5, arg6);
+}

@@ -123,6 +123,7 @@ function fakePlaceService(places: Place[]) {
 function fakeVisitService() {
   return {
     recordVisit: vi.fn().mockResolvedValue({} as VisitRecord),
+    recordVisitPhase1: vi.fn().mockResolvedValue({} as VisitRecord),
     listMyVisitHistory: vi.fn().mockResolvedValue([] as VisitRecord[]),
     getLastMetDate: vi.fn().mockResolvedValue(null),
     deleteVisitRecord: vi.fn().mockResolvedValue(undefined),
@@ -276,7 +277,7 @@ describe("VisitPage — dialog open flow", () => {
 });
 
 describe("VisitPage — save flow", () => {
-  it("saving a met visit calls visitService.recordVisit", async () => {
+  it("saving a met visit calls visitService.recordVisitPhase1 with areaId (Phase 1)", async () => {
     const vs = fakeVisitService();
     const ps = fakePlaceService([makeHouse({ id: "h1", label: "田中" })]);
     renderPage({ placeService: ps, visitService: vs });
@@ -286,16 +287,23 @@ describe("VisitPage — save flow", () => {
     });
     mockMapProps.placeClickHandler!("h1", "house");
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText(/訪問メモ/), "test note");
+    await user.selectOptions(
+      await screen.findByLabelText(/訪問ステータス/),
+      "met",
+    );
+    await user.type(screen.getByLabelText(/訪問メモ/), "test note");
     await user.click(screen.getByRole("button", { name: /^保存$/ }));
     await waitFor(() => {
-      expect(vs.recordVisit).toHaveBeenCalledOnce();
+      expect(vs.recordVisitPhase1).toHaveBeenCalledOnce();
     });
-    const args = vs.recordVisit.mock.calls[0];
+    const args = vs.recordVisitPhase1.mock.calls[0];
     expect(args[0]).toBe("did:key:user-A");
+    expect(args[1]).toBe("NRT-001-01"); // Phase 1: areaId を直接渡す
     expect(args[2]).toBe("h1");
     expect(args[3]).toBe("met");
     expect(args[5]).toBe("");
+    // 旧 recordVisit は Phase 1 では呼ばれない
+    expect(vs.recordVisit).not.toHaveBeenCalled();
   });
 
   it("place create request submit → onPlaceCreateRequest コールバックが呼ばれる (lat/lng 含む)", async () => {

@@ -148,6 +148,53 @@ func (s *activityService) RecordVisit(actorID string, activityID string, placeID
 	return vr, nil
 }
 
+// RecordVisitAdHoc は Phase 1 暫定: Activity 不要で訪問記録を保存する。
+// 詳細は ActivityService インタフェースの doc コメント参照。
+func (s *activityService) RecordVisitAdHoc(actorID string, areaID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
+	if areaID == "" {
+		return nil, NewError(ErrInvalidInput, "areaID is required for ad-hoc visit recording")
+	}
+
+	if result.RequiresApplication() && applicationText == "" {
+		return nil, Errorf(ErrInvalidInput, "applicationText is required for visit result %q", result)
+	}
+
+	now := time.Now()
+	vr := &models.VisitRecord{
+		ID:        fmt.Sprintf("vr-%d", now.UnixNano()),
+		UserID:    actorID,
+		PlaceID:   placeID,
+		AreaID:    areaID,
+		Result:    result,
+		VisitedAt: visitedAt,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if result.RequiresApplication() {
+		req := &models.Request{
+			ID:          fmt.Sprintf("req-%d", now.UnixNano()),
+			Type:        requestTypeForVisitResult(result),
+			Status:      models.RequestStatusPending,
+			SubmitterID: actorID,
+			AreaID:      areaID,
+			PlaceID:     placeID,
+			Description: applicationText,
+			CreatedAt:   now,
+		}
+		if err := s.notifRepo.SaveRequest(req); err != nil {
+			return nil, fmt.Errorf("save request: %w", err)
+		}
+		reqID := req.ID
+		vr.AppliedRequestID = &reqID
+	}
+
+	if err := s.actRepo.SaveVisitRecord(vr); err != nil {
+		return nil, fmt.Errorf("save visit record: %w", err)
+	}
+	return vr, nil
+}
+
 // requestTypeForVisitResult は申請を伴う訪問ステータスから対応する RequestType を返す。
 func requestTypeForVisitResult(result models.VisitResult) models.RequestType {
 	switch result {

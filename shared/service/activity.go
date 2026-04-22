@@ -26,6 +26,13 @@ type ActivityService interface {
 	// 申請が必要なステータスでは Request も同時に作成し、AppliedRequestID で紐付ける。
 	RecordVisit(actorID string, activityID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error)
 
+	// RecordVisitAdHoc は活動セッション (Activity) に紐付かない訪問記録を作成する。
+	// チェックアウトモデルが未配線の Phase 1 暫定 API。
+	// areaID は記録対象の区域 ID を直接指定する。Activity を参照しないため Status チェック等は行わない。
+	// 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録画面 > 起動後の遷移」
+	// 本番モデル（チェックアウト → Activity → 返却）配線完了時に削除する。
+	RecordVisitAdHoc(actorID string, areaID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error)
+
 	// AssignTeam は訪問活動にチームを割り当てる。
 	AssignTeam(actorID string, activityID, teamID string, activityDate time.Time) error
 }

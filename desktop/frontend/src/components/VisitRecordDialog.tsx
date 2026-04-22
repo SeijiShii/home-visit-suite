@@ -33,7 +33,7 @@ function formatDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return `${y}/${m}/${day}`;
 }
 
 function toDatetimeLocal(d: Date): string {
@@ -69,7 +69,8 @@ export function VisitRecordDialog({
   onPlaceModifyRequest,
 }: VisitRecordDialogProps) {
   const { t } = useI18n();
-  const [result, setResult] = useState<VisitResult>("met");
+  // 初期値は「留守」: 多くの訪問が留守で終わる実態と、最も無害なネットワーク共有値であることから既定とする
+  const [result, setResult] = useState<VisitResult>("absent");
   const [visitedAtStr, setVisitedAtStr] = useState<string>(() =>
     toDatetimeLocal(new Date()),
   );
@@ -110,9 +111,9 @@ export function VisitRecordDialog({
   };
 
   const cancelApplication = () => {
-    // 申請キャンセル: 選択を met に戻す
+    // 申請キャンセル: 選択を既定値（留守）に戻す
     setPendingApplicationResult(null);
-    setResult("met");
+    setResult("absent");
     setApplicationText("");
   };
 

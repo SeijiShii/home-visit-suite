@@ -27,6 +27,13 @@ func (b *VisitBinding) RecordVisit(actorID, activityID, placeID string, result m
 	return b.svc.RecordVisit(actorID, activityID, placeID, result, visitedAt, applicationText)
 }
 
+// RecordVisitPhase1 は Activity 不要で訪問記録を作成する Phase 1 暫定 API。
+// チェックアウト/Activity モデル未配線フェーズ向け。
+// 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録画面 > 起動後の遷移」
+func (b *VisitBinding) RecordVisitPhase1(actorID, areaID, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
+	return b.svc.RecordVisitAdHoc(actorID, areaID, placeID, result, visitedAt, applicationText)
+}
+
 // ListVisitRecords は指定区域の全訪問記録を返す（管理アプリ向け閲覧 API）。
 func (b *VisitBinding) ListVisitRecords(areaID string) ([]models.VisitRecord, error) {
 	return b.repo.ListVisitRecords(areaID)

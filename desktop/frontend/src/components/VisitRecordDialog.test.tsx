@@ -56,7 +56,13 @@ describe("VisitRecordDialog — basic shell", () => {
     expect(screen.getByLabelText(/訪問メモ/)).toBeInTheDocument();
   });
 
-  it("Save with met status calls onSave with values (no application)", async () => {
+  it("default status is 'absent' (留守)", () => {
+    renderDialog();
+    const select = screen.getByLabelText(/訪問ステータス/) as HTMLSelectElement;
+    expect(select.value).toBe("absent");
+  });
+
+  it("Save with default (absent) status calls onSave with values (no application)", async () => {
     const onSave = vi.fn();
     renderDialog({ onSave });
     const user = userEvent.setup();
@@ -64,10 +70,20 @@ describe("VisitRecordDialog — basic shell", () => {
     await user.click(screen.getByRole("button", { name: /保存/ }));
     expect(onSave).toHaveBeenCalledOnce();
     const arg = onSave.mock.calls[0][0];
-    expect(arg.result).toBe("met");
+    expect(arg.result).toBe("absent");
     expect(arg.note).toBe("また訪ねる");
     expect(arg.applicationText).toBe("");
     expect(arg.visitedAt).toBeInstanceOf(Date);
+  });
+
+  it("Save with explicitly selected met status calls onSave with met", async () => {
+    const onSave = vi.fn();
+    renderDialog({ onSave });
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText(/訪問ステータス/), "met");
+    await user.click(screen.getByRole("button", { name: /保存/ }));
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(onSave.mock.calls[0][0].result).toBe("met");
   });
 
   it("Cancel calls onCancel", async () => {
@@ -187,8 +203,8 @@ describe("VisitRecordDialog — application text flow", () => {
     await user.click(
       await screen.findByRole("button", { name: /申請をキャンセル/ }),
     );
-    // Spinner should revert to met (default)
-    expect(select.value).toBe("met");
+    // Spinner should revert to absent (default)
+    expect(select.value).toBe("absent");
   });
 });
 

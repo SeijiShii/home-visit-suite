@@ -48,6 +48,39 @@ func TestVisitBinding_RecordVisit_Met(t *testing.T) {
 	}
 }
 
+func TestVisitBinding_RecordVisitPhase1_Met(t *testing.T) {
+	b, repo := setupVisitBinding(t)
+
+	now := time.Now()
+	vr, err := b.RecordVisitPhase1("user-A", "area-phase1", "place-1", models.VisitResultAbsent, now, "")
+	if err != nil {
+		t.Fatalf("RecordVisitPhase1: %v", err)
+	}
+	if vr.Result != models.VisitResultAbsent {
+		t.Errorf("Result = %q, want absent", vr.Result)
+	}
+	if vr.AreaID != "area-phase1" {
+		t.Errorf("AreaID = %q, want area-phase1", vr.AreaID)
+	}
+	if vr.ActivityID != "" {
+		t.Errorf("ActivityID = %q, want empty (Phase 1)", vr.ActivityID)
+	}
+
+	stored, _ := repo.GetVisitRecord(vr.ID)
+	if stored == nil {
+		t.Error("visit record not stored")
+	}
+}
+
+func TestVisitBinding_RecordVisitPhase1_RequiresAreaID(t *testing.T) {
+	b, _ := setupVisitBinding(t)
+
+	_, err := b.RecordVisitPhase1("user-A", "", "place-1", models.VisitResultAbsent, time.Now(), "")
+	if err == nil {
+		t.Fatal("RecordVisitPhase1 with empty areaID should error")
+	}
+}
+
 func TestVisitBinding_ListMyVisitHistory(t *testing.T) {
 	b, repo := setupVisitBinding(t)
 

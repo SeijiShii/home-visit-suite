@@ -25,7 +25,11 @@ export type VisitPagePlaceServiceLike = UseAreaDetailMapPlaceService;
 
 export type VisitPageVisitServiceLike = Pick<
   VisitServiceClass,
-  "recordVisit" | "listMyVisitHistory" | "getLastMetDate" | "deleteVisitRecord"
+  | "recordVisit"
+  | "recordVisitPhase1"
+  | "listMyVisitHistory"
+  | "getLastMetDate"
+  | "deleteVisitRecord"
 >;
 
 export interface VisitPageProps {
@@ -146,10 +150,11 @@ export function VisitPage({
 
   const handleSaveVisit = useCallback(
     async (place: Place, args: VisitRecordSaveArgs) => {
-      // Phase 1: ActivityID は未配線。空文字で送る
-      await visitService.recordVisit(
+      // Phase 1: Activity 未配線のため Phase 1 専用 API を使用。
+      // チェックアウト/Activity 配線時に recordVisit へ移行する。
+      await visitService.recordVisitPhase1(
         actorId,
-        "",
+        areaId,
         place.id,
         args.result,
         args.visitedAt,
@@ -157,7 +162,7 @@ export function VisitPage({
       );
       setDialog(null);
     },
-    [visitService, actorId],
+    [visitService, actorId, areaId],
   );
 
   const closeDialog = useCallback(() => setDialog(null), []);

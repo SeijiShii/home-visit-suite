@@ -12,3 +12,5 @@ export function ListMyVisitHistory(arg1:string,arg2:string):Promise<Array<models
 export function ListVisitRecords(arg1:string):Promise<Array<models.VisitRecord>>;
 
 export function RecordVisit(arg1:string,arg2:string,arg3:string,arg4:models.VisitResult,arg5:time.Time,arg6:string):Promise<models.VisitRecord>;
+
+export function RecordVisitPhase1(arg1:string,arg2:string,arg3:string,arg4:models.VisitResult,arg5:time.Time,arg6:string):Promise<models.VisitRecord>;
