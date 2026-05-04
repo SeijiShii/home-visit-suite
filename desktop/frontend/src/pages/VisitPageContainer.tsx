@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { VisitPage } from "./VisitPage";
 import { PlaceService, type PlaceBindingAPI } from "../services/place-service";
 import { VisitService, type VisitBindingAPI } from "../services/visit-service";
@@ -12,6 +12,8 @@ import * as VisitBinding from "../../wailsjs/go/binding/VisitBinding";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import * as MapBinding from "../../wailsjs/go/binding/MapBinding";
 import * as SettingsBinding from "../../wailsjs/go/binding/SettingsBinding";
+import * as CheckoutBinding from "../../wailsjs/go/binding/CheckoutBinding";
+import * as UserBinding from "../../wailsjs/go/binding/UserBinding";
 
 /**
  * Phase 1 暫定: チェックアウトモデル未設計のため
@@ -49,6 +51,18 @@ export function VisitPageContainer() {
     new Set(),
   );
 
+  // 現在のアクター DID を IdentityContext から取得（dev モードでは切替可能）。
+  const { currentActorID: actorId } = useIdentity();
+
+  // Phase G7: 区域レベルのアクセスモードと、他者がチェックアウト中ならその担当者名
+  const [accessMode, setAccessMode] = useState<"editable" | "read_only">(
+    "editable",
+  );
+  const [activeCheckoutOwnerName, setActiveCheckoutOwnerName] = useState<
+    string | null
+  >(null);
+  const [accessTick, setAccessTick] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
     regionService.loadTree().then((tree) => {
@@ -64,8 +78,73 @@ export function VisitPageContainer() {
     };
   }, [regionService]);
 
-  // 現在のアクター DID を IdentityContext から取得（dev モードでは切替可能）。
-  const { currentActorID: actorId } = useIdentity();
+  // 区域アクセスモード + アクティブチェックアウトの担当者名を取得
+  useEffect(() => {
+    if (!actorId) return;
+    let cancelled = false;
+    async function fetchAccess() {
+      try {
+        const mode = await CheckoutBinding.AreaAccessMode(
+          actorId,
+          PHASE1_AREA_ID,
+        );
+        if (cancelled) return;
+        setAccessMode(mode === "read_only" ? "read_only" : "editable");
+
+        // read-only のとき、他者が active チェックアウト中なら担当者名を取得
+        if (mode === "read_only") {
+          const co = await CheckoutBinding.GetActiveCheckout(PHASE1_AREA_ID);
+          if (cancelled) return;
+          if (co && co.ownerId && co.ownerId !== actorId) {
+            try {
+              const u = await UserBinding.GetUser(co.ownerId);
+              if (!cancelled) {
+                setActiveCheckoutOwnerName(u?.name ?? co.ownerId);
+              }
+            } catch {
+              if (!cancelled) setActiveCheckoutOwnerName(co.ownerId);
+            }
+          } else if (!cancelled) {
+            setActiveCheckoutOwnerName(null);
+          }
+        } else if (!cancelled) {
+          setActiveCheckoutOwnerName(null);
+        }
+      } catch (e) {
+        console.error("VisitPageContainer access fetch failed", e);
+      }
+    }
+    void fetchAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [actorId, accessTick]);
+
+  /** [この区域をチェックアウトして記録する] CTA: 自分自身に lending を発行 */
+  const handleSelfCheckout = useCallback(async () => {
+    try {
+      await CheckoutBinding.Checkout(actorId, PHASE1_AREA_ID, "lending", actorId);
+      setAccessTick((t) => t + 1);
+    } catch (e) {
+      console.error("self checkout failed", e);
+      window.alert(String(e));
+    }
+  }, [actorId]);
+
+  /** [強制回収して自分でチェックアウト] CTA: 強制回収 → 自分に lending */
+  const handleForceReclaimAndSelfCheckout = useCallback(async () => {
+    try {
+      const co = await CheckoutBinding.GetActiveCheckout(PHASE1_AREA_ID);
+      if (co?.id) {
+        await CheckoutBinding.ForceReturn(actorId, co.id);
+      }
+      await CheckoutBinding.Checkout(actorId, PHASE1_AREA_ID, "lending", actorId);
+      setAccessTick((t) => t + 1);
+    } catch (e) {
+      console.error("force reclaim failed", e);
+      window.alert(String(e));
+    }
+  }, [actorId]);
 
   const editorReady = ready && editor;
 
@@ -87,6 +166,10 @@ export function VisitPageContainer() {
         console.log("[VisitPage] place modify request:", placeId, text);
         // TODO: Slice 10 で RequestService 経由で永続化する
       }}
+      accessMode={accessMode}
+      activeCheckoutOwnerName={activeCheckoutOwnerName}
+      onSelfCheckout={handleSelfCheckout}
+      onForceReclaimAndSelfCheckout={handleForceReclaimAndSelfCheckout}
     />
   );
 }

@@ -27,6 +27,14 @@ export interface VisitRecordDialogProps {
   onCancel: () => void;
   /** 「場所情報の修正を申請」テキスト送信時 */
   onPlaceModifyRequest: (text: string) => void;
+  /**
+   * 読み取り専用モード。仕様 docs/wants/05_チェックアウト.md「アクセスモード」:
+   *   入力エリアを表示せず、参考情報（場所名 / 最近会えた / 履歴）のみ表示する。
+   *   保存ボタンは出さない。場所情報修正申請ボタンは引き続き有効（仕様 Q15）。
+   */
+  readOnly?: boolean;
+  /** 読み取り専用時のヒントメッセージ（区域 read-only / 場所 read-only で文言が異なる） */
+  readOnlyHint?: string;
 }
 
 function formatDate(d: Date): string {
@@ -67,6 +75,8 @@ export function VisitRecordDialog({
   onSave,
   onCancel,
   onPlaceModifyRequest,
+  readOnly = false,
+  readOnlyHint,
 }: VisitRecordDialogProps) {
   const { t } = useI18n();
   // 初期値は「留守」: 多くの訪問が留守で終わる実態と、最も無害なネットワーク共有値であることから既定とする
@@ -179,38 +189,48 @@ export function VisitRecordDialog({
         </p>
       </header>
 
-      <label className="visit-record-field">
-        <span>{t.visitRecord.visitedAtLabel}</span>
-        <input
-          type="datetime-local"
-          value={visitedAtStr}
-          onChange={(e) => setVisitedAtStr(e.target.value)}
-        />
-      </label>
+      {readOnly ? (
+        <p className="visit-record-readonly-hint" role="note">
+          {readOnlyHint ?? t.visitRecord.placeReadOnlyHint}
+        </p>
+      ) : (
+        <>
+          <label className="visit-record-field">
+            <span>{t.visitRecord.visitedAtLabel}</span>
+            <input
+              type="datetime-local"
+              value={visitedAtStr}
+              onChange={(e) => setVisitedAtStr(e.target.value)}
+            />
+          </label>
 
-      <label className="visit-record-field">
-        <span>{t.visitRecord.resultLabel}</span>
-        <select
-          value={result}
-          onChange={(e) => handleResultChange(e.target.value as VisitResult)}
-        >
-          {VISIT_RESULTS.map((r) => (
-            <option key={r} value={r}>
-              {visitResultLabel(r, t)}
-            </option>
-          ))}
-        </select>
-      </label>
+          <label className="visit-record-field">
+            <span>{t.visitRecord.resultLabel}</span>
+            <select
+              value={result}
+              onChange={(e) =>
+                handleResultChange(e.target.value as VisitResult)
+              }
+            >
+              {VISIT_RESULTS.map((r) => (
+                <option key={r} value={r}>
+                  {visitResultLabel(r, t)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <label className="visit-record-field">
-        <span>{t.visitRecord.noteLabel}</span>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder={t.visitRecord.notePlaceholder}
-          rows={3}
-        />
-      </label>
+          <label className="visit-record-field">
+            <span>{t.visitRecord.noteLabel}</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t.visitRecord.notePlaceholder}
+              rows={3}
+            />
+          </label>
+        </>
+      )}
 
       <section className="visit-record-history">
         <button
@@ -250,11 +270,13 @@ export function VisitRecordDialog({
           className="visit-record-cancel"
           onClick={onCancel}
         >
-          {t.areaDetail.cancel}
+          {readOnly ? t.visitRecord.close : t.areaDetail.cancel}
         </button>
-        <button type="submit" className="visit-record-save">
-          {t.areaDetail.save}
-        </button>
+        {!readOnly && (
+          <button type="submit" className="visit-record-save">
+            {t.areaDetail.save}
+          </button>
+        )}
       </div>
 
       <button

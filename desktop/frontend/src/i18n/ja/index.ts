@@ -165,6 +165,20 @@ const ja: Translations = {
       "Phase 1 暫定: 区域 {areaId} に固定遷移しています（チェックアウト連携は次期スコープ）",
     placesEmpty: "この区域には場所が登録されていません",
     addPlaceCreateRequest: "場所の追加を申請",
+    readOnlyBanner:
+      "この区域は閲覧専用です。訪問記録を入力するにはチェックアウトが必要です。",
+    checkoutSelfCta: "この区域をチェックアウトして記録する",
+    checkoutForceCta: "強制回収して自分でチェックアウト",
+    checkoutRequestInviteCta: "招待を依頼",
+    checkoutOthersActive: (ownerName: string) =>
+      `現在 ${ownerName} さんがチェックアウト中です`,
+    checkoutForceConfirm:
+      "強制回収すると現担当者の活動が中断されます。よろしいですか？",
+    checkoutInviteRequestPending:
+      "招待依頼ワークフローは今後の実装予定です（連絡経路は通知設計とあわせて検討）",
+    dialogReadOnlyHint:
+      "この区域は閲覧専用です。記録するにはチェックアウトしてください。",
+    placeReadOnlyHint: "この場所は読み取り専用です。",
   },
   areaTree: {
     title: "区域編集",

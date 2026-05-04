@@ -168,6 +168,19 @@ const en: Translations = {
       "Phase 1 stub: hard-coded redirect to area {areaId} (checkout flow comes later)",
     placesEmpty: "No places registered in this area",
     addPlaceCreateRequest: "Request new place",
+    readOnlyBanner:
+      "This area is read-only. Check out the area to enter visit records.",
+    checkoutSelfCta: "Check out this area to record",
+    checkoutForceCta: "Force-return and check out",
+    checkoutRequestInviteCta: "Request invite",
+    checkoutOthersActive: (ownerName: string) =>
+      `Currently checked out by ${ownerName}`,
+    checkoutForceConfirm:
+      "Force-returning interrupts the current owner's activity. Continue?",
+    checkoutInviteRequestPending:
+      "Invite-request workflow is not implemented yet (will be designed with notifications).",
+    dialogReadOnlyHint: "This area is read-only. Check out to enter records.",
+    placeReadOnlyHint: "This place is read-only.",
   },
   areaTree: {
     title: "Area Editor",

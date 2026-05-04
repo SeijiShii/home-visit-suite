@@ -230,3 +230,65 @@ describe("VisitRecordDialog — place modify request button", () => {
     expect(onPlaceModifyRequest).toHaveBeenCalledWith("表札の文字が異なる");
   });
 });
+
+describe("VisitRecordDialog — read-only mode", () => {
+  it("読み取り専用時は入力欄（日時・スピナー・メモ）を表示しない", () => {
+    renderDialog({ readOnly: true });
+    expect(screen.queryByLabelText(/訪問日時/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/訪問ステータス/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/訪問メモ/)).not.toBeInTheDocument();
+  });
+
+  it("読み取り専用時は保存ボタンを表示しない", () => {
+    renderDialog({ readOnly: true });
+    expect(
+      screen.queryByRole("button", { name: /保存/ }),
+    ).not.toBeInTheDocument();
+    // 閉じるボタン（cancel ボタンが「閉じる」テキストに切り替わる）は出る
+    expect(screen.getByRole("button", { name: /閉じる/ })).toBeInTheDocument();
+  });
+
+  it("読み取り専用時でも『場所情報の修正を申請』ボタンは出る（仕様 Q15）", () => {
+    renderDialog({ readOnly: true });
+    expect(
+      screen.getByRole("button", { name: /場所情報の修正を申請/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("readOnlyHint を渡すとカスタムメッセージが表示される", () => {
+    renderDialog({
+      readOnly: true,
+      readOnlyHint:
+        "この区域は閲覧専用です。記録するにはチェックアウトしてください。",
+    });
+    expect(
+      screen.getByText(/閲覧専用です。記録するにはチェックアウト/),
+    ).toBeInTheDocument();
+  });
+
+  it("読み取り専用時も最近会えた日付・自分の訪問履歴は表示される", () => {
+    renderDialog({
+      readOnly: true,
+      lastMetDate: new Date("2026-04-15T10:00:00"),
+      myHistory: [
+        {
+          id: "h1",
+          userId: "u1",
+          placeId: "p1",
+          coord: null,
+          areaId: "a1",
+          checkoutId: "co-1",
+          result: "met",
+          appliedRequestId: null,
+          visitedAt: "2026-04-15T10:00:00Z",
+          createdAt: "2026-04-15T10:00:00Z",
+          updatedAt: "2026-04-15T10:00:00Z",
+        } as VisitRecord,
+      ],
+    });
+    expect(screen.getByTestId("last-met-date")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /自分の訪問履歴/ }),
+    ).toBeInTheDocument();
+  });
+});

@@ -159,6 +159,15 @@ export interface Translations {
     phase1Banner: string;
     placesEmpty: string;
     addPlaceCreateRequest: string;
+    readOnlyBanner: string;
+    checkoutSelfCta: string;
+    checkoutForceCta: string;
+    checkoutRequestInviteCta: string;
+    checkoutOthersActive: (ownerName: string) => string;
+    checkoutForceConfirm: string;
+    checkoutInviteRequestPending: string;
+    dialogReadOnlyHint: string;
+    placeReadOnlyHint: string;
   };
   areaTree: {
     title: string;

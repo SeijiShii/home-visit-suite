@@ -51,6 +51,19 @@ export interface VisitPageProps {
   onPlaceCreateRequest: (args: PlaceCreateRequestSaveArgs) => void;
   /** 場所修正申請の処理も外部委譲（PlaceID とテキスト） */
   onPlaceModifyRequest: (placeId: string, text: string) => void;
+  /**
+   * 区域レベルのアクセスモード。仕様 docs/wants/05_チェックアウト.md「アクセスモード」
+   * 未指定の場合は editable 扱い（後方互換）。
+   */
+  accessMode?: "editable" | "read_only";
+  /** read-only 時、他者がアクティブにチェックアウト中ならその担当者名（表示用） */
+  activeCheckoutOwnerName?: string | null;
+  /** [この区域をチェックアウトして記録する] CTA。アクティブなチェックアウトが無いケース */
+  onSelfCheckout?: () => void | Promise<void>;
+  /** [強制回収して自分でチェックアウト] CTA。他者のアクティブなチェックアウトを強制回収 */
+  onForceReclaimAndSelfCheckout?: () => void | Promise<void>;
+  /** [招待を依頼] CTA — 現フェーズはプレースホルダ（仕様 09 ペンディング） */
+  onRequestInvite?: () => void;
 }
 
 type DialogState =
@@ -70,6 +83,11 @@ export function VisitPage({
   settingsService,
   onPlaceCreateRequest,
   onPlaceModifyRequest,
+  accessMode = "editable",
+  activeCheckoutOwnerName = null,
+  onSelfCheckout,
+  onForceReclaimAndSelfCheckout,
+  onRequestInvite,
 }: VisitPageProps) {
   const { t } = useI18n();
   const mapRef = useRef<MapViewHandle | null>(null);
@@ -194,6 +212,23 @@ export function VisitPage({
     [],
   );
 
+  const isReadOnly = accessMode === "read_only";
+
+  const handleForceReclaim = useCallback(() => {
+    if (!onForceReclaimAndSelfCheckout) return;
+    if (!window.confirm(t.visitRecord.checkoutForceConfirm)) return;
+    void onForceReclaimAndSelfCheckout();
+  }, [onForceReclaimAndSelfCheckout, t.visitRecord.checkoutForceConfirm]);
+
+  const handleRequestInviteClick = useCallback(() => {
+    if (onRequestInvite) {
+      onRequestInvite();
+      return;
+    }
+    // フォールバック（Phase G7 ではプレースホルダ）
+    window.alert(t.visitRecord.checkoutInviteRequestPending);
+  }, [onRequestInvite, t.visitRecord.checkoutInviteRequestPending]);
+
   return (
     <div className="visit-page">
       <header className="visit-page-header">
@@ -202,6 +237,51 @@ export function VisitPage({
           {t.visitRecord.phase1Banner.replace("{areaId}", areaId)}
         </p>
       </header>
+
+      {isReadOnly && (
+        <section className="visit-page-readonly-cta" role="region">
+          <p className="visit-page-readonly-message">
+            {t.visitRecord.readOnlyBanner}
+            {activeCheckoutOwnerName && (
+              <>
+                {" "}
+                <span className="visit-page-readonly-owner">
+                  {t.visitRecord.checkoutOthersActive(activeCheckoutOwnerName)}
+                </span>
+              </>
+            )}
+          </p>
+          <div className="visit-page-readonly-actions">
+            {activeCheckoutOwnerName ? (
+              <>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleRequestInviteClick}
+                >
+                  {t.visitRecord.checkoutRequestInviteCta}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleForceReclaim}
+                >
+                  {t.visitRecord.checkoutForceCta}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => onSelfCheckout && void onSelfCheckout()}
+                disabled={!onSelfCheckout}
+              >
+                {t.visitRecord.checkoutSelfCta}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       <div
         ref={containerRef}
@@ -235,6 +315,10 @@ export function VisitPage({
               onCancel={closeDialog}
               onPlaceModifyRequest={(text) =>
                 onPlaceModifyRequest(dialog.place.id, text)
+              }
+              readOnly={isReadOnly}
+              readOnlyHint={
+                isReadOnly ? t.visitRecord.dialogReadOnlyHint : undefined
               }
             />
           );
