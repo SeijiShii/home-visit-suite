@@ -96,6 +96,90 @@ func TestCheckout_Delete(t *testing.T) {
 	}
 }
 
+// --- CheckoutInvitation ---
+
+func TestCheckoutInvitation_SaveAndGet(t *testing.T) {
+	repo := newCheckoutRepo()
+	now := time.Now()
+	inv := &models.CheckoutInvitation{
+		ID:         "inv-1",
+		CheckoutID: "co-1",
+		InviteeID:  "did:key:invitee",
+		InviterID:  "did:key:inviter",
+		ExpiresAt:  now.Add(24 * time.Hour),
+		CreatedAt:  now,
+	}
+	if err := repo.SaveCheckoutInvitation(inv); err != nil {
+		t.Fatalf("SaveCheckoutInvitation: %v", err)
+	}
+	got, err := repo.GetCheckoutInvitation("inv-1")
+	if err != nil {
+		t.Fatalf("GetCheckoutInvitation: %v", err)
+	}
+	if got.InviteeID != "did:key:invitee" {
+		t.Errorf("InviteeID = %q", got.InviteeID)
+	}
+}
+
+func TestCheckoutInvitation_GetByPair(t *testing.T) {
+	repo := newCheckoutRepo()
+	now := time.Now()
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{
+		ID: "inv-A", CheckoutID: "co-1", InviteeID: "u1", ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+	})
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{
+		ID: "inv-B", CheckoutID: "co-1", InviteeID: "u2", ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+	})
+
+	got, err := repo.GetCheckoutInvitationByPair("co-1", "u2")
+	if err != nil {
+		t.Fatalf("GetCheckoutInvitationByPair: %v", err)
+	}
+	if got == nil || got.ID != "inv-B" {
+		t.Errorf("got %+v, want inv-B", got)
+	}
+
+	// 該当なしは (nil, nil)
+	miss, err := repo.GetCheckoutInvitationByPair("co-1", "u-none")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if miss != nil {
+		t.Errorf("got %+v, want nil for no match", miss)
+	}
+}
+
+func TestCheckoutInvitation_ListByCheckout(t *testing.T) {
+	repo := newCheckoutRepo()
+	now := time.Now()
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{ID: "i1", CheckoutID: "co-1", InviteeID: "a", ExpiresAt: now.Add(time.Hour), CreatedAt: now})
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{ID: "i2", CheckoutID: "co-1", InviteeID: "b", ExpiresAt: now.Add(time.Hour), CreatedAt: now})
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{ID: "i3", CheckoutID: "co-2", InviteeID: "a", ExpiresAt: now.Add(time.Hour), CreatedAt: now})
+
+	list, _ := repo.ListCheckoutInvitations("co-1")
+	if len(list) != 2 {
+		t.Errorf("got %d, want 2", len(list))
+	}
+}
+
+func TestCheckoutInvitation_ListActiveForInvitee_ExcludesRevoked(t *testing.T) {
+	repo := newCheckoutRepo()
+	now := time.Now()
+	revoked := now.Add(-time.Minute)
+
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{ID: "i1", CheckoutID: "co-1", InviteeID: "u1", ExpiresAt: now.Add(time.Hour), CreatedAt: now})
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{ID: "i2", CheckoutID: "co-2", InviteeID: "u1", ExpiresAt: now.Add(time.Hour), RevokedAt: &revoked, CreatedAt: now})
+	repo.SaveCheckoutInvitation(&models.CheckoutInvitation{ID: "i3", CheckoutID: "co-3", InviteeID: "u2", ExpiresAt: now.Add(time.Hour), CreatedAt: now})
+
+	list, _ := repo.ListActiveCheckoutInvitationsForInvitee("u1")
+	if len(list) != 1 {
+		t.Errorf("got %d, want 1 (revoked excluded)", len(list))
+	}
+	if len(list) > 0 && list[0].ID != "i1" {
+		t.Errorf("got ID=%q, want i1", list[0].ID)
+	}
+}
+
 // --- VisitRecord ---
 
 func TestVisitRecord_SaveAndList(t *testing.T) {

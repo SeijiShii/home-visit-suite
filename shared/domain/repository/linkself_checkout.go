@@ -93,6 +93,98 @@ func (r *LinkSelfCheckoutRepo) DeleteCheckout(id string) error {
 	return err
 }
 
+// --- CheckoutInvitation ---
+
+func (r *LinkSelfCheckoutRepo) GetCheckoutInvitation(id string) (*models.CheckoutInvitation, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, checkout_id, invitee_id, inviter_id, expires_at, revoked_at, created_at
+		 FROM checkout_invitations WHERE id = ?`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("checkout invitation not found: %s", id)
+	}
+	inv, err := scanCheckoutInvitation(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &inv, nil
+}
+
+func (r *LinkSelfCheckoutRepo) GetCheckoutInvitationByPair(checkoutID, inviteeID string) (*models.CheckoutInvitation, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, checkout_id, invitee_id, inviter_id, expires_at, revoked_at, created_at
+		 FROM checkout_invitations WHERE checkout_id = ? AND invitee_id = ?
+		 LIMIT 1`, checkoutID, inviteeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+	inv, err := scanCheckoutInvitation(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &inv, nil
+}
+
+func (r *LinkSelfCheckoutRepo) ListCheckoutInvitations(checkoutID string) ([]models.CheckoutInvitation, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, checkout_id, invitee_id, inviter_id, expires_at, revoked_at, created_at
+		 FROM checkout_invitations WHERE checkout_id = ? ORDER BY created_at DESC`, checkoutID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []models.CheckoutInvitation
+	for rows.Next() {
+		inv, err := scanCheckoutInvitation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, inv)
+	}
+	return result, nil
+}
+
+func (r *LinkSelfCheckoutRepo) ListActiveCheckoutInvitationsForInvitee(inviteeID string) ([]models.CheckoutInvitation, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, checkout_id, invitee_id, inviter_id, expires_at, revoked_at, created_at
+		 FROM checkout_invitations WHERE invitee_id = ? AND revoked_at IS NULL
+		 ORDER BY created_at DESC`, inviteeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []models.CheckoutInvitation
+	for rows.Next() {
+		inv, err := scanCheckoutInvitation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, inv)
+	}
+	return result, nil
+}
+
+func (r *LinkSelfCheckoutRepo) SaveCheckoutInvitation(inv *models.CheckoutInvitation) error {
+	_, err := r.db.Exec(r.ctx,
+		`INSERT OR REPLACE INTO checkout_invitations
+		 (id, checkout_id, invitee_id, inviter_id, expires_at, revoked_at, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		inv.ID, inv.CheckoutID, inv.InviteeID, inv.InviterID,
+		formatTime(inv.ExpiresAt), formatTimePtr(inv.RevokedAt), formatTime(inv.CreatedAt))
+	return err
+}
+
 // --- VisitRecord ---
 
 func (r *LinkSelfCheckoutRepo) ListVisitRecords(areaID string) ([]models.VisitRecord, error) {
@@ -238,6 +330,21 @@ func (r *LinkSelfCheckoutRepo) SaveVisitRecordEdit(edit *models.VisitRecordEdit)
 }
 
 // --- scan helpers ---
+
+func scanCheckoutInvitation(row scannable) (models.CheckoutInvitation, error) {
+	var inv models.CheckoutInvitation
+	var expiresAt, createdAt string
+	var revokedAt sql.NullString
+	err := row.Scan(&inv.ID, &inv.CheckoutID, &inv.InviteeID, &inv.InviterID,
+		&expiresAt, &revokedAt, &createdAt)
+	if err != nil {
+		return inv, err
+	}
+	inv.ExpiresAt = parseTime(expiresAt)
+	inv.CreatedAt = parseTime(createdAt)
+	inv.RevokedAt = parseTimePtr(revokedAt)
+	return inv, nil
+}
 
 func scanCheckout(row scannable) (models.Checkout, error) {
 	var c models.Checkout

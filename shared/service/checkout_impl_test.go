@@ -337,3 +337,264 @@ func TestRecordVisit_VacantPossible_NoApplication(t *testing.T) {
 		t.Errorf("AppliedRequestID = %v, want nil for vacant_possible", vr.AppliedRequestID)
 	}
 }
+
+// --- Invite / RevokeInvite / ListInvitations ---
+
+const (
+	inviteEditorDID = "did:key:z6Mk0003" // editor (シードデータ参照)
+	inviteOtherEdit = "did:key:z6Mk0004" // 別の editor
+	inviteOwnerDID  = "did:key:z6Mk0010" // チェックアウト担当者となる活動メンバー
+	inviteeAlpha    = "did:key:z6Mk0011" // 被招待者 A（活動メンバー）
+	inviteeBeta     = "did:key:z6Mk0012" // 被招待者 B（活動メンバー）
+)
+
+// activeCheckoutForInvite は招待テスト用にアクティブなチェックアウトを生成する。
+func activeCheckoutForInvite(t *testing.T, svc service.CheckoutService, areaID string) *models.Checkout {
+	t.Helper()
+	co, err := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	if err != nil {
+		t.Fatalf("Checkout: %v", err)
+	}
+	return co
+}
+
+func TestInvite_EditorSuccess(t *testing.T) {
+	svc, repos := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-01")
+
+	inv, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0) // ttl=0 → デフォルト 24h
+	if err != nil {
+		t.Fatalf("Invite: %v", err)
+	}
+	if inv.CheckoutID != co.ID {
+		t.Errorf("CheckoutID = %q, want %q", inv.CheckoutID, co.ID)
+	}
+	if inv.InviteeID != inviteeAlpha {
+		t.Errorf("InviteeID = %q, want %q", inv.InviteeID, inviteeAlpha)
+	}
+	if inv.InviterID != inviteEditorDID {
+		t.Errorf("InviterID = %q, want %q", inv.InviterID, inviteEditorDID)
+	}
+	expectedExpiry := inv.CreatedAt.Add(models.DefaultCheckoutInviteTTL)
+	delta := inv.ExpiresAt.Sub(expectedExpiry)
+	if delta > time.Second || delta < -time.Second {
+		t.Errorf("ExpiresAt = %v, want about %v", inv.ExpiresAt, expectedExpiry)
+	}
+	if !inv.IsActive(time.Now()) {
+		t.Error("invitation should be active immediately after creation")
+	}
+
+	// 通知が発行されたか
+	notifs, _ := repos.Notification.ListNotifications(inviteeAlpha)
+	found := false
+	for _, n := range notifs {
+		if n.Type == models.NotificationTypeAreaInvite && n.ReferenceID == inv.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected NotificationTypeAreaInvite for invitee")
+	}
+}
+
+func TestInvite_OwnerCanInvite(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-02")
+
+	// 担当者本人（活動メンバー）が招待発行できる
+	_, err := svc.Invite(inviteOwnerDID, co.ID, inviteeAlpha, 0)
+	if err != nil {
+		t.Fatalf("owner invite: %v", err)
+	}
+}
+
+func TestInvite_NonOwnerMemberDenied(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-03")
+
+	// 担当者でも編集メンバーでもない活動メンバーは発行不可
+	_, err := svc.Invite(inviteeAlpha, co.ID, inviteeBeta, 0)
+	if err == nil {
+		t.Fatal("expected permission denied for non-owner non-editor")
+	}
+	if !service.IsCode(err, service.ErrPermissionDenied) {
+		t.Errorf("error code = %v, want permission_denied", err)
+	}
+}
+
+func TestInvite_NonActiveCheckoutError(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-04")
+	if err := svc.Return(inviteOwnerDID, co.ID); err != nil {
+		t.Fatalf("Return: %v", err)
+	}
+
+	// 返却済みチェックアウトに招待はできない
+	_, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+	if err == nil {
+		t.Fatal("expected error for invite on non-active checkout")
+	}
+	if !service.IsCode(err, service.ErrInvalidState) {
+		t.Errorf("error code = %v, want invalid_state", err)
+	}
+}
+
+func TestInvite_OwnerHimselfRejected(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-05")
+
+	_, err := svc.Invite(inviteEditorDID, co.ID, inviteOwnerDID, 0)
+	if err == nil {
+		t.Fatal("expected error for inviting owner themselves")
+	}
+	if !service.IsCode(err, service.ErrInvalidInput) {
+		t.Errorf("error code = %v, want invalid_input", err)
+	}
+}
+
+func TestInvite_EditorAsInviteeRejected(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-06")
+
+	// 編集メンバーは元々全区域アクセス可なので被招待者にできない
+	_, err := svc.Invite(inviteEditorDID, co.ID, inviteOtherEdit, 0)
+	if err == nil {
+		t.Fatal("expected error for inviting editor as invitee")
+	}
+	if !service.IsCode(err, service.ErrInvalidInput) {
+		t.Errorf("error code = %v, want invalid_input", err)
+	}
+}
+
+func TestInvite_NegativeTTLRejected(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-07")
+
+	_, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, -1*time.Hour)
+	if err == nil {
+		t.Fatal("expected error for negative ttl")
+	}
+	if !service.IsCode(err, service.ErrInvalidInput) {
+		t.Errorf("error code = %v, want invalid_input", err)
+	}
+}
+
+func TestInvite_DuplicateInviteOverwritesExpiresAt(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-08")
+
+	first, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 6*time.Hour)
+	// 同一被招待者へ再発行 → 既存レコードの ExpiresAt が上書き、新規レコードは作らない
+	second, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 48*time.Hour)
+	if err != nil {
+		t.Fatalf("re-invite: %v", err)
+	}
+	if second.ID != first.ID {
+		t.Errorf("re-invite created new record (id=%q), want same as first (id=%q)", second.ID, first.ID)
+	}
+	if !second.ExpiresAt.After(first.ExpiresAt) {
+		t.Errorf("ExpiresAt not extended: first=%v second=%v", first.ExpiresAt, second.ExpiresAt)
+	}
+	all, _ := svc.ListInvitations(co.ID)
+	count := 0
+	for _, inv := range all {
+		if inv.InviteeID == inviteeAlpha {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("invitations for invitee = %d, want 1 (overwrite)", count)
+	}
+}
+
+func TestRevokeInvite_InviterCanRevoke(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-09")
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	if err := svc.RevokeInvite(inviteEditorDID, inv.ID); err != nil {
+		t.Fatalf("RevokeInvite: %v", err)
+	}
+	all, _ := svc.ListInvitations(co.ID)
+	if len(all) != 1 || all[0].RevokedAt == nil {
+		t.Errorf("invitation should be revoked: %+v", all)
+	}
+	if all[0].IsActive(time.Now()) {
+		t.Error("revoked invitation should not be active")
+	}
+}
+
+func TestRevokeInvite_OwnerCanRevoke(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-10")
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	// 担当者（招待者ではない）が取消できる
+	if err := svc.RevokeInvite(inviteOwnerDID, inv.ID); err != nil {
+		t.Fatalf("owner revoke: %v", err)
+	}
+}
+
+func TestRevokeInvite_OtherMemberDenied(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-11")
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	// 招待者でも担当者でも編集メンバーでもない活動メンバーは取消不可
+	err := svc.RevokeInvite(inviteeBeta, inv.ID)
+	if err == nil {
+		t.Fatal("expected permission denied")
+	}
+	if !service.IsCode(err, service.ErrPermissionDenied) {
+		t.Errorf("error code = %v, want permission_denied", err)
+	}
+}
+
+func TestRevokeInvite_AlreadyRevokedError(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-12")
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+	svc.RevokeInvite(inviteEditorDID, inv.ID)
+
+	err := svc.RevokeInvite(inviteEditorDID, inv.ID)
+	if err == nil {
+		t.Fatal("expected error for double revoke")
+	}
+	if !service.IsCode(err, service.ErrInvalidState) {
+		t.Errorf("error code = %v, want invalid_state", err)
+	}
+}
+
+func TestReturn_CascadeRevokesInvitations(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-13")
+	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+	svc.Invite(inviteEditorDID, co.ID, inviteeBeta, 0)
+
+	if err := svc.Return(inviteOwnerDID, co.ID); err != nil {
+		t.Fatalf("Return: %v", err)
+	}
+	all, _ := svc.ListInvitations(co.ID)
+	if len(all) != 2 {
+		t.Fatalf("invitation count = %d, want 2", len(all))
+	}
+	for _, inv := range all {
+		if inv.RevokedAt == nil {
+			t.Errorf("invitation %s not revoked after Return", inv.ID)
+		}
+	}
+}
+
+func TestForceReturn_CascadeRevokesInvitations(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-005-14")
+	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	if err := svc.ForceReturn(inviteEditorDID, co.ID); err != nil {
+		t.Fatalf("ForceReturn: %v", err)
+	}
+	all, _ := svc.ListInvitations(co.ID)
+	if len(all) != 1 || all[0].RevokedAt == nil {
+		t.Errorf("invitation should be revoked after ForceReturn: %+v", all)
+	}
+}

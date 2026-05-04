@@ -82,7 +82,13 @@ func (s *checkoutService) Return(actorID string, checkoutID string) error {
 	c.ReturnedAt = &now
 	c.UpdatedAt = now
 
-	return s.coRepo.SaveCheckout(c)
+	if err := s.coRepo.SaveCheckout(c); err != nil {
+		return err
+	}
+
+	// 紐づく未失効の招待を一括失効
+	// 仕様 docs/wants/05_チェックアウト.md「区域招待 > 失効・取り消し」
+	return s.cascadeRevokeInvitations(checkoutID, now)
 }
 
 func (s *checkoutService) ForceReturn(actorID string, checkoutID string) error {
@@ -205,4 +211,140 @@ func requestTypeForVisitResult(result models.VisitResult) models.RequestType {
 	default:
 		return ""
 	}
+}
+
+// --- Invite / RevokeInvite / ListInvitations ---
+
+func (s *checkoutService) Invite(actorID string, checkoutID string, inviteeID string, ttl time.Duration) (*models.CheckoutInvitation, error) {
+	if ttl < 0 {
+		return nil, NewError(ErrInvalidInput, "ttl must be non-negative")
+	}
+	if ttl == 0 {
+		ttl = models.DefaultCheckoutInviteTTL
+	}
+
+	c, err := s.coRepo.GetCheckout(checkoutID)
+	if err != nil {
+		return nil, Errorf(ErrNotFound, "checkout not found: %s", checkoutID)
+	}
+	if c.Status != models.CheckoutStatusActive {
+		return nil, Errorf(ErrInvalidState, "invite requires active checkout (status: %s)", c.Status)
+	}
+
+	// 招待者の権限チェック: editor+ または当該チェックアウトの現担当者
+	actorRole, err := s.getActorRole(actorID)
+	if err != nil {
+		return nil, err
+	}
+	if !actorRole.IsAtLeast(models.RoleEditor) && actorID != c.OwnerID {
+		return nil, NewError(ErrPermissionDenied, "invite requires editor or current checkout owner")
+	}
+
+	// 被招待者の検証
+	if inviteeID == c.OwnerID {
+		return nil, NewError(ErrInvalidInput, "cannot invite the owner themselves")
+	}
+	invitee, err := s.userRepo.GetUser(inviteeID)
+	if err != nil {
+		return nil, Errorf(ErrNotFound, "invitee not found: %s", inviteeID)
+	}
+	if invitee.Role != models.RoleMember {
+		return nil, NewError(ErrInvalidInput, "invitee must be a member (editors/admins already have full access)")
+	}
+
+	now := time.Now()
+	newExpiresAt := now.Add(ttl)
+
+	// 既存の有効な招待があれば期限延長（上書き）
+	existing, _ := s.coRepo.GetCheckoutInvitationByPair(checkoutID, inviteeID)
+	if existing != nil && existing.IsActive(now) {
+		existing.ExpiresAt = newExpiresAt
+		if err := s.coRepo.SaveCheckoutInvitation(existing); err != nil {
+			return nil, fmt.Errorf("save invitation: %w", err)
+		}
+		s.notifyAreaInvite(existing)
+		return existing, nil
+	}
+
+	inv := &models.CheckoutInvitation{
+		ID:         fmt.Sprintf("inv-%d", now.UnixNano()),
+		CheckoutID: checkoutID,
+		InviteeID:  inviteeID,
+		InviterID:  actorID,
+		ExpiresAt:  newExpiresAt,
+		CreatedAt:  now,
+	}
+	if err := s.coRepo.SaveCheckoutInvitation(inv); err != nil {
+		return nil, fmt.Errorf("save invitation: %w", err)
+	}
+	s.notifyAreaInvite(inv)
+	return inv, nil
+}
+
+func (s *checkoutService) RevokeInvite(actorID string, invitationID string) error {
+	inv, err := s.coRepo.GetCheckoutInvitation(invitationID)
+	if err != nil {
+		return Errorf(ErrNotFound, "invitation not found: %s", invitationID)
+	}
+	if inv.RevokedAt != nil {
+		return Errorf(ErrInvalidState, "invitation %s is already revoked", invitationID)
+	}
+
+	c, err := s.coRepo.GetCheckout(inv.CheckoutID)
+	if err != nil {
+		return Errorf(ErrNotFound, "checkout not found: %s", inv.CheckoutID)
+	}
+
+	actorRole, err := s.getActorRole(actorID)
+	if err != nil {
+		return err
+	}
+	// 取消可能: 招待者本人 / 現担当者 / editor+
+	if actorID != inv.InviterID && actorID != c.OwnerID && !actorRole.IsAtLeast(models.RoleEditor) {
+		return NewError(ErrPermissionDenied, "revoke requires inviter, current owner, or editor")
+	}
+
+	now := time.Now()
+	inv.RevokedAt = &now
+	return s.coRepo.SaveCheckoutInvitation(inv)
+}
+
+func (s *checkoutService) ListInvitations(checkoutID string) ([]models.CheckoutInvitation, error) {
+	return s.coRepo.ListCheckoutInvitations(checkoutID)
+}
+
+// cascadeRevokeInvitations は当該チェックアウトに紐づく未失効の招待をすべて失効させる。
+// Return / ForceReturn から呼び出す。
+func (s *checkoutService) cascadeRevokeInvitations(checkoutID string, at time.Time) error {
+	invs, err := s.coRepo.ListCheckoutInvitations(checkoutID)
+	if err != nil {
+		return fmt.Errorf("list invitations for cascade: %w", err)
+	}
+	for i := range invs {
+		inv := &invs[i]
+		if inv.RevokedAt != nil {
+			continue // 既に取消済み
+		}
+		inv.RevokedAt = &at
+		if err := s.coRepo.SaveCheckoutInvitation(inv); err != nil {
+			return fmt.Errorf("cascade revoke %s: %w", inv.ID, err)
+		}
+	}
+	return nil
+}
+
+// notifyAreaInvite は被招待者へ区域招待通知を発行する（発行時のみ通知）。
+// 仕様 docs/wants/07_通知と申請.md「区域招待: 発行時のみ被招待者のマイページに通知」
+func (s *checkoutService) notifyAreaInvite(inv *models.CheckoutInvitation) {
+	expires := inv.ExpiresAt
+	n := &models.Notification{
+		ID:          fmt.Sprintf("ntf-%d", time.Now().UnixNano()),
+		Type:        models.NotificationTypeAreaInvite,
+		TargetID:    inv.InviteeID,
+		ReferenceID: inv.ID,
+		CreatedAt:   inv.CreatedAt,
+		ExpiresAt:   &expires,
+	}
+	// 通知の保存失敗はログのみで握りつぶす（招待自体は成立しているため）
+	_ = s.notifRepo.SaveNotification(n)
 }

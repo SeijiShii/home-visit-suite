@@ -165,6 +165,16 @@ CREATE TABLE IF NOT EXISTS visit_records (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS checkout_invitations (
+    id TEXT PRIMARY KEY,
+    checkout_id TEXT NOT NULL,
+    invitee_id TEXT NOT NULL,
+    inviter_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS visit_record_edits (
     id TEXT PRIMARY KEY,
     visit_record_id TEXT NOT NULL,

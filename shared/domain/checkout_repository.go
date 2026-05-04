@@ -11,6 +11,13 @@ type CheckoutRepository interface {
 	SaveCheckout(checkout *models.Checkout) error
 	DeleteCheckout(id string) error
 
+	// CheckoutInvitation（区域招待）
+	GetCheckoutInvitation(id string) (*models.CheckoutInvitation, error)
+	GetCheckoutInvitationByPair(checkoutID, inviteeID string) (*models.CheckoutInvitation, error) // 同一被招待者重複検出（上書き延長用）
+	ListCheckoutInvitations(checkoutID string) ([]models.CheckoutInvitation, error)
+	ListActiveCheckoutInvitationsForInvitee(inviteeID string) ([]models.CheckoutInvitation, error) // 被招待者のアクセス可能区域算出用（取消済み除外。期限切れフィルタは呼び出し側）
+	SaveCheckoutInvitation(inv *models.CheckoutInvitation) error
+
 	// VisitRecord
 	ListVisitRecords(areaID string) ([]models.VisitRecord, error)
 	ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error)           // 場所単位の全ネットワーク訪問記録（最近会えた日付の集計用）

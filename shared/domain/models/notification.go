@@ -8,6 +8,7 @@ type NotificationType string
 const (
 	NotificationTypeInvitation    NotificationType = "invitation"     // 任命招待
 	NotificationTypeLending       NotificationType = "lending"        // 区域の貸し出し
+	NotificationTypeAreaInvite    NotificationType = "area_invite"    // 区域招待（被招待者向け、発行時のみ）
 	NotificationTypeReturn        NotificationType = "return"         // 返却
 	NotificationTypeForceReturn   NotificationType = "force_return"   // 強制回収
 	NotificationTypeRequestResult NotificationType = "request_result" // 申請結果

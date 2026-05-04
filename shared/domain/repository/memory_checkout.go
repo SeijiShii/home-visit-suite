@@ -8,17 +8,19 @@ import (
 )
 
 type InMemoryCheckoutRepository struct {
-	mu        sync.RWMutex
-	checkouts map[string]*models.Checkout
-	records   map[string]*models.VisitRecord
-	edits     map[string]*models.VisitRecordEdit
+	mu          sync.RWMutex
+	checkouts   map[string]*models.Checkout
+	invitations map[string]*models.CheckoutInvitation
+	records     map[string]*models.VisitRecord
+	edits       map[string]*models.VisitRecordEdit
 }
 
 func NewInMemoryCheckoutRepository() *InMemoryCheckoutRepository {
 	return &InMemoryCheckoutRepository{
-		checkouts: make(map[string]*models.Checkout),
-		records:   make(map[string]*models.VisitRecord),
-		edits:     make(map[string]*models.VisitRecordEdit),
+		checkouts:   make(map[string]*models.Checkout),
+		invitations: make(map[string]*models.CheckoutInvitation),
+		records:     make(map[string]*models.VisitRecord),
+		edits:       make(map[string]*models.VisitRecordEdit),
 	}
 }
 
@@ -79,6 +81,68 @@ func (r *InMemoryCheckoutRepository) DeleteCheckout(id string) error {
 		return fmt.Errorf("checkout not found: %s", id)
 	}
 	delete(r.checkouts, id)
+	return nil
+}
+
+// --- CheckoutInvitation ---
+
+func (r *InMemoryCheckoutRepository) GetCheckoutInvitation(id string) (*models.CheckoutInvitation, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	v, ok := r.invitations[id]
+	if !ok {
+		return nil, fmt.Errorf("checkout invitation not found: %s", id)
+	}
+	copy := *v
+	return &copy, nil
+}
+
+func (r *InMemoryCheckoutRepository) GetCheckoutInvitationByPair(checkoutID, inviteeID string) (*models.CheckoutInvitation, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, v := range r.invitations {
+		if v.CheckoutID == checkoutID && v.InviteeID == inviteeID {
+			copy := *v
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+func (r *InMemoryCheckoutRepository) ListCheckoutInvitations(checkoutID string) ([]models.CheckoutInvitation, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []models.CheckoutInvitation
+	for _, v := range r.invitations {
+		if v.CheckoutID == checkoutID {
+			result = append(result, *v)
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryCheckoutRepository) ListActiveCheckoutInvitationsForInvitee(inviteeID string) ([]models.CheckoutInvitation, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []models.CheckoutInvitation
+	for _, v := range r.invitations {
+		if v.InviteeID == inviteeID && v.RevokedAt == nil {
+			result = append(result, *v)
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryCheckoutRepository) SaveCheckoutInvitation(inv *models.CheckoutInvitation) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	copy := *inv
+	r.invitations[inv.ID] = &copy
 	return nil
 }
 

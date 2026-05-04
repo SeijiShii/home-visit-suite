@@ -18,9 +18,10 @@ const (
 	TableMemberTags = "member_tags"
 
 	// チェックアウト（ScopeNetwork）
-	TableCheckouts        = "checkouts"
-	TableVisitRecords     = "visit_records"
-	TableVisitRecordEdits = "visit_record_edits"
+	TableCheckouts            = "checkouts"
+	TableCheckoutInvitations  = "checkout_invitations"
+	TableVisitRecords         = "visit_records"
+	TableVisitRecordEdits     = "visit_record_edits"
 
 	// 網羅管理（ScopeNetwork）
 	TableCoverages        = "coverages"
@@ -47,7 +48,7 @@ var NetworkTables = []string{
 	TableRegions, TableParentAreas, TableAreas, TablePlaces,
 	TableMapNetwork,
 	TableUsers, TableOrgGroups, TableMemberTags,
-	TableCheckouts,
+	TableCheckouts, TableCheckoutInvitations,
 	TableVisitRecords, TableVisitRecordEdits,
 	TableCoverages, TableSchedulePeriods, TableScopes, TableAreaAvailability,
 	TableRequests, TableInvitations, TableNotifications,
