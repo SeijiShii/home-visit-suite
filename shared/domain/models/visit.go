@@ -41,14 +41,6 @@ type VisitRecord struct {
 	UpdatedAt        time.Time   `json:"updatedAt"`
 }
 
-// Team は訪問活動チーム。
-type Team struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	LeaderID string   `json:"leaderId"` // チーム責任者
-	Members  []string `json:"members"`  // メンバーのID
-}
-
 // ActivityStatus は訪問活動のステータス。
 type ActivityStatus string
 
@@ -83,11 +75,3 @@ type Activity struct {
 	UpdatedAt      time.Time      `json:"updatedAt"`
 }
 
-// ActivityTeamAssignment は訪問活動に対するチームの割り当て。
-type ActivityTeamAssignment struct {
-	ID           string    `json:"id"`
-	ActivityID   string    `json:"activityId"`
-	TeamID       string    `json:"teamId"`
-	ActivityDate time.Time `json:"activityDate"` // 活動日（日付単位）
-	AssignedAt   time.Time `json:"assignedAt"`
-}

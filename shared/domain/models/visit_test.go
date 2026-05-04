@@ -68,23 +68,6 @@ func TestCheckoutType_Values(t *testing.T) {
 	}
 }
 
-// --- ActivityTeamAssignment ---
-
-func TestActivityTeamAssignment_ActivityDate(t *testing.T) {
-	date := time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC)
-	ata := models.ActivityTeamAssignment{
-		ID:           "ata-1",
-		ActivityID:   "act-1",
-		TeamID:       "team-1",
-		ActivityDate: date,
-		AssignedAt:   time.Now(),
-	}
-
-	if !ata.ActivityDate.Equal(date) {
-		t.Errorf("ActivityDate = %v, want %v", ata.ActivityDate, date)
-	}
-}
-
 // --- VisitRecord ---
 
 func TestVisitRecord_ActivityID_NoteRemoved(t *testing.T) {

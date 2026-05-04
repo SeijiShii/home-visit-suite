@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
@@ -91,95 +90,6 @@ func (r *LinkSelfActivityRepo) SaveActivity(activity *models.Activity) error {
 
 func (r *LinkSelfActivityRepo) DeleteActivity(id string) error {
 	_, err := r.db.Exec(r.ctx, `DELETE FROM activities WHERE id = ?`, id)
-	return err
-}
-
-// --- Team ---
-
-func (r *LinkSelfActivityRepo) ListTeams() ([]models.Team, error) {
-	rows, err := r.db.Query(r.ctx,
-		`SELECT id, name, leader_id, members FROM teams ORDER BY name`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var result []models.Team
-	for rows.Next() {
-		t, err := scanTeam(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, t)
-	}
-	return result, nil
-}
-
-func (r *LinkSelfActivityRepo) GetTeam(id string) (*models.Team, error) {
-	rows, err := r.db.Query(r.ctx,
-		`SELECT id, name, leader_id, members FROM teams WHERE id = ?`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, fmt.Errorf("team not found: %s", id)
-	}
-	t, err := scanTeam(rows)
-	if err != nil {
-		return nil, err
-	}
-	return &t, nil
-}
-
-func (r *LinkSelfActivityRepo) SaveTeam(team *models.Team) error {
-	_, err := r.db.Exec(r.ctx,
-		`INSERT OR REPLACE INTO teams (id, name, leader_id, members) VALUES (?, ?, ?, ?)`,
-		team.ID, team.Name, team.LeaderID, marshalJSON(team.Members))
-	return err
-}
-
-func (r *LinkSelfActivityRepo) DeleteTeam(id string) error {
-	_, err := r.db.Exec(r.ctx, `DELETE FROM teams WHERE id = ?`, id)
-	return err
-}
-
-// --- ActivityTeamAssignment ---
-
-func (r *LinkSelfActivityRepo) ListAssignments(activityID string) ([]models.ActivityTeamAssignment, error) {
-	rows, err := r.db.Query(r.ctx,
-		`SELECT id, activity_id, team_id, activity_date, assigned_at
-		 FROM activity_assignments WHERE activity_id = ? ORDER BY activity_date`, activityID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var result []models.ActivityTeamAssignment
-	for rows.Next() {
-		var a models.ActivityTeamAssignment
-		var dateStr, assignedStr string
-		if err := rows.Scan(&a.ID, &a.ActivityID, &a.TeamID, &dateStr, &assignedStr); err != nil {
-			return nil, err
-		}
-		a.ActivityDate = parseTime(dateStr)
-		a.AssignedAt = parseTime(assignedStr)
-		result = append(result, a)
-	}
-	return result, nil
-}
-
-func (r *LinkSelfActivityRepo) SaveAssignment(a *models.ActivityTeamAssignment) error {
-	_, err := r.db.Exec(r.ctx,
-		`INSERT OR REPLACE INTO activity_assignments (id, activity_id, team_id, activity_date, assigned_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		a.ID, a.ActivityID, a.TeamID, formatTime(a.ActivityDate), formatTime(a.AssignedAt))
-	return err
-}
-
-func (r *LinkSelfActivityRepo) DeleteAssignment(id string) error {
-	_, err := r.db.Exec(r.ctx, `DELETE FROM activity_assignments WHERE id = ?`, id)
 	return err
 }
 
@@ -346,20 +256,6 @@ func scanActivity(row scannable) (models.Activity, error) {
 	a.ReturnedAt = parseTimePtr(returnedAt)
 	a.CompletedAt = parseTimePtr(completedAt)
 	return a, nil
-}
-
-func scanTeam(row scannable) (models.Team, error) {
-	var t models.Team
-	var membersJSON string
-	err := row.Scan(&t.ID, &t.Name, &t.LeaderID, &membersJSON)
-	if err != nil {
-		return t, err
-	}
-	json.Unmarshal([]byte(membersJSON), &t.Members)
-	if t.Members == nil {
-		t.Members = []string{}
-	}
-	return t, nil
 }
 
 func scanVisitRecord(row scannable) (models.VisitRecord, error) {

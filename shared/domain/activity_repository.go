@@ -11,17 +11,6 @@ type ActivityRepository interface {
 	SaveActivity(activity *models.Activity) error
 	DeleteActivity(id string) error
 
-	// Team
-	ListTeams() ([]models.Team, error)
-	GetTeam(id string) (*models.Team, error)
-	SaveTeam(team *models.Team) error
-	DeleteTeam(id string) error
-
-	// ActivityTeamAssignment
-	ListAssignments(activityID string) ([]models.ActivityTeamAssignment, error)
-	SaveAssignment(a *models.ActivityTeamAssignment) error
-	DeleteAssignment(id string) error
-
 	// VisitRecord
 	ListVisitRecords(areaID string) ([]models.VisitRecord, error)
 	ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error)             // 場所単位の全ネットワーク訪問記録（最近会えた日付の集計用）

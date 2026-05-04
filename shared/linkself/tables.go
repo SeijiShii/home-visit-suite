@@ -18,11 +18,9 @@ const (
 	TableMemberTags = "member_tags"
 
 	// 訪問活動（ScopeNetwork）
-	TableTeams               = "teams"
-	TableActivities          = "activities"
-	TableActivityAssignments = "activity_assignments"
-	TableVisitRecords        = "visit_records"
-	TableVisitRecordEdits    = "visit_record_edits"
+	TableActivities       = "activities"
+	TableVisitRecords     = "visit_records"
+	TableVisitRecordEdits = "visit_record_edits"
 
 	// 網羅管理（ScopeNetwork）
 	TableCoverages        = "coverages"
@@ -49,7 +47,7 @@ var NetworkTables = []string{
 	TableRegions, TableParentAreas, TableAreas, TablePlaces,
 	TableMapNetwork,
 	TableUsers, TableOrgGroups, TableMemberTags,
-	TableTeams, TableActivities, TableActivityAssignments,
+	TableActivities,
 	TableVisitRecords, TableVisitRecordEdits,
 	TableCoverages, TableSchedulePeriods, TableScopes, TableAreaAvailability,
 	TableRequests, TableInvitations, TableNotifications,

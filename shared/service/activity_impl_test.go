@@ -338,23 +338,3 @@ func TestRecordVisit_VacantPossible_NoApplication(t *testing.T) {
 	}
 }
 
-// --- AssignTeam ---
-
-func TestAssignTeam_Success(t *testing.T) {
-	svc, repos := setupActivity()
-
-	areaID := "pa-tms-004-01"
-	editorDID := "did:key:z6Mk0003"
-	act, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, "did:key:z6Mk0010")
-
-	date := time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC)
-	err := svc.AssignTeam(editorDID, act.ID, "team-01", date)
-	if err != nil {
-		t.Fatalf("AssignTeam: %v", err)
-	}
-
-	assigns, _ := repos.Activity.ListAssignments(act.ID)
-	if len(assigns) == 0 {
-		t.Error("expected assignment")
-	}
-}

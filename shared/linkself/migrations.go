@@ -136,14 +136,7 @@ CREATE TABLE IF NOT EXISTS member_tags (
     color TEXT NOT NULL DEFAULT ''
 );
 
--- チーム・訪問活動
-CREATE TABLE IF NOT EXISTS teams (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL DEFAULT '',
-    leader_id TEXT NOT NULL DEFAULT '',
-    members TEXT NOT NULL DEFAULT '[]'
-);
-
+-- 訪問活動
 CREATE TABLE IF NOT EXISTS activities (
     id TEXT PRIMARY KEY,
     area_id TEXT NOT NULL,
@@ -156,14 +149,6 @@ CREATE TABLE IF NOT EXISTS activities (
     returned_at TEXT,
     completed_at TEXT,
     updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS activity_assignments (
-    id TEXT PRIMARY KEY,
-    activity_id TEXT NOT NULL,
-    team_id TEXT NOT NULL,
-    activity_date TEXT NOT NULL,
-    assigned_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS visit_records (

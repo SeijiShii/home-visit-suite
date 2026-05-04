@@ -8,21 +8,17 @@ import (
 )
 
 type InMemoryActivityRepository struct {
-	mu          sync.RWMutex
-	activities  map[string]*models.Activity
-	teams       map[string]*models.Team
-	assignments map[string]*models.ActivityTeamAssignment
-	records     map[string]*models.VisitRecord
-	edits       map[string]*models.VisitRecordEdit
+	mu         sync.RWMutex
+	activities map[string]*models.Activity
+	records    map[string]*models.VisitRecord
+	edits      map[string]*models.VisitRecordEdit
 }
 
 func NewInMemoryActivityRepository() *InMemoryActivityRepository {
 	return &InMemoryActivityRepository{
-		activities:  make(map[string]*models.Activity),
-		teams:       make(map[string]*models.Team),
-		assignments: make(map[string]*models.ActivityTeamAssignment),
-		records:     make(map[string]*models.VisitRecord),
-		edits:       make(map[string]*models.VisitRecordEdit),
+		activities: make(map[string]*models.Activity),
+		records:    make(map[string]*models.VisitRecord),
+		edits:      make(map[string]*models.VisitRecordEdit),
 	}
 }
 
@@ -83,86 +79,6 @@ func (r *InMemoryActivityRepository) DeleteActivity(id string) error {
 		return fmt.Errorf("activity not found: %s", id)
 	}
 	delete(r.activities, id)
-	return nil
-}
-
-// --- Team ---
-
-func (r *InMemoryActivityRepository) ListTeams() ([]models.Team, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	result := make([]models.Team, 0, len(r.teams))
-	for _, v := range r.teams {
-		result = append(result, *v)
-	}
-	return result, nil
-}
-
-func (r *InMemoryActivityRepository) GetTeam(id string) (*models.Team, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	v, ok := r.teams[id]
-	if !ok {
-		return nil, fmt.Errorf("team not found: %s", id)
-	}
-	copy := *v
-	return &copy, nil
-}
-
-func (r *InMemoryActivityRepository) SaveTeam(team *models.Team) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	copy := *team
-	r.teams[team.ID] = &copy
-	return nil
-}
-
-func (r *InMemoryActivityRepository) DeleteTeam(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, ok := r.teams[id]; !ok {
-		return fmt.Errorf("team not found: %s", id)
-	}
-	delete(r.teams, id)
-	return nil
-}
-
-// --- ActivityTeamAssignment ---
-
-func (r *InMemoryActivityRepository) ListAssignments(activityID string) ([]models.ActivityTeamAssignment, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var result []models.ActivityTeamAssignment
-	for _, v := range r.assignments {
-		if v.ActivityID == activityID {
-			result = append(result, *v)
-		}
-	}
-	return result, nil
-}
-
-func (r *InMemoryActivityRepository) SaveAssignment(a *models.ActivityTeamAssignment) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	copy := *a
-	r.assignments[a.ID] = &copy
-	return nil
-}
-
-func (r *InMemoryActivityRepository) DeleteAssignment(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, ok := r.assignments[id]; !ok {
-		return fmt.Errorf("assignment not found: %s", id)
-	}
-	delete(r.assignments, id)
 	return nil
 }
 

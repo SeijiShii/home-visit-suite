@@ -96,48 +96,6 @@ func TestActivity_Delete(t *testing.T) {
 	}
 }
 
-// --- Team ---
-
-func TestTeam_SaveAndList(t *testing.T) {
-	repo := newActivityRepo()
-	repo.SaveTeam(&models.Team{ID: "t1", Name: "チームA", LeaderID: "u1", Members: []string{"u1", "u2"}})
-	repo.SaveTeam(&models.Team{ID: "t2", Name: "チームB", LeaderID: "u3", Members: []string{"u3"}})
-
-	list, err := repo.ListTeams()
-	if err != nil {
-		t.Fatalf("ListTeams: %v", err)
-	}
-	if len(list) != 2 {
-		t.Errorf("got %d, want 2", len(list))
-	}
-}
-
-func TestTeam_GetNotFound(t *testing.T) {
-	repo := newActivityRepo()
-	_, err := repo.GetTeam("nonexistent")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-}
-
-// --- Assignment ---
-
-func TestAssignment_SaveAndList(t *testing.T) {
-	repo := newActivityRepo()
-	date := time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC)
-	repo.SaveAssignment(&models.ActivityTeamAssignment{ID: "ata-1", ActivityID: "a1", TeamID: "t1", ActivityDate: date})
-	repo.SaveAssignment(&models.ActivityTeamAssignment{ID: "ata-2", ActivityID: "a1", TeamID: "t2", ActivityDate: date})
-	repo.SaveAssignment(&models.ActivityTeamAssignment{ID: "ata-3", ActivityID: "a2", TeamID: "t1", ActivityDate: date})
-
-	list, err := repo.ListAssignments("a1")
-	if err != nil {
-		t.Fatalf("ListAssignments: %v", err)
-	}
-	if len(list) != 2 {
-		t.Errorf("got %d, want 2", len(list))
-	}
-}
-
 // --- VisitRecord ---
 
 func TestVisitRecord_SaveAndList(t *testing.T) {

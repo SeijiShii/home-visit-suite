@@ -207,28 +207,3 @@ func requestTypeForVisitResult(result models.VisitResult) models.RequestType {
 	}
 }
 
-func (s *activityService) AssignTeam(actorID string, activityID, teamID string, activityDate time.Time) error {
-	role, err := s.getActorRole(actorID)
-	if err != nil {
-		return err
-	}
-	if !role.IsAtLeast(models.RoleEditor) {
-		return NewError(ErrPermissionDenied, "assign team requires editor or above")
-	}
-
-	_, err = s.actRepo.GetActivity(activityID)
-	if err != nil {
-		return Errorf(ErrNotFound, "activity not found: %s", activityID)
-	}
-
-	now := time.Now()
-	assign := &models.ActivityTeamAssignment{
-		ID:           fmt.Sprintf("ata-%d", now.UnixNano()),
-		ActivityID:   activityID,
-		TeamID:       teamID,
-		ActivityDate: activityDate,
-		AssignedAt:   now,
-	}
-
-	return s.actRepo.SaveAssignment(assign)
-}

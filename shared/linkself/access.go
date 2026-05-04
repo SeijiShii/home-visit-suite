@@ -39,12 +39,12 @@ func (p *RoleBasedAccessPolicy) CanWrite(did string, table string) bool {
 	case TableParentAreas, TableAreas, TablePlaces,
 		TableMapNetwork,
 		TableMemberTags,
-		TableActivityAssignments, TableVisitRecordEdits,
+		TableVisitRecordEdits,
 		TableCoverages, TableSchedulePeriods, TableScopes, TableAreaAvailability:
 		return role == "admin" || role == "editor"
 
 	// all members
-	case TableTeams, TableActivities, TableVisitRecords, TableRequests:
+	case TableActivities, TableVisitRecords, TableRequests:
 		return role == "admin" || role == "editor" || role == "member"
 
 	// editor+

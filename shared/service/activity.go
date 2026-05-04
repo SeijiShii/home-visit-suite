@@ -32,7 +32,4 @@ type ActivityService interface {
 	// 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録画面 > 起動後の遷移」
 	// 本番モデル（チェックアウト → Activity → 返却）配線完了時に削除する。
 	RecordVisitAdHoc(actorID string, areaID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error)
-
-	// AssignTeam は訪問活動にチームを割り当てる。
-	AssignTeam(actorID string, activityID, teamID string, activityDate time.Time) error
 }

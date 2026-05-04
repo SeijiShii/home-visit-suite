@@ -43,7 +43,7 @@ func TestCanWrite_EditorPlus(t *testing.T) {
 	editorTables := []string{
 		linkself.TableParentAreas, linkself.TableAreas, linkself.TablePlaces,
 		linkself.TableMapNetwork, linkself.TableMemberTags,
-		linkself.TableActivityAssignments, linkself.TableVisitRecordEdits,
+		linkself.TableVisitRecordEdits,
 		linkself.TableCoverages, linkself.TableSchedulePeriods,
 		linkself.TableScopes, linkself.TableAreaAvailability,
 		linkself.TableInvitations,
@@ -63,7 +63,7 @@ func TestCanWrite_EditorPlus(t *testing.T) {
 
 func TestCanWrite_AllMembers(t *testing.T) {
 	memberTables := []string{
-		linkself.TableTeams, linkself.TableActivities,
+		linkself.TableActivities,
 		linkself.TableVisitRecords, linkself.TableRequests,
 	}
 	for _, tbl := range memberTables {
