@@ -598,3 +598,182 @@ func TestForceReturn_CascadeRevokesInvitations(t *testing.T) {
 		t.Errorf("invitation should be revoked after ForceReturn: %+v", all)
 	}
 }
+
+// --- ReassignOwner ---
+
+func TestReassignOwner_EditorSuccess(t *testing.T) {
+	svc, repos := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-006-01")
+
+	newOwner := inviteeAlpha
+	if err := svc.ReassignOwner(inviteEditorDID, co.ID, newOwner); err != nil {
+		t.Fatalf("ReassignOwner: %v", err)
+	}
+
+	got, _ := repos.Checkout.GetCheckout(co.ID)
+	if got.OwnerID != newOwner {
+		t.Errorf("OwnerID = %q, want %q", got.OwnerID, newOwner)
+	}
+	// LentByID は維持（履歴）
+	if got.LentByID != inviteEditorDID {
+		t.Errorf("LentByID = %q, want %q (history preserved)", got.LentByID, inviteEditorDID)
+	}
+	if !got.UpdatedAt.After(co.UpdatedAt) && !got.UpdatedAt.Equal(co.UpdatedAt) {
+		t.Error("UpdatedAt should be advanced")
+	}
+}
+
+func TestReassignOwner_MemberDenied(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-006-02")
+
+	// 担当者本人（活動メンバー）でも担当者変更は editor+ 専用なので不可
+	err := svc.ReassignOwner(inviteOwnerDID, co.ID, inviteeAlpha)
+	if err == nil {
+		t.Fatal("expected permission denied")
+	}
+	if !service.IsCode(err, service.ErrPermissionDenied) {
+		t.Errorf("error code = %v, want permission_denied", err)
+	}
+}
+
+func TestReassignOwner_NonActiveCheckoutError(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-006-03")
+	svc.Return(inviteOwnerDID, co.ID)
+
+	err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteeAlpha)
+	if err == nil {
+		t.Fatal("expected error for reassign on non-active")
+	}
+	if !service.IsCode(err, service.ErrInvalidState) {
+		t.Errorf("error code = %v, want invalid_state", err)
+	}
+}
+
+func TestReassignOwner_NotFoundCheckout(t *testing.T) {
+	svc, _ := setupCheckout()
+	err := svc.ReassignOwner(inviteEditorDID, "co-nonexistent", inviteeAlpha)
+	if err == nil {
+		t.Fatal("expected not found")
+	}
+	if !service.IsCode(err, service.ErrNotFound) {
+		t.Errorf("error code = %v, want not_found", err)
+	}
+}
+
+func TestReassignOwner_NotFoundNewOwner(t *testing.T) {
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-006-04")
+
+	err := svc.ReassignOwner(inviteEditorDID, co.ID, "did:key:nonexistent")
+	if err == nil {
+		t.Fatal("expected not found for unknown new owner")
+	}
+	if !service.IsCode(err, service.ErrNotFound) {
+		t.Errorf("error code = %v, want not_found", err)
+	}
+}
+
+func TestReassignOwner_SameOwnerNoOp(t *testing.T) {
+	svc, repos := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-006-05")
+
+	// 同一担当者への再任命は冪等な成功
+	if err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteOwnerDID); err != nil {
+		t.Fatalf("same-owner reassign should succeed (no-op): %v", err)
+	}
+	got, _ := repos.Checkout.GetCheckout(co.ID)
+	if got.OwnerID != inviteOwnerDID {
+		t.Errorf("OwnerID changed to %q (want unchanged %q)", got.OwnerID, inviteOwnerDID)
+	}
+}
+
+func TestReassignOwner_KeepsInvitations(t *testing.T) {
+	// 担当者変更後も既存招待は維持される（仕様 Q2）
+	svc, _ := setupCheckout()
+	co := activeCheckoutForInvite(t, svc, "pa-tms-006-06")
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	if err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteeBeta); err != nil {
+		t.Fatalf("ReassignOwner: %v", err)
+	}
+
+	all, _ := svc.ListInvitations(co.ID)
+	if len(all) != 1 {
+		t.Fatalf("invitation count = %d, want 1 (preserved)", len(all))
+	}
+	if all[0].ID != inv.ID || all[0].RevokedAt != nil {
+		t.Errorf("invitation modified: %+v (want preserved & active)", all[0])
+	}
+	// InviterID も変えない（仕様 Q2）
+	if all[0].InviterID != inviteEditorDID {
+		t.Errorf("InviterID = %q, want %q (preserved)", all[0].InviterID, inviteEditorDID)
+	}
+}
+
+// --- 編集メンバーの自己貸出（自分自身への lending） ---
+
+func TestCheckout_EditorSelfLending(t *testing.T) {
+	// editor+ が ownerID == actorID で lending する → OwnerID == LentByID で成立
+	// 仕様 docs/wants/05_チェックアウト.md「可用性制約のバイパス」
+	// 「訪問記録画面で active チェックアウトを持たない区域に入った編集メンバーが
+	//  CTA からその場でチェックアウトを作る」動線で利用される
+	svc, _ := setupCheckout()
+
+	co, err := svc.Checkout(inviteEditorDID, "pa-tms-006-07", models.CheckoutTypeLending, inviteEditorDID)
+	if err != nil {
+		t.Fatalf("self-lending: %v", err)
+	}
+	if co.OwnerID != inviteEditorDID {
+		t.Errorf("OwnerID = %q, want %q", co.OwnerID, inviteEditorDID)
+	}
+	if co.LentByID != inviteEditorDID {
+		t.Errorf("LentByID = %q, want %q (self-lending)", co.LentByID, inviteEditorDID)
+	}
+	if co.OwnerID != co.LentByID {
+		t.Error("self-lending should yield OwnerID == LentByID")
+	}
+}
+
+// --- ReassignOwner で編集メンバー → 活動メンバーへ移譲（仕様 Q11） ---
+
+func TestReassignOwner_EditorSelfToMemberHandover(t *testing.T) {
+	// 編集メンバーが自分でチェックアウト→記録→活動メンバーへ担当者を移譲
+	// 仕様 docs/wants/05_チェックアウト.md「編集メンバーから活動メンバーへの担当者移譲」
+	svc, repos := setupCheckout()
+	areaID := "pa-tms-006-08"
+
+	co, err := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteEditorDID)
+	if err != nil {
+		t.Fatalf("self-lending: %v", err)
+	}
+
+	// 編集メンバーが訪問記録を作成
+	_, err = svc.RecordVisit(inviteEditorDID, co.ID, "place-x", models.VisitResultMet, time.Now(), "")
+	if err != nil {
+		t.Fatalf("RecordVisit: %v", err)
+	}
+
+	// 活動メンバーへ移譲
+	if err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteOwnerDID); err != nil {
+		t.Fatalf("ReassignOwner: %v", err)
+	}
+
+	got, _ := repos.Checkout.GetCheckout(co.ID)
+	if got.OwnerID != inviteOwnerDID {
+		t.Errorf("OwnerID = %q, want %q", got.OwnerID, inviteOwnerDID)
+	}
+	// LentByID は元編集メンバーのまま（履歴）
+	if got.LentByID != inviteEditorDID {
+		t.Errorf("LentByID = %q, want %q (history preserved)", got.LentByID, inviteEditorDID)
+	}
+	// チェックアウトは継続（訪問記録は単一チェックアウトで紐付き続ける）
+	if got.Status != models.CheckoutStatusActive {
+		t.Errorf("Status = %q, want active (handover preserves checkout)", got.Status)
+	}
+	records, _ := repos.Checkout.ListVisitRecords(areaID)
+	if len(records) == 0 {
+		t.Error("editor's visit record should remain attached to the same checkout")
+	}
+}

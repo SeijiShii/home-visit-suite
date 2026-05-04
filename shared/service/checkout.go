@@ -22,6 +22,13 @@ type CheckoutService interface {
 	// 紐づく未失効の区域招待は連動失効する。
 	ForceReturn(actorID string, checkoutID string) error
 
+	// ReassignOwner はチェックアウトの担当者を別メンバーへ任命変更する。editor+のみ。
+	// active 状態のチェックアウトでのみ実行可能。
+	// 紐づく未失効の区域招待・LentByID は維持される（仕様: 担当者変更とアクセス権・履歴は独立）。
+	// newOwnerID が現担当者と同じ場合は冪等な成功を返す（no-op）。
+	// 仕様 docs/wants/05_チェックアウト.md「担当者」「区域招待 > 担当者変更時の招待の扱い」
+	ReassignOwner(actorID string, checkoutID string, newOwnerID string) error
+
 	// RecordVisit は訪問記録を作成する。チェックアウトの担当者または有効な招待保有者が実行。
 	// applicationText: 申請を伴うステータス（vacant_abandoned / refused）の場合は必須、
 	// それ以外は無視される。

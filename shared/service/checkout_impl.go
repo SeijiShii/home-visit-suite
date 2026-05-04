@@ -40,6 +40,11 @@ func (s *checkoutService) Checkout(actorID string, areaID string, checkoutType m
 		return nil, NewError(ErrPermissionDenied, "lending checkout requires editor or above")
 	}
 
+	// 仕様メモ: スコープ・貸し出し可能区域・持ち出し可能区域のバリデーション本体は
+	// 未実装。実装時は活動メンバーの操作にのみ適用し、編集メンバー以上は
+	// バイパス可能とする（上位互換、`05_チェックアウト.md`「可用性制約のバイパス」）。
+	// 詳細は `09_継続的検討事項.md` の積み残しメモ参照。
+
 	// 排他的チェックアウト: アクティブなチェックアウトがあればエラー
 	existing, _ := s.coRepo.GetActiveCheckout(areaID)
 	if existing != nil {
@@ -58,6 +63,8 @@ func (s *checkoutService) Checkout(actorID string, areaID string, checkoutType m
 	}
 
 	if checkoutType == models.CheckoutTypeLending {
+		// LentByID は当該操作を行った editor+ の DID。
+		// editor+ が自分自身に貸し出す場合（ownerID == actorID）も許容され、その場合 OwnerID == LentByID となる。
 		c.LentByID = actorID
 	}
 
@@ -101,6 +108,39 @@ func (s *checkoutService) ForceReturn(actorID string, checkoutID string) error {
 	}
 
 	return s.Return(actorID, checkoutID)
+}
+
+func (s *checkoutService) ReassignOwner(actorID string, checkoutID string, newOwnerID string) error {
+	role, err := s.getActorRole(actorID)
+	if err != nil {
+		return err
+	}
+	if !role.IsAtLeast(models.RoleEditor) {
+		return NewError(ErrPermissionDenied, "reassign owner requires editor or above")
+	}
+
+	c, err := s.coRepo.GetCheckout(checkoutID)
+	if err != nil {
+		return Errorf(ErrNotFound, "checkout not found: %s", checkoutID)
+	}
+	if c.Status != models.CheckoutStatusActive {
+		return Errorf(ErrInvalidState, "reassign requires active checkout (status: %s)", c.Status)
+	}
+
+	if newOwnerID == c.OwnerID {
+		return nil // 冪等: 同じ担当者への再任命は no-op で成功
+	}
+
+	if _, err := s.userRepo.GetUser(newOwnerID); err != nil {
+		return Errorf(ErrNotFound, "new owner not found: %s", newOwnerID)
+	}
+
+	now := time.Now()
+	c.OwnerID = newOwnerID
+	c.UpdatedAt = now
+	// LentByID は変更しない（履歴として保持、仕様 Q16）
+	// 紐づく招待も維持（仕様 Q2）
+	return s.coRepo.SaveCheckout(c)
 }
 
 func (s *checkoutService) RecordVisit(actorID string, checkoutID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
