@@ -17,6 +17,21 @@ const en: Translations = {
     noNotifications: "No notifications",
     assignedAreas: "Assigned Areas",
     noAssignedAreas: "No areas assigned",
+    accessibleAreas: "Accessible Areas",
+    accessibleAreasNote: "Your active checkouts + areas you are invited to",
+    noAccessibleAreas:
+      "No accessible areas (check out an area or accept an invitation)",
+    colArea: "Area",
+    colRole: "Role",
+    colActions: "Actions",
+    roleOwner: "Owner",
+    roleInvitee: (remainingHours: number) =>
+      `Invitee (${remainingHours}h left)`,
+    inviteRoleExpired: "Invitee (expired)",
+    gotoVisit: "Visits →",
+    invite: "Invite",
+    invitePending: "Invite dialog will be implemented in Phase G6",
+    loading: "Loading...",
   },
   map: {
     title: "Map",

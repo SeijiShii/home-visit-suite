@@ -17,6 +17,19 @@ export interface Translations {
     noNotifications: string;
     assignedAreas: string;
     noAssignedAreas: string;
+    accessibleAreas: string;
+    accessibleAreasNote: string;
+    noAccessibleAreas: string;
+    colArea: string;
+    colRole: string;
+    colActions: string;
+    roleOwner: string;
+    roleInvitee: (remainingHours: number) => string;
+    inviteRoleExpired: string;
+    gotoVisit: string;
+    invite: string;
+    invitePending: string;
+    loading: string;
   };
   map: {
     title: string;
