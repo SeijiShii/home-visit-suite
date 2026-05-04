@@ -28,7 +28,7 @@ Home Visit Suite 活動メンバー向けアプリ（iOS/Android ネイティブ
 
 ### Home Visit Suite のユースケース上の前提
 
-- 活動メンバーは訪問活動中にアプリを前景で操作する
+- 活動メンバーはチェックアウト中（訪問中）にアプリを前景で操作する
 - バックグラウンドでの常時同期は**不要**（次回起動時の差分同期で十分）
 - したがって LinkSelf も **「前景起動時に高速に同期完了 → 背面遷移で graceful stop」** というライフサイクルを想定できれば足りる
 
@@ -60,7 +60,7 @@ Home Visit Suite 活動メンバー向けアプリ（iOS/Android ネイティブ
 - **現状**: `Start()` 内部で DHT full bootstrap（bootstrap peers へ接続 → kad-dht の routing table 充填）を行うため、コールドスタートから同期可能状態まで数秒〜十数秒かかる想定
 - **要望**: `Config` に以下を追加
   - `FastStart bool`: 起動時の DHT full bootstrap をスキップし、前回保存の peerstore / routing table を起点に既知ピアへ直接接続
-  - `KnownPeerHints []string`: 既知ピア（他デバイス・チームメンバー）の multiaddr を外部から注入可能にする
+  - `KnownPeerHints []string`: 既知ピア（他デバイス・他メンバー）の multiaddr を外部から注入可能にする
 - **理由**: モバイルで画面を開いてから同期結果が見えるまでの体感待ち時間を短縮する
 
 #### 3.1.4 peerstore / routing table の永続化
