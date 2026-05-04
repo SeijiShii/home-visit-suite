@@ -5,12 +5,11 @@ export interface Translations {
     dashboard: string;
     map: string;
     users: string;
-    activities: string;
+    checkouts: string;
     coverage: string;
     requests: string;
     regions: string;
     settings: string;
-    visit: string;
   };
   dashboard: {
     title: string;
@@ -189,7 +188,7 @@ export interface Translations {
     allTags: string;
     assignTags: string;
   };
-  activities: {
+  checkouts: {
     title: string;
     active: string;
     noActive: string;

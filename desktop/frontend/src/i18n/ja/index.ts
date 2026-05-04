@@ -5,12 +5,11 @@ const ja: Translations = {
     dashboard: "ダッシュボード",
     map: "区域編集",
     users: "メンバー管理",
-    activities: "訪問活動",
+    checkouts: "チェックアウト管理",
     coverage: "網羅管理",
     requests: "申請管理",
     regions: "領域管理",
     settings: "設定",
-    visit: "訪問記録",
   },
   dashboard: {
     title: "ダッシュボード",
@@ -195,12 +194,12 @@ const ja: Translations = {
     allTags: "すべて",
     assignTags: "タグを付与",
   },
-  activities: {
-    title: "訪問活動",
+  checkouts: {
+    title: "チェックアウト管理",
     active: "活動中",
-    noActive: "活動中の訪問はありません",
+    noActive: "活動中のチェックアウトはありません",
     completed: "完了済み",
-    noCompleted: "完了済みの訪問はありません",
+    noCompleted: "完了済みのチェックアウトはありません",
     status: {
       pending: "開始前",
       active: "活動中",

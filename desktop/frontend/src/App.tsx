@@ -10,7 +10,7 @@ import { MapPage } from "./pages/MapPage";
 import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
 import { VisitPageContainer } from "./pages/VisitPageContainer";
 import { UsersPage } from "./pages/UsersPage";
-import { ActivitiesPage } from "./pages/ActivitiesPage";
+import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { CoveragePage } from "./pages/CoveragePage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { RegionManagementPage } from "./pages/RegionManagementPage";
@@ -38,9 +38,16 @@ export function App() {
                   element={<AreaDetailEditPageContainer />}
                 />
                 <Route path="regions" element={<RegionManagementPage />} />
-                <Route path="visit" element={<VisitPageContainer />} />
+                {/*
+                 * 訪問記録画面はサイドバーには出さず、ダッシュボードから
+                 * 区域単位で /visits/:areaId へ遷移する（仕様 10_画面設計.md）。
+                 * Phase 1 暫定で areaId は未参照（VisitPageContainer 側で固定）。
+                 * G3 でダッシュボード経由の遷移、G5 でリンクから areaId を渡す
+                 * 形へ移行する。
+                 */}
+                <Route path="visits/:areaId" element={<VisitPageContainer />} />
                 <Route path="users" element={<UsersPage />} />
-                <Route path="activities" element={<ActivitiesPage />} />
+                <Route path="checkouts" element={<CheckoutsPage />} />
                 <Route path="coverage" element={<CoveragePage />} />
                 <Route path="requests" element={<RequestsPage />} />
                 <Route path="settings" element={<SettingsPage />} />

@@ -5,12 +5,11 @@ const en: Translations = {
     dashboard: "Dashboard",
     map: "Area Editor",
     users: "Member Management",
-    activities: "Visit Activities",
+    checkouts: "Checkouts",
     coverage: "Coverage",
     requests: "Requests",
     regions: "Region Management",
     settings: "Settings",
-    visit: "Visit Records",
   },
   dashboard: {
     title: "Dashboard",
@@ -196,12 +195,12 @@ const en: Translations = {
     allTags: "All",
     assignTags: "Assign Tags",
   },
-  activities: {
-    title: "Visit Activities",
+  checkouts: {
+    title: "Checkouts",
     active: "Active",
-    noActive: "No active visits",
+    noActive: "No active checkouts",
     completed: "Completed",
-    noCompleted: "No completed visits",
+    noCompleted: "No completed checkouts",
     status: {
       pending: "Pending",
       active: "Active",

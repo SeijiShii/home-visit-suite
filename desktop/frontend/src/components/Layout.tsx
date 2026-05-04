@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
+import {
+  useIdentity,
+  isRoleAtLeast,
+  type Role,
+} from "../contexts/IdentityContext";
 
 interface NavItem {
   to: string;
   labelKey: keyof ReturnType<typeof useI18n>["t"]["nav"];
   icon: React.ReactNode;
   end?: boolean;
+  /** このメニュー項目を表示するために必要な最低ロール（未指定なら全ロール表示） */
+  minRole?: Role;
 }
 
 const navItems: NavItem[] = [
@@ -86,8 +93,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    to: "/visit",
-    labelKey: "visit",
+    // チェックアウト管理（編集メンバー以上専用）
+    // 仕様 docs/wants/10_画面設計.md「チェックアウト管理 /checkouts」
+    to: "/checkouts",
+    labelKey: "checkouts",
+    minRole: "editor",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -97,25 +107,10 @@ const navItems: NavItem[] = [
         stroke="currentColor"
         strokeWidth="2"
       >
-        <path d="M3 12l2-2 4 4 8-8 4 4" />
-        <path d="M3 22h18" />
-      </svg>
-    ),
-  },
-  {
-    to: "/activities",
-    labelKey: "activities",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="18"
-        height="18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
-        <circle cx="12" cy="10" r="3" />
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M8 4v4" />
+        <path d="M16 4v4" />
       </svg>
     ),
   },
@@ -176,7 +171,13 @@ const navItems: NavItem[] = [
 
 export function Layout() {
   const { t } = useI18n();
+  const { currentRole } = useIdentity();
   const [collapsed, setCollapsed] = useState(false);
+
+  // ロール別フィルタ: minRole 指定があれば currentRole >= minRole の項目だけ表示
+  const visibleItems = navItems.filter(
+    (item) => !item.minRole || isRoleAtLeast(currentRole, item.minRole),
+  );
 
   return (
     <div className="layout">
@@ -192,7 +193,7 @@ export function Layout() {
           </button>
         </div>
         <div className="nav-links">
-          {navItems.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
