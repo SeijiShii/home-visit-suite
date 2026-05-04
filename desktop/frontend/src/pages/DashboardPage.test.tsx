@@ -13,6 +13,7 @@ import * as UserBinding from "../../wailsjs/go/binding/UserBinding";
 // Wails binding のモック
 vi.mock("../../wailsjs/go/binding/CheckoutBinding", () => ({
   ListAccessibleAreas: vi.fn(),
+  GetActiveCheckout: vi.fn(async () => null),
 }));
 vi.mock("../../wailsjs/go/binding/RegionBinding", () => ({
   ListRegions: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("../../wailsjs/go/binding/IdentityBinding", () => ({
 }));
 vi.mock("../../wailsjs/go/binding/UserBinding", () => ({
   GetUser: vi.fn(),
+  ListUsers: vi.fn(async () => []),
 }));
 
 function setupRegionTree() {
@@ -40,7 +42,14 @@ function setupRegionTree() {
     async (rid: string) =>
       rid === "reg-nrt"
         ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          [{ id: "pa-001", regionId: "reg-nrt", number: "001", name: "" } as any]
+          [
+            {
+              id: "pa-001",
+              regionId: "reg-nrt",
+              number: "001",
+              name: "",
+            } as any,
+          ]
         : [],
   );
   vi.mocked(RegionBinding.ListAreas).mockImplementation(
@@ -57,11 +66,11 @@ function setupRegionTree() {
   );
 }
 
-async function renderDashboard() {
+async function renderDashboard(role: "admin" | "editor" | "member" = "admin") {
   vi.mocked(UserBinding.GetUser).mockResolvedValue({
     id: "did:test",
     name: "テスト",
-    role: "admin",
+    role,
     orgGroupId: "",
     tagIds: [],
     joinedAt: "2025-04-01T00:00:00Z",
@@ -83,12 +92,9 @@ async function renderDashboard() {
       </IdentityProvider>
     </MemoryRouter>,
   );
-  // IdentityProvider の init + ロール fetch + DashboardPage の useEffect
+  // IdentityProvider の init + ロール fetch + DashboardPage の useEffect 連鎖
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
   });
   return result;
 }
@@ -101,7 +107,7 @@ describe("DashboardPage - アクセス可能な区域", () => {
 
   it("アクセス可能な区域がない場合は空メッセージが表示される", async () => {
     vi.mocked(CheckoutBinding.ListAccessibleAreas).mockResolvedValue([]);
-    await renderDashboard();
+    await renderDashboard("member");
     expect(
       screen.getByText(/アクセス可能な区域はありません/),
     ).toBeInTheDocument();
@@ -117,7 +123,7 @@ describe("DashboardPage - アクセス可能な区域", () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any,
     ]);
-    await renderDashboard();
+    await renderDashboard("member");
     // 表示名は領域記号-区域親番-区域番号
     expect(screen.getByText("NRT-001-01")).toBeInTheDocument();
     expect(screen.getByText("担当者")).toBeInTheDocument();
@@ -136,12 +142,14 @@ describe("DashboardPage - アクセス可能な区域", () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any,
     ]);
-    await renderDashboard();
+    await renderDashboard("member");
     expect(screen.getByText("NRT-001-02")).toBeInTheDocument();
     // 残時間 22 h（境界の floor で 21〜22）
     expect(screen.getByText(/招待 \(残2[12]h\)/)).toBeInTheDocument();
     // 被招待者行には「招待」ボタンが出ない
-    expect(screen.queryByRole("button", { name: "招待" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "招待" }),
+    ).not.toBeInTheDocument();
   });
 
   it("「訪問記録 →」クリックで /visits/:areaId へ遷移する", async () => {
@@ -155,7 +163,7 @@ describe("DashboardPage - アクセス可能な区域", () => {
       } as any,
     ]);
     const user = userEvent.setup();
-    await renderDashboard();
+    await renderDashboard("member");
 
     await user.click(screen.getByRole("button", { name: "訪問記録 →" }));
     expect(await screen.findByTestId("visit-page")).toBeInTheDocument();
@@ -173,12 +181,10 @@ describe("DashboardPage - アクセス可能な区域", () => {
     ]);
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const user = userEvent.setup();
-    await renderDashboard();
+    await renderDashboard("member");
 
     await user.click(screen.getByRole("button", { name: "招待" }));
-    expect(alertSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Phase G6"),
-    );
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("Phase G6"));
     alertSpy.mockRestore();
   });
 
@@ -198,5 +204,98 @@ describe("DashboardPage - タイトル", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "ダッシュボード" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("DashboardPage - 全ての区域一覧（editor+ のみ）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupRegionTree();
+    vi.mocked(CheckoutBinding.ListAccessibleAreas).mockResolvedValue([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(CheckoutBinding.GetActiveCheckout).mockResolvedValue(null as any);
+    vi.mocked(UserBinding.ListUsers).mockResolvedValue([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {
+        id: "u1",
+        name: "田中太郎",
+        role: "member",
+        orgGroupId: "",
+        tagIds: [],
+        joinedAt: "2025-04-01T00:00:00Z",
+      } as any,
+    ]);
+  });
+
+  it("admin では「全ての区域一覧」セクションが表示される", async () => {
+    await renderDashboard("admin");
+    expect(
+      screen.getByRole("heading", { name: "全ての区域一覧" }),
+    ).toBeInTheDocument();
+  });
+
+  it("editor でも「全ての区域一覧」セクションが表示される", async () => {
+    await renderDashboard("editor");
+    expect(
+      screen.getByRole("heading", { name: "全ての区域一覧" }),
+    ).toBeInTheDocument();
+  });
+
+  it("member には「全ての区域一覧」セクションは表示されない", async () => {
+    await renderDashboard("member");
+    expect(
+      screen.queryByRole("heading", { name: "全ての区域一覧" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("未チェックアウト区域は「未チェックアウト」と表示される", async () => {
+    await renderDashboard("admin");
+    // 全 2 区域とも未チェックアウト
+    const cells = screen.getAllByText("未チェックアウト");
+    expect(cells.length).toBe(2);
+  });
+
+  it("active チェックアウトがある区域は担当者名（担当）が表示される", async () => {
+    vi.mocked(CheckoutBinding.GetActiveCheckout).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (areaId: string) =>
+        areaId === "area-1"
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ({
+              id: "co-1",
+              areaId: "area-1",
+              ownerId: "u1",
+              status: "active",
+            } as any)
+          : null,
+    );
+    await renderDashboard("admin");
+    expect(screen.getByText("田中太郎（担当）")).toBeInTheDocument();
+  });
+
+  it("インクリメンタルサーチで絞り込まれる", async () => {
+    const user = userEvent.setup();
+    await renderDashboard("admin");
+    // 検索前は 2 区域
+    expect(screen.getByText("NRT-001-01")).toBeInTheDocument();
+    expect(screen.getByText("NRT-001-02")).toBeInTheDocument();
+
+    // 「-01」は NRT-001-01 末尾にしかマッチしない（NRT-001-02 末尾は -02）
+    await user.type(
+      screen.getByPlaceholderText("区域 ID または担当者名で検索"),
+      "-01",
+    );
+    expect(screen.getByText("NRT-001-01")).toBeInTheDocument();
+    expect(screen.queryByText("NRT-001-02")).not.toBeInTheDocument();
+  });
+
+  it("領域フィルタで絞り込まれる", async () => {
+    const user = userEvent.setup();
+    await renderDashboard("admin");
+    const regionSelect = screen.getByLabelText("すべての領域");
+    await user.selectOptions(regionSelect, "reg-nrt");
+    // 同領域内なので両区域は残る
+    expect(screen.getByText("NRT-001-01")).toBeInTheDocument();
+    expect(screen.getByText("NRT-001-02")).toBeInTheDocument();
   });
 });

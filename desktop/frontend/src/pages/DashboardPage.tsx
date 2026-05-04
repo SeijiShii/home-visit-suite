@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
-import { useIdentity } from "../contexts/IdentityContext";
+import { useIdentity, isRoleAtLeast } from "../contexts/IdentityContext";
 import * as CheckoutBinding from "../../wailsjs/go/binding/CheckoutBinding";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
+import * as UserBinding from "../../wailsjs/go/binding/UserBinding";
 
 /**
  * ダッシュボードに表示する1行分のアクセス可能区域。
@@ -20,24 +21,64 @@ interface AccessibleAreaRow {
 }
 
 /**
- * 区域 ID から「領域記号-区域親番-区域番号」形式の表示名を解決するためのインデックス。
- * RegionBinding.ListRegions / ListParentAreas / ListAreas を辿って構築する。
+ * 区域ツリー＋表示名インデックス。
+ * - displayIndex: areaId → "NRT-001-01" 形式の文字列
+ * - regions / parentAreasByRegion / areasByParent: 「全ての区域一覧」のフィルタ用
  */
-type AreaDisplayIndex = Map<string, string>;
+interface RegionTreeIndex {
+  displayIndex: Map<string, string>;
+  regions: { id: string; symbol: string; name: string }[];
+  parentAreasByRegion: Map<
+    string,
+    { id: string; number: string; name: string }[]
+  >;
+  areasByParent: Map<
+    string,
+    { id: string; number: string; parentAreaId: string; regionId: string }[]
+  >;
+  /** id → { regionId, parentAreaId, number } の逆引き（フィルタ判定用） */
+  areaMeta: Map<string, { regionId: string; parentAreaId: string }>;
+}
 
-async function buildAreaDisplayIndex(): Promise<AreaDisplayIndex> {
-  const map: AreaDisplayIndex = new Map();
-  const regions = (await RegionBinding.ListRegions()) ?? [];
-  for (const r of regions) {
+async function buildRegionTreeIndex(): Promise<RegionTreeIndex> {
+  const displayIndex = new Map<string, string>();
+  const regions: RegionTreeIndex["regions"] = [];
+  const parentAreasByRegion: RegionTreeIndex["parentAreasByRegion"] = new Map();
+  const areasByParent: RegionTreeIndex["areasByParent"] = new Map();
+  const areaMeta: RegionTreeIndex["areaMeta"] = new Map();
+
+  const regionList = (await RegionBinding.ListRegions()) ?? [];
+  for (const r of regionList) {
+    regions.push({ id: r.id, symbol: r.symbol, name: r.name });
     const pas = (await RegionBinding.ListParentAreas(r.id)) ?? [];
+    parentAreasByRegion.set(
+      r.id,
+      pas.map((pa) => ({ id: pa.id, number: pa.number, name: pa.name })),
+    );
     for (const pa of pas) {
       const areas = (await RegionBinding.ListAreas(pa.id)) ?? [];
+      areasByParent.set(
+        pa.id,
+        areas.map((a) => ({
+          id: a.id,
+          number: a.number,
+          parentAreaId: pa.id,
+          regionId: r.id,
+        })),
+      );
       for (const a of areas) {
-        map.set(a.id, `${r.symbol}-${pa.number}-${a.number}`);
+        displayIndex.set(a.id, `${r.symbol}-${pa.number}-${a.number}`);
+        areaMeta.set(a.id, { regionId: r.id, parentAreaId: pa.id });
       }
     }
   }
-  return map;
+  return {
+    displayIndex,
+    regions,
+    parentAreasByRegion,
+    areasByParent,
+    areaMeta,
+  };
 }
 
 /**
@@ -86,25 +127,53 @@ function PersonClockIcon() {
   );
 }
 
+/** 「全ての区域一覧」セクションの 1 行データ */
+interface AllAreaRow {
+  areaId: string;
+  displayName: string;
+  regionId: string;
+  parentAreaId: string;
+  /** 現アクティブチェックアウト担当者の表示用情報（無ければ null） */
+  ownerDisplay: string | null;
+  /** 検索ヒットさせる対象（区域 ID, 担当者名, displayName）を結合した小文字文字列 */
+  searchHaystack: string;
+}
+
 /**
  * ダッシュボード。
  * 仕様 docs/wants/10_画面設計.md「5. ダッシュボード」
  *
  * Phase G3:
  *   - 「アクセス可能な区域」セクションを実装（担当 + 有効招待）
- *   - 「全ての区域一覧」（editor+）は Phase G4
- *   - 通知 / 網羅進捗サマリーは別フェーズ
  *   - 「招待」ボタンの発行ダイアログは Phase G6（現状はプレースホルダー）
+ * Phase G4:
+ *   - 「全ての区域一覧」セクション（editor+ のみ）を実装。領域・区域親番フィルタ
+ *     + インクリメンタル検索。進捗バーは網羅管理 API 接続まで placeholder。
+ *   - 通知 / 網羅進捗サマリーは別フェーズ
  */
 export function DashboardPage() {
   const { t } = useI18n();
-  const { currentActorID } = useIdentity();
+  const { currentActorID, currentRole } = useIdentity();
   const navigate = useNavigate();
+
+  const isEditorPlus = isRoleAtLeast(currentRole, "editor");
 
   const [rows, setRows] = useState<AccessibleAreaRow[]>([]);
   const [loading, setLoading] = useState(true);
   // 残り時間表示を 1 分ごとに更新する用途の現在時刻 tick
   const [now, setNow] = useState<number>(() => Date.now());
+
+  // 全ての区域一覧（editor+ のみ）
+  const [allAreas, setAllAreas] = useState<AllAreaRow[]>([]);
+  const [allAreasLoading, setAllAreasLoading] = useState(false);
+  const [regionsForFilter, setRegionsForFilter] = useState<
+    RegionTreeIndex["regions"]
+  >([]);
+  const [parentAreasByRegionForFilter, setParentAreasByRegionForFilter] =
+    useState<RegionTreeIndex["parentAreasByRegion"]>(new Map());
+  const [regionFilter, setRegionFilter] = useState<string>("");
+  const [parentAreaFilter, setParentAreaFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
@@ -114,18 +183,22 @@ export function DashboardPage() {
   useEffect(() => {
     if (!currentActorID) {
       setRows([]);
+      setAllAreas([]);
       setLoading(false);
       return;
     }
     let cancelled = false;
-    async function fetchAccessibleAreas() {
+    async function fetchAll() {
       setLoading(true);
+      if (isEditorPlus) setAllAreasLoading(true);
       try {
-        const [accessibleAreas, displayIndex] = await Promise.all([
+        const [accessibleAreas, tree] = await Promise.all([
           CheckoutBinding.ListAccessibleAreas(currentActorID),
-          buildAreaDisplayIndex(),
+          buildRegionTreeIndex(),
         ]);
         if (cancelled) return;
+
+        // アクセス可能な区域
         const enriched: AccessibleAreaRow[] = (accessibleAreas ?? []).map(
           (a) => {
             const role = a.role === "invitee" ? "invitee" : "owner";
@@ -140,24 +213,96 @@ export function DashboardPage() {
               checkoutId: a.checkoutId,
               role,
               inviteExpiresAt: inviteExpiresAtISO,
-              displayName: displayIndex.get(a.areaId) ?? a.areaId,
+              displayName: tree.displayIndex.get(a.areaId) ?? a.areaId,
             };
           },
         );
         if (!cancelled) {
           setRows(enriched);
+          setRegionsForFilter(tree.regions);
+          setParentAreasByRegionForFilter(tree.parentAreasByRegion);
+        }
+
+        // 編集メンバー以上は「全ての区域一覧」も組み立てる
+        if (isEditorPlus && !cancelled) {
+          const allAreaList: {
+            id: string;
+            regionId: string;
+            parentAreaId: string;
+          }[] = [];
+          for (const [, areas] of tree.areasByParent) {
+            for (const a of areas) allAreaList.push(a);
+          }
+          // 各区域の active checkout と全ユーザー一覧を並列取得
+          const [activeCheckouts, allUsers] = await Promise.all([
+            Promise.all(
+              allAreaList.map((a) =>
+                CheckoutBinding.GetActiveCheckout(a.id).catch(() => null),
+              ),
+            ),
+            UserBinding.ListUsers().catch(() => []),
+          ]);
+          if (cancelled) return;
+          const userById = new Map<string, string>();
+          for (const u of allUsers ?? []) {
+            userById.set(u.id, u.name || u.id);
+          }
+          const composed: AllAreaRow[] = allAreaList.map((a, idx) => {
+            const co = activeCheckouts[idx];
+            const ownerDisplay = co
+              ? (userById.get(co.ownerId) ?? co.ownerId)
+              : null;
+            const display = tree.displayIndex.get(a.id) ?? a.id;
+            return {
+              areaId: a.id,
+              displayName: display,
+              regionId: a.regionId,
+              parentAreaId: a.parentAreaId,
+              ownerDisplay,
+              searchHaystack: `${display} ${ownerDisplay ?? ""}`.toLowerCase(),
+            };
+          });
+          // 区域 displayName 昇順
+          composed.sort((x, y) => x.displayName.localeCompare(y.displayName));
+          if (!cancelled) {
+            setAllAreas(composed);
+          }
+        } else if (!cancelled) {
+          setAllAreas([]);
         }
       } catch (e) {
         console.error("DashboardPage fetch failed", e);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setAllAreasLoading(false);
+        }
       }
     }
-    void fetchAccessibleAreas();
+    void fetchAll();
     return () => {
       cancelled = true;
     };
-  }, [currentActorID]);
+  }, [currentActorID, isEditorPlus]);
+
+  // 領域フィルタ変更時、選択中の区域親番を invalidate（別領域の親番を保持しない）
+  useEffect(() => {
+    setParentAreaFilter("");
+  }, [regionFilter]);
+
+  // 全ての区域一覧を領域・親番・検索で絞り込む
+  const filteredAllAreas = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return allAreas.filter((a) => {
+      if (regionFilter && a.regionId !== regionFilter) return false;
+      if (parentAreaFilter && a.parentAreaId !== parentAreaFilter) return false;
+      if (q && !a.searchHaystack.includes(q)) return false;
+      return true;
+    });
+  }, [allAreas, regionFilter, parentAreaFilter, searchQuery]);
+
+  const visibleParentAreas: { id: string; number: string; name: string }[] =
+    regionFilter ? (parentAreasByRegionForFilter.get(regionFilter) ?? []) : [];
 
   const formatRoleCell = useMemo(() => {
     return (row: AccessibleAreaRow): React.ReactNode => {
@@ -270,6 +415,117 @@ export function DashboardPage() {
           </table>
         )}
       </section>
+
+      {isEditorPlus && (
+        <section style={{ marginTop: 24 }}>
+          <h2>{t.dashboard.allAreas}</h2>
+          <p style={{ fontSize: 12, color: "#64748b", marginTop: 0 }}>
+            {t.dashboard.allAreasNote}
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <select
+              aria-label={t.dashboard.filterAllRegions}
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
+            >
+              <option value="">{t.dashboard.filterAllRegions}</option>
+              {regionsForFilter.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.symbol} {r.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label={t.dashboard.filterAllParentAreas}
+              value={parentAreaFilter}
+              onChange={(e) => setParentAreaFilter(e.target.value)}
+              disabled={!regionFilter}
+            >
+              <option value="">{t.dashboard.filterAllParentAreas}</option>
+              {visibleParentAreas.map((pa) => (
+                <option key={pa.id} value={pa.id}>
+                  {pa.number}
+                  {pa.name ? ` ${pa.name}` : ""}
+                </option>
+              ))}
+            </select>
+            <input
+              type="search"
+              aria-label={t.dashboard.searchPlaceholder}
+              placeholder={t.dashboard.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: "1 1 200px", minWidth: 180 }}
+            />
+          </div>
+
+          {allAreasLoading ? (
+            <p>{t.dashboard.loading}</p>
+          ) : filteredAllAreas.length === 0 ? (
+            <p>{t.dashboard.noAreasMatch}</p>
+          ) : (
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                maxWidth: 720,
+              }}
+            >
+              <thead>
+                <tr
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #e2e8f0",
+                  }}
+                >
+                  <th style={{ padding: "8px" }}>{t.dashboard.colArea}</th>
+                  <th style={{ padding: "8px" }}>{t.dashboard.colOwner}</th>
+                  <th style={{ padding: "8px" }}>{t.dashboard.colProgress}</th>
+                  <th style={{ padding: "8px" }}>{t.dashboard.colActions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAllAreas.map((row) => (
+                  <tr
+                    key={row.areaId}
+                    style={{ borderBottom: "1px solid #f1f5f9" }}
+                  >
+                    <td style={{ padding: "8px", fontFamily: "monospace" }}>
+                      {row.displayName}
+                    </td>
+                    <td style={{ padding: "8px" }}>
+                      {row.ownerDisplay
+                        ? t.dashboard.ownerLabel(row.ownerDisplay)
+                        : t.dashboard.notCheckedOut}
+                    </td>
+                    <td style={{ padding: "8px", color: "#94a3b8" }}>
+                      {/* 進捗バー: 網羅管理 API 接続まで placeholder（仕様 06 / Q21 / Q22） */}
+                      {t.dashboard.progressPlaceholder}
+                    </td>
+                    <td style={{ padding: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleVisit(row.areaId)}
+                      >
+                        {t.dashboard.gotoVisit}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
     </>
   );
 }

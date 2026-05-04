@@ -30,6 +30,18 @@ export interface Translations {
     invite: string;
     invitePending: string;
     loading: string;
+    allAreas: string;
+    allAreasNote: string;
+    filterAllRegions: string;
+    filterAllParentAreas: string;
+    searchPlaceholder: string;
+    colOwner: string;
+    colProgress: string;
+    notCheckedOut: string;
+    ownerLabel: (name: string) => string;
+    inviteeLabel: string;
+    progressPlaceholder: string;
+    noAreasMatch: string;
   };
   map: {
     title: string;
