@@ -322,6 +322,11 @@ const ja: Translations = {
     confirmSchedules:
       "すべての予定期間・スコープ・持ち出しステータスを削除します。よろしいですか？",
     done: "削除しました",
+    identityTitle: "アイデンティティ切替（開発用）",
+    identityDescription:
+      "API 呼び出し時のアクター DID を別ユーザーに切り替えます。HVS_DEV=1 で起動した場合のみ表示されます。",
+    identitySelf: "[自分]",
+    identitySwitched: (name: string) => `アクターを「${name}」に切り替えました`,
   },
   tips: {
     dontShowAgain: "このメッセージを表示しない",

@@ -4,12 +4,24 @@ import { userEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { SettingsPage } from "./SettingsPage";
 import { I18nProvider } from "../contexts/I18nContext";
+import { IdentityProvider } from "../contexts/IdentityContext";
 import { TipsProvider } from "../contexts/TipsContext";
 import {
   SettingsService,
   type SettingsBindingAPI,
 } from "../services/settings-service";
 import { setLocale as resetI18nLocale } from "../i18n/i18n-util";
+
+// Wails IdentityBinding を Vitest で利用するためのモック。
+// IdentityProvider は内部で try/catch しているため、ここではエラーで弾く形でも
+// useIdentity は defaults（empty actorID, isDevMode=false）にフォールバックする。
+vi.mock("../../wailsjs/go/binding/IdentityBinding", () => ({
+  GetRealDID: vi.fn(async () => ""),
+  GetCurrentActor: vi.fn(async () => ""),
+  IsDevMode: vi.fn(async () => false),
+  ListAvailableIdentities: vi.fn(async () => []),
+  SetCurrentActor: vi.fn(async () => {}),
+}));
 
 function createMockApi(): SettingsBindingAPI {
   return {
@@ -27,11 +39,13 @@ function renderPage(api: SettingsBindingAPI) {
   const service = new SettingsService(api);
   return render(
     <MemoryRouter>
-      <I18nProvider service={service}>
-        <TipsProvider service={service}>
-          <SettingsPage />
-        </TipsProvider>
-      </I18nProvider>
+      <IdentityProvider>
+        <I18nProvider service={service}>
+          <TipsProvider service={service}>
+            <SettingsPage />
+          </TipsProvider>
+        </I18nProvider>
+      </IdentityProvider>
     </MemoryRouter>,
   );
 }

@@ -321,6 +321,11 @@ const en: Translations = {
     confirmSchedules:
       "Delete all schedule periods, scopes, and takeout status?",
     done: "Deleted",
+    identityTitle: "Identity Switch (Dev)",
+    identityDescription:
+      "Switch the actor DID used for API calls to another user. Visible only when started with HVS_DEV=1.",
+    identitySelf: "[self]",
+    identitySwitched: (name: string) => `Switched actor to "${name}"`,
   },
   tips: {
     dontShowAgain: "Don't show this again",

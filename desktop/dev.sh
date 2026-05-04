@@ -38,5 +38,9 @@ if [ ! -d frontend/node_modules ] || [ frontend/package.json -nt frontend/node_m
   (cd frontend && npm install)
 fi
 
-echo "Starting wails dev..."
+# 開発モードフラグ（設定画面のアイデンティティ切替セクションを有効化）
+# 既定で有効。本番ビルドや特定テスト時は HVS_DEV=0 で無効化できる。
+export HVS_DEV="${HVS_DEV:-1}"
+
+echo "Starting wails dev (HVS_DEV=${HVS_DEV})..."
 wails dev -tags webkit2_41

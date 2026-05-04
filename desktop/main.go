@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"log"
+	"os"
 	"time"
 
 	"github.com/SeijiShii/home-visit-suite/desktop/internal/binding"
@@ -87,6 +88,14 @@ func main() {
 	visitBinding := binding.NewVisitBinding(repo.Checkout(), checkoutSvc)
 	checkoutBinding := binding.NewCheckoutBinding(repo.Checkout(), checkoutSvc)
 
+	// 開発モード判定（HVS_DEV=1 で有効）。dev モードでは設定画面に
+	// アイデンティティ切替セクションを表示し、シードユーザーへ切替可能になる。
+	devMode := os.Getenv("HVS_DEV") == "1"
+	if devMode {
+		log.Println("Dev mode enabled: identity switch UI available in settings")
+	}
+	identityBinding := binding.NewIdentityBinding(info.DID, repo.User(), devMode)
+
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",
 		Width:  1280,
@@ -106,6 +115,7 @@ func main() {
 			scheduleBinding,
 			visitBinding,
 			checkoutBinding,
+			identityBinding,
 		},
 	})
 

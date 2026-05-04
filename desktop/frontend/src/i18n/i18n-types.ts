@@ -260,6 +260,10 @@ export interface Translations {
     confirmRegions: string;
     confirmSchedules: string;
     done: string;
+    identityTitle: string;
+    identityDescription: string;
+    identitySelf: string;
+    identitySwitched: (name: string) => string;
   };
   requests: {
     title: string;

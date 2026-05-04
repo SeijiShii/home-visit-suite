@@ -4,6 +4,7 @@ import { PlaceService, type PlaceBindingAPI } from "../services/place-service";
 import { VisitService, type VisitBindingAPI } from "../services/visit-service";
 import { RegionService } from "../services/region-service";
 import { SettingsService } from "../services/settings-service";
+import { useIdentity } from "../contexts/IdentityContext";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
 import { buildPolygonAreaMap } from "../services/polygon-service";
 import * as PlaceBinding from "../../wailsjs/go/binding/PlaceBinding";
@@ -63,9 +64,8 @@ export function VisitPageContainer() {
     };
   }, [regionService]);
 
-  // TODO: 自分の DID を SettingsService 等から取得する。
-  // 現状は空文字（バックエンド側で actor 検証は未実装のため動作はする）。
-  const actorId = "";
+  // 現在のアクター DID を IdentityContext から取得（dev モードでは切替可能）。
+  const { currentActorID: actorId } = useIdentity();
 
   const editorReady = ready && editor;
 
