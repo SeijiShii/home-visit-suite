@@ -72,9 +72,14 @@ func (b *CheckoutBinding) ListInvitations(checkoutID string) ([]models.CheckoutI
 
 // --- チェックアウト一覧・取得 ---
 
-// ListCheckouts は指定区域のチェックアウト履歴を返す（管理画面 /checkouts 用）。
+// ListCheckouts は指定区域のチェックアウト履歴を返す。
 func (b *CheckoutBinding) ListCheckouts(areaID string) ([]models.Checkout, error) {
 	return b.repo.ListCheckouts(areaID)
+}
+
+// ListAllCheckouts は全区域のチェックアウト履歴を返す（管理画面 /checkouts 用）。
+func (b *CheckoutBinding) ListAllCheckouts() ([]models.Checkout, error) {
+	return b.repo.ListAllCheckouts()
 }
 
 // GetCheckout は指定 ID のチェックアウトを取得する。

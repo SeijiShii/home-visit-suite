@@ -17,6 +17,8 @@ export function Invite(arg1:string,arg2:string,arg3:string,arg4:number):Promise<
 
 export function ListAccessibleAreas(arg1:string):Promise<Array<service.AccessibleArea>>;
 
+export function ListAllCheckouts():Promise<Array<models.Checkout>>;
+
 export function ListCheckouts(arg1:string):Promise<Array<models.Checkout>>;
 
 export function ListInvitations(arg1:string):Promise<Array<models.CheckoutInvitation>>;

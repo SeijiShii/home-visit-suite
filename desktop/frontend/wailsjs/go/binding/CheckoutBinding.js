@@ -30,6 +30,10 @@ export function ListAccessibleAreas(arg1) {
   return window['go']['binding']['CheckoutBinding']['ListAccessibleAreas'](arg1);
 }
 
+export function ListAllCheckouts() {
+  return window['go']['binding']['CheckoutBinding']['ListAllCheckouts']();
+}
+
 export function ListCheckouts(arg1) {
   return window['go']['binding']['CheckoutBinding']['ListCheckouts'](arg1);
 }

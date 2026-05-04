@@ -39,6 +39,17 @@ func (r *InMemoryCheckoutRepository) ListCheckouts(areaID string) ([]models.Chec
 	return result, nil
 }
 
+func (r *InMemoryCheckoutRepository) ListAllCheckouts() ([]models.Checkout, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]models.Checkout, 0, len(r.checkouts))
+	for _, v := range r.checkouts {
+		result = append(result, *v)
+	}
+	return result, nil
+}
+
 func (r *InMemoryCheckoutRepository) GetCheckout(id string) (*models.Checkout, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
