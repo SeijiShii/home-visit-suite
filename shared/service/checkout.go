@@ -60,4 +60,37 @@ type CheckoutService interface {
 
 	// ListInvitations は当該チェックアウトの招待一覧を返す（取消・期限切れ含む全件）。
 	ListInvitations(checkoutID string) ([]models.CheckoutInvitation, error)
+
+	// AreaAccessMode は userID が areaID に対して持つ区域レベルのアクセスモードを返す。
+	//   - editor+ ならば常に閲覧可。入力可（editable）になるのは active なチェックアウト経由のみ
+	//   - 活動メンバーは担当者または有効招待保有のときのみ editable、それ以外は read_only
+	// 仕様 docs/wants/05_チェックアウト.md「アクセスモード > 区域レベル（親レイヤー）」
+	AreaAccessMode(userID string, areaID string) (models.AccessMode, error)
+
+	// PlaceAccessMode は userID が placeID に対して持つ場所レベルのアクセスモードを返す。
+	// 現フェーズでは場所単位の read-only 切替操作は未実装のため、常に editable を返す。
+	// 仕様 docs/wants/05_チェックアウト.md「アクセスモード > 場所レベル（子レイヤー）」
+	PlaceAccessMode(userID string, placeID string) (models.AccessMode, error)
+
+	// ListAccessibleAreas は userID がアクセス可能な区域一覧を返す。
+	// 担当者として active なチェックアウトを持つ区域 + 有効な招待を保有している区域。
+	// 仕様 docs/wants/10_画面設計.md「ダッシュボード > アクセス可能な区域」
+	ListAccessibleAreas(userID string) ([]AccessibleArea, error)
+}
+
+// AccessibleAreaRole は ListAccessibleAreas が返す区域への自分の関与種別。
+type AccessibleAreaRole string
+
+const (
+	AccessibleAreaRoleOwner   AccessibleAreaRole = "owner"   // 自分が担当者
+	AccessibleAreaRoleInvitee AccessibleAreaRole = "invitee" // 自分が被招待者
+)
+
+// AccessibleArea は ListAccessibleAreas のレスポンス DTO。
+// 各エントリは1つのチェックアウトとそれに対する自分の関与を表す。
+type AccessibleArea struct {
+	AreaID          string             `json:"areaId"`
+	CheckoutID      string             `json:"checkoutId"`
+	Role            AccessibleAreaRole `json:"role"`
+	InviteExpiresAt *time.Time         `json:"inviteExpiresAt"` // Role==invitee のとき、招待の期限
 }

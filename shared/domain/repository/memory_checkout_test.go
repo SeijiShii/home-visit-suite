@@ -84,6 +84,22 @@ func TestCheckout_GetActive_NoneActive(t *testing.T) {
 	}
 }
 
+func TestCheckout_ListActiveForOwner(t *testing.T) {
+	repo := newCheckoutRepo()
+	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "a1", OwnerID: "u1", Status: models.CheckoutStatusActive})
+	repo.SaveCheckout(&models.Checkout{ID: "c2", AreaID: "a2", OwnerID: "u1", Status: models.CheckoutStatusActive})
+	repo.SaveCheckout(&models.Checkout{ID: "c3", AreaID: "a3", OwnerID: "u1", Status: models.CheckoutStatusReturned}) // 返却済みは除外
+	repo.SaveCheckout(&models.Checkout{ID: "c4", AreaID: "a4", OwnerID: "u2", Status: models.CheckoutStatusActive})
+
+	list, err := repo.ListActiveCheckoutsForOwner("u1")
+	if err != nil {
+		t.Fatalf("ListActiveCheckoutsForOwner: %v", err)
+	}
+	if len(list) != 2 {
+		t.Errorf("got %d, want 2 (c3 returned, c4 other owner)", len(list))
+	}
+}
+
 func TestCheckout_Delete(t *testing.T) {
 	repo := newCheckoutRepo()
 	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "area-1"})

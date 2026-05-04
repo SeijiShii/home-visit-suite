@@ -738,6 +738,192 @@ func TestCheckout_EditorSelfLending(t *testing.T) {
 
 // --- ReassignOwner で編集メンバー → 活動メンバーへ移譲（仕様 Q11） ---
 
+// --- AreaAccessMode / PlaceAccessMode / ListAccessibleAreas ---
+
+func TestAreaAccessMode_Owner_Editable(t *testing.T) {
+	svc, _ := setupCheckout()
+	areaID := "pa-tms-007-01"
+	svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+
+	mode, err := svc.AreaAccessMode(inviteOwnerDID, areaID)
+	if err != nil {
+		t.Fatalf("AreaAccessMode: %v", err)
+	}
+	if mode != models.AccessModeEditable {
+		t.Errorf("mode = %q, want editable", mode)
+	}
+}
+
+func TestAreaAccessMode_Invitee_Editable(t *testing.T) {
+	svc, _ := setupCheckout()
+	areaID := "pa-tms-007-02"
+	co, _ := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	mode, err := svc.AreaAccessMode(inviteeAlpha, areaID)
+	if err != nil {
+		t.Fatalf("AreaAccessMode: %v", err)
+	}
+	if mode != models.AccessModeEditable {
+		t.Errorf("mode = %q, want editable", mode)
+	}
+}
+
+func TestAreaAccessMode_NonOwnerNonInvitee_ReadOnly(t *testing.T) {
+	svc, _ := setupCheckout()
+	areaID := "pa-tms-007-03"
+	svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+
+	mode, err := svc.AreaAccessMode(inviteeAlpha, areaID)
+	if err != nil {
+		t.Fatalf("AreaAccessMode: %v", err)
+	}
+	if mode != models.AccessModeReadOnly {
+		t.Errorf("mode = %q, want read_only", mode)
+	}
+}
+
+func TestAreaAccessMode_NoCheckout_ReadOnly(t *testing.T) {
+	svc, _ := setupCheckout()
+	mode, err := svc.AreaAccessMode(inviteEditorDID, "pa-tms-007-04")
+	if err != nil {
+		t.Fatalf("AreaAccessMode: %v", err)
+	}
+	if mode != models.AccessModeReadOnly {
+		t.Errorf("mode = %q, want read_only (no active checkout)", mode)
+	}
+}
+
+func TestAreaAccessMode_RevokedInvitation_ReadOnly(t *testing.T) {
+	svc, _ := setupCheckout()
+	areaID := "pa-tms-007-05"
+	co, _ := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+	svc.RevokeInvite(inviteEditorDID, inv.ID)
+
+	mode, _ := svc.AreaAccessMode(inviteeAlpha, areaID)
+	if mode != models.AccessModeReadOnly {
+		t.Errorf("mode = %q, want read_only after revoke", mode)
+	}
+}
+
+func TestAreaAccessMode_AfterReturn_ReadOnly(t *testing.T) {
+	svc, _ := setupCheckout()
+	areaID := "pa-tms-007-06"
+	co, _ := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Return(inviteOwnerDID, co.ID)
+
+	// 担当者でも返却済みになれば read_only
+	mode, _ := svc.AreaAccessMode(inviteOwnerDID, areaID)
+	if mode != models.AccessModeReadOnly {
+		t.Errorf("mode = %q, want read_only after return", mode)
+	}
+}
+
+func TestPlaceAccessMode_AlwaysEditable_Phase1(t *testing.T) {
+	// 場所レベルは現フェーズで常に editable
+	svc, _ := setupCheckout()
+	mode, err := svc.PlaceAccessMode(inviteOwnerDID, "place-x")
+	if err != nil {
+		t.Fatalf("PlaceAccessMode: %v", err)
+	}
+	if mode != models.AccessModeEditable {
+		t.Errorf("mode = %q, want editable (place layer placeholder)", mode)
+	}
+}
+
+func TestListAccessibleAreas_OwnerOnly(t *testing.T) {
+	svc, _ := setupCheckout()
+	co1, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-10", models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Checkout(inviteEditorDID, "pa-tms-007-11", models.CheckoutTypeLending, inviteOwnerDID)
+
+	areas, err := svc.ListAccessibleAreas(inviteOwnerDID)
+	if err != nil {
+		t.Fatalf("ListAccessibleAreas: %v", err)
+	}
+	if len(areas) != 2 {
+		t.Fatalf("got %d, want 2", len(areas))
+	}
+	for _, a := range areas {
+		if a.Role != service.AccessibleAreaRoleOwner {
+			t.Errorf("area %s: role = %q, want owner", a.AreaID, a.Role)
+		}
+		if a.InviteExpiresAt != nil {
+			t.Errorf("area %s: InviteExpiresAt should be nil for owner role", a.AreaID)
+		}
+	}
+	_ = co1
+}
+
+func TestListAccessibleAreas_InviteeOnly(t *testing.T) {
+	svc, _ := setupCheckout()
+	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-12", models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+
+	areas, err := svc.ListAccessibleAreas(inviteeAlpha)
+	if err != nil {
+		t.Fatalf("ListAccessibleAreas: %v", err)
+	}
+	if len(areas) != 1 {
+		t.Fatalf("got %d, want 1", len(areas))
+	}
+	if areas[0].Role != service.AccessibleAreaRoleInvitee {
+		t.Errorf("role = %q, want invitee", areas[0].Role)
+	}
+	if areas[0].InviteExpiresAt == nil {
+		t.Error("InviteExpiresAt should be set for invitee role")
+	}
+}
+
+func TestListAccessibleAreas_OwnerAndInvitee_NoDuplicate(t *testing.T) {
+	// 同一チェックアウトに対して担当者かつ被招待者という不自然な状態は通常発生しないが、
+	// 異なるチェックアウトで担当者と被招待者を両立する場合は別レコードになることを確認。
+	svc, _ := setupCheckout()
+	// inviteOwnerDID が co1 の担当者
+	svc.Checkout(inviteEditorDID, "pa-tms-007-13", models.CheckoutTypeLending, inviteOwnerDID)
+	// inviteOwnerDID が co2 の被招待者
+	co2, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-14", models.CheckoutTypeLending, inviteeAlpha)
+	svc.Invite(inviteEditorDID, co2.ID, inviteOwnerDID, 0)
+
+	areas, err := svc.ListAccessibleAreas(inviteOwnerDID)
+	if err != nil {
+		t.Fatalf("ListAccessibleAreas: %v", err)
+	}
+	if len(areas) != 2 {
+		t.Fatalf("got %d, want 2 (owner+invitee on different checkouts)", len(areas))
+	}
+	roles := map[service.AccessibleAreaRole]int{}
+	for _, a := range areas {
+		roles[a.Role]++
+	}
+	if roles[service.AccessibleAreaRoleOwner] != 1 || roles[service.AccessibleAreaRoleInvitee] != 1 {
+		t.Errorf("role counts = %v, want one of each", roles)
+	}
+}
+
+func TestListAccessibleAreas_ExcludesReturned(t *testing.T) {
+	svc, _ := setupCheckout()
+	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-15", models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Return(inviteOwnerDID, co.ID)
+
+	areas, _ := svc.ListAccessibleAreas(inviteOwnerDID)
+	if len(areas) != 0 {
+		t.Errorf("got %d, want 0 (returned checkout excluded)", len(areas))
+	}
+}
+
+func TestListAccessibleAreas_ExcludesRevokedInvitation(t *testing.T) {
+	svc, _ := setupCheckout()
+	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-16", models.CheckoutTypeLending, inviteOwnerDID)
+	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
+	svc.RevokeInvite(inviteEditorDID, inv.ID)
+
+	areas, _ := svc.ListAccessibleAreas(inviteeAlpha)
+	if len(areas) != 0 {
+		t.Errorf("got %d, want 0 (revoked invitation excluded)", len(areas))
+	}
+}
+
 func TestReassignOwner_EditorSelfToMemberHandover(t *testing.T) {
 	// 編集メンバーが自分でチェックアウト→記録→活動メンバーへ担当者を移譲
 	// 仕様 docs/wants/05_チェックアウト.md「編集メンバーから活動メンバーへの担当者移譲」

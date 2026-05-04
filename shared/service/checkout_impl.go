@@ -388,3 +388,99 @@ func (s *checkoutService) notifyAreaInvite(inv *models.CheckoutInvitation) {
 	// 通知の保存失敗はログのみで握りつぶす（招待自体は成立しているため）
 	_ = s.notifRepo.SaveNotification(n)
 }
+
+// --- アクセスモード判定 ---
+
+func (s *checkoutService) AreaAccessMode(userID string, areaID string) (models.AccessMode, error) {
+	// 1. 自分が担当者として active チェックアウトを持っているか
+	active, _ := s.coRepo.GetActiveCheckout(areaID)
+	if active != nil && active.OwnerID == userID && active.Status == models.CheckoutStatusActive {
+		return models.AccessModeEditable, nil
+	}
+
+	// 2. 有効な招待を保有しているか（同区域に対するもの）
+	invs, err := s.coRepo.ListActiveCheckoutInvitationsForInvitee(userID)
+	if err != nil {
+		return "", fmt.Errorf("list invitations: %w", err)
+	}
+	now := time.Now()
+	for i := range invs {
+		inv := &invs[i]
+		if !inv.IsActive(now) {
+			continue
+		}
+		c, err := s.coRepo.GetCheckout(inv.CheckoutID)
+		if err != nil {
+			continue
+		}
+		if c.Status != models.CheckoutStatusActive {
+			continue
+		}
+		if c.AreaID == areaID {
+			return models.AccessModeEditable, nil
+		}
+	}
+
+	// 3. 上記いずれにも該当しない → read_only
+	//    editor+ は閲覧可（入力には自己チェックアウトが必要）、活動メンバーは UI 側で非表示の前提
+	return models.AccessModeReadOnly, nil
+}
+
+func (s *checkoutService) PlaceAccessMode(userID string, placeID string) (models.AccessMode, error) {
+	// 仕様 docs/wants/05_チェックアウト.md「アクセスモード > 場所レベル」:
+	// 「現フェーズではモデルとデータ構造として用意し、UI からの read-only 切替操作は未実装」
+	// したがって判定 API は常に editable を返す。場所単位の read-only 化は将来拡張時に実装。
+	return models.AccessModeEditable, nil
+}
+
+func (s *checkoutService) ListAccessibleAreas(userID string) ([]AccessibleArea, error) {
+	var result []AccessibleArea
+	seenCheckouts := make(map[string]bool) // 担当者でも被招待者でもある場合の重複排除
+
+	// 担当者として active なチェックアウトを持つ区域
+	owned, err := s.coRepo.ListActiveCheckoutsForOwner(userID)
+	if err != nil {
+		return nil, fmt.Errorf("list owned checkouts: %w", err)
+	}
+	for _, c := range owned {
+		result = append(result, AccessibleArea{
+			AreaID:     c.AreaID,
+			CheckoutID: c.ID,
+			Role:       AccessibleAreaRoleOwner,
+		})
+		seenCheckouts[c.ID] = true
+	}
+
+	// 有効な招待を保有しているチェックアウトの区域
+	invs, err := s.coRepo.ListActiveCheckoutInvitationsForInvitee(userID)
+	if err != nil {
+		return nil, fmt.Errorf("list invitations: %w", err)
+	}
+	now := time.Now()
+	for i := range invs {
+		inv := &invs[i]
+		if !inv.IsActive(now) {
+			continue
+		}
+		if seenCheckouts[inv.CheckoutID] {
+			continue // 自分が担当者でもある場合は owner として既に計上済み
+		}
+		c, err := s.coRepo.GetCheckout(inv.CheckoutID)
+		if err != nil {
+			continue
+		}
+		if c.Status != models.CheckoutStatusActive {
+			continue
+		}
+		expiresAt := inv.ExpiresAt
+		result = append(result, AccessibleArea{
+			AreaID:          c.AreaID,
+			CheckoutID:      c.ID,
+			Role:            AccessibleAreaRoleInvitee,
+			InviteExpiresAt: &expiresAt,
+		})
+		seenCheckouts[c.ID] = true
+	}
+
+	return result, nil
+}

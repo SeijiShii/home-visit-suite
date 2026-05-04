@@ -74,6 +74,28 @@ func (r *LinkSelfCheckoutRepo) GetActiveCheckout(areaID string) (*models.Checkou
 	return &c, nil
 }
 
+func (r *LinkSelfCheckoutRepo) ListActiveCheckoutsForOwner(ownerID string) ([]models.Checkout, error) {
+	rows, err := r.db.Query(r.ctx,
+		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
+		        created_at, returned_at, completed_at, updated_at
+		 FROM checkouts WHERE owner_id = ? AND status = 'active'
+		 ORDER BY created_at DESC`, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []models.Checkout
+	for rows.Next() {
+		c, err := scanCheckout(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, c)
+	}
+	return result, nil
+}
+
 func (r *LinkSelfCheckoutRepo) SaveCheckout(checkout *models.Checkout) error {
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO checkouts
