@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity, isRoleAtLeast } from "../contexts/IdentityContext";
 import * as CheckoutBinding from "../../wailsjs/go/binding/CheckoutBinding";
@@ -175,6 +176,12 @@ export function DashboardPage() {
   const [parentAreaFilter, setParentAreaFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // 招待発行ダイアログの開閉と対象（担当者行クリック時に設定）
+  const [inviteTarget, setInviteTarget] = useState<{
+    checkoutId: string;
+    areaDisplay: string;
+  } | null>(null);
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
@@ -349,10 +356,11 @@ export function DashboardPage() {
     navigate(`/visits/${areaId}`);
   };
 
-  const handleInvite = () => {
-    // 招待発行ダイアログは Phase G6 で実装。当面はプレースホルダー。
-    // eslint-disable-next-line no-alert
-    window.alert(t.dashboard.invitePending);
+  const handleInvite = (row: AccessibleAreaRow) => {
+    setInviteTarget({
+      checkoutId: row.checkoutId,
+      areaDisplay: row.displayName,
+    });
   };
 
   return (
@@ -394,7 +402,7 @@ export function DashboardPage() {
                       <button
                         type="button"
                         className="btn btn-sm"
-                        onClick={handleInvite}
+                        onClick={() => handleInvite(row)}
                       >
                         {t.dashboard.invite}
                       </button>
@@ -493,6 +501,21 @@ export function DashboardPage() {
             </table>
           )}
         </section>
+      )}
+
+      {inviteTarget && (
+        <InviteDialog
+          checkoutId={inviteTarget.checkoutId}
+          ownerId={currentActorID}
+          areaDisplay={inviteTarget.areaDisplay}
+          actorId={currentActorID}
+          onClose={() => setInviteTarget(null)}
+          onIssued={() => setInviteTarget(null)}
+          onError={(msg) => {
+            console.error("invite failed", msg);
+            setInviteTarget(null);
+          }}
+        />
       )}
     </>
   );

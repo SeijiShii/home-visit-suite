@@ -3520,3 +3520,132 @@ section {
   border-radius: 4px;
   font-size: 13px;
 }
+
+/* ===== 招待発行ダイアログ (Phase G6)
+   仕様 docs/wants/05_チェックアウト.md「区域招待 > 招待 UI」 */
+
+.invite-dialog {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 420px;
+  max-width: 540px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.invite-dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #1e293b;
+}
+
+.invite-dialog-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin-bottom: 16px;
+}
+
+.invite-dialog-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.invite-dialog-filter-select,
+.invite-dialog-filter-input {
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.invite-dialog-filter-select {
+  flex: 0 1 200px;
+}
+
+.invite-dialog-filter-input {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+.invite-dialog-list {
+  flex: 1 1 auto;
+  min-height: 160px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.invite-dialog-list-empty {
+  padding: 16px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.invite-dialog-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+}
+
+.invite-dialog-item:last-child {
+  border-bottom: none;
+}
+
+.invite-dialog-item:hover {
+  background: #f8fafc;
+}
+
+.invite-dialog-item-checked {
+  background: #eff6ff;
+}
+
+.invite-dialog-item-name {
+  flex: 1;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.invite-dialog-item-meta {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.invite-dialog-ttl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.invite-dialog-ttl-label {
+  flex: 0 0 80px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.invite-dialog-ttl-select {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.invite-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

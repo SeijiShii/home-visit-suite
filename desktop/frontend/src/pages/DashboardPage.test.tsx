@@ -169,7 +169,7 @@ describe("DashboardPage - アクセス可能な区域", () => {
     expect(await screen.findByTestId("visit-page")).toBeInTheDocument();
   });
 
-  it("「招待」ボタンクリックで Phase G6 のプレースホルダ alert が表示される", async () => {
+  it("「招待」ボタンクリックで InviteDialog が開く", async () => {
     vi.mocked(CheckoutBinding.ListAccessibleAreas).mockResolvedValue([
       {
         areaId: "area-1",
@@ -179,13 +179,17 @@ describe("DashboardPage - アクセス可能な区域", () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any,
     ]);
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.mocked(UserBinding.ListUsers).mockResolvedValue([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (UserBinding as any).ListGroups = vi.fn(async () => []);
     const user = userEvent.setup();
     await renderDashboard("member");
 
     await user.click(screen.getByRole("button", { name: "招待" }));
-    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("Phase G6"));
-    alertSpy.mockRestore();
+    // ダイアログのタイトルが表示されることで開いたことを確認
+    expect(
+      screen.getByRole("dialog", { name: "招待を発行" }),
+    ).toBeInTheDocument();
   });
 
   // IdentityBinding は外部 vi.mock で初期化済み（参照だけ）

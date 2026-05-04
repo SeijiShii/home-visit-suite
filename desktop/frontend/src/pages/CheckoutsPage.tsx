@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import * as CheckoutBinding from "../../wailsjs/go/binding/CheckoutBinding";
@@ -83,6 +84,7 @@ export function CheckoutsPage() {
   );
   const [visitRecordCount, setVisitRecordCount] = useState<number | null>(null);
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /** 全データを再ロード */
@@ -232,9 +234,26 @@ export function CheckoutsPage() {
   ]);
 
   const handleInvite = useCallback(() => {
-    // Phase G6 で実装予定
-    window.alert(c.invitePending);
-  }, [c.invitePending]);
+    if (!selected) return;
+    setInviteDialogOpen(true);
+  }, [selected]);
+
+  const handleInviteIssued = useCallback(
+    async (_inv: models.CheckoutInvitation) => {
+      setInviteDialogOpen(false);
+      // 招待リストを再ロード
+      if (selectedId) {
+        try {
+          const invs =
+            (await CheckoutBinding.ListInvitations(selectedId)) ?? [];
+          setInvitations(invs);
+        } catch (e) {
+          console.error("reload invitations failed", e);
+        }
+      }
+    },
+    [selectedId],
+  );
 
   const handleRevokeInvite = useCallback(
     async (inv: models.CheckoutInvitation) => {
@@ -368,6 +387,18 @@ export function CheckoutsPage() {
           }}
           onError={(msg) => setError(msg)}
           t={t}
+        />
+      )}
+
+      {inviteDialogOpen && selected && (
+        <InviteDialog
+          checkoutId={selected.id}
+          ownerId={selected.ownerId}
+          areaDisplay={selected.areaDisplay}
+          actorId={currentActorID}
+          onClose={() => setInviteDialogOpen(false)}
+          onIssued={handleInviteIssued}
+          onError={(msg) => setError(msg)}
         />
       )}
     </div>
