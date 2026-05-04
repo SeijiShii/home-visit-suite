@@ -55,25 +55,52 @@ describe("Layout", () => {
     vi.clearAllMocks();
   });
 
-  it("editor では「チェックアウト管理」メニューが含まれる", async () => {
+  it("admin では全メニュー項目が表示される", async () => {
+    await renderLayout("admin");
+    // ダッシュボード / 区域編集 / 領域管理 / メンバー管理 / チェックアウト管理 /
+    // 網羅管理 / 申請管理 / 設定 = 8 項目
+    expect(screen.getByText("ダッシュボード")).toBeInTheDocument();
+    expect(screen.getByText("区域編集")).toBeInTheDocument();
+    expect(screen.getByText("領域管理")).toBeInTheDocument();
+    expect(screen.getByText("メンバー管理")).toBeInTheDocument();
+    expect(screen.getByText("チェックアウト管理")).toBeInTheDocument();
+    expect(screen.getByText("網羅管理")).toBeInTheDocument();
+    expect(screen.getByText("申請管理")).toBeInTheDocument();
+    expect(screen.getByText("設定")).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(8);
+  });
+
+  it("editor では領域管理を除く 7 項目が表示される（領域管理は admin 専用）", async () => {
     await renderLayout("editor");
+    expect(screen.getByText("ダッシュボード")).toBeInTheDocument();
+    expect(screen.getByText("区域編集")).toBeInTheDocument();
+    expect(screen.queryByText("領域管理")).not.toBeInTheDocument();
+    expect(screen.getByText("メンバー管理")).toBeInTheDocument();
     expect(screen.getByText("チェックアウト管理")).toBeInTheDocument();
+    expect(screen.getByText("網羅管理")).toBeInTheDocument();
+    expect(screen.getByText("申請管理")).toBeInTheDocument();
+    expect(screen.getByText("設定")).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(7);
   });
 
-  it("admin でも「チェックアウト管理」メニューが含まれる", async () => {
-    await renderLayout("admin");
-    expect(screen.getByText("チェックアウト管理")).toBeInTheDocument();
-  });
-
-  it("member には「チェックアウト管理」メニューが表示されない", async () => {
+  it("member ではダッシュボードと設定のみが表示される", async () => {
     await renderLayout("member");
+    expect(screen.getByText("ダッシュボード")).toBeInTheDocument();
+    expect(screen.getByText("設定")).toBeInTheDocument();
+    // 編集メンバー以上専用は全て非表示
+    expect(screen.queryByText("区域編集")).not.toBeInTheDocument();
+    expect(screen.queryByText("領域管理")).not.toBeInTheDocument();
+    expect(screen.queryByText("メンバー管理")).not.toBeInTheDocument();
     expect(screen.queryByText("チェックアウト管理")).not.toBeInTheDocument();
+    expect(screen.queryByText("網羅管理")).not.toBeInTheDocument();
+    expect(screen.queryByText("申請管理")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(2);
   });
 
-  it("「訪問記録」サイドバーメニューは廃止されている", async () => {
-    await renderLayout("admin");
+  it("「訪問記録」サイドバーメニューは廃止されている（全ロールで非表示）", async () => {
     // 仕様 docs/wants/10_画面設計.md: 訪問記録への入口はダッシュボードに統合、
     // サイドバーには独立メニューを設けない。
+    await renderLayout("admin");
     expect(screen.queryByText("訪問記録")).not.toBeInTheDocument();
   });
 
@@ -92,11 +119,6 @@ describe("Layout", () => {
 
     await user.click(screen.getByTitle("Toggle sidebar"));
     expect(sidebar?.className).toContain("collapsed");
-  });
-
-  it("設定ナビゲーションが含まれる（全ロール）", async () => {
-    await renderLayout("member");
-    expect(screen.getByText("設定")).toBeInTheDocument();
   });
 
   // IdentityBinding は外部の vi.mock で初期化済み（参照だけ）

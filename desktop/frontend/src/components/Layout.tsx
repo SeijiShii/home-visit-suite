@@ -38,8 +38,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // 区域編集（地図・ポリゴン編集）: 編集メンバー以上
+    // 仕様 docs/wants/04_メンバー管理と権限.md「ポリゴン作成などの実作業は編集メンバーが行う」
     to: "/map",
     labelKey: "map",
+    minRole: "editor",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -56,8 +59,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // 領域管理: 管理者専用
+    // 仕様 docs/wants/04_メンバー管理と権限.md「領域の管理は管理者専用ページで行う」
     to: "/regions",
     labelKey: "regions",
+    minRole: "admin",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -74,8 +80,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // メンバー管理: 編集メンバー以上
+    // 仕様 docs/wants/04_メンバー管理と権限.md「メンバータグ機能 / 編集メンバーなら誰でも」
     to: "/users",
     labelKey: "users",
+    minRole: "editor",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -115,8 +124,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // 網羅管理: 編集メンバー以上
+    // 仕様 docs/wants/06_網羅管理.md「網羅活動データは編集メンバーが予定策定時に作成する」
     to: "/coverage",
     labelKey: "coverage",
+    minRole: "editor",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -132,8 +144,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // 申請管理: 編集メンバー以上
+    // 仕様 docs/wants/07_通知と申請.md「申請は編集メンバーのタスクリストに表示される」
     to: "/requests",
     labelKey: "requests",
+    minRole: "editor",
     icon: (
       <svg
         viewBox="0 0 24 24"
