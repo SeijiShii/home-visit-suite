@@ -30,10 +30,16 @@ make build
 
 ### 開発モード（ホットリロード）
 
+WSL2 では同梱の起動スクリプトを使う（依存チェック・webkit2gtk-4.1 タグ・`HVS_DEV=1` を自動セット）：
+
 ```bash
 cd desktop
-make dev
+./dev.sh
 ```
+
+`HVS_DEV=1` で起動すると設定画面に「アイデンティティ切替（開発用）」セクションが表示され、シードユーザー（admin/editor/member）の視点で UI を検証できる。
+
+`make dev` でもホットリロードは動作するが、dev 用 UI は `HVS_DEV` を明示する必要がある。
 
 ### 手動でコマンドを実行する場合
 
@@ -57,8 +63,13 @@ home-visit-suite/
 ├── desktop/             # Wailsデスクトップアプリ
 │   ├── internal/binding/  # フロントエンド向けAPI
 │   ├── frontend/src/      # TypeScript UI
-│   │   ├── pages/         # 画面（6ページ）
+│   │   ├── pages/         # 画面（ダッシュボード / 区域編集 / 領域管理 /
+│   │   │   #              メンバー管理 / チェックアウト管理 / 網羅管理 /
+│   │   │   #              申請管理 / 訪問記録 / 設定）
+│   │   ├── components/    # 共通コンポーネント（InviteDialog 等）
+│   │   ├── contexts/      # React Context（I18n / Identity / Tips）
 │   │   └── i18n/          # フロントエンド i18n（ja/en）
+│   ├── dev.sh             # WSL2 用起動スクリプト（HVS_DEV=1 既定）
 │   └── Makefile
-└── docs/                # 仕様書
+└── docs/wants/         # 単一のソース・オブ・トゥルース（仕様書）
 ```

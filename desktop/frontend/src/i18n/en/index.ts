@@ -30,7 +30,6 @@ const en: Translations = {
     inviteRoleExpired: "Invitee (expired)",
     gotoVisit: "Visits →",
     invite: "Invite",
-    invitePending: "Invite dialog will be implemented in Phase G6",
     loading: "Loading...",
     allAreas: "All Areas",
     allAreasNote:
@@ -216,6 +215,7 @@ const en: Translations = {
     confirmRemoveFromGroup: "Move {name} from {group} to unassigned?",
     memberCount: "members",
     role: "Role",
+    dragToReorder: "Drag to reorder",
     roles: {
       admin: "Admin",
       editor: "Editor",
@@ -267,7 +267,6 @@ const en: Translations = {
     typeSelfTake: "Self-take",
     invitationsHeader: "Invitations",
     invitationsEmpty: "No active invitations",
-    invitePending: "Invite dialog will be implemented in Phase G6",
     addInvite: "+ Invite",
     revokeInvite: "Revoke",
     inviteRemainingHours: (hours: number) => `${hours}h left`,

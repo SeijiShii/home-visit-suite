@@ -29,7 +29,6 @@ const ja: Translations = {
     inviteRoleExpired: "招待 (期限切れ)",
     gotoVisit: "訪問記録 →",
     invite: "招待",
-    invitePending: "招待ダイアログは Phase G6 で実装予定です",
     loading: "読み込み中...",
     allAreas: "全ての区域一覧",
     allAreasNote:
@@ -215,6 +214,7 @@ const ja: Translations = {
     confirmRemoveFromGroup: "{group}から{name}を未所属に移動しますか？",
     memberCount: "名",
     role: "ロール",
+    dragToReorder: "ドラッグで並べ替え",
     roles: {
       admin: "管理者",
       editor: "編集メンバー",
@@ -266,7 +266,6 @@ const ja: Translations = {
     typeSelfTake: "持ち出し",
     invitationsHeader: "招待",
     invitationsEmpty: "発行中の招待はありません",
-    invitePending: "招待発行ダイアログは Phase G6 で実装予定です",
     addInvite: "+ 招待を発行",
     revokeInvite: "取消",
     inviteRemainingHours: (hours: number) => `残${hours}h`,

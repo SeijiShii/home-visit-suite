@@ -143,8 +143,7 @@ export function UsersPage() {
       roleLabel(user.role).includes(search) ||
       groupName(user.orgGroupId).includes(search);
     const matchesTag =
-      !filterTagId ||
-      (user.tagIds && user.tagIds.includes(filterTagId));
+      !filterTagId || (user.tagIds && user.tagIds.includes(filterTagId));
     return matchesSearch && matchesTag;
   });
 
@@ -359,7 +358,7 @@ export function UsersPage() {
                       draggable
                       onDragStart={(e) => handleGroupDragStart(e, group.id)}
                       onDragEnd={handleGroupDragEnd}
-                      title="ドラッグで並べ替え"
+                      title={u.dragToReorder}
                     >
                       ⠿
                     </span>
@@ -792,9 +791,7 @@ export function UsersPage() {
                 type="text"
                 className="modal-input"
                 maxLength={16}
-                defaultValue={
-                  modal.type === "editTag" ? modal.tag.name : ""
-                }
+                defaultValue={modal.type === "editTag" ? modal.tag.name : ""}
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleSaveTag()}
               />

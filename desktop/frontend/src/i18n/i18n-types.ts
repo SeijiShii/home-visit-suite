@@ -28,7 +28,6 @@ export interface Translations {
     inviteRoleExpired: string;
     gotoVisit: string;
     invite: string;
-    invitePending: string;
     loading: string;
     allAreas: string;
     allAreasNote: string;
@@ -203,6 +202,7 @@ export interface Translations {
     confirmRemoveFromGroup: string;
     memberCount: string;
     role: string;
+    dragToReorder: string;
     roles: {
       admin: string;
       editor: string;
@@ -253,7 +253,6 @@ export interface Translations {
     typeSelfTake: string;
     invitationsHeader: string;
     invitationsEmpty: string;
-    invitePending: string;
     addInvite: string;
     revokeInvite: string;
     inviteRemainingHours: (hours: number) => string;
