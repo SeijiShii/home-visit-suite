@@ -33,7 +33,7 @@ type VisitRecord struct {
 	PlaceID          string      `json:"placeId"`    // NULL可: 場所モデルへの参照
 	Coord            *Coordinate `json:"coord"`      // NULL可: 場所未登録地点
 	AreaID           string      `json:"areaId"`     // 活動中の区域
-	CheckoutID       string      `json:"activityId"` // どのチェックアウトでの記録か（Phase 1 暫定では空文字許容、本実装で NOT NULL）。JSON タグは旧名 `activityId` のまま維持してフロントエンド互換を保つ（フロントエンドリネームは別フェーズで対応）
+	CheckoutID       string      `json:"checkoutId"` // どのチェックアウトでの記録か（Phase 1 暫定では空文字許容、本実装で NOT NULL）
 	Result           VisitResult `json:"result"`
 	AppliedRequestID *string     `json:"appliedRequestId"` // 申請を伴うステータス時の Request 参照
 	VisitedAt        time.Time   `json:"visitedAt"`

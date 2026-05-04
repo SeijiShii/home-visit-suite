@@ -134,7 +134,7 @@ describe("VisitRecordDialog — my history section", () => {
       placeId: "p1",
       coord: null,
       areaId: "a1",
-      activityId: "act-1",
+      checkoutId: "co-1",
       result: "met",
       appliedRequestId: null,
       visitedAt: "2026-04-01T09:00:00Z",

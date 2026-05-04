@@ -555,7 +555,7 @@ export namespace models {
 	    placeId: string;
 	    coord?: Coordinate;
 	    areaId: string;
-	    activityId: string;
+	    checkoutId: string;
 	    result: string;
 	    appliedRequestId?: string;
 	    visitedAt: time.Time;
@@ -573,7 +573,7 @@ export namespace models {
 	        this.placeId = source["placeId"];
 	        this.coord = this.convertValues(source["coord"], Coordinate);
 	        this.areaId = source["areaId"];
-	        this.activityId = source["activityId"];
+	        this.checkoutId = source["checkoutId"];
 	        this.result = source["result"];
 	        this.appliedRequestId = source["appliedRequestId"];
 	        this.visitedAt = this.convertValues(source["visitedAt"], time.Time);

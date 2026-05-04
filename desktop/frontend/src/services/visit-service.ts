@@ -1,6 +1,8 @@
 /**
  * VisitRecord 型と VisitService の局所定義。
- * Wails generate 未実行のため shared/domain/models/visit.go と一致するインタフェースを定義する。
+ * shared/domain/models/visit.go と一致するインタフェースを手書きで定義する
+ * （Wails 自動生成 wailsjs/go/models.ts は import 経路の都合で直接使わず、
+ * 同一形状を維持する責任は人間側にある）。
  * 仕様: docs/wants/08_活動メンバー向けアプリ.md
  */
 import type { Coordinate } from "./place-service";
@@ -33,7 +35,7 @@ export interface VisitRecord {
   placeId: string;
   coord: Coordinate | null;
   areaId: string;
-  activityId: string;
+  checkoutId: string;
   result: VisitResult;
   appliedRequestId: string | null;
   visitedAt: string;
@@ -45,15 +47,15 @@ export interface VisitRecord {
 export interface VisitBindingAPI {
   RecordVisit(
     actorID: string,
-    activityID: string,
+    checkoutID: string,
     placeID: string,
     result: VisitResult,
     visitedAt: string,
     applicationText: string,
   ): Promise<VisitRecord>;
   /**
-   * Phase 1 暫定: Activity 不要で訪問記録を作成する。
-   * チェックアウト/Activity 配線完了時に削除予定。
+   * Phase 1 暫定: チェックアウト不要で訪問記録を作成する。
+   * チェックアウト本配線完了時に削除予定。
    */
   RecordVisitPhase1(
     actorID: string,
@@ -77,7 +79,7 @@ export class VisitService {
 
   async recordVisit(
     actorID: string,
-    activityID: string,
+    checkoutID: string,
     placeID: string,
     result: VisitResult,
     visitedAt: Date,
@@ -85,7 +87,7 @@ export class VisitService {
   ): Promise<VisitRecord> {
     return await this.api.RecordVisit(
       actorID,
-      activityID,
+      checkoutID,
       placeID,
       result,
       visitedAt.toISOString(),
