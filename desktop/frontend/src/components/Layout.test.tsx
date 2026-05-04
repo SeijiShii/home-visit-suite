@@ -70,24 +70,25 @@ describe("Layout", () => {
     expect(screen.getAllByRole("link")).toHaveLength(8);
   });
 
-  it("editor では領域管理を除く 7 項目が表示される（領域管理は admin 専用）", async () => {
+  it("editor では領域管理・メンバー管理を除く 6 項目が表示される（admin 専用は非表示）", async () => {
     await renderLayout("editor");
     expect(screen.getByText("ダッシュボード")).toBeInTheDocument();
     expect(screen.getByText("区域編集")).toBeInTheDocument();
     expect(screen.queryByText("領域管理")).not.toBeInTheDocument();
-    expect(screen.getByText("メンバー管理")).toBeInTheDocument();
+    // 編集メンバーはメンバー管理権限を持たない（admin 専用）
+    expect(screen.queryByText("メンバー管理")).not.toBeInTheDocument();
     expect(screen.getByText("チェックアウト管理")).toBeInTheDocument();
     expect(screen.getByText("網羅管理")).toBeInTheDocument();
     expect(screen.getByText("申請管理")).toBeInTheDocument();
     expect(screen.getByText("設定")).toBeInTheDocument();
-    expect(screen.getAllByRole("link")).toHaveLength(7);
+    expect(screen.getAllByRole("link")).toHaveLength(6);
   });
 
   it("member ではダッシュボードと設定のみが表示される", async () => {
     await renderLayout("member");
     expect(screen.getByText("ダッシュボード")).toBeInTheDocument();
     expect(screen.getByText("設定")).toBeInTheDocument();
-    // 編集メンバー以上専用は全て非表示
+    // 編集メンバー以上専用 / 管理者専用は全て非表示
     expect(screen.queryByText("区域編集")).not.toBeInTheDocument();
     expect(screen.queryByText("領域管理")).not.toBeInTheDocument();
     expect(screen.queryByText("メンバー管理")).not.toBeInTheDocument();

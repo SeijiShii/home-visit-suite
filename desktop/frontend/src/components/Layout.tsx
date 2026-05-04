@@ -80,11 +80,12 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    // メンバー管理: 編集メンバー以上
-    // 仕様 docs/wants/04_メンバー管理と権限.md「メンバータグ機能 / 編集メンバーなら誰でも」
+    // メンバー管理: 管理者専用
+    // 仕様 docs/wants/04_メンバー管理と権限.md「管理者権限 > 招待と任免」「グループ管理」
+    // 編集メンバーはメンバー管理権限を持たない（ロール任免・グループ変更等は admin のみ）
     to: "/users",
     labelKey: "users",
-    minRole: "editor",
+    minRole: "admin",
     icon: (
       <svg
         viewBox="0 0 24 24"
