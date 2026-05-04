@@ -8,20 +8,20 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
 
-type activityService struct {
-	actRepo   domain.ActivityRepository
+type checkoutService struct {
+	coRepo    domain.CheckoutRepository
 	userRepo  domain.UserRepository
 	notifRepo domain.NotificationRepository
 }
 
-// NewActivityService はActivityServiceの実装を生成する。
+// NewCheckoutService はCheckoutServiceの実装を生成する。
 // notifRepo は申請を伴う訪問ステータス（vacant_abandoned / refused）から
 // Request を作成する際に使用する。
-func NewActivityService(actRepo domain.ActivityRepository, userRepo domain.UserRepository, notifRepo domain.NotificationRepository) ActivityService {
-	return &activityService{actRepo: actRepo, userRepo: userRepo, notifRepo: notifRepo}
+func NewCheckoutService(coRepo domain.CheckoutRepository, userRepo domain.UserRepository, notifRepo domain.NotificationRepository) CheckoutService {
+	return &checkoutService{coRepo: coRepo, userRepo: userRepo, notifRepo: notifRepo}
 }
 
-func (s *activityService) getActorRole(actorID string) (models.Role, error) {
+func (s *checkoutService) getActorRole(actorID string) (models.Role, error) {
 	user, err := s.userRepo.GetUser(actorID)
 	if err != nil {
 		return "", Errorf(ErrNotFound, "user not found: %s", actorID)
@@ -29,7 +29,7 @@ func (s *activityService) getActorRole(actorID string) (models.Role, error) {
 	return user.Role, nil
 }
 
-func (s *activityService) Checkout(actorID string, areaID string, checkoutType models.CheckoutType, ownerID string) (*models.Activity, error) {
+func (s *checkoutService) Checkout(actorID string, areaID string, checkoutType models.CheckoutType, ownerID string) (*models.Checkout, error) {
 	role, err := s.getActorRole(actorID)
 	if err != nil {
 		return nil, err
@@ -40,52 +40,52 @@ func (s *activityService) Checkout(actorID string, areaID string, checkoutType m
 		return nil, NewError(ErrPermissionDenied, "lending checkout requires editor or above")
 	}
 
-	// 排他的チェックアウト: アクティブなActivityがあればエラー
-	existing, _ := s.actRepo.GetActiveActivity(areaID)
+	// 排他的チェックアウト: アクティブなチェックアウトがあればエラー
+	existing, _ := s.coRepo.GetActiveCheckout(areaID)
 	if existing != nil {
-		return nil, Errorf(ErrExclusiveCheckout, "area %s already has active activity: %s", areaID, existing.ID)
+		return nil, Errorf(ErrExclusiveCheckout, "area %s already has active checkout: %s", areaID, existing.ID)
 	}
 
 	now := time.Now()
-	act := &models.Activity{
-		ID:           fmt.Sprintf("act-%d", now.UnixNano()),
+	c := &models.Checkout{
+		ID:           fmt.Sprintf("co-%d", now.UnixNano()),
 		AreaID:       areaID,
 		CheckoutType: checkoutType,
 		OwnerID:      ownerID,
-		Status:       models.ActivityStatusActive,
+		Status:       models.CheckoutStatusActive,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
 
 	if checkoutType == models.CheckoutTypeLending {
-		act.LentByID = actorID
+		c.LentByID = actorID
 	}
 
-	if err := s.actRepo.SaveActivity(act); err != nil {
-		return nil, fmt.Errorf("save activity: %w", err)
+	if err := s.coRepo.SaveCheckout(c); err != nil {
+		return nil, fmt.Errorf("save checkout: %w", err)
 	}
-	return act, nil
+	return c, nil
 }
 
-func (s *activityService) Return(actorID string, activityID string) error {
-	act, err := s.actRepo.GetActivity(activityID)
+func (s *checkoutService) Return(actorID string, checkoutID string) error {
+	c, err := s.coRepo.GetCheckout(checkoutID)
 	if err != nil {
-		return Errorf(ErrNotFound, "activity not found: %s", activityID)
+		return Errorf(ErrNotFound, "checkout not found: %s", checkoutID)
 	}
 
-	if act.Status != models.ActivityStatusActive {
-		return Errorf(ErrInvalidState, "activity %s is not active (status: %s)", activityID, act.Status)
+	if c.Status != models.CheckoutStatusActive {
+		return Errorf(ErrInvalidState, "checkout %s is not active (status: %s)", checkoutID, c.Status)
 	}
 
 	now := time.Now()
-	act.Status = models.ActivityStatusReturned
-	act.ReturnedAt = &now
-	act.UpdatedAt = now
+	c.Status = models.CheckoutStatusReturned
+	c.ReturnedAt = &now
+	c.UpdatedAt = now
 
-	return s.actRepo.SaveActivity(act)
+	return s.coRepo.SaveCheckout(c)
 }
 
-func (s *activityService) ForceReturn(actorID string, activityID string) error {
+func (s *checkoutService) ForceReturn(actorID string, checkoutID string) error {
 	role, err := s.getActorRole(actorID)
 	if err != nil {
 		return err
@@ -94,17 +94,17 @@ func (s *activityService) ForceReturn(actorID string, activityID string) error {
 		return NewError(ErrPermissionDenied, "force return requires editor or above")
 	}
 
-	return s.Return(actorID, activityID)
+	return s.Return(actorID, checkoutID)
 }
 
-func (s *activityService) RecordVisit(actorID string, activityID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
-	act, err := s.actRepo.GetActivity(activityID)
+func (s *checkoutService) RecordVisit(actorID string, checkoutID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
+	c, err := s.coRepo.GetCheckout(checkoutID)
 	if err != nil {
-		return nil, Errorf(ErrNotFound, "activity not found: %s", activityID)
+		return nil, Errorf(ErrNotFound, "checkout not found: %s", checkoutID)
 	}
 
-	if act.Status != models.ActivityStatusActive {
-		return nil, Errorf(ErrInvalidState, "activity %s is not active", activityID)
+	if c.Status != models.CheckoutStatusActive {
+		return nil, Errorf(ErrInvalidState, "checkout %s is not active", checkoutID)
 	}
 
 	if result.RequiresApplication() && applicationText == "" {
@@ -116,8 +116,8 @@ func (s *activityService) RecordVisit(actorID string, activityID string, placeID
 		ID:         fmt.Sprintf("vr-%d", now.UnixNano()),
 		UserID:     actorID,
 		PlaceID:    placeID,
-		AreaID:     act.AreaID,
-		ActivityID: activityID,
+		AreaID:     c.AreaID,
+		CheckoutID: checkoutID,
 		Result:     result,
 		VisitedAt:  visitedAt,
 		CreatedAt:  now,
@@ -130,7 +130,7 @@ func (s *activityService) RecordVisit(actorID string, activityID string, placeID
 			Type:        requestTypeForVisitResult(result),
 			Status:      models.RequestStatusPending,
 			SubmitterID: actorID,
-			AreaID:      act.AreaID,
+			AreaID:      c.AreaID,
 			PlaceID:     placeID,
 			Description: applicationText,
 			CreatedAt:   now,
@@ -142,15 +142,15 @@ func (s *activityService) RecordVisit(actorID string, activityID string, placeID
 		vr.AppliedRequestID = &reqID
 	}
 
-	if err := s.actRepo.SaveVisitRecord(vr); err != nil {
+	if err := s.coRepo.SaveVisitRecord(vr); err != nil {
 		return nil, fmt.Errorf("save visit record: %w", err)
 	}
 	return vr, nil
 }
 
-// RecordVisitAdHoc は Phase 1 暫定: Activity 不要で訪問記録を保存する。
-// 詳細は ActivityService インタフェースの doc コメント参照。
-func (s *activityService) RecordVisitAdHoc(actorID string, areaID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
+// RecordVisitAdHoc は Phase 1 暫定: チェックアウト不要で訪問記録を保存する。
+// 詳細は CheckoutService インタフェースの doc コメント参照。
+func (s *checkoutService) RecordVisitAdHoc(actorID string, areaID string, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
 	if areaID == "" {
 		return nil, NewError(ErrInvalidInput, "areaID is required for ad-hoc visit recording")
 	}
@@ -189,7 +189,7 @@ func (s *activityService) RecordVisitAdHoc(actorID string, areaID string, placeI
 		vr.AppliedRequestID = &reqID
 	}
 
-	if err := s.actRepo.SaveVisitRecord(vr); err != nil {
+	if err := s.coRepo.SaveVisitRecord(vr); err != nil {
 		return nil, fmt.Errorf("save visit record: %w", err)
 	}
 	return vr, nil
@@ -206,4 +206,3 @@ func requestTypeForVisitResult(result models.VisitResult) models.RequestType {
 		return ""
 	}
 }
-

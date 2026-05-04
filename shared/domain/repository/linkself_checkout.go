@@ -7,57 +7,57 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
 
-// LinkSelfActivityRepo はLinkSelf MyDBを使ったActivityRepository実装。
-type LinkSelfActivityRepo struct{ *LinkSelfRepository }
+// LinkSelfCheckoutRepo はLinkSelf MyDBを使ったCheckoutRepository実装。
+type LinkSelfCheckoutRepo struct{ *LinkSelfRepository }
 
-// --- Activity ---
+// --- Checkout ---
 
-func (r *LinkSelfActivityRepo) ListActivities(areaID string) ([]models.Activity, error) {
+func (r *LinkSelfCheckoutRepo) ListCheckouts(areaID string) ([]models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
 		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
 		        created_at, returned_at, completed_at, updated_at
-		 FROM activities WHERE area_id = ? ORDER BY created_at DESC`, areaID)
+		 FROM checkouts WHERE area_id = ? ORDER BY created_at DESC`, areaID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var result []models.Activity
+	var result []models.Checkout
 	for rows.Next() {
-		a, err := scanActivity(rows)
+		c, err := scanCheckout(rows)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, a)
+		result = append(result, c)
 	}
 	return result, nil
 }
 
-func (r *LinkSelfActivityRepo) GetActivity(id string) (*models.Activity, error) {
+func (r *LinkSelfCheckoutRepo) GetCheckout(id string) (*models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
 		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
 		        created_at, returned_at, completed_at, updated_at
-		 FROM activities WHERE id = ?`, id)
+		 FROM checkouts WHERE id = ?`, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("activity not found: %s", id)
+		return nil, fmt.Errorf("checkout not found: %s", id)
 	}
-	a, err := scanActivity(rows)
+	c, err := scanCheckout(rows)
 	if err != nil {
 		return nil, err
 	}
-	return &a, nil
+	return &c, nil
 }
 
-func (r *LinkSelfActivityRepo) GetActiveActivity(areaID string) (*models.Activity, error) {
+func (r *LinkSelfCheckoutRepo) GetActiveCheckout(areaID string) (*models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
 		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
 		        created_at, returned_at, completed_at, updated_at
-		 FROM activities WHERE area_id = ? AND status IN ('pending', 'active')
+		 FROM checkouts WHERE area_id = ? AND status IN ('pending', 'active')
 		 LIMIT 1`, areaID)
 	if err != nil {
 		return nil, err
@@ -67,37 +67,37 @@ func (r *LinkSelfActivityRepo) GetActiveActivity(areaID string) (*models.Activit
 	if !rows.Next() {
 		return nil, nil
 	}
-	a, err := scanActivity(rows)
+	c, err := scanCheckout(rows)
 	if err != nil {
 		return nil, err
 	}
-	return &a, nil
+	return &c, nil
 }
 
-func (r *LinkSelfActivityRepo) SaveActivity(activity *models.Activity) error {
+func (r *LinkSelfCheckoutRepo) SaveCheckout(checkout *models.Checkout) error {
 	_, err := r.db.Exec(r.ctx,
-		`INSERT OR REPLACE INTO activities
+		`INSERT OR REPLACE INTO checkouts
 		 (id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
 		  created_at, returned_at, completed_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		activity.ID, activity.AreaID, activity.ScopeID,
-		string(activity.CheckoutType), activity.OwnerID, activity.LentByID,
-		string(activity.Status), formatTime(activity.CreatedAt),
-		formatTimePtr(activity.ReturnedAt), formatTimePtr(activity.CompletedAt),
-		formatTime(activity.UpdatedAt))
+		checkout.ID, checkout.AreaID, checkout.ScopeID,
+		string(checkout.CheckoutType), checkout.OwnerID, checkout.LentByID,
+		string(checkout.Status), formatTime(checkout.CreatedAt),
+		formatTimePtr(checkout.ReturnedAt), formatTimePtr(checkout.CompletedAt),
+		formatTime(checkout.UpdatedAt))
 	return err
 }
 
-func (r *LinkSelfActivityRepo) DeleteActivity(id string) error {
-	_, err := r.db.Exec(r.ctx, `DELETE FROM activities WHERE id = ?`, id)
+func (r *LinkSelfCheckoutRepo) DeleteCheckout(id string) error {
+	_, err := r.db.Exec(r.ctx, `DELETE FROM checkouts WHERE id = ?`, id)
 	return err
 }
 
 // --- VisitRecord ---
 
-func (r *LinkSelfActivityRepo) ListVisitRecords(areaID string) ([]models.VisitRecord, error) {
+func (r *LinkSelfCheckoutRepo) ListVisitRecords(areaID string) ([]models.VisitRecord, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
+		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, checkout_id,
 		        result, applied_request_id, visited_at, created_at, updated_at
 		 FROM visit_records WHERE area_id = ? ORDER BY visited_at DESC`, areaID)
 	if err != nil {
@@ -116,9 +116,9 @@ func (r *LinkSelfActivityRepo) ListVisitRecords(areaID string) ([]models.VisitRe
 	return result, nil
 }
 
-func (r *LinkSelfActivityRepo) ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error) {
+func (r *LinkSelfCheckoutRepo) ListVisitRecordsByPlace(placeID string) ([]models.VisitRecord, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
+		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, checkout_id,
 		        result, applied_request_id, visited_at, created_at, updated_at
 		 FROM visit_records WHERE place_id = ? ORDER BY visited_at DESC`, placeID)
 	if err != nil {
@@ -137,9 +137,9 @@ func (r *LinkSelfActivityRepo) ListVisitRecordsByPlace(placeID string) ([]models
 	return result, nil
 }
 
-func (r *LinkSelfActivityRepo) ListMyVisitRecordsByPlace(placeID, userID string) ([]models.VisitRecord, error) {
+func (r *LinkSelfCheckoutRepo) ListMyVisitRecordsByPlace(placeID, userID string) ([]models.VisitRecord, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
+		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, checkout_id,
 		        result, applied_request_id, visited_at, created_at, updated_at
 		 FROM visit_records WHERE place_id = ? AND user_id = ? ORDER BY visited_at DESC`,
 		placeID, userID)
@@ -159,10 +159,10 @@ func (r *LinkSelfActivityRepo) ListMyVisitRecordsByPlace(placeID, userID string)
 	return result, nil
 }
 
-func (r *LinkSelfActivityRepo) GetVisitRecord(id string) (*models.VisitRecord, error) {
+func (r *LinkSelfCheckoutRepo) GetVisitRecord(id string) (*models.VisitRecord, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
-		        result, visited_at, created_at, updated_at
+		`SELECT id, user_id, place_id, coord_lat, coord_lng, area_id, checkout_id,
+		        result, applied_request_id, visited_at, created_at, updated_at
 		 FROM visit_records WHERE id = ?`, id)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (r *LinkSelfActivityRepo) GetVisitRecord(id string) (*models.VisitRecord, e
 	return &vr, nil
 }
 
-func (r *LinkSelfActivityRepo) SaveVisitRecord(vr *models.VisitRecord) error {
+func (r *LinkSelfCheckoutRepo) SaveVisitRecord(vr *models.VisitRecord) error {
 	var lat, lng sql.NullFloat64
 	if vr.Coord != nil {
 		lat = sql.NullFloat64{Float64: vr.Coord.Lat, Valid: true}
@@ -191,23 +191,23 @@ func (r *LinkSelfActivityRepo) SaveVisitRecord(vr *models.VisitRecord) error {
 	}
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO visit_records
-		 (id, user_id, place_id, coord_lat, coord_lng, area_id, activity_id,
+		 (id, user_id, place_id, coord_lat, coord_lng, area_id, checkout_id,
 		  result, applied_request_id, visited_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		vr.ID, vr.UserID, vr.PlaceID, lat, lng, vr.AreaID, vr.ActivityID,
+		vr.ID, vr.UserID, vr.PlaceID, lat, lng, vr.AreaID, vr.CheckoutID,
 		string(vr.Result), appliedReqID,
 		formatTime(vr.VisitedAt), formatTime(vr.CreatedAt), formatTime(vr.UpdatedAt))
 	return err
 }
 
-func (r *LinkSelfActivityRepo) DeleteVisitRecord(id string) error {
+func (r *LinkSelfCheckoutRepo) DeleteVisitRecord(id string) error {
 	_, err := r.db.Exec(r.ctx, `DELETE FROM visit_records WHERE id = ?`, id)
 	return err
 }
 
 // --- VisitRecordEdit ---
 
-func (r *LinkSelfActivityRepo) ListVisitRecordEdits(visitRecordID string) ([]models.VisitRecordEdit, error) {
+func (r *LinkSelfCheckoutRepo) ListVisitRecordEdits(visitRecordID string) ([]models.VisitRecordEdit, error) {
 	rows, err := r.db.Query(r.ctx,
 		`SELECT id, visit_record_id, editor_id, old_body, new_body, edited_at
 		 FROM visit_record_edits WHERE visit_record_id = ? ORDER BY edited_at`, visitRecordID)
@@ -229,7 +229,7 @@ func (r *LinkSelfActivityRepo) ListVisitRecordEdits(visitRecordID string) ([]mod
 	return result, nil
 }
 
-func (r *LinkSelfActivityRepo) SaveVisitRecordEdit(edit *models.VisitRecordEdit) error {
+func (r *LinkSelfCheckoutRepo) SaveVisitRecordEdit(edit *models.VisitRecordEdit) error {
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO visit_record_edits (id, visit_record_id, editor_id, old_body, new_body, edited_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
@@ -239,23 +239,23 @@ func (r *LinkSelfActivityRepo) SaveVisitRecordEdit(edit *models.VisitRecordEdit)
 
 // --- scan helpers ---
 
-func scanActivity(row scannable) (models.Activity, error) {
-	var a models.Activity
+func scanCheckout(row scannable) (models.Checkout, error) {
+	var c models.Checkout
 	var checkoutType, status string
 	var createdAt, updatedAt string
 	var returnedAt, completedAt sql.NullString
-	err := row.Scan(&a.ID, &a.AreaID, &a.ScopeID, &checkoutType, &a.OwnerID,
-		&a.LentByID, &status, &createdAt, &returnedAt, &completedAt, &updatedAt)
+	err := row.Scan(&c.ID, &c.AreaID, &c.ScopeID, &checkoutType, &c.OwnerID,
+		&c.LentByID, &status, &createdAt, &returnedAt, &completedAt, &updatedAt)
 	if err != nil {
-		return a, err
+		return c, err
 	}
-	a.CheckoutType = models.CheckoutType(checkoutType)
-	a.Status = models.ActivityStatus(status)
-	a.CreatedAt = parseTime(createdAt)
-	a.UpdatedAt = parseTime(updatedAt)
-	a.ReturnedAt = parseTimePtr(returnedAt)
-	a.CompletedAt = parseTimePtr(completedAt)
-	return a, nil
+	c.CheckoutType = models.CheckoutType(checkoutType)
+	c.Status = models.CheckoutStatus(status)
+	c.CreatedAt = parseTime(createdAt)
+	c.UpdatedAt = parseTime(updatedAt)
+	c.ReturnedAt = parseTimePtr(returnedAt)
+	c.CompletedAt = parseTimePtr(completedAt)
+	return c, nil
 }
 
 func scanVisitRecord(row scannable) (models.VisitRecord, error) {
@@ -264,7 +264,7 @@ func scanVisitRecord(row scannable) (models.VisitRecord, error) {
 	var resultStr, appliedReqID string
 	var visitedAt, createdAt, updatedAt string
 	err := row.Scan(&vr.ID, &vr.UserID, &vr.PlaceID, &coordLat, &coordLng,
-		&vr.AreaID, &vr.ActivityID, &resultStr, &appliedReqID,
+		&vr.AreaID, &vr.CheckoutID, &resultStr, &appliedReqID,
 		&visitedAt, &createdAt, &updatedAt)
 	if err != nil {
 		return vr, err

@@ -136,8 +136,8 @@ CREATE TABLE IF NOT EXISTS member_tags (
     color TEXT NOT NULL DEFAULT ''
 );
 
--- 訪問活動
-CREATE TABLE IF NOT EXISTS activities (
+-- チェックアウト
+CREATE TABLE IF NOT EXISTS checkouts (
     id TEXT PRIMARY KEY,
     area_id TEXT NOT NULL,
     scope_id TEXT NOT NULL DEFAULT '',
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS visit_records (
     coord_lat REAL,
     coord_lng REAL,
     area_id TEXT NOT NULL,
-    activity_id TEXT NOT NULL,
+    checkout_id TEXT NOT NULL,
     result TEXT NOT NULL,
     visited_at TEXT NOT NULL,
     created_at TEXT NOT NULL,

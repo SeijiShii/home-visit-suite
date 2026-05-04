@@ -17,8 +17,8 @@ const (
 	TableOrgGroups  = "org_groups"
 	TableMemberTags = "member_tags"
 
-	// 訪問活動（ScopeNetwork）
-	TableActivities       = "activities"
+	// チェックアウト（ScopeNetwork）
+	TableCheckouts        = "checkouts"
 	TableVisitRecords     = "visit_records"
 	TableVisitRecordEdits = "visit_record_edits"
 
@@ -47,7 +47,7 @@ var NetworkTables = []string{
 	TableRegions, TableParentAreas, TableAreas, TablePlaces,
 	TableMapNetwork,
 	TableUsers, TableOrgGroups, TableMemberTags,
-	TableActivities,
+	TableCheckouts,
 	TableVisitRecords, TableVisitRecordEdits,
 	TableCoverages, TableSchedulePeriods, TableScopes, TableAreaAvailability,
 	TableRequests, TableInvitations, TableNotifications,

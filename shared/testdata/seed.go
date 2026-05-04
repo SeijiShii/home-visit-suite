@@ -17,7 +17,7 @@ import (
 func NewLinkSelfRepos(repo *repository.LinkSelfRepository) *Repos {
 	return &Repos{
 		User:         repo.User(),
-		Activity:     repo.Activity(),
+		Checkout:     repo.Checkout(),
 		Notification: repo.Notification(),
 	}
 }
@@ -25,7 +25,7 @@ func NewLinkSelfRepos(repo *repository.LinkSelfRepository) *Repos {
 // Repos はダミー投入対象のリポジトリを保持する構造体。
 type Repos struct {
 	User         domain.UserRepository
-	Activity     domain.ActivityRepository
+	Checkout     domain.CheckoutRepository
 	Notification domain.NotificationRepository
 }
 
@@ -33,7 +33,7 @@ type Repos struct {
 func NewInMemoryRepos() *Repos {
 	return &Repos{
 		User:         repository.NewInMemoryUserRepository(),
-		Activity:     repository.NewInMemoryActivityRepository(),
+		Checkout:     repository.NewInMemoryCheckoutRepository(),
 		Notification: repository.NewInMemoryNotificationRepository(),
 	}
 }

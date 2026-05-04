@@ -32,9 +32,9 @@ func (r *LinkSelfRepository) User() *LinkSelfUserRepo {
 	return &LinkSelfUserRepo{r}
 }
 
-// Activity はActivityRepository実装を返す。
-func (r *LinkSelfRepository) Activity() *LinkSelfActivityRepo {
-	return &LinkSelfActivityRepo{r}
+// Checkout はCheckoutRepository実装を返す。
+func (r *LinkSelfRepository) Checkout() *LinkSelfCheckoutRepo {
+	return &LinkSelfCheckoutRepo{r}
 }
 
 // Coverage はCoverageRepository実装を返す。

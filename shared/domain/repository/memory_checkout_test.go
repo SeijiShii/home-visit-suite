@@ -8,89 +8,89 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/repository"
 )
 
-func newActivityRepo() *repository.InMemoryActivityRepository {
-	return repository.NewInMemoryActivityRepository()
+func newCheckoutRepo() *repository.InMemoryCheckoutRepository {
+	return repository.NewInMemoryCheckoutRepository()
 }
 
-// --- Activity ---
+// --- Checkout ---
 
-func TestActivity_SaveAndGet(t *testing.T) {
-	repo := newActivityRepo()
-	a := &models.Activity{
-		ID:           "act-1",
+func TestCheckout_SaveAndGet(t *testing.T) {
+	repo := newCheckoutRepo()
+	c := &models.Checkout{
+		ID:           "co-1",
 		AreaID:       "area-1",
 		CheckoutType: models.CheckoutTypeLending,
 		OwnerID:      "did:key:owner",
-		Status:       models.ActivityStatusActive,
+		Status:       models.CheckoutStatusActive,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
-	if err := repo.SaveActivity(a); err != nil {
-		t.Fatalf("SaveActivity: %v", err)
+	if err := repo.SaveCheckout(c); err != nil {
+		t.Fatalf("SaveCheckout: %v", err)
 	}
-	got, err := repo.GetActivity("act-1")
+	got, err := repo.GetCheckout("co-1")
 	if err != nil {
-		t.Fatalf("GetActivity: %v", err)
+		t.Fatalf("GetCheckout: %v", err)
 	}
 	if got.OwnerID != "did:key:owner" {
 		t.Errorf("OwnerID = %q, want did:key:owner", got.OwnerID)
 	}
 }
 
-func TestActivity_GetNotFound(t *testing.T) {
-	repo := newActivityRepo()
-	_, err := repo.GetActivity("nonexistent")
+func TestCheckout_GetNotFound(t *testing.T) {
+	repo := newCheckoutRepo()
+	_, err := repo.GetCheckout("nonexistent")
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
-func TestActivity_ListByArea(t *testing.T) {
-	repo := newActivityRepo()
-	repo.SaveActivity(&models.Activity{ID: "a1", AreaID: "area-1", Status: models.ActivityStatusActive})
-	repo.SaveActivity(&models.Activity{ID: "a2", AreaID: "area-1", Status: models.ActivityStatusComplete})
-	repo.SaveActivity(&models.Activity{ID: "a3", AreaID: "area-2", Status: models.ActivityStatusActive})
+func TestCheckout_ListByArea(t *testing.T) {
+	repo := newCheckoutRepo()
+	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "area-1", Status: models.CheckoutStatusActive})
+	repo.SaveCheckout(&models.Checkout{ID: "c2", AreaID: "area-1", Status: models.CheckoutStatusComplete})
+	repo.SaveCheckout(&models.Checkout{ID: "c3", AreaID: "area-2", Status: models.CheckoutStatusActive})
 
-	list, err := repo.ListActivities("area-1")
+	list, err := repo.ListCheckouts("area-1")
 	if err != nil {
-		t.Fatalf("ListActivities: %v", err)
+		t.Fatalf("ListCheckouts: %v", err)
 	}
 	if len(list) != 2 {
 		t.Errorf("got %d, want 2", len(list))
 	}
 }
 
-func TestActivity_GetActive_ExclusiveLending(t *testing.T) {
-	repo := newActivityRepo()
-	repo.SaveActivity(&models.Activity{ID: "a1", AreaID: "area-1", Status: models.ActivityStatusComplete})
-	repo.SaveActivity(&models.Activity{ID: "a2", AreaID: "area-1", Status: models.ActivityStatusActive})
+func TestCheckout_GetActive_ExclusiveLending(t *testing.T) {
+	repo := newCheckoutRepo()
+	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "area-1", Status: models.CheckoutStatusComplete})
+	repo.SaveCheckout(&models.Checkout{ID: "c2", AreaID: "area-1", Status: models.CheckoutStatusActive})
 
-	got, err := repo.GetActiveActivity("area-1")
+	got, err := repo.GetActiveCheckout("area-1")
 	if err != nil {
-		t.Fatalf("GetActiveActivity: %v", err)
+		t.Fatalf("GetActiveCheckout: %v", err)
 	}
-	if got.ID != "a2" {
-		t.Errorf("got ID=%s, want a2", got.ID)
+	if got.ID != "c2" {
+		t.Errorf("got ID=%s, want c2", got.ID)
 	}
 }
 
-func TestActivity_GetActive_NoneActive(t *testing.T) {
-	repo := newActivityRepo()
-	repo.SaveActivity(&models.Activity{ID: "a1", AreaID: "area-1", Status: models.ActivityStatusComplete})
+func TestCheckout_GetActive_NoneActive(t *testing.T) {
+	repo := newCheckoutRepo()
+	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "area-1", Status: models.CheckoutStatusComplete})
 
-	_, err := repo.GetActiveActivity("area-1")
+	_, err := repo.GetActiveCheckout("area-1")
 	if err == nil {
-		t.Fatal("expected error when no active activity")
+		t.Fatal("expected error when no active checkout")
 	}
 }
 
-func TestActivity_Delete(t *testing.T) {
-	repo := newActivityRepo()
-	repo.SaveActivity(&models.Activity{ID: "a1", AreaID: "area-1"})
-	if err := repo.DeleteActivity("a1"); err != nil {
-		t.Fatalf("DeleteActivity: %v", err)
+func TestCheckout_Delete(t *testing.T) {
+	repo := newCheckoutRepo()
+	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "area-1"})
+	if err := repo.DeleteCheckout("c1"); err != nil {
+		t.Fatalf("DeleteCheckout: %v", err)
 	}
-	_, err := repo.GetActivity("a1")
+	_, err := repo.GetCheckout("c1")
 	if err == nil {
 		t.Fatal("expected error after delete")
 	}
@@ -99,11 +99,11 @@ func TestActivity_Delete(t *testing.T) {
 // --- VisitRecord ---
 
 func TestVisitRecord_SaveAndList(t *testing.T) {
-	repo := newActivityRepo()
+	repo := newCheckoutRepo()
 	now := time.Now()
-	repo.SaveVisitRecord(&models.VisitRecord{ID: "vr-1", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now})
-	repo.SaveVisitRecord(&models.VisitRecord{ID: "vr-2", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultAbsent, VisitedAt: now})
-	repo.SaveVisitRecord(&models.VisitRecord{ID: "vr-3", AreaID: "area-2", ActivityID: "a2", Result: models.VisitResultMet, VisitedAt: now})
+	repo.SaveVisitRecord(&models.VisitRecord{ID: "vr-1", AreaID: "area-1", CheckoutID: "c1", Result: models.VisitResultMet, VisitedAt: now})
+	repo.SaveVisitRecord(&models.VisitRecord{ID: "vr-2", AreaID: "area-1", CheckoutID: "c1", Result: models.VisitResultAbsent, VisitedAt: now})
+	repo.SaveVisitRecord(&models.VisitRecord{ID: "vr-3", AreaID: "area-2", CheckoutID: "c2", Result: models.VisitResultMet, VisitedAt: now})
 
 	list, err := repo.ListVisitRecords("area-1")
 	if err != nil {
@@ -115,17 +115,17 @@ func TestVisitRecord_SaveAndList(t *testing.T) {
 }
 
 func TestVisitRecord_ListByPlaceAndUser(t *testing.T) {
-	repo := newActivityRepo()
+	repo := newCheckoutRepo()
 	now := time.Now()
 
 	// place-1 への訪問: user-A が 3 件、user-B が 1 件
 	// place-2 への訪問: user-A が 1 件
 	for _, vr := range []*models.VisitRecord{
-		{ID: "v1", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now.Add(-72 * time.Hour)},
-		{ID: "v2", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultAbsent, VisitedAt: now.Add(-48 * time.Hour)},
-		{ID: "v3", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now.Add(-24 * time.Hour)},
-		{ID: "v4", PlaceID: "place-1", UserID: "user-B", AreaID: "area-1", ActivityID: "a2", Result: models.VisitResultMet, VisitedAt: now.Add(-12 * time.Hour)},
-		{ID: "v5", PlaceID: "place-2", UserID: "user-A", AreaID: "area-1", ActivityID: "a1", Result: models.VisitResultMet, VisitedAt: now},
+		{ID: "v1", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", CheckoutID: "c1", Result: models.VisitResultMet, VisitedAt: now.Add(-72 * time.Hour)},
+		{ID: "v2", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", CheckoutID: "c1", Result: models.VisitResultAbsent, VisitedAt: now.Add(-48 * time.Hour)},
+		{ID: "v3", PlaceID: "place-1", UserID: "user-A", AreaID: "area-1", CheckoutID: "c1", Result: models.VisitResultMet, VisitedAt: now.Add(-24 * time.Hour)},
+		{ID: "v4", PlaceID: "place-1", UserID: "user-B", AreaID: "area-1", CheckoutID: "c2", Result: models.VisitResultMet, VisitedAt: now.Add(-12 * time.Hour)},
+		{ID: "v5", PlaceID: "place-2", UserID: "user-A", AreaID: "area-1", CheckoutID: "c1", Result: models.VisitResultMet, VisitedAt: now},
 	} {
 		if err := repo.SaveVisitRecord(vr); err != nil {
 			t.Fatalf("SaveVisitRecord: %v", err)
@@ -161,13 +161,13 @@ func TestVisitRecord_ListByPlaceAndUser(t *testing.T) {
 }
 
 func TestVisitRecord_AppliedRequestID_RoundTrip(t *testing.T) {
-	repo := newActivityRepo()
+	repo := newCheckoutRepo()
 	now := time.Now()
 	reqID := "req-9"
 	if err := repo.SaveVisitRecord(&models.VisitRecord{
 		ID:               "vr-app",
 		AreaID:           "area-1",
-		ActivityID:       "a1",
+		CheckoutID:       "c1",
 		PlaceID:          "place-1",
 		Result:           models.VisitResultRefused,
 		AppliedRequestID: &reqID,
@@ -191,7 +191,7 @@ func TestVisitRecord_AppliedRequestID_RoundTrip(t *testing.T) {
 // --- VisitRecordEdit ---
 
 func TestVisitRecordEdit_SaveAndList(t *testing.T) {
-	repo := newActivityRepo()
+	repo := newCheckoutRepo()
 	repo.SaveVisitRecordEdit(&models.VisitRecordEdit{ID: "vre-1", VisitRecordID: "vr-1", EditorID: "u1", EditedAt: time.Now()})
 	repo.SaveVisitRecordEdit(&models.VisitRecordEdit{ID: "vre-2", VisitRecordID: "vr-1", EditorID: "u2", EditedAt: time.Now()})
 	repo.SaveVisitRecordEdit(&models.VisitRecordEdit{ID: "vre-3", VisitRecordID: "vr-2", EditorID: "u1", EditedAt: time.Now()})

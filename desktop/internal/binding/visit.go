@@ -11,11 +11,11 @@ import (
 // VisitBinding は訪問記録ダイアログ・訪問記録画面のフロントエンド向け API。
 // 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録ダイアログ」「訪問記録画面」
 type VisitBinding struct {
-	repo domain.ActivityRepository
-	svc  service.ActivityService
+	repo domain.CheckoutRepository
+	svc  service.CheckoutService
 }
 
-func NewVisitBinding(repo domain.ActivityRepository, svc service.ActivityService) *VisitBinding {
+func NewVisitBinding(repo domain.CheckoutRepository, svc service.CheckoutService) *VisitBinding {
 	return &VisitBinding{repo: repo, svc: svc}
 }
 
@@ -23,12 +23,12 @@ func NewVisitBinding(repo domain.ActivityRepository, svc service.ActivityService
 // 申請を伴うステータス（vacant_abandoned / refused）の場合は applicationText が必須で、
 // サービス層で Request 作成と AppliedRequestID 紐付けが行われる。
 // それ以外のステータスでは applicationText は無視される（空文字列で呼ぶ想定）。
-func (b *VisitBinding) RecordVisit(actorID, activityID, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
-	return b.svc.RecordVisit(actorID, activityID, placeID, result, visitedAt, applicationText)
+func (b *VisitBinding) RecordVisit(actorID, checkoutID, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
+	return b.svc.RecordVisit(actorID, checkoutID, placeID, result, visitedAt, applicationText)
 }
 
-// RecordVisitPhase1 は Activity 不要で訪問記録を作成する Phase 1 暫定 API。
-// チェックアウト/Activity モデル未配線フェーズ向け。
+// RecordVisitPhase1 はチェックアウト不要で訪問記録を作成する Phase 1 暫定 API。
+// チェックアウトモデル未配線フェーズ向け。
 // 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録画面 > 起動後の遷移」
 func (b *VisitBinding) RecordVisitPhase1(actorID, areaID, placeID string, result models.VisitResult, visitedAt time.Time, applicationText string) (*models.VisitRecord, error) {
 	return b.svc.RecordVisitAdHoc(actorID, areaID, placeID, result, visitedAt, applicationText)

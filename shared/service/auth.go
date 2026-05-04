@@ -19,6 +19,6 @@ type AuthService interface {
 	DismissRole(actorID string, targetID string, newRole models.Role) error
 
 	// RemoveMember はメンバーをグループから削除する。admin only。
-	// 担当Activity等をクリアする。
+	// 担当チェックアウト等をクリアする。
 	RemoveMember(actorID string, targetID string) error
 }

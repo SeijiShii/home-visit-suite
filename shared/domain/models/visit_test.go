@@ -7,55 +7,55 @@ import (
 	"github.com/SeijiShii/home-visit-suite/shared/domain/models"
 )
 
-// --- Activity ---
+// --- Checkout ---
 
-func TestActivity_NewFields(t *testing.T) {
+func TestCheckout_NewFields(t *testing.T) {
 	now := time.Now()
 	returned := now.Add(24 * time.Hour)
 	completed := now.Add(48 * time.Hour)
 
-	a := models.Activity{
-		ID:           "act-1",
+	c := models.Checkout{
+		ID:           "co-1",
 		AreaID:       "area-1",
 		ScopeID:      "sc-1",
 		CheckoutType: models.CheckoutTypeLending,
 		OwnerID:      "did:key:owner",
 		LentByID:     "did:key:editor",
-		Status:       models.ActivityStatusActive,
+		Status:       models.CheckoutStatusActive,
 		CreatedAt:    now,
 		ReturnedAt:   &returned,
 		CompletedAt:  &completed,
 		UpdatedAt:    now,
 	}
 
-	if a.ScopeID != "sc-1" {
-		t.Errorf("ScopeID = %q, want %q", a.ScopeID, "sc-1")
+	if c.ScopeID != "sc-1" {
+		t.Errorf("ScopeID = %q, want %q", c.ScopeID, "sc-1")
 	}
-	if a.CheckoutType != models.CheckoutTypeLending {
-		t.Errorf("CheckoutType = %q, want %q", a.CheckoutType, models.CheckoutTypeLending)
+	if c.CheckoutType != models.CheckoutTypeLending {
+		t.Errorf("CheckoutType = %q, want %q", c.CheckoutType, models.CheckoutTypeLending)
 	}
-	if a.LentByID != "did:key:editor" {
-		t.Errorf("LentByID = %q, want %q", a.LentByID, "did:key:editor")
+	if c.LentByID != "did:key:editor" {
+		t.Errorf("LentByID = %q, want %q", c.LentByID, "did:key:editor")
 	}
-	if a.ReturnedAt == nil || !a.ReturnedAt.Equal(returned) {
-		t.Errorf("ReturnedAt = %v, want %v", a.ReturnedAt, returned)
+	if c.ReturnedAt == nil || !c.ReturnedAt.Equal(returned) {
+		t.Errorf("ReturnedAt = %v, want %v", c.ReturnedAt, returned)
 	}
-	if a.CompletedAt == nil || !a.CompletedAt.Equal(completed) {
-		t.Errorf("CompletedAt = %v, want %v", a.CompletedAt, completed)
+	if c.CompletedAt == nil || !c.CompletedAt.Equal(completed) {
+		t.Errorf("CompletedAt = %v, want %v", c.CompletedAt, completed)
 	}
 }
 
-func TestActivity_SelfTake_LentByIDEmpty(t *testing.T) {
-	a := models.Activity{
-		ID:           "act-2",
+func TestCheckout_SelfTake_LentByIDEmpty(t *testing.T) {
+	c := models.Checkout{
+		ID:           "co-2",
 		AreaID:       "area-1",
 		CheckoutType: models.CheckoutTypeSelfTake,
 		OwnerID:      "did:key:member",
-		Status:       models.ActivityStatusActive,
+		Status:       models.CheckoutStatusActive,
 	}
 
-	if a.LentByID != "" {
-		t.Errorf("LentByID = %q, want empty for self_take", a.LentByID)
+	if c.LentByID != "" {
+		t.Errorf("LentByID = %q, want empty for self_take", c.LentByID)
 	}
 }
 
@@ -70,21 +70,21 @@ func TestCheckoutType_Values(t *testing.T) {
 
 // --- VisitRecord ---
 
-func TestVisitRecord_ActivityID_NoteRemoved(t *testing.T) {
+func TestVisitRecord_CheckoutID_NoteRemoved(t *testing.T) {
 	vr := models.VisitRecord{
 		ID:         "vr-1",
 		UserID:     "did:key:member",
 		PlaceID:    "place-1",
 		AreaID:     "area-1",
-		ActivityID: "act-1",
+		CheckoutID: "co-1",
 		Result:     models.VisitResultMet,
 		VisitedAt:  time.Now(),
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
 
-	if vr.ActivityID != "act-1" {
-		t.Errorf("ActivityID = %q, want %q", vr.ActivityID, "act-1")
+	if vr.CheckoutID != "co-1" {
+		t.Errorf("CheckoutID = %q, want %q", vr.CheckoutID, "co-1")
 	}
 }
 
@@ -114,7 +114,7 @@ func TestVisitRecord_AppliedRequestID(t *testing.T) {
 		UserID:           "did:key:member",
 		PlaceID:          "place-1",
 		AreaID:           "area-1",
-		ActivityID:       "act-1",
+		CheckoutID:       "co-1",
 		Result:           models.VisitResultRefused,
 		AppliedRequestID: &reqID,
 		VisitedAt:        time.Now(),
@@ -155,19 +155,19 @@ func TestVisitResult_RequiresApplication(t *testing.T) {
 	}
 }
 
-func TestActivityStatus_Values(t *testing.T) {
+func TestCheckoutStatus_Values(t *testing.T) {
 	statuses := []struct {
-		s    models.ActivityStatus
+		s    models.CheckoutStatus
 		want string
 	}{
-		{models.ActivityStatusPending, "pending"},
-		{models.ActivityStatusActive, "active"},
-		{models.ActivityStatusReturned, "returned"},
-		{models.ActivityStatusComplete, "complete"},
+		{models.CheckoutStatusPending, "pending"},
+		{models.CheckoutStatusActive, "active"},
+		{models.CheckoutStatusReturned, "returned"},
+		{models.CheckoutStatusComplete, "complete"},
 	}
 	for _, tt := range statuses {
 		if string(tt.s) != tt.want {
-			t.Errorf("ActivityStatus = %q, want %q", tt.s, tt.want)
+			t.Errorf("CheckoutStatus = %q, want %q", tt.s, tt.want)
 		}
 	}
 }
