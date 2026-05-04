@@ -85,6 +85,7 @@ func main() {
 	scheduleBinding := binding.NewScheduleBinding(scheduleSvc, info.DID)
 	checkoutSvc := service.NewCheckoutService(repo.Checkout(), repo.User(), repo.Notification())
 	visitBinding := binding.NewVisitBinding(repo.Checkout(), checkoutSvc)
+	checkoutBinding := binding.NewCheckoutBinding(repo.Checkout(), checkoutSvc)
 
 	err = wails.Run(&options.App{
 		Title:  "Home Visit",
@@ -104,6 +105,7 @@ func main() {
 			placeBinding,
 			scheduleBinding,
 			visitBinding,
+			checkoutBinding,
 		},
 	})
 
