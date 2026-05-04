@@ -10,7 +10,34 @@ var AllMigrations = []ls.Migration{
 	{Version: 4, SQL: migrationV4},
 	{Version: 5, SQL: migrationV5},
 	{Version: 6, SQL: migrationV6},
+	{Version: 7, SQL: migrationV7},
 }
+
+// migrationV7: 訪問活動概念の廃止に伴うスキーマ変更
+//   - 仕様 docs/wants/05_チェックアウト.md（旧名称: 05_訪問活動とチーム.md）
+//   - Phase A: teams / activity_assignments テーブルを廃止
+//   - Phase B: activities → checkouts に rename、visit_records.activity_id → checkout_id
+//   - Phase D: checkout_invitations テーブル新規作成
+//
+// V1 を原型のまま残しているため、新規 DB と既存 DB の両方が V7 を経由して
+// 同じ最終状態に収束する。
+const migrationV7 = `
+DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS activity_assignments;
+
+ALTER TABLE activities RENAME TO checkouts;
+ALTER TABLE visit_records RENAME COLUMN activity_id TO checkout_id;
+
+CREATE TABLE IF NOT EXISTS checkout_invitations (
+    id TEXT PRIMARY KEY,
+    checkout_id TEXT NOT NULL,
+    invitee_id TEXT NOT NULL,
+    inviter_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    created_at TEXT NOT NULL
+);
+`
 
 // migrationV6: 訪問記録機能の拡張に伴うカラム追加
 // 仕様 docs/wants/08_活動メンバー向けアプリ.md「訪問記録ダイアログ」、
@@ -136,8 +163,15 @@ CREATE TABLE IF NOT EXISTS member_tags (
     color TEXT NOT NULL DEFAULT ''
 );
 
--- チェックアウト
-CREATE TABLE IF NOT EXISTS checkouts (
+-- 訪問活動（V7 で teams/activity_assignments は廃止、activities → checkouts に rename される）
+CREATE TABLE IF NOT EXISTS teams (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT '',
+    leader_id TEXT NOT NULL DEFAULT '',
+    members TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS activities (
     id TEXT PRIMARY KEY,
     area_id TEXT NOT NULL,
     scope_id TEXT NOT NULL DEFAULT '',
@@ -151,6 +185,14 @@ CREATE TABLE IF NOT EXISTS checkouts (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS activity_assignments (
+    id TEXT PRIMARY KEY,
+    activity_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    activity_date TEXT NOT NULL,
+    assigned_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS visit_records (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -158,21 +200,11 @@ CREATE TABLE IF NOT EXISTS visit_records (
     coord_lat REAL,
     coord_lng REAL,
     area_id TEXT NOT NULL,
-    checkout_id TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
     result TEXT NOT NULL,
     visited_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS checkout_invitations (
-    id TEXT PRIMARY KEY,
-    checkout_id TEXT NOT NULL,
-    invitee_id TEXT NOT NULL,
-    inviter_id TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
-    revoked_at TEXT,
-    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS visit_record_edits (
