@@ -129,20 +129,20 @@ export function SettingsPage() {
 
       <section className="settings-section">
         <h2>{t.settingsDev.title}</h2>
-        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 8 }}>
+        <p className="settings-section-description">
           {t.settingsDev.description}
         </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="settings-page-actions">
           <button
             type="button"
-            className="settings-btn"
+            className="btn"
             onClick={() => void handleDeleteAllRegions()}
           >
             {t.settingsDev.deleteAllRegions}
           </button>
           <button
             type="button"
-            className="settings-btn"
+            className="btn"
             onClick={() => void handleDeleteAllSchedules()}
           >
             {t.settingsDev.deleteAllSchedules}
@@ -158,26 +158,12 @@ export function SettingsPage() {
       {isDevMode && (
         <section className="settings-section">
           <h2>{t.settingsDev.identityTitle}</h2>
-          <p style={{ fontSize: 13, color: "#64748b", marginBottom: 8 }}>
+          <p className="settings-section-description">
             {t.settingsDev.identityDescription}
           </p>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              maxHeight: 320,
-              overflowY: "auto",
-              border: "1px solid #e2e8f0",
-              padding: 8,
-              borderRadius: 4,
-            }}
-          >
+          <div className="settings-dev-identity-list">
             {availableIdentities.map((u) => (
-              <label
-                key={u.id}
-                style={{ display: "flex", gap: 8, alignItems: "center" }}
-              >
+              <label key={u.id} className="settings-dev-identity-item">
                 <input
                   type="radio"
                   name="identity"
@@ -185,19 +171,11 @@ export function SettingsPage() {
                   checked={currentActorID === u.id}
                   onChange={() => void handleIdentitySwitch(u.id)}
                 />
-                <span style={{ flex: 1 }}>
-                  {u.name}{" "}
-                  <span style={{ color: "#64748b", fontSize: 12 }}>
-                    ({u.role})
-                  </span>
+                <span className="settings-dev-identity-name">
+                  {u.name}
+                  <span className="settings-dev-identity-meta">({u.role})</span>
                   {u.id === realDID && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        color: "#0284c7",
-                        fontSize: 12,
-                      }}
-                    >
+                    <span className="settings-dev-identity-self">
                       {t.settingsDev.identitySelf}
                     </span>
                   )}

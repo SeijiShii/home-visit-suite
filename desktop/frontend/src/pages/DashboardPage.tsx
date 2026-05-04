@@ -361,50 +361,41 @@ export function DashboardPage() {
 
       <section>
         <h2>{t.dashboard.accessibleAreas}</h2>
-        <p style={{ fontSize: 12, color: "#64748b", marginTop: 0 }}>
+        <p className="dashboard-section-note">
           {t.dashboard.accessibleAreasNote}
         </p>
         {loading ? (
-          <p>{t.dashboard.loading}</p>
+          <p className="dashboard-empty">{t.dashboard.loading}</p>
         ) : rows.length === 0 ? (
-          <p>{t.dashboard.noAccessibleAreas}</p>
+          <p className="dashboard-empty">{t.dashboard.noAccessibleAreas}</p>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              maxWidth: 720,
-            }}
-          >
+          <table className="dashboard-table">
             <thead>
-              <tr
-                style={{ textAlign: "left", borderBottom: "1px solid #e2e8f0" }}
-              >
-                <th style={{ padding: "8px" }}>{t.dashboard.colArea}</th>
-                <th style={{ padding: "8px" }}>{t.dashboard.colRole}</th>
-                <th style={{ padding: "8px" }}>{t.dashboard.colActions}</th>
+              <tr>
+                <th>{t.dashboard.colArea}</th>
+                <th>{t.dashboard.colRole}</th>
+                <th>{t.dashboard.colActions}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.checkoutId}
-                  style={{ borderBottom: "1px solid #f1f5f9" }}
-                >
-                  <td style={{ padding: "8px", fontFamily: "monospace" }}>
-                    {row.displayName}
-                  </td>
-                  <td style={{ padding: "8px" }}>{formatRoleCell(row)}</td>
-                  <td style={{ padding: "8px" }}>
+                <tr key={row.checkoutId}>
+                  <td className="dashboard-cell-area">{row.displayName}</td>
+                  <td>{formatRoleCell(row)}</td>
+                  <td>
                     <button
                       type="button"
+                      className="btn btn-primary btn-sm"
                       onClick={() => handleVisit(row.areaId)}
-                      style={{ marginRight: 6 }}
                     >
                       {t.dashboard.gotoVisit}
                     </button>
                     {row.role === "owner" && (
-                      <button type="button" onClick={handleInvite}>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={handleInvite}
+                      >
                         {t.dashboard.invite}
                       </button>
                     )}
@@ -417,22 +408,13 @@ export function DashboardPage() {
       </section>
 
       {isEditorPlus && (
-        <section style={{ marginTop: 24 }}>
+        <section>
           <h2>{t.dashboard.allAreas}</h2>
-          <p style={{ fontSize: 12, color: "#64748b", marginTop: 0 }}>
-            {t.dashboard.allAreasNote}
-          </p>
+          <p className="dashboard-section-note">{t.dashboard.allAreasNote}</p>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: 8,
-            }}
-          >
+          <div className="dashboard-filter-row">
             <select
+              className="dashboard-filter-select"
               aria-label={t.dashboard.filterAllRegions}
               value={regionFilter}
               onChange={(e) => setRegionFilter(e.target.value)}
@@ -445,6 +427,7 @@ export function DashboardPage() {
               ))}
             </select>
             <select
+              className="dashboard-filter-select"
               aria-label={t.dashboard.filterAllParentAreas}
               value={parentAreaFilter}
               onChange={(e) => setParentAreaFilter(e.target.value)}
@@ -460,60 +443,45 @@ export function DashboardPage() {
             </select>
             <input
               type="search"
+              className="dashboard-filter-input"
               aria-label={t.dashboard.searchPlaceholder}
               placeholder={t.dashboard.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ flex: "1 1 200px", minWidth: 180 }}
             />
           </div>
 
           {allAreasLoading ? (
-            <p>{t.dashboard.loading}</p>
+            <p className="dashboard-empty">{t.dashboard.loading}</p>
           ) : filteredAllAreas.length === 0 ? (
-            <p>{t.dashboard.noAreasMatch}</p>
+            <p className="dashboard-empty">{t.dashboard.noAreasMatch}</p>
           ) : (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                maxWidth: 720,
-              }}
-            >
+            <table className="dashboard-table">
               <thead>
-                <tr
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #e2e8f0",
-                  }}
-                >
-                  <th style={{ padding: "8px" }}>{t.dashboard.colArea}</th>
-                  <th style={{ padding: "8px" }}>{t.dashboard.colOwner}</th>
-                  <th style={{ padding: "8px" }}>{t.dashboard.colProgress}</th>
-                  <th style={{ padding: "8px" }}>{t.dashboard.colActions}</th>
+                <tr>
+                  <th>{t.dashboard.colArea}</th>
+                  <th>{t.dashboard.colOwner}</th>
+                  <th>{t.dashboard.colProgress}</th>
+                  <th>{t.dashboard.colActions}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAllAreas.map((row) => (
-                  <tr
-                    key={row.areaId}
-                    style={{ borderBottom: "1px solid #f1f5f9" }}
-                  >
-                    <td style={{ padding: "8px", fontFamily: "monospace" }}>
-                      {row.displayName}
-                    </td>
-                    <td style={{ padding: "8px" }}>
+                  <tr key={row.areaId}>
+                    <td className="dashboard-cell-area">{row.displayName}</td>
+                    <td>
                       {row.ownerDisplay
                         ? t.dashboard.ownerLabel(row.ownerDisplay)
                         : t.dashboard.notCheckedOut}
                     </td>
-                    <td style={{ padding: "8px", color: "#94a3b8" }}>
+                    <td className="dashboard-cell-progress">
                       {/* 進捗バー: 網羅管理 API 接続まで placeholder（仕様 06 / Q21 / Q22） */}
                       {t.dashboard.progressPlaceholder}
                     </td>
-                    <td style={{ padding: "8px" }}>
+                    <td>
                       <button
                         type="button"
+                        className="btn btn-primary btn-sm"
                         onClick={() => handleVisit(row.areaId)}
                       >
                         {t.dashboard.gotoVisit}
