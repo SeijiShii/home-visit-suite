@@ -49,19 +49,6 @@ func TestUser_Delete(t *testing.T) {
 	}
 }
 
-// --- Group ---
-
-func TestGroup_SaveAndList(t *testing.T) {
-	repo := newUserRepo()
-	repo.SaveGroup(&models.Group{ID: "g1", Name: "Aグループ"})
-	repo.SaveGroup(&models.Group{ID: "g2", Name: "Bグループ"})
-
-	list, _ := repo.ListGroups()
-	if len(list) != 2 {
-		t.Errorf("got %d, want 2", len(list))
-	}
-}
-
 // --- Tag ---
 
 func TestTag_SaveAndList(t *testing.T) {

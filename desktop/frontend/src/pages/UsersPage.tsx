@@ -3,13 +3,11 @@ import { useI18n } from "../contexts/I18nContext";
 import * as UserBinding from "../../wailsjs/go/binding/UserBinding";
 import { models } from "../../wailsjs/go/models";
 
+// メンバーグループ（OrgGroup）廃止に伴い、Group / addGroup / editGroup /
+// deleteGroup / assignGroup / confirmRemove のバリアントは削除済み。
+// 旧グループ機能の代替は AvailablePeriod タグ・メンバータグで運用する。
 type ModalState =
   | { type: "none" }
-  | { type: "addGroup" }
-  | { type: "editGroup"; group: models.Group }
-  | { type: "deleteGroup"; group: models.Group }
-  | { type: "assignGroup"; user: models.User }
-  | { type: "confirmRemove"; user: models.User; group: models.Group }
   | { type: "addTag" }
   | { type: "editTag"; tag: models.Tag }
   | { type: "deleteTag"; tag: models.Tag }
@@ -40,18 +38,14 @@ export function UsersPage() {
   const c = t.common;
 
   const [users, setUsers] = useState<models.User[]>([]);
-  const [groups, setGroups] = useState<models.Group[]>([]);
   const [tags, setTags] = useState<models.Tag[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const [search, setSearch] = useState("");
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [showTagFilter, setShowTagFilter] = useState(false);
 
-  const groupNameRef = useRef<HTMLInputElement>(null);
   const tagNameRef = useRef<HTMLInputElement>(null);
   const [tagColor, setTagColor] = useState(TAG_COLOR_PALETTE[0]);
-  const [dragGroupId, setDragGroupId] = useState<string | null>(null);
-  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
   // assignTags modal state
   const [assignTagIds, setAssignTagIds] = useState<string[]>([]);
@@ -59,13 +53,11 @@ export function UsersPage() {
 
   const reload = useCallback(async () => {
     try {
-      const [u, g, t] = await Promise.all([
+      const [u, t] = await Promise.all([
         UserBinding.ListUsers(),
-        UserBinding.ListGroups(),
         UserBinding.ListTags(),
       ]);
       setUsers(u || []);
-      setGroups(g || []);
       setTags(t || []);
     } catch (e) {
       console.error("reload failed:", e);
@@ -76,18 +68,7 @@ export function UsersPage() {
     reload();
   }, [reload]);
 
-  const groupMap = new Map(groups.map((g) => [g.id, g]));
   const tagMap = new Map(tags.map((t) => [t.id, t]));
-
-  const groupName = (groupId: string) =>
-    groupMap.get(groupId)?.name ?? u.unassigned;
-
-  const membersOfGroup = (groupId: string) =>
-    users.filter((user) => user.orgGroupId === groupId);
-
-  const unassignedMembers = users.filter(
-    (user) => !user.orgGroupId || !groupMap.has(user.orgGroupId),
-  );
 
   const roleLabel = (role: string) => {
     switch (role) {
@@ -97,17 +78,6 @@ export function UsersPage() {
         return u.roles.editor;
       default:
         return u.roles.member;
-    }
-  };
-
-  const roleChipClass = (role: string) => {
-    switch (role) {
-      case "admin":
-        return "member-chip-admin";
-      case "editor":
-        return "member-chip-editor";
-      default:
-        return "member-chip-member";
     }
   };
 
@@ -140,92 +110,13 @@ export function UsersPage() {
     const matchesSearch =
       !search ||
       user.name.includes(search) ||
-      roleLabel(user.role).includes(search) ||
-      groupName(user.orgGroupId).includes(search);
+      roleLabel(user.role).includes(search);
     const matchesTag =
       !filterTagId || (user.tagIds && user.tagIds.includes(filterTagId));
     return matchesSearch && matchesTag;
   });
 
-  // --- Group handlers ---
-
-  const handleSaveGroup = async () => {
-    const name = groupNameRef.current?.value.trim();
-    if (!name) return;
-    if (modal.type === "addGroup") {
-      await UserBinding.SaveGroup({
-        id: `grp-${Date.now()}`,
-        name,
-        sortOrder: groups.length + 1,
-      } as models.Group);
-    } else if (modal.type === "editGroup") {
-      await UserBinding.SaveGroup({ ...modal.group, name } as models.Group);
-    }
-    setModal({ type: "none" });
-    reload();
-  };
-
-  const handleDeleteGroup = async () => {
-    if (modal.type !== "deleteGroup") return;
-    const members = membersOfGroup(modal.group.id);
-    for (const member of members) {
-      await UserBinding.SaveUser({ ...member, orgGroupId: "" } as models.User);
-    }
-    await UserBinding.DeleteGroup(modal.group.id);
-    setModal({ type: "none" });
-    reload();
-  };
-
-  const handleAssignGroup = async (groupId: string) => {
-    if (modal.type !== "assignGroup") return;
-    await UserBinding.SaveUser({
-      ...modal.user,
-      orgGroupId: groupId,
-    } as models.User);
-    setModal({ type: "none" });
-    reload();
-  };
-
-  const handleRemoveFromGroup = async (user: models.User) => {
-    await UserBinding.SaveUser({ ...user, orgGroupId: "" } as models.User);
-    reload();
-  };
-
-  const handleGroupDragStart = (e: React.DragEvent, groupId: string) => {
-    setDragGroupId(groupId);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleGroupDragOver = (e: React.DragEvent, groupId: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (groupId !== dragGroupId) {
-      setDragOverGroupId(groupId);
-    }
-  };
-
-  const handleGroupDrop = async (e: React.DragEvent, targetGroupId: string) => {
-    e.preventDefault();
-    setDragOverGroupId(null);
-    if (!dragGroupId || dragGroupId === targetGroupId) {
-      setDragGroupId(null);
-      return;
-    }
-    const fromIdx = groups.findIndex((g) => g.id === dragGroupId);
-    const toIdx = groups.findIndex((g) => g.id === targetGroupId);
-    if (fromIdx === -1 || toIdx === -1) return;
-    const reordered = [...groups];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
-    setGroups(reordered);
-    setDragGroupId(null);
-    await UserBinding.ReorderGroups(reordered.map((g) => g.id));
-  };
-
-  const handleGroupDragEnd = () => {
-    setDragGroupId(null);
-    setDragOverGroupId(null);
-  };
+  // OrgGroup 廃止に伴いグループ系ハンドラは削除済み。タグ系のみ残す。
 
   // --- Tag handlers ---
 
@@ -326,117 +217,8 @@ export function UsersPage() {
         <h1 className="users-title">{u.title}</h1>
       </div>
 
-      {/* Groups */}
-      <section>
-        <div className="group-card-header">
-          <h2>{u.groups}</h2>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setModal({ type: "addGroup" })}
-          >
-            {u.addGroup}
-          </button>
-        </div>
-
-        {groups.length === 0 ? (
-          <p>{u.noGroups}</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {groups.map((group) => {
-              const members = membersOfGroup(group.id);
-              return (
-                <div
-                  key={group.id}
-                  className={`group-card${dragGroupId === group.id ? " group-card-dragging" : ""}${dragOverGroupId === group.id ? " group-card-dragover" : ""}`}
-                  onDragOver={(e) => handleGroupDragOver(e, group.id)}
-                  onDrop={(e) => handleGroupDrop(e, group.id)}
-                  onDragLeave={() => setDragOverGroupId(null)}
-                >
-                  <div className="group-card-header">
-                    <span
-                      className="group-drag-handle"
-                      draggable
-                      onDragStart={(e) => handleGroupDragStart(e, group.id)}
-                      onDragEnd={handleGroupDragEnd}
-                      title={u.dragToReorder}
-                    >
-                      ⠿
-                    </span>
-                    <span className="group-card-name">{group.name}</span>
-                    <span className="group-card-count">
-                      ({members.length}
-                      {u.memberCount})
-                    </span>
-                    <div className="group-card-actions">
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setModal({ type: "editGroup", group })}
-                      >
-                        {c.edit}
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => setModal({ type: "deleteGroup", group })}
-                      >
-                        {c.delete}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="chip-list">
-                    {[...members].sort(sortByRole).map((member) => (
-                      <span
-                        key={member.id}
-                        className={`member-chip ${roleChipClass(member.role)}`}
-                      >
-                        {member.name}
-                        <button
-                          className="member-chip-remove"
-                          onClick={() =>
-                            setModal({
-                              type: "confirmRemove",
-                              user: member,
-                              group,
-                            })
-                          }
-                          title={u.removeFromGroup}
-                        >
-                          &times;
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {unassignedMembers.length > 0 && (
-              <div className="group-unassigned">
-                <div className="group-card-header">
-                  <span className="group-card-name">{u.unassigned}</span>
-                  <span className="group-card-count">
-                    ({unassignedMembers.length}
-                    {u.memberCount})
-                  </span>
-                </div>
-                <div className="chip-list">
-                  {[...unassignedMembers].sort(sortByRole).map((member) => (
-                    <span
-                      key={member.id}
-                      className={`member-chip member-chip-unassigned ${roleChipClass(member.role)}`}
-                      onClick={() =>
-                        setModal({ type: "assignGroup", user: member })
-                      }
-                      title={u.assignToGroup}
-                    >
-                      {member.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+      {/* メンバーグループ廃止済み（2026-05-06 仕様改訂）。
+          チーム単位の分類はメンバータグで運用する。 */}
 
       {/* Tags */}
       <section>
@@ -563,7 +345,6 @@ export function UsersPage() {
               <tr>
                 <th>{u.members}</th>
                 <th>{u.role}</th>
-                <th>{u.groups}</th>
                 <th>{u.tags}</th>
               </tr>
             </thead>
@@ -574,14 +355,6 @@ export function UsersPage() {
                   <td>
                     <span className={roleBadgeClass(user.role)}>
                       {roleLabel(user.role)}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className="member-table-group"
-                      onClick={() => setModal({ type: "assignGroup", user })}
-                    >
-                      {groupName(user.orgGroupId)}
                     </span>
                   </td>
                   <td>
@@ -624,155 +397,7 @@ export function UsersPage() {
         )}
       </section>
 
-      {/* Add/Edit Group Modal */}
-      {(modal.type === "addGroup" || modal.type === "editGroup") && (
-        <div
-          className="modal-overlay"
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">
-              {modal.type === "addGroup" ? u.addGroup : u.editGroup}
-            </div>
-            <div className="modal-field">
-              <label className="modal-label">{u.groupName}</label>
-              <input
-                ref={groupNameRef}
-                type="text"
-                className="modal-input"
-                defaultValue={
-                  modal.type === "editGroup" ? modal.group.name : ""
-                }
-                autoFocus
-                onKeyDown={(e) => e.key === "Enter" && handleSaveGroup()}
-              />
-            </div>
-            <div className="modal-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setModal({ type: "none" })}
-              >
-                {c.cancel}
-              </button>
-              <button className="btn btn-primary" onClick={handleSaveGroup}>
-                {c.save}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Group Modal */}
-      {modal.type === "deleteGroup" && (
-        <div
-          className="modal-overlay"
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">{u.deleteGroup}</div>
-            <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 8 }}>
-              {modal.group.name}
-            </p>
-            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 16 }}>
-              {u.confirmDeleteGroup}
-            </p>
-            <div className="modal-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setModal({ type: "none" })}
-              >
-                {c.cancel}
-              </button>
-              <button className="btn btn-danger" onClick={handleDeleteGroup}>
-                {c.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Remove from Group Modal */}
-      {modal.type === "confirmRemove" && (
-        <div
-          className="modal-overlay"
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">{u.removeFromGroup}</div>
-            <p style={{ color: "#1e293b", marginBottom: 16 }}>
-              {u.confirmRemoveFromGroup
-                .replace("{group}", modal.group.name)
-                .replace("{name}", modal.user.name)}
-            </p>
-            <div className="modal-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setModal({ type: "none" })}
-              >
-                {c.cancel}
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={async () => {
-                  await handleRemoveFromGroup(modal.user);
-                  setModal({ type: "none" });
-                }}
-              >
-                {c.confirm}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Assign to Group Modal */}
-      {modal.type === "assignGroup" && (
-        <div
-          className="modal-overlay"
-          onClick={() => setModal({ type: "none" })}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">{u.assignToGroup}</div>
-            <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 16 }}>
-              {modal.user.name}
-              <span
-                style={{ fontWeight: 400, color: "#64748b", marginLeft: 8 }}
-              >
-                {roleLabel(modal.user.role)}
-              </span>
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {groups.map((group) => (
-                <button
-                  key={group.id}
-                  className={`group-pick-btn ${modal.user.orgGroupId === group.id ? "group-pick-btn-active" : ""}`}
-                  onClick={() => handleAssignGroup(group.id)}
-                >
-                  {group.name}
-                  <span className="group-pick-count">
-                    ({membersOfGroup(group.id).length}
-                    {u.memberCount})
-                  </span>
-                </button>
-              ))}
-              <button
-                className={`group-pick-btn group-pick-btn-unassigned ${!modal.user.orgGroupId ? "group-pick-btn-active" : ""}`}
-                onClick={() => handleAssignGroup("")}
-              >
-                {u.unassigned}
-              </button>
-            </div>
-            <div className="modal-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setModal({ type: "none" })}
-              >
-                {c.cancel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Group 関連モーダルは廃止済み（OrgGroup 概念全廃） */}
 
       {/* Add/Edit Tag Modal */}
       {(modal.type === "addTag" || modal.type === "editTag") && (

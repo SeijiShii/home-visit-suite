@@ -32,39 +32,6 @@ func (b *UserBinding) DeleteUser(id string) error {
 	return b.repo.DeleteUser(id)
 }
 
-// --- Group ---
-
-func (b *UserBinding) ListGroups() ([]models.Group, error) {
-	return b.repo.ListGroups()
-}
-
-func (b *UserBinding) GetGroup(id string) (*models.Group, error) {
-	return b.repo.GetGroup(id)
-}
-
-func (b *UserBinding) SaveGroup(group *models.Group) error {
-	return b.repo.SaveGroup(group)
-}
-
-func (b *UserBinding) DeleteGroup(id string) error {
-	return b.repo.DeleteGroup(id)
-}
-
-// ReorderGroups はグループの表示順を更新する。orderedIDs は並び順どおりのグループIDスライス。
-func (b *UserBinding) ReorderGroups(orderedIDs []string) error {
-	for i, id := range orderedIDs {
-		g, err := b.repo.GetGroup(id)
-		if err != nil {
-			return err
-		}
-		g.SortOrder = i + 1
-		if err := b.repo.SaveGroup(g); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // --- Tag ---
 
 func (b *UserBinding) ListTags() ([]models.Tag, error) {

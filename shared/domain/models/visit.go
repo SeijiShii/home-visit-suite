@@ -45,32 +45,30 @@ type VisitRecord struct {
 type CheckoutStatus string
 
 const (
-	CheckoutStatusPending  CheckoutStatus = "pending"  // 開始前
-	CheckoutStatusActive   CheckoutStatus = "active"   // 活動中
-	CheckoutStatusReturned CheckoutStatus = "returned" // 返却済み
-	CheckoutStatusComplete CheckoutStatus = "complete" // 完了
+	CheckoutStatusPending     CheckoutStatus = "pending"      // 開始前
+	CheckoutStatusActive      CheckoutStatus = "active"       // 活動中
+	CheckoutStatusReturned    CheckoutStatus = "returned"     // 返却済み
+	CheckoutStatusComplete    CheckoutStatus = "complete"     // 完了
+	CheckoutStatusForceClosed CheckoutStatus = "force_closed" // 期間終了による強制クローズ
 )
 
-// CheckoutType は区域チェックアウトの経路を表す。
-type CheckoutType string
-
-const (
-	CheckoutTypeLending  CheckoutType = "lending"   // 貸し出し（編集メンバー主体）
-	CheckoutTypeSelfTake CheckoutType = "self_take" // 持ち出し（活動メンバー主体）
-)
-
-// Checkout は1つの区域の貸し出し（チェックアウト）データ。
-// 同一区域に対してアクティブなチェックアウトは最大1つ（排他的貸出）。
+// Checkout は1つの区域の取得・使用記録。
+// 同一区域に対してアクティブなチェックアウトは最大1つ（排他的取得）。
+//
+// 「貸し出し」「持ち出し」の操作経路区別は廃止済み（2026-05-06 仕様改訂）。
+// 統一して「チェックアウト」と呼称し、誰がチェックアウト操作したか・誰が担当するかを記録するのみ。
+//
+// 仕様 docs/wants/05_チェックアウト.md「区域の取得（チェックアウト）モデル」
 type Checkout struct {
-	ID           string         `json:"id"`
-	AreaID       string         `json:"areaId"`
-	ScopeID      string         `json:"scopeId"`      // スコープとの紐づけ
-	CheckoutType CheckoutType   `json:"checkoutType"` // 貸出 or 持ち出し
-	OwnerID      string         `json:"ownerId"`      // 担当者
-	LentByID     string         `json:"lentById"`     // 貸し出した編集メンバー（持ち出し時は空、編集メンバーが自分自身に貸し出した場合は OwnerID と同じ）
-	Status       CheckoutStatus `json:"status"`
-	CreatedAt    time.Time      `json:"createdAt"`
-	ReturnedAt   *time.Time     `json:"returnedAt"`  // 返却日時
-	CompletedAt  *time.Time     `json:"completedAt"` // 完了日時
-	UpdatedAt    time.Time      `json:"updatedAt"`
+	ID                string         `json:"id"`
+	AreaID            string         `json:"areaId"`
+	AvailablePeriodID string         `json:"availablePeriodId"` // 親 AvailablePeriod（NOT NULL）
+	PersonInChargeID  string         `json:"personInChargeId"`  // 担当者（実際に区域を使用する人）
+	CheckedOutByID    string         `json:"checkedOutById"`    // チェックアウト操作実行者（履歴として保持、担当者変更でも変えない）
+	Status            CheckoutStatus `json:"status"`
+	CreatedAt         time.Time      `json:"createdAt"`
+	ReturnedAt        *time.Time     `json:"returnedAt"`  // 返却日時
+	CompletedAt       *time.Time     `json:"completedAt"` // 完了日時
+	ForceClosedAt     *time.Time     `json:"forceClosedAt"` // 期間終了による強制クローズ日時
+	UpdatedAt         time.Time      `json:"updatedAt"`
 }

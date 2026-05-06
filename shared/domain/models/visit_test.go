@@ -13,29 +13,30 @@ func TestCheckout_NewFields(t *testing.T) {
 	now := time.Now()
 	returned := now.Add(24 * time.Hour)
 	completed := now.Add(48 * time.Hour)
+	forceClosed := now.Add(72 * time.Hour)
 
 	c := models.Checkout{
-		ID:           "co-1",
-		AreaID:       "area-1",
-		ScopeID:      "sc-1",
-		CheckoutType: models.CheckoutTypeLending,
-		OwnerID:      "did:key:owner",
-		LentByID:     "did:key:editor",
-		Status:       models.CheckoutStatusActive,
-		CreatedAt:    now,
-		ReturnedAt:   &returned,
-		CompletedAt:  &completed,
-		UpdatedAt:    now,
+		ID:                "co-1",
+		AreaID:            "area-1",
+		AvailablePeriodID: "ap-1",
+		PersonInChargeID:  "did:key:owner",
+		CheckedOutByID:    "did:key:editor",
+		Status:            models.CheckoutStatusActive,
+		CreatedAt:         now,
+		ReturnedAt:        &returned,
+		CompletedAt:       &completed,
+		ForceClosedAt:     &forceClosed,
+		UpdatedAt:         now,
 	}
 
-	if c.ScopeID != "sc-1" {
-		t.Errorf("ScopeID = %q, want %q", c.ScopeID, "sc-1")
+	if c.AvailablePeriodID != "ap-1" {
+		t.Errorf("AvailablePeriodID = %q, want %q", c.AvailablePeriodID, "ap-1")
 	}
-	if c.CheckoutType != models.CheckoutTypeLending {
-		t.Errorf("CheckoutType = %q, want %q", c.CheckoutType, models.CheckoutTypeLending)
+	if c.PersonInChargeID != "did:key:owner" {
+		t.Errorf("PersonInChargeID = %q, want %q", c.PersonInChargeID, "did:key:owner")
 	}
-	if c.LentByID != "did:key:editor" {
-		t.Errorf("LentByID = %q, want %q", c.LentByID, "did:key:editor")
+	if c.CheckedOutByID != "did:key:editor" {
+		t.Errorf("CheckedOutByID = %q, want %q", c.CheckedOutByID, "did:key:editor")
 	}
 	if c.ReturnedAt == nil || !c.ReturnedAt.Equal(returned) {
 		t.Errorf("ReturnedAt = %v, want %v", c.ReturnedAt, returned)
@@ -43,28 +44,23 @@ func TestCheckout_NewFields(t *testing.T) {
 	if c.CompletedAt == nil || !c.CompletedAt.Equal(completed) {
 		t.Errorf("CompletedAt = %v, want %v", c.CompletedAt, completed)
 	}
+	if c.ForceClosedAt == nil || !c.ForceClosedAt.Equal(forceClosed) {
+		t.Errorf("ForceClosedAt = %v, want %v", c.ForceClosedAt, forceClosed)
+	}
 }
 
-func TestCheckout_SelfTake_LentByIDEmpty(t *testing.T) {
+func TestCheckout_SelfTake_CheckedOutByEqualsPersonInCharge(t *testing.T) {
 	c := models.Checkout{
-		ID:           "co-2",
-		AreaID:       "area-1",
-		CheckoutType: models.CheckoutTypeSelfTake,
-		OwnerID:      "did:key:member",
-		Status:       models.CheckoutStatusActive,
+		ID:               "co-2",
+		AreaID:           "area-1",
+		PersonInChargeID: "did:key:member",
+		CheckedOutByID:   "did:key:member",
+		Status:           models.CheckoutStatusActive,
 	}
 
-	if c.LentByID != "" {
-		t.Errorf("LentByID = %q, want empty for self_take", c.LentByID)
-	}
-}
-
-func TestCheckoutType_Values(t *testing.T) {
-	if string(models.CheckoutTypeLending) != "lending" {
-		t.Errorf("CheckoutTypeLending = %q, want lending", models.CheckoutTypeLending)
-	}
-	if string(models.CheckoutTypeSelfTake) != "self_take" {
-		t.Errorf("CheckoutTypeSelfTake = %q, want self_take", models.CheckoutTypeSelfTake)
+	if c.CheckedOutByID != c.PersonInChargeID {
+		t.Errorf("CheckedOutByID = %q, want equal to PersonInChargeID %q (self-take)",
+			c.CheckedOutByID, c.PersonInChargeID)
 	}
 }
 
@@ -164,6 +160,7 @@ func TestCheckoutStatus_Values(t *testing.T) {
 		{models.CheckoutStatusActive, "active"},
 		{models.CheckoutStatusReturned, "returned"},
 		{models.CheckoutStatusComplete, "complete"},
+		{models.CheckoutStatusForceClosed, "force_closed"},
 	}
 	for _, tt := range statuses {
 		if string(tt.s) != tt.want {

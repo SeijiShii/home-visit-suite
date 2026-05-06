@@ -2,19 +2,14 @@ package domain
 
 import "github.com/SeijiShii/home-visit-suite/shared/domain/models"
 
-// UserRepository はメンバー・グループ・招待の永続化インターフェース。
+// UserRepository はメンバー・タグ・招待の永続化インターフェース。
+// メンバーグループ（OrgGroup）概念は廃止済み（2026-05-06 仕様改訂）。
 type UserRepository interface {
 	// User
 	ListUsers() ([]models.User, error)
 	GetUser(id string) (*models.User, error)
 	SaveUser(user *models.User) error
 	DeleteUser(id string) error
-
-	// Group (組織グループ)
-	ListGroups() ([]models.Group, error)
-	GetGroup(id string) (*models.Group, error)
-	SaveGroup(group *models.Group) error
-	DeleteGroup(id string) error
 
 	// Tag (メンバータグ)
 	ListTags() ([]models.Tag, error)

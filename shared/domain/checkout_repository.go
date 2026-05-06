@@ -9,7 +9,7 @@ type CheckoutRepository interface {
 	ListAllCheckouts() ([]models.Checkout, error)                          // 全区域のチェックアウト履歴（管理画面 /checkouts 用）
 	GetCheckout(id string) (*models.Checkout, error)
 	GetActiveCheckout(areaID string) (*models.Checkout, error)             // 排他的貸出: アクティブなチェックアウトを取得
-	ListActiveCheckoutsForOwner(ownerID string) ([]models.Checkout, error) // 担当者として持つアクティブなチェックアウト（ダッシュボード「アクセス可能な区域」用）
+	ListActiveCheckoutsForPersonInCharge(personInChargeID string) ([]models.Checkout, error) // 担当者として持つアクティブなチェックアウト（ダッシュボード「アクセス可能な区域」用）
 	SaveCheckout(checkout *models.Checkout) error
 	DeleteCheckout(id string) error
 

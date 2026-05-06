@@ -4,7 +4,7 @@ import { useIdentity } from "../contexts/IdentityContext";
 import { useTips } from "../contexts/TipsContext";
 import type { Locales } from "../i18n/i18n-types";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
-import * as ScheduleBinding from "../../wailsjs/go/binding/ScheduleBinding";
+import * as AvailablePeriodBinding from "../../wailsjs/go/binding/AvailablePeriodBinding";
 
 export function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
@@ -54,19 +54,11 @@ export function SettingsPage() {
     flashDevMsg(t.settingsDev.done);
   };
 
-  const handleDeleteAllSchedules = async () => {
+  const handleDeleteAllAvailablePeriods = async () => {
     if (!window.confirm(t.settingsDev.confirmSchedules)) return;
-    const periods = (await ScheduleBinding.ListSchedulePeriods()) ?? [];
+    const periods = (await AvailablePeriodBinding.ListPeriods()) ?? [];
     for (const p of periods) {
-      const scopes = (await ScheduleBinding.ListScopes(p.id)) ?? [];
-      for (const sc of scopes) {
-        const aas = (await ScheduleBinding.ListAreaAvailabilities(sc.id)) ?? [];
-        for (const aa of aas) {
-          await ScheduleBinding.DeleteAreaAvailability(aa.id);
-        }
-        await ScheduleBinding.DeleteScope(sc.id);
-      }
-      await ScheduleBinding.DeleteSchedulePeriod(p.id);
+      await AvailablePeriodBinding.DeletePeriod(currentActorID, p.id);
     }
     flashDevMsg(t.settingsDev.done);
   };
@@ -143,7 +135,7 @@ export function SettingsPage() {
           <button
             type="button"
             className="btn"
-            onClick={() => void handleDeleteAllSchedules()}
+            onClick={() => void handleDeleteAllAvailablePeriods()}
           >
             {t.settingsDev.deleteAllSchedules}
           </button>

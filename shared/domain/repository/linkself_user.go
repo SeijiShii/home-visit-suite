@@ -15,7 +15,7 @@ type LinkSelfUserRepo struct{ *LinkSelfRepository }
 
 func (r *LinkSelfUserRepo) ListUsers() ([]models.User, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, name, role, org_group_id, tag_ids, joined_at FROM users ORDER BY name`)
+		`SELECT id, name, role, tag_ids, joined_at FROM users ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (r *LinkSelfUserRepo) ListUsers() ([]models.User, error) {
 
 func (r *LinkSelfUserRepo) GetUser(id string) (*models.User, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, name, role, org_group_id, tag_ids, joined_at FROM users WHERE id = ?`, id)
+		`SELECT id, name, role, tag_ids, joined_at FROM users WHERE id = ?`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -52,66 +52,15 @@ func (r *LinkSelfUserRepo) GetUser(id string) (*models.User, error) {
 
 func (r *LinkSelfUserRepo) SaveUser(user *models.User) error {
 	_, err := r.db.Exec(r.ctx,
-		`INSERT OR REPLACE INTO users (id, name, role, org_group_id, tag_ids, joined_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		user.ID, user.Name, string(user.Role), user.OrgGroupID,
+		`INSERT OR REPLACE INTO users (id, name, role, tag_ids, joined_at)
+		 VALUES (?, ?, ?, ?, ?)`,
+		user.ID, user.Name, string(user.Role),
 		marshalJSON(user.TagIDs), formatTime(user.JoinedAt))
 	return err
 }
 
 func (r *LinkSelfUserRepo) DeleteUser(id string) error {
 	_, err := r.db.Exec(r.ctx, `DELETE FROM users WHERE id = ?`, id)
-	return err
-}
-
-// --- Group ---
-
-func (r *LinkSelfUserRepo) ListGroups() ([]models.Group, error) {
-	rows, err := r.db.Query(r.ctx,
-		`SELECT id, name, sort_order FROM org_groups ORDER BY sort_order`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var result []models.Group
-	for rows.Next() {
-		var g models.Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.SortOrder); err != nil {
-			return nil, err
-		}
-		result = append(result, g)
-	}
-	return result, nil
-}
-
-func (r *LinkSelfUserRepo) GetGroup(id string) (*models.Group, error) {
-	rows, err := r.db.Query(r.ctx,
-		`SELECT id, name, sort_order FROM org_groups WHERE id = ?`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, fmt.Errorf("group not found: %s", id)
-	}
-	var g models.Group
-	if err := rows.Scan(&g.ID, &g.Name, &g.SortOrder); err != nil {
-		return nil, err
-	}
-	return &g, nil
-}
-
-func (r *LinkSelfUserRepo) SaveGroup(group *models.Group) error {
-	_, err := r.db.Exec(r.ctx,
-		`INSERT OR REPLACE INTO org_groups (id, name, sort_order) VALUES (?, ?, ?)`,
-		group.ID, group.Name, group.SortOrder)
-	return err
-}
-
-func (r *LinkSelfUserRepo) DeleteGroup(id string) error {
-	_, err := r.db.Exec(r.ctx, `DELETE FROM org_groups WHERE id = ?`, id)
 	return err
 }
 
@@ -205,7 +154,7 @@ func scanUser(row scannable) (models.User, error) {
 	var roleStr string
 	var tagIDsJSON string
 	var joinedAtStr string
-	err := row.Scan(&u.ID, &u.Name, &roleStr, &u.OrgGroupID, &tagIDsJSON, &joinedAtStr)
+	err := row.Scan(&u.ID, &u.Name, &roleStr, &tagIDsJSON, &joinedAtStr)
 	if err != nil {
 		return u, err
 	}

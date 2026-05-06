@@ -5,7 +5,7 @@ import {service} from '../models';
 
 export function AreaAccessMode(arg1:string,arg2:string):Promise<string>;
 
-export function Checkout(arg1:string,arg2:string,arg3:string,arg4:string):Promise<models.Checkout>;
+export function Checkout(arg1:string,arg2:string,arg3:string):Promise<models.Checkout>;
 
 export function ForceReturn(arg1:string,arg2:string):Promise<void>;
 
@@ -25,7 +25,7 @@ export function ListInvitations(arg1:string):Promise<Array<models.CheckoutInvita
 
 export function PlaceAccessMode(arg1:string,arg2:string):Promise<string>;
 
-export function ReassignOwner(arg1:string,arg2:string,arg3:string):Promise<void>;
+export function ReassignPersonInCharge(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function Return(arg1:string,arg2:string):Promise<void>;
 

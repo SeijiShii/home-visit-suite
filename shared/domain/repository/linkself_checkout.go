@@ -14,8 +14,8 @@ type LinkSelfCheckoutRepo struct{ *LinkSelfRepository }
 
 func (r *LinkSelfCheckoutRepo) ListCheckouts(areaID string) ([]models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
-		        created_at, returned_at, completed_at, updated_at
+		`SELECT id, area_id, available_period_id, person_in_charge_id, checked_out_by_id, status,
+		        created_at, returned_at, completed_at, force_closed_at, updated_at
 		 FROM checkouts WHERE area_id = ? ORDER BY created_at DESC`, areaID)
 	if err != nil {
 		return nil, err
@@ -35,8 +35,8 @@ func (r *LinkSelfCheckoutRepo) ListCheckouts(areaID string) ([]models.Checkout, 
 
 func (r *LinkSelfCheckoutRepo) ListAllCheckouts() ([]models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
-		        created_at, returned_at, completed_at, updated_at
+		`SELECT id, area_id, available_period_id, person_in_charge_id, checked_out_by_id, status,
+		        created_at, returned_at, completed_at, force_closed_at, updated_at
 		 FROM checkouts ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -56,8 +56,8 @@ func (r *LinkSelfCheckoutRepo) ListAllCheckouts() ([]models.Checkout, error) {
 
 func (r *LinkSelfCheckoutRepo) GetCheckout(id string) (*models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
-		        created_at, returned_at, completed_at, updated_at
+		`SELECT id, area_id, available_period_id, person_in_charge_id, checked_out_by_id, status,
+		        created_at, returned_at, completed_at, force_closed_at, updated_at
 		 FROM checkouts WHERE id = ?`, id)
 	if err != nil {
 		return nil, err
@@ -76,8 +76,8 @@ func (r *LinkSelfCheckoutRepo) GetCheckout(id string) (*models.Checkout, error) 
 
 func (r *LinkSelfCheckoutRepo) GetActiveCheckout(areaID string) (*models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
-		        created_at, returned_at, completed_at, updated_at
+		`SELECT id, area_id, available_period_id, person_in_charge_id, checked_out_by_id, status,
+		        created_at, returned_at, completed_at, force_closed_at, updated_at
 		 FROM checkouts WHERE area_id = ? AND status IN ('pending', 'active')
 		 LIMIT 1`, areaID)
 	if err != nil {
@@ -95,12 +95,12 @@ func (r *LinkSelfCheckoutRepo) GetActiveCheckout(areaID string) (*models.Checkou
 	return &c, nil
 }
 
-func (r *LinkSelfCheckoutRepo) ListActiveCheckoutsForOwner(ownerID string) ([]models.Checkout, error) {
+func (r *LinkSelfCheckoutRepo) ListActiveCheckoutsForPersonInCharge(personInChargeID string) ([]models.Checkout, error) {
 	rows, err := r.db.Query(r.ctx,
-		`SELECT id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
-		        created_at, returned_at, completed_at, updated_at
-		 FROM checkouts WHERE owner_id = ? AND status = 'active'
-		 ORDER BY created_at DESC`, ownerID)
+		`SELECT id, area_id, available_period_id, person_in_charge_id, checked_out_by_id, status,
+		        created_at, returned_at, completed_at, force_closed_at, updated_at
+		 FROM checkouts WHERE person_in_charge_id = ? AND status = 'active'
+		 ORDER BY created_at DESC`, personInChargeID)
 	if err != nil {
 		return nil, err
 	}
@@ -120,14 +120,14 @@ func (r *LinkSelfCheckoutRepo) ListActiveCheckoutsForOwner(ownerID string) ([]mo
 func (r *LinkSelfCheckoutRepo) SaveCheckout(checkout *models.Checkout) error {
 	_, err := r.db.Exec(r.ctx,
 		`INSERT OR REPLACE INTO checkouts
-		 (id, area_id, scope_id, checkout_type, owner_id, lent_by_id, status,
-		  created_at, returned_at, completed_at, updated_at)
+		 (id, area_id, available_period_id, person_in_charge_id, checked_out_by_id, status,
+		  created_at, returned_at, completed_at, force_closed_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		checkout.ID, checkout.AreaID, checkout.ScopeID,
-		string(checkout.CheckoutType), checkout.OwnerID, checkout.LentByID,
+		checkout.ID, checkout.AreaID, checkout.AvailablePeriodID,
+		checkout.PersonInChargeID, checkout.CheckedOutByID,
 		string(checkout.Status), formatTime(checkout.CreatedAt),
 		formatTimePtr(checkout.ReturnedAt), formatTimePtr(checkout.CompletedAt),
-		formatTime(checkout.UpdatedAt))
+		formatTimePtr(checkout.ForceClosedAt), formatTime(checkout.UpdatedAt))
 	return err
 }
 
@@ -391,20 +391,21 @@ func scanCheckoutInvitation(row scannable) (models.CheckoutInvitation, error) {
 
 func scanCheckout(row scannable) (models.Checkout, error) {
 	var c models.Checkout
-	var checkoutType, status string
+	var status string
 	var createdAt, updatedAt string
-	var returnedAt, completedAt sql.NullString
-	err := row.Scan(&c.ID, &c.AreaID, &c.ScopeID, &checkoutType, &c.OwnerID,
-		&c.LentByID, &status, &createdAt, &returnedAt, &completedAt, &updatedAt)
+	var returnedAt, completedAt, forceClosedAt sql.NullString
+	err := row.Scan(&c.ID, &c.AreaID, &c.AvailablePeriodID,
+		&c.PersonInChargeID, &c.CheckedOutByID, &status,
+		&createdAt, &returnedAt, &completedAt, &forceClosedAt, &updatedAt)
 	if err != nil {
 		return c, err
 	}
-	c.CheckoutType = models.CheckoutType(checkoutType)
 	c.Status = models.CheckoutStatus(status)
 	c.CreatedAt = parseTime(createdAt)
 	c.UpdatedAt = parseTime(updatedAt)
 	c.ReturnedAt = parseTimePtr(returnedAt)
 	c.CompletedAt = parseTimePtr(completedAt)
+	c.ForceClosedAt = parseTimePtr(forceClosedAt)
 	return c, nil
 }
 

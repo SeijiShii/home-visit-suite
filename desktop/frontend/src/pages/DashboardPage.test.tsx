@@ -268,7 +268,7 @@ describe("DashboardPage - 全ての区域一覧（editor+ のみ）", () => {
             ({
               id: "co-1",
               areaId: "area-1",
-              ownerId: "u1",
+              personInChargeId: "u1",
               status: "active",
             } as any)
           : null,

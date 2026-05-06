@@ -7,12 +7,17 @@ import (
 )
 
 // CheckoutService はチェックアウトの管理ロジック。
+// 「貸し出し」「持ち出し」の操作経路区別は廃止済み（2026-05-06 仕様改訂）。
+// 統一して「チェックアウト」と呼称し、誰がチェックアウト操作したか・誰が担当するかを記録するのみ。
 type CheckoutService interface {
-	// Checkout は区域をチェックアウト（貸し出し）する。
-	// 排他的貸出: 同一区域にアクティブなチェックアウトがあればエラー。
-	// checkoutType=lending: editor+のみ実行可能、lentByIDにactorIDを設定。
-	// checkoutType=self_take: memberも実行可能、ownerIDにactorIDを設定。
-	Checkout(actorID string, areaID string, checkoutType models.CheckoutType, ownerID string) (*models.Checkout, error)
+	// Checkout は区域をチェックアウトする。
+	// 排他的取得: 同一区域にアクティブなチェックアウトがあればエラー。
+	//   - 活動メンバー: 自分自身を担当者にしたチェックアウトのみ発行可能（personInChargeID == actorID）
+	//   - 編集メンバー以上: 任意のメンバー（自分含む）を担当者にしたチェックアウトを発行可能
+	//   - チェックアウトは アクティブな AvailablePeriod に必ず属する（クールダウン期間中は発行不可）
+	//   - 区域は AvailablePeriod の対象区域親番配下のものに限る（編集メンバーもバイパス不可）
+	// CheckedOutByID には actorID が記録される（操作履歴）。
+	Checkout(actorID string, areaID string, personInChargeID string) (*models.Checkout, error)
 
 	// Return は区域を返却する。担当者または編集メンバー以上が実行可能。
 	// 紐づく未失効の区域招待は連動失効する。
@@ -22,12 +27,12 @@ type CheckoutService interface {
 	// 紐づく未失効の区域招待は連動失効する。
 	ForceReturn(actorID string, checkoutID string) error
 
-	// ReassignOwner はチェックアウトの担当者を別メンバーへ任命変更する。editor+のみ。
+	// ReassignPersonInCharge はチェックアウトの担当者を別メンバーへ任命変更する。editor+のみ。
 	// active 状態のチェックアウトでのみ実行可能。
-	// 紐づく未失効の区域招待・LentByID は維持される（仕様: 担当者変更とアクセス権・履歴は独立）。
-	// newOwnerID が現担当者と同じ場合は冪等な成功を返す（no-op）。
+	// 紐づく未失効の区域招待・CheckedOutByID は維持される（仕様: 担当者変更とアクセス権・履歴は独立）。
+	// newPersonInChargeID が現担当者と同じ場合は冪等な成功を返す（no-op）。
 	// 仕様 docs/wants/05_チェックアウト.md「担当者」「区域招待 > 担当者変更時の招待の扱い」
-	ReassignOwner(actorID string, checkoutID string, newOwnerID string) error
+	ReassignPersonInCharge(actorID string, checkoutID string, newPersonInChargeID string) error
 
 	// RecordVisit は訪問記録を作成する。チェックアウトの担当者または有効な招待保有者が実行。
 	// applicationText: 申請を伴うステータス（vacant_abandoned / refused）の場合は必須、
@@ -82,8 +87,8 @@ type CheckoutService interface {
 type AccessibleAreaRole string
 
 const (
-	AccessibleAreaRoleOwner   AccessibleAreaRole = "owner"   // 自分が担当者
-	AccessibleAreaRoleInvitee AccessibleAreaRole = "invitee" // 自分が被招待者
+	AccessibleAreaRolePersonInCharge AccessibleAreaRole = "person_in_charge" // 自分が担当者
+	AccessibleAreaRoleInvitee        AccessibleAreaRole = "invitee"          // 自分が被招待者
 )
 
 // AccessibleArea は ListAccessibleAreas のレスポンス DTO。

@@ -22,10 +22,11 @@ func NewCheckoutBinding(repo domain.CheckoutRepository, svc service.CheckoutServ
 // --- チェックアウト操作 ---
 
 // Checkout は区域をチェックアウトする。
-// checkoutType は "lending" または "self_take"。
-// 編集メンバー以上が自分自身に貸し出す場合は actorID == ownerID で呼び出す（OwnerID == LentByID になる）。
-func (b *CheckoutBinding) Checkout(actorID, areaID, checkoutType, ownerID string) (*models.Checkout, error) {
-	return b.svc.Checkout(actorID, areaID, models.CheckoutType(checkoutType), ownerID)
+// 「貸し出し / 持ち出し」操作種別の区別は廃止済み（仕様 2026-05-06 改訂）。
+// personInChargeID が空文字の場合は actorID を担当者とする（自分自身を担当者にチェックアウト）。
+// 活動メンバーは自分自身を担当者にする場合のみ発行可能。編集メンバー以上は任意のメンバー指定可。
+func (b *CheckoutBinding) Checkout(actorID, areaID, personInChargeID string) (*models.Checkout, error) {
+	return b.svc.Checkout(actorID, areaID, personInChargeID)
 }
 
 // Return は担当者または編集メンバーがチェックアウトを返却する。
@@ -40,10 +41,10 @@ func (b *CheckoutBinding) ForceReturn(actorID, checkoutID string) error {
 	return b.svc.ForceReturn(actorID, checkoutID)
 }
 
-// ReassignOwner は担当者を別メンバーへ任命変更する。editor+ のみ。
-// 既存招待は維持される（仕様 Q2）。
-func (b *CheckoutBinding) ReassignOwner(actorID, checkoutID, newOwnerID string) error {
-	return b.svc.ReassignOwner(actorID, checkoutID, newOwnerID)
+// ReassignPersonInCharge は担当者を別メンバーへ任命変更する。editor+ のみ。
+// 既存招待は維持される（仕様: 担当者変更で招待は剥奪されない）。
+func (b *CheckoutBinding) ReassignPersonInCharge(actorID, checkoutID, newPersonInChargeID string) error {
+	return b.svc.ReassignPersonInCharge(actorID, checkoutID, newPersonInChargeID)
 }
 
 // --- 区域招待 ---

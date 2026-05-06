@@ -75,13 +75,13 @@ func (r *InMemoryCheckoutRepository) GetActiveCheckout(areaID string) (*models.C
 	return nil, fmt.Errorf("no active checkout for area: %s", areaID)
 }
 
-func (r *InMemoryCheckoutRepository) ListActiveCheckoutsForOwner(ownerID string) ([]models.Checkout, error) {
+func (r *InMemoryCheckoutRepository) ListActiveCheckoutsForPersonInCharge(personInChargeID string) ([]models.Checkout, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	var result []models.Checkout
 	for _, v := range r.checkouts {
-		if v.OwnerID == ownerID && v.Status == models.CheckoutStatusActive {
+		if v.PersonInChargeID == personInChargeID && v.Status == models.CheckoutStatusActive {
 			result = append(result, *v)
 		}
 	}

@@ -82,9 +82,9 @@ func main() {
 	userBinding := binding.NewUserBinding(repo.User())
 	settingsBinding := binding.NewSettingsBinding(repo.Personal())
 	placeBinding := binding.NewPlaceBinding(repo.Place())
-	scheduleSvc := service.NewSchedulePeriodService(repo.Coverage(), repo.User(), repo.Notification(), repo.Region())
-	scheduleBinding := binding.NewScheduleBinding(scheduleSvc, info.DID)
-	checkoutSvc := service.NewCheckoutService(repo.Checkout(), repo.User(), repo.Notification())
+	availablePeriodSvc := service.NewAvailablePeriodService(repo.Coverage(), repo.Checkout(), repo.User())
+	availablePeriodBinding := binding.NewAvailablePeriodBinding(availablePeriodSvc)
+	checkoutSvc := service.NewCheckoutService(repo.Checkout(), repo.User(), repo.Notification(), repo.Region(), availablePeriodSvc)
 	visitBinding := binding.NewVisitBinding(repo.Checkout(), checkoutSvc)
 	checkoutBinding := binding.NewCheckoutBinding(repo.Checkout(), checkoutSvc)
 
@@ -112,7 +112,7 @@ func main() {
 			userBinding,
 			settingsBinding,
 			placeBinding,
-			scheduleBinding,
+			availablePeriodBinding,
 			visitBinding,
 			checkoutBinding,
 			identityBinding,

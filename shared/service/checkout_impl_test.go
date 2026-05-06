@@ -12,81 +12,85 @@ import (
 func setupCheckout() (service.CheckoutService, *testdata.Repos) {
 	repos := testdata.NewInMemoryRepos()
 	testdata.SeedAll(repos)
-	svc := service.NewCheckoutService(repos.Checkout, repos.User, repos.Notification)
+	apSvc := service.NewAvailablePeriodService(repos.Coverage, repos.Checkout, repos.User)
+	svc := service.NewCheckoutService(repos.Checkout, repos.User, repos.Notification, repos.Region, apSvc)
 	return svc, repos
 }
 
 // --- Checkout ---
 
-func TestCheckout_Lending_Success(t *testing.T) {
+func TestCheckout_EditorAssignsOther_Success(t *testing.T) {
 	svc, repos := setupCheckout()
 
-	// 未チェックアウトの区域を使う（富里市の区域）
 	areaID := "pa-tms-001-01"
-	editorDID := "did:key:z6Mk0003" // editor
-	ownerDID := "did:key:z6Mk0010"  // member
+	editorDID := "did:key:z6Mk0003"
+	personInCharge := "did:key:z6Mk0010"
 
-	co, err := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, ownerDID)
+	co, err := svc.Checkout(editorDID, areaID, personInCharge)
 	if err != nil {
 		t.Fatalf("Checkout: %v", err)
 	}
 	if co.AreaID != areaID {
 		t.Errorf("AreaID = %q, want %q", co.AreaID, areaID)
 	}
-	if co.CheckoutType != models.CheckoutTypeLending {
-		t.Errorf("CheckoutType = %q, want lending", co.CheckoutType)
+	if co.CheckedOutByID != editorDID {
+		t.Errorf("CheckedOutByID = %q, want %q", co.CheckedOutByID, editorDID)
 	}
-	if co.LentByID != editorDID {
-		t.Errorf("LentByID = %q, want %q", co.LentByID, editorDID)
-	}
-	if co.OwnerID != ownerDID {
-		t.Errorf("OwnerID = %q, want %q", co.OwnerID, ownerDID)
+	if co.PersonInChargeID != personInCharge {
+		t.Errorf("PersonInChargeID = %q, want %q", co.PersonInChargeID, personInCharge)
 	}
 	if co.Status != models.CheckoutStatusActive {
 		t.Errorf("Status = %q, want active", co.Status)
 	}
 
-	// リポジトリに保存されていることを確認
 	got, _ := repos.Checkout.GetCheckout(co.ID)
 	if got == nil {
 		t.Fatal("checkout not found in repository")
 	}
 }
 
-func TestCheckout_SelfTake_Success(t *testing.T) {
+func TestCheckout_MemberSelfTake_Success(t *testing.T) {
 	svc, _ := setupCheckout()
 
 	areaID := "pa-tms-002-01"
 	memberDID := "did:key:z6Mk0010"
 
-	co, err := svc.Checkout(memberDID, areaID, models.CheckoutTypeSelfTake, memberDID)
+	co, err := svc.Checkout(memberDID, areaID, memberDID)
 	if err != nil {
 		t.Fatalf("Checkout: %v", err)
 	}
-	if co.CheckoutType != models.CheckoutTypeSelfTake {
-		t.Errorf("CheckoutType = %q, want self_take", co.CheckoutType)
+	if co.PersonInChargeID != memberDID {
+		t.Errorf("PersonInChargeID = %q, want %q", co.PersonInChargeID, memberDID)
 	}
-	if co.LentByID != "" {
-		t.Errorf("LentByID = %q, want empty for self_take", co.LentByID)
-	}
-	if co.OwnerID != memberDID {
-		t.Errorf("OwnerID = %q, want %q", co.OwnerID, memberDID)
+	if co.CheckedOutByID != memberDID {
+		t.Errorf("CheckedOutByID = %q, want %q (self-take)", co.CheckedOutByID, memberDID)
 	}
 }
 
-func TestCheckout_ExclusiveLending_Error(t *testing.T) {
+func TestCheckout_MemberAssignOther_Denied(t *testing.T) {
 	svc, _ := setupCheckout()
 
-	// 最初のチェックアウト
+	memberDID := "did:key:z6Mk0010"
+	_, err := svc.Checkout(memberDID, "pa-tms-004-01", "did:key:z6Mk0011")
+	if err == nil {
+		t.Fatal("expected permission denied for member assigning other person in charge")
+	}
+	if !service.IsCode(err, service.ErrPermissionDenied) {
+		t.Errorf("error code = %v, want permission_denied", err)
+	}
+}
+
+func TestCheckout_ExclusiveCheckout_Error(t *testing.T) {
+	svc, _ := setupCheckout()
+
 	areaID := "pa-tms-003-01"
 	editorDID := "did:key:z6Mk0003"
-	_, err := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, "did:key:z6Mk0010")
+	_, err := svc.Checkout(editorDID, areaID, "did:key:z6Mk0010")
 	if err != nil {
 		t.Fatalf("first checkout: %v", err)
 	}
 
-	// 同じ区域を再チェックアウト → エラー
-	_, err = svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, "did:key:z6Mk0011")
+	_, err = svc.Checkout(editorDID, areaID, "did:key:z6Mk0011")
 	if err == nil {
 		t.Fatal("expected exclusive checkout error")
 	}
@@ -95,13 +99,58 @@ func TestCheckout_ExclusiveLending_Error(t *testing.T) {
 	}
 }
 
-func TestCheckout_Lending_MemberDenied(t *testing.T) {
+// --- AvailablePeriod 制約 ---
+
+func TestCheckout_AvailablePeriodID_Set(t *testing.T) {
 	svc, _ := setupCheckout()
 
-	memberDID := "did:key:z6Mk0010" // member
-	_, err := svc.Checkout(memberDID, "pa-tms-004-01", models.CheckoutTypeLending, "did:key:z6Mk0011")
+	co, err := svc.Checkout("did:key:z6Mk0003", "pa-tms-001-04", "did:key:z6Mk0010")
+	if err != nil {
+		t.Fatalf("Checkout: %v", err)
+	}
+	if co.AvailablePeriodID != testdata.SeedTestActivePeriodID {
+		t.Errorf("AvailablePeriodID = %q, want %q", co.AvailablePeriodID, testdata.SeedTestActivePeriodID)
+	}
+}
+
+func TestCheckout_NoActivePeriod_Error(t *testing.T) {
+	repos := testdata.NewInMemoryRepos()
+	if err := testdata.SeedAll(repos); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// アクティブな AvailablePeriod を全削除
+	periods, _ := repos.Coverage.ListAvailablePeriods()
+	for _, p := range periods {
+		_ = repos.Coverage.DeleteAvailablePeriod(p.ID)
+	}
+	apSvc := service.NewAvailablePeriodService(repos.Coverage, repos.Checkout, repos.User)
+	svc := service.NewCheckoutService(repos.Checkout, repos.User, repos.Notification, repos.Region, apSvc)
+
+	_, err := svc.Checkout("did:key:z6Mk0003", "pa-tms-001-05", "did:key:z6Mk0010")
 	if err == nil {
-		t.Fatal("expected permission denied for member doing lending")
+		t.Fatal("expected error when no active period")
+	}
+	if !service.IsCode(err, service.ErrInvalidState) {
+		t.Errorf("error code = %v, want invalid_state", err)
+	}
+}
+
+func TestCheckout_AreaParentNotInPeriod_Error(t *testing.T) {
+	repos := testdata.NewInMemoryRepos()
+	if err := testdata.SeedAll(repos); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// Period を pa-tms-001 のみ対象に書き換え
+	p, _ := repos.Coverage.GetAvailablePeriod(testdata.SeedTestActivePeriodID)
+	p.ParentAreaIDs = []string{"pa-tms-001"}
+	_ = repos.Coverage.SaveAvailablePeriod(p)
+
+	apSvc := service.NewAvailablePeriodService(repos.Coverage, repos.Checkout, repos.User)
+	svc := service.NewCheckoutService(repos.Checkout, repos.User, repos.Notification, repos.Region, apSvc)
+
+	_, err := svc.Checkout("did:key:z6Mk0003", "pa-tms-002-01", "did:key:z6Mk0010")
+	if err == nil {
+		t.Fatal("expected error for area outside period scope")
 	}
 	if !service.IsCode(err, service.ErrPermissionDenied) {
 		t.Errorf("error code = %v, want permission_denied", err)
@@ -113,14 +162,12 @@ func TestCheckout_Lending_MemberDenied(t *testing.T) {
 func TestReturn_Success(t *testing.T) {
 	svc, repos := setupCheckout()
 
-	// チェックアウト
 	areaID := "pa-tms-001-02"
 	editorDID := "did:key:z6Mk0003"
-	ownerDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, ownerDID)
+	personInCharge := "did:key:z6Mk0010"
+	co, _ := svc.Checkout(editorDID, areaID, personInCharge)
 
-	// 担当者が返却
-	err := svc.Return(ownerDID, co.ID)
+	err := svc.Return(personInCharge, co.ID)
 	if err != nil {
 		t.Fatalf("Return: %v", err)
 	}
@@ -137,10 +184,9 @@ func TestReturn_Success(t *testing.T) {
 func TestReturn_NotActive_Error(t *testing.T) {
 	svc, _ := setupCheckout()
 
-	// チェックアウト→返却→再返却
 	areaID := "pa-tms-001-03"
 	editorDID := "did:key:z6Mk0003"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, "did:key:z6Mk0010")
+	co, _ := svc.Checkout(editorDID, areaID, "did:key:z6Mk0010")
 	svc.Return("did:key:z6Mk0010", co.ID)
 
 	err := svc.Return("did:key:z6Mk0010", co.ID)
@@ -159,7 +205,7 @@ func TestForceReturn_EditorSuccess(t *testing.T) {
 
 	areaID := "pa-tms-002-02"
 	editorDID := "did:key:z6Mk0003"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, "did:key:z6Mk0010")
+	co, _ := svc.Checkout(editorDID, areaID, "did:key:z6Mk0010")
 
 	err := svc.ForceReturn(editorDID, co.ID)
 	if err != nil {
@@ -177,9 +223,9 @@ func TestForceReturn_MemberDenied(t *testing.T) {
 
 	areaID := "pa-tms-002-03"
 	editorDID := "did:key:z6Mk0003"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, "did:key:z6Mk0010")
+	co, _ := svc.Checkout(editorDID, areaID, "did:key:z6Mk0010")
 
-	err := svc.ForceReturn("did:key:z6Mk0010", co.ID) // member
+	err := svc.ForceReturn("did:key:z6Mk0010", co.ID)
 	if err == nil {
 		t.Fatal("expected permission denied")
 	}
@@ -196,7 +242,7 @@ func TestRecordVisit_Success(t *testing.T) {
 	areaID := "pa-tms-003-02"
 	editorDID := "did:key:z6Mk0003"
 	memberDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+	co, _ := svc.Checkout(editorDID, areaID, memberDID)
 
 	vr, err := svc.RecordVisit(memberDID, co.ID, "place-0001", models.VisitResultMet, time.Now(), "")
 	if err != nil {
@@ -227,7 +273,7 @@ func TestRecordVisit_NotActive_Error(t *testing.T) {
 	areaID := "pa-tms-003-03"
 	editorDID := "did:key:z6Mk0003"
 	memberDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+	co, _ := svc.Checkout(editorDID, areaID, memberDID)
 	svc.Return(memberDID, co.ID)
 
 	_, err := svc.RecordVisit(memberDID, co.ID, "place-0001", models.VisitResultMet, time.Now(), "")
@@ -245,7 +291,7 @@ func TestRecordVisit_Refused_CreatesRequest(t *testing.T) {
 	areaID := "pa-tms-002-02"
 	editorDID := "did:key:z6Mk0003"
 	memberDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+	co, _ := svc.Checkout(editorDID, areaID, memberDID)
 
 	text := "玄関先で『今後一切来ないでほしい』との明確な意思表示あり"
 	vr, err := svc.RecordVisit(memberDID, co.ID, "place-0001", models.VisitResultRefused, time.Now(), text)
@@ -286,7 +332,7 @@ func TestRecordVisit_VacantAbandoned_CreatesMapUpdateRequest(t *testing.T) {
 	areaID := "pa-tms-002-03"
 	editorDID := "did:key:z6Mk0003"
 	memberDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+	co, _ := svc.Checkout(editorDID, areaID, memberDID)
 
 	text := "完全に廃屋。屋根が崩落している"
 	vr, err := svc.RecordVisit(memberDID, co.ID, "place-0002", models.VisitResultVacantAbandoned, time.Now(), text)
@@ -309,7 +355,7 @@ func TestRecordVisit_Refused_EmptyText_Error(t *testing.T) {
 	areaID := "pa-tms-003-04"
 	editorDID := "did:key:z6Mk0003"
 	memberDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+	co, _ := svc.Checkout(editorDID, areaID, memberDID)
 
 	_, err := svc.RecordVisit(memberDID, co.ID, "place-0001", models.VisitResultRefused, time.Now(), "")
 	if err == nil {
@@ -321,13 +367,12 @@ func TestRecordVisit_Refused_EmptyText_Error(t *testing.T) {
 }
 
 func TestRecordVisit_VacantPossible_NoApplication(t *testing.T) {
-	// vacant_possible は申請を伴わないステータス。テキスト指定不要、Request も作成されない
 	svc, _ := setupCheckout()
 
 	areaID := "pa-tms-004-02"
 	editorDID := "did:key:z6Mk0003"
 	memberDID := "did:key:z6Mk0010"
-	co, _ := svc.Checkout(editorDID, areaID, models.CheckoutTypeLending, memberDID)
+	co, _ := svc.Checkout(editorDID, areaID, memberDID)
 
 	vr, err := svc.RecordVisit(memberDID, co.ID, "place-0003", models.VisitResultVacantPossible, time.Now(), "")
 	if err != nil {
@@ -341,17 +386,16 @@ func TestRecordVisit_VacantPossible_NoApplication(t *testing.T) {
 // --- Invite / RevokeInvite / ListInvitations ---
 
 const (
-	inviteEditorDID = "did:key:z6Mk0003" // editor (シードデータ参照)
-	inviteOtherEdit = "did:key:z6Mk0004" // 別の editor
-	inviteOwnerDID  = "did:key:z6Mk0010" // チェックアウト担当者となる活動メンバー
-	inviteeAlpha    = "did:key:z6Mk0011" // 被招待者 A（活動メンバー）
-	inviteeBeta     = "did:key:z6Mk0012" // 被招待者 B（活動メンバー）
+	inviteEditorDID = "did:key:z6Mk0003"
+	inviteOtherEdit = "did:key:z6Mk0004"
+	invitePiCDID    = "did:key:z6Mk0010" // 担当者となる活動メンバー
+	inviteeAlpha    = "did:key:z6Mk0011"
+	inviteeBeta     = "did:key:z6Mk0012"
 )
 
-// activeCheckoutForInvite は招待テスト用にアクティブなチェックアウトを生成する。
 func activeCheckoutForInvite(t *testing.T, svc service.CheckoutService, areaID string) *models.Checkout {
 	t.Helper()
-	co, err := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	co, err := svc.Checkout(inviteEditorDID, areaID, invitePiCDID)
 	if err != nil {
 		t.Fatalf("Checkout: %v", err)
 	}
@@ -362,7 +406,7 @@ func TestInvite_EditorSuccess(t *testing.T) {
 	svc, repos := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-01")
 
-	inv, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0) // ttl=0 → デフォルト 24h
+	inv, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 	if err != nil {
 		t.Fatalf("Invite: %v", err)
 	}
@@ -384,7 +428,6 @@ func TestInvite_EditorSuccess(t *testing.T) {
 		t.Error("invitation should be active immediately after creation")
 	}
 
-	// 通知が発行されたか
 	notifs, _ := repos.Notification.ListNotifications(inviteeAlpha)
 	found := false
 	for _, n := range notifs {
@@ -397,25 +440,23 @@ func TestInvite_EditorSuccess(t *testing.T) {
 	}
 }
 
-func TestInvite_OwnerCanInvite(t *testing.T) {
+func TestInvite_PersonInChargeCanInvite(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-02")
 
-	// 担当者本人（活動メンバー）が招待発行できる
-	_, err := svc.Invite(inviteOwnerDID, co.ID, inviteeAlpha, 0)
+	_, err := svc.Invite(invitePiCDID, co.ID, inviteeAlpha, 0)
 	if err != nil {
-		t.Fatalf("owner invite: %v", err)
+		t.Fatalf("person in charge invite: %v", err)
 	}
 }
 
-func TestInvite_NonOwnerMemberDenied(t *testing.T) {
+func TestInvite_NonPiCMemberDenied(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-03")
 
-	// 担当者でも編集メンバーでもない活動メンバーは発行不可
 	_, err := svc.Invite(inviteeAlpha, co.ID, inviteeBeta, 0)
 	if err == nil {
-		t.Fatal("expected permission denied for non-owner non-editor")
+		t.Fatal("expected permission denied for non-PiC non-editor")
 	}
 	if !service.IsCode(err, service.ErrPermissionDenied) {
 		t.Errorf("error code = %v, want permission_denied", err)
@@ -425,11 +466,10 @@ func TestInvite_NonOwnerMemberDenied(t *testing.T) {
 func TestInvite_NonActiveCheckoutError(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-04")
-	if err := svc.Return(inviteOwnerDID, co.ID); err != nil {
+	if err := svc.Return(invitePiCDID, co.ID); err != nil {
 		t.Fatalf("Return: %v", err)
 	}
 
-	// 返却済みチェックアウトに招待はできない
 	_, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 	if err == nil {
 		t.Fatal("expected error for invite on non-active checkout")
@@ -439,13 +479,13 @@ func TestInvite_NonActiveCheckoutError(t *testing.T) {
 	}
 }
 
-func TestInvite_OwnerHimselfRejected(t *testing.T) {
+func TestInvite_PiCHimselfRejected(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-05")
 
-	_, err := svc.Invite(inviteEditorDID, co.ID, inviteOwnerDID, 0)
+	_, err := svc.Invite(inviteEditorDID, co.ID, invitePiCDID, 0)
 	if err == nil {
-		t.Fatal("expected error for inviting owner themselves")
+		t.Fatal("expected error for inviting person in charge themselves")
 	}
 	if !service.IsCode(err, service.ErrInvalidInput) {
 		t.Errorf("error code = %v, want invalid_input", err)
@@ -456,7 +496,6 @@ func TestInvite_EditorAsInviteeRejected(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-06")
 
-	// 編集メンバーは元々全区域アクセス可なので被招待者にできない
 	_, err := svc.Invite(inviteEditorDID, co.ID, inviteOtherEdit, 0)
 	if err == nil {
 		t.Fatal("expected error for inviting editor as invitee")
@@ -484,7 +523,6 @@ func TestInvite_DuplicateInviteOverwritesExpiresAt(t *testing.T) {
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-08")
 
 	first, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 6*time.Hour)
-	// 同一被招待者へ再発行 → 既存レコードの ExpiresAt が上書き、新規レコードは作らない
 	second, err := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 48*time.Hour)
 	if err != nil {
 		t.Fatalf("re-invite: %v", err)
@@ -524,14 +562,13 @@ func TestRevokeInvite_InviterCanRevoke(t *testing.T) {
 	}
 }
 
-func TestRevokeInvite_OwnerCanRevoke(t *testing.T) {
+func TestRevokeInvite_PiCCanRevoke(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-10")
 	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 
-	// 担当者（招待者ではない）が取消できる
-	if err := svc.RevokeInvite(inviteOwnerDID, inv.ID); err != nil {
-		t.Fatalf("owner revoke: %v", err)
+	if err := svc.RevokeInvite(invitePiCDID, inv.ID); err != nil {
+		t.Fatalf("PiC revoke: %v", err)
 	}
 }
 
@@ -540,7 +577,6 @@ func TestRevokeInvite_OtherMemberDenied(t *testing.T) {
 	co := activeCheckoutForInvite(t, svc, "pa-tms-005-11")
 	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 
-	// 招待者でも担当者でも編集メンバーでもない活動メンバーは取消不可
 	err := svc.RevokeInvite(inviteeBeta, inv.ID)
 	if err == nil {
 		t.Fatal("expected permission denied")
@@ -571,7 +607,7 @@ func TestReturn_CascadeRevokesInvitations(t *testing.T) {
 	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 	svc.Invite(inviteEditorDID, co.ID, inviteeBeta, 0)
 
-	if err := svc.Return(inviteOwnerDID, co.ID); err != nil {
+	if err := svc.Return(invitePiCDID, co.ID); err != nil {
 		t.Fatalf("Return: %v", err)
 	}
 	all, _ := svc.ListInvitations(co.ID)
@@ -599,36 +635,31 @@ func TestForceReturn_CascadeRevokesInvitations(t *testing.T) {
 	}
 }
 
-// --- ReassignOwner ---
+// --- ReassignPersonInCharge ---
 
-func TestReassignOwner_EditorSuccess(t *testing.T) {
+func TestReassignPersonInCharge_EditorSuccess(t *testing.T) {
 	svc, repos := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-006-01")
 
-	newOwner := inviteeAlpha
-	if err := svc.ReassignOwner(inviteEditorDID, co.ID, newOwner); err != nil {
-		t.Fatalf("ReassignOwner: %v", err)
+	newPiC := inviteeAlpha
+	if err := svc.ReassignPersonInCharge(inviteEditorDID, co.ID, newPiC); err != nil {
+		t.Fatalf("ReassignPersonInCharge: %v", err)
 	}
 
 	got, _ := repos.Checkout.GetCheckout(co.ID)
-	if got.OwnerID != newOwner {
-		t.Errorf("OwnerID = %q, want %q", got.OwnerID, newOwner)
+	if got.PersonInChargeID != newPiC {
+		t.Errorf("PersonInChargeID = %q, want %q", got.PersonInChargeID, newPiC)
 	}
-	// LentByID は維持（履歴）
-	if got.LentByID != inviteEditorDID {
-		t.Errorf("LentByID = %q, want %q (history preserved)", got.LentByID, inviteEditorDID)
-	}
-	if !got.UpdatedAt.After(co.UpdatedAt) && !got.UpdatedAt.Equal(co.UpdatedAt) {
-		t.Error("UpdatedAt should be advanced")
+	if got.CheckedOutByID != inviteEditorDID {
+		t.Errorf("CheckedOutByID = %q, want %q (history preserved)", got.CheckedOutByID, inviteEditorDID)
 	}
 }
 
-func TestReassignOwner_MemberDenied(t *testing.T) {
+func TestReassignPersonInCharge_MemberDenied(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-006-02")
 
-	// 担当者本人（活動メンバー）でも担当者変更は editor+ 専用なので不可
-	err := svc.ReassignOwner(inviteOwnerDID, co.ID, inviteeAlpha)
+	err := svc.ReassignPersonInCharge(invitePiCDID, co.ID, inviteeAlpha)
 	if err == nil {
 		t.Fatal("expected permission denied")
 	}
@@ -637,12 +668,12 @@ func TestReassignOwner_MemberDenied(t *testing.T) {
 	}
 }
 
-func TestReassignOwner_NonActiveCheckoutError(t *testing.T) {
+func TestReassignPersonInCharge_NonActiveCheckoutError(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-006-03")
-	svc.Return(inviteOwnerDID, co.ID)
+	svc.Return(invitePiCDID, co.ID)
 
-	err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteeAlpha)
+	err := svc.ReassignPersonInCharge(inviteEditorDID, co.ID, inviteeAlpha)
 	if err == nil {
 		t.Fatal("expected error for reassign on non-active")
 	}
@@ -651,9 +682,9 @@ func TestReassignOwner_NonActiveCheckoutError(t *testing.T) {
 	}
 }
 
-func TestReassignOwner_NotFoundCheckout(t *testing.T) {
+func TestReassignPersonInCharge_NotFoundCheckout(t *testing.T) {
 	svc, _ := setupCheckout()
-	err := svc.ReassignOwner(inviteEditorDID, "co-nonexistent", inviteeAlpha)
+	err := svc.ReassignPersonInCharge(inviteEditorDID, "co-nonexistent", inviteeAlpha)
 	if err == nil {
 		t.Fatal("expected not found")
 	}
@@ -662,41 +693,39 @@ func TestReassignOwner_NotFoundCheckout(t *testing.T) {
 	}
 }
 
-func TestReassignOwner_NotFoundNewOwner(t *testing.T) {
+func TestReassignPersonInCharge_NotFoundNewPiC(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-006-04")
 
-	err := svc.ReassignOwner(inviteEditorDID, co.ID, "did:key:nonexistent")
+	err := svc.ReassignPersonInCharge(inviteEditorDID, co.ID, "did:key:nonexistent")
 	if err == nil {
-		t.Fatal("expected not found for unknown new owner")
+		t.Fatal("expected not found for unknown new person in charge")
 	}
 	if !service.IsCode(err, service.ErrNotFound) {
 		t.Errorf("error code = %v, want not_found", err)
 	}
 }
 
-func TestReassignOwner_SameOwnerNoOp(t *testing.T) {
+func TestReassignPersonInCharge_SamePiCNoOp(t *testing.T) {
 	svc, repos := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-006-05")
 
-	// 同一担当者への再任命は冪等な成功
-	if err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteOwnerDID); err != nil {
-		t.Fatalf("same-owner reassign should succeed (no-op): %v", err)
+	if err := svc.ReassignPersonInCharge(inviteEditorDID, co.ID, invitePiCDID); err != nil {
+		t.Fatalf("same-PiC reassign should succeed (no-op): %v", err)
 	}
 	got, _ := repos.Checkout.GetCheckout(co.ID)
-	if got.OwnerID != inviteOwnerDID {
-		t.Errorf("OwnerID changed to %q (want unchanged %q)", got.OwnerID, inviteOwnerDID)
+	if got.PersonInChargeID != invitePiCDID {
+		t.Errorf("PersonInChargeID changed to %q (want unchanged %q)", got.PersonInChargeID, invitePiCDID)
 	}
 }
 
-func TestReassignOwner_KeepsInvitations(t *testing.T) {
-	// 担当者変更後も既存招待は維持される（仕様 Q2）
+func TestReassignPersonInCharge_KeepsInvitations(t *testing.T) {
 	svc, _ := setupCheckout()
 	co := activeCheckoutForInvite(t, svc, "pa-tms-006-06")
 	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 
-	if err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteeBeta); err != nil {
-		t.Fatalf("ReassignOwner: %v", err)
+	if err := svc.ReassignPersonInCharge(inviteEditorDID, co.ID, inviteeBeta); err != nil {
+		t.Fatalf("ReassignPersonInCharge: %v", err)
 	}
 
 	all, _ := svc.ListInvitations(co.ID)
@@ -706,46 +735,36 @@ func TestReassignOwner_KeepsInvitations(t *testing.T) {
 	if all[0].ID != inv.ID || all[0].RevokedAt != nil {
 		t.Errorf("invitation modified: %+v (want preserved & active)", all[0])
 	}
-	// InviterID も変えない（仕様 Q2）
 	if all[0].InviterID != inviteEditorDID {
 		t.Errorf("InviterID = %q, want %q (preserved)", all[0].InviterID, inviteEditorDID)
 	}
 }
 
-// --- 編集メンバーの自己貸出（自分自身への lending） ---
+// --- 編集メンバーが自分自身を担当者にチェックアウト ---
 
-func TestCheckout_EditorSelfLending(t *testing.T) {
-	// editor+ が ownerID == actorID で lending する → OwnerID == LentByID で成立
-	// 仕様 docs/wants/05_チェックアウト.md「可用性制約のバイパス」
-	// 「訪問記録画面で active チェックアウトを持たない区域に入った編集メンバーが
-	//  CTA からその場でチェックアウトを作る」動線で利用される
+func TestCheckout_EditorSelfAssign(t *testing.T) {
 	svc, _ := setupCheckout()
 
-	co, err := svc.Checkout(inviteEditorDID, "pa-tms-006-07", models.CheckoutTypeLending, inviteEditorDID)
+	co, err := svc.Checkout(inviteEditorDID, "pa-tms-006-07", inviteEditorDID)
 	if err != nil {
-		t.Fatalf("self-lending: %v", err)
+		t.Fatalf("editor self-assign: %v", err)
 	}
-	if co.OwnerID != inviteEditorDID {
-		t.Errorf("OwnerID = %q, want %q", co.OwnerID, inviteEditorDID)
+	if co.PersonInChargeID != inviteEditorDID {
+		t.Errorf("PersonInChargeID = %q, want %q", co.PersonInChargeID, inviteEditorDID)
 	}
-	if co.LentByID != inviteEditorDID {
-		t.Errorf("LentByID = %q, want %q (self-lending)", co.LentByID, inviteEditorDID)
-	}
-	if co.OwnerID != co.LentByID {
-		t.Error("self-lending should yield OwnerID == LentByID")
+	if co.CheckedOutByID != inviteEditorDID {
+		t.Errorf("CheckedOutByID = %q, want %q", co.CheckedOutByID, inviteEditorDID)
 	}
 }
 
-// --- ReassignOwner で編集メンバー → 活動メンバーへ移譲（仕様 Q11） ---
-
 // --- AreaAccessMode / PlaceAccessMode / ListAccessibleAreas ---
 
-func TestAreaAccessMode_Owner_Editable(t *testing.T) {
+func TestAreaAccessMode_PiC_Editable(t *testing.T) {
 	svc, _ := setupCheckout()
 	areaID := "pa-tms-007-01"
-	svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Checkout(inviteEditorDID, areaID, invitePiCDID)
 
-	mode, err := svc.AreaAccessMode(inviteOwnerDID, areaID)
+	mode, err := svc.AreaAccessMode(invitePiCDID, areaID)
 	if err != nil {
 		t.Fatalf("AreaAccessMode: %v", err)
 	}
@@ -757,7 +776,7 @@ func TestAreaAccessMode_Owner_Editable(t *testing.T) {
 func TestAreaAccessMode_Invitee_Editable(t *testing.T) {
 	svc, _ := setupCheckout()
 	areaID := "pa-tms-007-02"
-	co, _ := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	co, _ := svc.Checkout(inviteEditorDID, areaID, invitePiCDID)
 	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 
 	mode, err := svc.AreaAccessMode(inviteeAlpha, areaID)
@@ -769,10 +788,10 @@ func TestAreaAccessMode_Invitee_Editable(t *testing.T) {
 	}
 }
 
-func TestAreaAccessMode_NonOwnerNonInvitee_ReadOnly(t *testing.T) {
+func TestAreaAccessMode_NonPiCNonInvitee_ReadOnly(t *testing.T) {
 	svc, _ := setupCheckout()
 	areaID := "pa-tms-007-03"
-	svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	svc.Checkout(inviteEditorDID, areaID, invitePiCDID)
 
 	mode, err := svc.AreaAccessMode(inviteeAlpha, areaID)
 	if err != nil {
@@ -797,7 +816,7 @@ func TestAreaAccessMode_NoCheckout_ReadOnly(t *testing.T) {
 func TestAreaAccessMode_RevokedInvitation_ReadOnly(t *testing.T) {
 	svc, _ := setupCheckout()
 	areaID := "pa-tms-007-05"
-	co, _ := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
+	co, _ := svc.Checkout(inviteEditorDID, areaID, invitePiCDID)
 	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 	svc.RevokeInvite(inviteEditorDID, inv.ID)
 
@@ -810,20 +829,18 @@ func TestAreaAccessMode_RevokedInvitation_ReadOnly(t *testing.T) {
 func TestAreaAccessMode_AfterReturn_ReadOnly(t *testing.T) {
 	svc, _ := setupCheckout()
 	areaID := "pa-tms-007-06"
-	co, _ := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteOwnerDID)
-	svc.Return(inviteOwnerDID, co.ID)
+	co, _ := svc.Checkout(inviteEditorDID, areaID, invitePiCDID)
+	svc.Return(invitePiCDID, co.ID)
 
-	// 担当者でも返却済みになれば read_only
-	mode, _ := svc.AreaAccessMode(inviteOwnerDID, areaID)
+	mode, _ := svc.AreaAccessMode(invitePiCDID, areaID)
 	if mode != models.AccessModeReadOnly {
 		t.Errorf("mode = %q, want read_only after return", mode)
 	}
 }
 
 func TestPlaceAccessMode_AlwaysEditable_Phase1(t *testing.T) {
-	// 場所レベルは現フェーズで常に editable
 	svc, _ := setupCheckout()
-	mode, err := svc.PlaceAccessMode(inviteOwnerDID, "place-x")
+	mode, err := svc.PlaceAccessMode(invitePiCDID, "place-x")
 	if err != nil {
 		t.Fatalf("PlaceAccessMode: %v", err)
 	}
@@ -832,12 +849,12 @@ func TestPlaceAccessMode_AlwaysEditable_Phase1(t *testing.T) {
 	}
 }
 
-func TestListAccessibleAreas_OwnerOnly(t *testing.T) {
+func TestListAccessibleAreas_PiCOnly(t *testing.T) {
 	svc, _ := setupCheckout()
-	co1, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-10", models.CheckoutTypeLending, inviteOwnerDID)
-	svc.Checkout(inviteEditorDID, "pa-tms-007-11", models.CheckoutTypeLending, inviteOwnerDID)
+	co1, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-10", invitePiCDID)
+	svc.Checkout(inviteEditorDID, "pa-tms-007-11", invitePiCDID)
 
-	areas, err := svc.ListAccessibleAreas(inviteOwnerDID)
+	areas, err := svc.ListAccessibleAreas(invitePiCDID)
 	if err != nil {
 		t.Fatalf("ListAccessibleAreas: %v", err)
 	}
@@ -845,11 +862,11 @@ func TestListAccessibleAreas_OwnerOnly(t *testing.T) {
 		t.Fatalf("got %d, want 2", len(areas))
 	}
 	for _, a := range areas {
-		if a.Role != service.AccessibleAreaRoleOwner {
-			t.Errorf("area %s: role = %q, want owner", a.AreaID, a.Role)
+		if a.Role != service.AccessibleAreaRolePersonInCharge {
+			t.Errorf("area %s: role = %q, want person_in_charge", a.AreaID, a.Role)
 		}
 		if a.InviteExpiresAt != nil {
-			t.Errorf("area %s: InviteExpiresAt should be nil for owner role", a.AreaID)
+			t.Errorf("area %s: InviteExpiresAt should be nil for PiC role", a.AreaID)
 		}
 	}
 	_ = co1
@@ -857,7 +874,7 @@ func TestListAccessibleAreas_OwnerOnly(t *testing.T) {
 
 func TestListAccessibleAreas_InviteeOnly(t *testing.T) {
 	svc, _ := setupCheckout()
-	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-12", models.CheckoutTypeLending, inviteOwnerDID)
+	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-12", invitePiCDID)
 	svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 
 	areas, err := svc.ListAccessibleAreas(inviteeAlpha)
@@ -875,38 +892,34 @@ func TestListAccessibleAreas_InviteeOnly(t *testing.T) {
 	}
 }
 
-func TestListAccessibleAreas_OwnerAndInvitee_NoDuplicate(t *testing.T) {
-	// 同一チェックアウトに対して担当者かつ被招待者という不自然な状態は通常発生しないが、
-	// 異なるチェックアウトで担当者と被招待者を両立する場合は別レコードになることを確認。
+func TestListAccessibleAreas_PiCAndInvitee_NoDuplicate(t *testing.T) {
 	svc, _ := setupCheckout()
-	// inviteOwnerDID が co1 の担当者
-	svc.Checkout(inviteEditorDID, "pa-tms-007-13", models.CheckoutTypeLending, inviteOwnerDID)
-	// inviteOwnerDID が co2 の被招待者
-	co2, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-14", models.CheckoutTypeLending, inviteeAlpha)
-	svc.Invite(inviteEditorDID, co2.ID, inviteOwnerDID, 0)
+	svc.Checkout(inviteEditorDID, "pa-tms-007-13", invitePiCDID)
+	co2, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-14", inviteeAlpha)
+	svc.Invite(inviteEditorDID, co2.ID, invitePiCDID, 0)
 
-	areas, err := svc.ListAccessibleAreas(inviteOwnerDID)
+	areas, err := svc.ListAccessibleAreas(invitePiCDID)
 	if err != nil {
 		t.Fatalf("ListAccessibleAreas: %v", err)
 	}
 	if len(areas) != 2 {
-		t.Fatalf("got %d, want 2 (owner+invitee on different checkouts)", len(areas))
+		t.Fatalf("got %d, want 2 (PiC+invitee on different checkouts)", len(areas))
 	}
 	roles := map[service.AccessibleAreaRole]int{}
 	for _, a := range areas {
 		roles[a.Role]++
 	}
-	if roles[service.AccessibleAreaRoleOwner] != 1 || roles[service.AccessibleAreaRoleInvitee] != 1 {
+	if roles[service.AccessibleAreaRolePersonInCharge] != 1 || roles[service.AccessibleAreaRoleInvitee] != 1 {
 		t.Errorf("role counts = %v, want one of each", roles)
 	}
 }
 
 func TestListAccessibleAreas_ExcludesReturned(t *testing.T) {
 	svc, _ := setupCheckout()
-	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-15", models.CheckoutTypeLending, inviteOwnerDID)
-	svc.Return(inviteOwnerDID, co.ID)
+	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-15", invitePiCDID)
+	svc.Return(invitePiCDID, co.ID)
 
-	areas, _ := svc.ListAccessibleAreas(inviteOwnerDID)
+	areas, _ := svc.ListAccessibleAreas(invitePiCDID)
 	if len(areas) != 0 {
 		t.Errorf("got %d, want 0 (returned checkout excluded)", len(areas))
 	}
@@ -914,7 +927,7 @@ func TestListAccessibleAreas_ExcludesReturned(t *testing.T) {
 
 func TestListAccessibleAreas_ExcludesRevokedInvitation(t *testing.T) {
 	svc, _ := setupCheckout()
-	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-16", models.CheckoutTypeLending, inviteOwnerDID)
+	co, _ := svc.Checkout(inviteEditorDID, "pa-tms-007-16", invitePiCDID)
 	inv, _ := svc.Invite(inviteEditorDID, co.ID, inviteeAlpha, 0)
 	svc.RevokeInvite(inviteEditorDID, inv.ID)
 
@@ -924,37 +937,33 @@ func TestListAccessibleAreas_ExcludesRevokedInvitation(t *testing.T) {
 	}
 }
 
-func TestReassignOwner_EditorSelfToMemberHandover(t *testing.T) {
-	// 編集メンバーが自分でチェックアウト→記録→活動メンバーへ担当者を移譲
-	// 仕様 docs/wants/05_チェックアウト.md「編集メンバーから活動メンバーへの担当者移譲」
+// --- 編集メンバー → 活動メンバー 担当者移譲 ---
+
+func TestReassignPersonInCharge_EditorSelfToMemberHandover(t *testing.T) {
 	svc, repos := setupCheckout()
 	areaID := "pa-tms-006-08"
 
-	co, err := svc.Checkout(inviteEditorDID, areaID, models.CheckoutTypeLending, inviteEditorDID)
+	co, err := svc.Checkout(inviteEditorDID, areaID, inviteEditorDID)
 	if err != nil {
-		t.Fatalf("self-lending: %v", err)
+		t.Fatalf("editor self-assign: %v", err)
 	}
 
-	// 編集メンバーが訪問記録を作成
 	_, err = svc.RecordVisit(inviteEditorDID, co.ID, "place-x", models.VisitResultMet, time.Now(), "")
 	if err != nil {
 		t.Fatalf("RecordVisit: %v", err)
 	}
 
-	// 活動メンバーへ移譲
-	if err := svc.ReassignOwner(inviteEditorDID, co.ID, inviteOwnerDID); err != nil {
-		t.Fatalf("ReassignOwner: %v", err)
+	if err := svc.ReassignPersonInCharge(inviteEditorDID, co.ID, invitePiCDID); err != nil {
+		t.Fatalf("ReassignPersonInCharge: %v", err)
 	}
 
 	got, _ := repos.Checkout.GetCheckout(co.ID)
-	if got.OwnerID != inviteOwnerDID {
-		t.Errorf("OwnerID = %q, want %q", got.OwnerID, inviteOwnerDID)
+	if got.PersonInChargeID != invitePiCDID {
+		t.Errorf("PersonInChargeID = %q, want %q", got.PersonInChargeID, invitePiCDID)
 	}
-	// LentByID は元編集メンバーのまま（履歴）
-	if got.LentByID != inviteEditorDID {
-		t.Errorf("LentByID = %q, want %q (history preserved)", got.LentByID, inviteEditorDID)
+	if got.CheckedOutByID != inviteEditorDID {
+		t.Errorf("CheckedOutByID = %q, want %q (history preserved)", got.CheckedOutByID, inviteEditorDID)
 	}
-	// チェックアウトは継続（訪問記録は単一チェックアウトで紐付き続ける）
 	if got.Status != models.CheckoutStatusActive {
 		t.Errorf("Status = %q, want active (handover preserves checkout)", got.Status)
 	}

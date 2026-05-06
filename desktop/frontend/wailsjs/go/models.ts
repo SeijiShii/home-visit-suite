@@ -1,3 +1,84 @@
+export namespace binding {
+	
+	export class CreatePeriodInput {
+	    name: string;
+	    startDate: time.Time;
+	    endDate: time.Time;
+	    parentAreaIds: string[];
+	    tagIds: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CreatePeriodInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.startDate = this.convertValues(source["startDate"], time.Time);
+	        this.endDate = this.convertValues(source["endDate"], time.Time);
+	        this.parentAreaIds = source["parentAreaIds"];
+	        this.tagIds = source["tagIds"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class UpdatePeriodInput {
+	    name?: string;
+	    startDate?: time.Time;
+	    endDate?: time.Time;
+	    parentAreaIds?: string[];
+	    tagIds?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdatePeriodInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.startDate = this.convertValues(source["startDate"], time.Time);
+	        this.endDate = this.convertValues(source["endDate"], time.Time);
+	        this.parentAreaIds = source["parentAreaIds"];
+	        this.tagIds = source["tagIds"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace models {
 	
 	export class GeoJSONPolygon {
@@ -54,28 +135,30 @@ export namespace models {
 		    return a;
 		}
 	}
-	export class AreaAvailability {
+	export class AvailablePeriod {
 	    id: string;
-	    scopeId: string;
-	    areaId: string;
-	    type: string;
-	    scopeGroupId: string;
-	    setById: string;
+	    name: string;
+	    startDate: time.Time;
+	    endDate: time.Time;
+	    parentAreaIds: string[];
+	    tagIds: string[];
 	    createdAt: time.Time;
+	    updatedAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
-	        return new AreaAvailability(source);
+	        return new AvailablePeriod(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.scopeId = source["scopeId"];
-	        this.areaId = source["areaId"];
-	        this.type = source["type"];
-	        this.scopeGroupId = source["scopeGroupId"];
-	        this.setById = source["setById"];
+	        this.name = source["name"];
+	        this.startDate = this.convertValues(source["startDate"], time.Time);
+	        this.endDate = this.convertValues(source["endDate"], time.Time);
+	        this.parentAreaIds = source["parentAreaIds"];
+	        this.tagIds = source["tagIds"];
 	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -96,17 +179,33 @@ export namespace models {
 		    return a;
 		}
 	}
+	export class AvailablePeriodTag {
+	    id: string;
+	    name: string;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AvailablePeriodTag(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.color = source["color"];
+	    }
+	}
 	export class Checkout {
 	    id: string;
 	    areaId: string;
-	    scopeId: string;
-	    checkoutType: string;
-	    ownerId: string;
-	    lentById: string;
+	    availablePeriodId: string;
+	    personInChargeId: string;
+	    checkedOutById: string;
 	    status: string;
 	    createdAt: time.Time;
 	    returnedAt?: time.Time;
 	    completedAt?: time.Time;
+	    forceClosedAt?: time.Time;
 	    updatedAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
@@ -117,14 +216,14 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.areaId = source["areaId"];
-	        this.scopeId = source["scopeId"];
-	        this.checkoutType = source["checkoutType"];
-	        this.ownerId = source["ownerId"];
-	        this.lentById = source["lentById"];
+	        this.availablePeriodId = source["availablePeriodId"];
+	        this.personInChargeId = source["personInChargeId"];
+	        this.checkedOutById = source["checkedOutById"];
 	        this.status = source["status"];
 	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
 	        this.returnedAt = this.convertValues(source["returnedAt"], time.Time);
 	        this.completedAt = this.convertValues(source["completedAt"], time.Time);
+	        this.forceClosedAt = this.convertValues(source["forceClosedAt"], time.Time);
 	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
 	    }
 	
@@ -203,22 +302,6 @@ export namespace models {
 	    }
 	}
 	
-	export class Group {
-	    id: string;
-	    name: string;
-	    sortOrder: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new Group(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.sortOrder = source["sortOrder"];
-	    }
-	}
 	export class Invitation {
 	    id: string;
 	    type: string;
@@ -409,90 +492,6 @@ export namespace models {
 		    return a;
 		}
 	}
-	export class SchedulePeriod {
-	    id: string;
-	    name: string;
-	    startDate: time.Time;
-	    endDate: time.Time;
-	    approved: boolean;
-	    createdAt: time.Time;
-	    updatedAt: time.Time;
-	
-	    static createFrom(source: any = {}) {
-	        return new SchedulePeriod(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.startDate = this.convertValues(source["startDate"], time.Time);
-	        this.endDate = this.convertValues(source["endDate"], time.Time);
-	        this.approved = source["approved"];
-	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
-	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class Scope {
-	    id: string;
-	    schedulePeriodId: string;
-	    name: string;
-	    groupId: string;
-	    parentAreaIds: string[];
-	    createdAt: time.Time;
-	    updatedAt: time.Time;
-	
-	    static createFrom(source: any = {}) {
-	        return new Scope(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.schedulePeriodId = source["schedulePeriodId"];
-	        this.name = source["name"];
-	        this.groupId = source["groupId"];
-	        this.parentAreaIds = source["parentAreaIds"];
-	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
-	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class Tag {
 	    id: string;
 	    name: string;
@@ -513,7 +512,6 @@ export namespace models {
 	    id: string;
 	    name: string;
 	    role: string;
-	    orgGroupId: string;
 	    tagIds: string[];
 	    joinedAt: time.Time;
 	
@@ -526,7 +524,6 @@ export namespace models {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.role = source["role"];
-	        this.orgGroupId = source["orgGroupId"];
 	        this.tagIds = source["tagIds"];
 	        this.joinedAt = this.convertValues(source["joinedAt"], time.Time);
 	    }

@@ -6,6 +6,8 @@ import { useIdentity, isRoleAtLeast } from "../contexts/IdentityContext";
 import * as CheckoutBinding from "../../wailsjs/go/binding/CheckoutBinding";
 import * as RegionBinding from "../../wailsjs/go/binding/RegionBinding";
 import * as UserBinding from "../../wailsjs/go/binding/UserBinding";
+import * as AvailablePeriodBinding from "../../wailsjs/go/binding/AvailablePeriodBinding";
+import { models } from "../../wailsjs/go/models";
 
 /**
  * ダッシュボードに表示する1行分のアクセス可能区域。
@@ -161,6 +163,13 @@ export function DashboardPage() {
 
   const [rows, setRows] = useState<AccessibleAreaRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // チェックアウト可能な区域（アクティブ AvailablePeriod 内、未チェックアウト）
+  const [checkoutableAreas, setCheckoutableAreas] = useState<
+    { areaId: string; displayName: string }[]
+  >([]);
+  const [activePeriod, setActivePeriod] =
+    useState<models.AvailablePeriod | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   // 残り時間表示を 1 分ごとに更新する用途の現在時刻 tick
   const [now, setNow] = useState<number>(() => Date.now());
 
@@ -257,7 +266,7 @@ export function DashboardPage() {
           const composed: AllAreaRow[] = allAreaList.map((a, idx) => {
             const co = activeCheckouts[idx];
             const ownerDisplay = co
-              ? (userById.get(co.ownerId) ?? co.ownerId)
+              ? (userById.get(co.personInChargeId) ?? co.personInChargeId)
               : null;
             const display = tree.displayIndex.get(a.id) ?? a.id;
             return {
@@ -290,7 +299,73 @@ export function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentActorID, isEditorPlus]);
+  }, [currentActorID, isEditorPlus, reloadTick]);
+
+  // チェックアウト可能な区域: アクティブ AvailablePeriod の対象区域親番配下で、
+  // 他者を含めて誰もアクティブにチェックアウトしていない区域
+  useEffect(() => {
+    if (!currentActorID) {
+      setCheckoutableAreas([]);
+      setActivePeriod(null);
+      return;
+    }
+    let cancelled = false;
+    async function fetchCheckoutable() {
+      try {
+        const period = await AvailablePeriodBinding.GetActivePeriod();
+        if (cancelled) return;
+        setActivePeriod(period);
+        if (
+          !period ||
+          !period.parentAreaIds ||
+          period.parentAreaIds.length === 0
+        ) {
+          setCheckoutableAreas([]);
+          return;
+        }
+
+        // 対象区域親番配下の全区域を収集
+        const tree = await buildRegionTreeIndex();
+        if (cancelled) return;
+        const candidateAreas: { areaId: string; displayName: string }[] = [];
+        for (const paId of period.parentAreaIds) {
+          const areas = tree.areasByParent.get(paId) ?? [];
+          for (const a of areas) {
+            candidateAreas.push({
+              areaId: a.id,
+              displayName: tree.displayIndex.get(a.id) ?? a.id,
+            });
+          }
+        }
+
+        // 各区域の active checkout を確認し、誰もチェックアウトしていないもののみ残す
+        const activeStatuses = await Promise.all(
+          candidateAreas.map((a) =>
+            CheckoutBinding.GetActiveCheckout(a.areaId).catch(() => null),
+          ),
+        );
+        if (cancelled) return;
+        const filtered = candidateAreas.filter((_a, i) => !activeStatuses[i]);
+        filtered.sort((x, y) => x.displayName.localeCompare(y.displayName));
+        setCheckoutableAreas(filtered);
+      } catch (e) {
+        console.error("checkoutable areas fetch failed", e);
+      }
+    }
+    void fetchCheckoutable();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentActorID, reloadTick]);
+
+  const handleCheckout = async (areaId: string) => {
+    try {
+      await CheckoutBinding.Checkout(currentActorID, areaId, currentActorID);
+      setReloadTick((t) => t + 1);
+    } catch (e) {
+      window.alert(String(e));
+    }
+  };
 
   // 領域フィルタ変更時、選択中の区域親番を invalidate（別領域の親番を保持しない）
   useEffect(() => {
@@ -412,6 +487,49 @@ export function DashboardPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </section>
+
+      <section>
+        <h2>{t.dashboard.checkoutableAreas}</h2>
+        {!activePeriod ? (
+          <p className="dashboard-empty">{t.dashboard.noActivePeriod}</p>
+        ) : checkoutableAreas.length === 0 ? (
+          <p className="dashboard-empty">{t.dashboard.noCheckoutableAreas}</p>
+        ) : (
+          <>
+            <p className="dashboard-section-note">
+              {t.dashboard.activePeriodNote({
+                name: activePeriod.name,
+                start: String(activePeriod.startDate).slice(0, 10),
+                end: String(activePeriod.endDate).slice(0, 10),
+              })}
+            </p>
+            <table className="dashboard-table">
+              <thead>
+                <tr>
+                  <th>{t.dashboard.colArea}</th>
+                  <th>{t.dashboard.colActions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checkoutableAreas.map((a) => (
+                  <tr key={a.areaId}>
+                    <td className="dashboard-cell-area">{a.displayName}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => void handleCheckout(a.areaId)}
+                      >
+                        {t.dashboard.checkoutAction}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </section>
 

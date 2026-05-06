@@ -95,14 +95,14 @@ export function VisitPageContainer() {
         if (mode === "read_only") {
           const co = await CheckoutBinding.GetActiveCheckout(PHASE1_AREA_ID);
           if (cancelled) return;
-          if (co && co.ownerId && co.ownerId !== actorId) {
+          if (co && co.personInChargeId && co.personInChargeId !== actorId) {
             try {
-              const u = await UserBinding.GetUser(co.ownerId);
+              const u = await UserBinding.GetUser(co.personInChargeId);
               if (!cancelled) {
-                setActiveCheckoutOwnerName(u?.name ?? co.ownerId);
+                setActiveCheckoutOwnerName(u?.name ?? co.personInChargeId);
               }
             } catch {
-              if (!cancelled) setActiveCheckoutOwnerName(co.ownerId);
+              if (!cancelled) setActiveCheckoutOwnerName(co.personInChargeId);
             }
           } else if (!cancelled) {
             setActiveCheckoutOwnerName(null);
@@ -120,10 +120,10 @@ export function VisitPageContainer() {
     };
   }, [actorId, accessTick]);
 
-  /** [この区域をチェックアウトして記録する] CTA: 自分自身に lending を発行 */
+  /** [この区域をチェックアウトして記録する] CTA: 自分自身を担当者にチェックアウト発行 */
   const handleSelfCheckout = useCallback(async () => {
     try {
-      await CheckoutBinding.Checkout(actorId, PHASE1_AREA_ID, "lending", actorId);
+      await CheckoutBinding.Checkout(actorId, PHASE1_AREA_ID, actorId);
       setAccessTick((t) => t + 1);
     } catch (e) {
       console.error("self checkout failed", e);
@@ -131,14 +131,14 @@ export function VisitPageContainer() {
     }
   }, [actorId]);
 
-  /** [強制回収して自分でチェックアウト] CTA: 強制回収 → 自分に lending */
+  /** [強制回収して自分でチェックアウト] CTA: 強制回収 → 自分にチェックアウト */
   const handleForceReclaimAndSelfCheckout = useCallback(async () => {
     try {
       const co = await CheckoutBinding.GetActiveCheckout(PHASE1_AREA_ID);
       if (co?.id) {
         await CheckoutBinding.ForceReturn(actorId, co.id);
       }
-      await CheckoutBinding.Checkout(actorId, PHASE1_AREA_ID, "lending", actorId);
+      await CheckoutBinding.Checkout(actorId, PHASE1_AREA_ID, actorId);
       setAccessTick((t) => t + 1);
     } catch (e) {
       console.error("force reclaim failed", e);

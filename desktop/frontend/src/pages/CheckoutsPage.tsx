@@ -14,21 +14,22 @@ interface CheckoutRow {
   id: string;
   areaId: string;
   areaDisplay: string;
-  ownerId: string;
-  ownerName: string;
-  lentById: string;
-  lentByName: string;
+  personInChargeId: string;
+  personInChargeName: string;
+  checkedOutById: string;
+  checkedOutByName: string;
   status: string;
-  checkoutType: string;
+  availablePeriodId: string;
   createdAt: string;
   returnedAt: string | null;
   completedAt: string | null;
+  forceClosedAt: string | null;
 }
 
 interface RegionTreeMaps {
   /** areaId → "NRT-001-01" 表示名 */
   displayIndex: Map<string, string>;
-  /** 全区域メタ情報（貸出ダイアログの選択肢用） */
+  /** 全区域メタ情報（チェックアウト発行ダイアログの選択肢用） */
   allAreas: { id: string; displayName: string }[];
 }
 
@@ -60,8 +61,7 @@ function statusToTab(status: string): StatusTab | null {
 
 /**
  * チェックアウト管理画面（編集メンバー以上専用、サイドバーから到達）。
- * Phase G5: 本実装。一覧・詳細・貸出ダイアログ・基本アクション（返却 / 強制回収 / 担当者変更）を提供する。
- * 招待発行ダイアログは Phase G6 で実装するためプレースホルダー。
+ * 一覧・詳細・チェックアウト発行ダイアログ・基本アクション（返却 / 強制回収 / 担当者変更）を提供する。
  * 仕様 docs/wants/10_画面設計.md「3. チェックアウト管理」
  */
 export function CheckoutsPage() {
@@ -99,21 +99,24 @@ export function CheckoutsPage() {
       const userById = new Map<string, models.User>();
       for (const u of allUsers ?? []) userById.set(u.id, u);
       const composed: CheckoutRow[] = (all ?? []).map((co) => {
-        const owner = userById.get(co.ownerId);
-        const lentBy = co.lentById ? userById.get(co.lentById) : undefined;
+        const pic = userById.get(co.personInChargeId);
+        const checkedBy = co.checkedOutById
+          ? userById.get(co.checkedOutById)
+          : undefined;
         return {
           id: co.id,
           areaId: co.areaId,
           areaDisplay: maps.displayIndex.get(co.areaId) ?? co.areaId,
-          ownerId: co.ownerId,
-          ownerName: owner?.name ?? co.ownerId,
-          lentById: co.lentById,
-          lentByName: lentBy?.name ?? co.lentById,
+          personInChargeId: co.personInChargeId,
+          personInChargeName: pic?.name ?? co.personInChargeId,
+          checkedOutById: co.checkedOutById,
+          checkedOutByName: checkedBy?.name ?? co.checkedOutById,
           status: co.status,
-          checkoutType: co.checkoutType,
+          availablePeriodId: co.availablePeriodId,
           createdAt: String(co.createdAt ?? ""),
           returnedAt: co.returnedAt ? String(co.returnedAt) : null,
           completedAt: co.completedAt ? String(co.completedAt) : null,
+          forceClosedAt: co.forceClosedAt ? String(co.forceClosedAt) : null,
         };
       });
       composed.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -172,7 +175,7 @@ export function CheckoutsPage() {
       const tab = statusToTab(r.status);
       if (tab !== activeTab) return false;
       if (q) {
-        const hay = `${r.areaDisplay} ${r.ownerName}`.toLowerCase();
+        const hay = `${r.areaDisplay} ${r.personInChargeName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -213,13 +216,16 @@ export function CheckoutsPage() {
   /** 担当者変更（editor+） — 簡易プロンプトで DID を入力 */
   const handleReassign = useCallback(async () => {
     if (!selected) return;
-    const newOwnerID = window.prompt(c.confirmReassignPrompt, selected.ownerId);
-    if (!newOwnerID || newOwnerID === selected.ownerId) return;
+    const newPiCID = window.prompt(
+      c.confirmReassignPrompt,
+      selected.personInChargeId,
+    );
+    if (!newPiCID || newPiCID === selected.personInChargeId) return;
     try {
-      await CheckoutBinding.ReassignOwner(
+      await CheckoutBinding.ReassignPersonInCharge(
         currentActorID,
         selected.id,
-        newOwnerID.trim(),
+        newPiCID.trim(),
       );
       await reload();
     } catch (e) {
@@ -342,7 +348,7 @@ export function CheckoutsPage() {
                 </div>
                 <div className="checkouts-list-item-meta">
                   <span className="checkouts-list-item-owner">
-                    {row.ownerName}
+                    {row.personInChargeName}
                   </span>
                   <span
                     className={`checkouts-list-item-status checkouts-status-${row.status}`}
@@ -393,7 +399,7 @@ export function CheckoutsPage() {
       {inviteDialogOpen && selected && (
         <InviteDialog
           checkoutId={selected.id}
-          ownerId={selected.ownerId}
+          ownerId={selected.personInChargeId}
           areaDisplay={selected.areaDisplay}
           actorId={currentActorID}
           onClose={() => setInviteDialogOpen(false)}
@@ -430,8 +436,8 @@ function CheckoutDetail({
 }: DetailProps) {
   const c = t.checkouts;
   const isActive = row.status === "active" || row.status === "pending";
-  const typeLabel =
-    row.checkoutType === "lending" ? c.typeLending : c.typeSelfTake;
+  const showIssuer =
+    row.checkedOutById !== "" && row.checkedOutById !== row.personInChargeId;
   const statusLabel =
     (c.status as Record<string, string>)[row.status] ?? row.status;
 
@@ -451,17 +457,13 @@ function CheckoutDetail({
         </div>
       </div>
       <div className="checkouts-detail-row">
-        <div className="checkouts-detail-label">{c.detailType}</div>
-        <div className="checkouts-detail-value">{typeLabel}</div>
-      </div>
-      <div className="checkouts-detail-row">
         <div className="checkouts-detail-label">{c.detailOwner}</div>
-        <div className="checkouts-detail-value">{row.ownerName}</div>
+        <div className="checkouts-detail-value">{row.personInChargeName}</div>
       </div>
-      {row.lentById && (
+      {showIssuer && (
         <div className="checkouts-detail-row">
           <div className="checkouts-detail-label">{c.detailLentBy}</div>
-          <div className="checkouts-detail-value">{row.lentByName}</div>
+          <div className="checkouts-detail-value">{row.checkedOutByName}</div>
         </div>
       )}
       <div className="checkouts-detail-row">
@@ -618,7 +620,7 @@ function IssueCheckoutDialog({
     if (!areaId || !ownerId) return;
     setSubmitting(true);
     try {
-      await CheckoutBinding.Checkout(actorId, areaId, "lending", ownerId);
+      await CheckoutBinding.Checkout(actorId, areaId, ownerId);
       await onIssued();
     } catch (e) {
       onError(`${c.dlgIssue}: ${String(e)}`);

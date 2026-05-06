@@ -9,16 +9,31 @@ import (
 )
 
 type checkoutService struct {
-	coRepo    domain.CheckoutRepository
-	userRepo  domain.UserRepository
-	notifRepo domain.NotificationRepository
+	coRepo     domain.CheckoutRepository
+	userRepo   domain.UserRepository
+	notifRepo  domain.NotificationRepository
+	regionRepo domain.RegionRepository
+	apSvc      AvailablePeriodService
 }
 
 // NewCheckoutService はCheckoutServiceの実装を生成する。
 // notifRepo は申請を伴う訪問ステータス（vacant_abandoned / refused）から
 // Request を作成する際に使用する。
-func NewCheckoutService(coRepo domain.CheckoutRepository, userRepo domain.UserRepository, notifRepo domain.NotificationRepository) CheckoutService {
-	return &checkoutService{coRepo: coRepo, userRepo: userRepo, notifRepo: notifRepo}
+// regionRepo / apSvc はチェックアウト発行時の AvailablePeriod 制約バリデーションに使用する。
+func NewCheckoutService(
+	coRepo domain.CheckoutRepository,
+	userRepo domain.UserRepository,
+	notifRepo domain.NotificationRepository,
+	regionRepo domain.RegionRepository,
+	apSvc AvailablePeriodService,
+) CheckoutService {
+	return &checkoutService{
+		coRepo:     coRepo,
+		userRepo:   userRepo,
+		notifRepo:  notifRepo,
+		regionRepo: regionRepo,
+		apSvc:      apSvc,
+	}
 }
 
 func (s *checkoutService) getActorRole(actorID string) (models.Role, error) {
@@ -29,21 +44,40 @@ func (s *checkoutService) getActorRole(actorID string) (models.Role, error) {
 	return user.Role, nil
 }
 
-func (s *checkoutService) Checkout(actorID string, areaID string, checkoutType models.CheckoutType, ownerID string) (*models.Checkout, error) {
+func (s *checkoutService) Checkout(actorID string, areaID string, personInChargeID string) (*models.Checkout, error) {
 	role, err := s.getActorRole(actorID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 権限チェック: lending は editor+ のみ
-	if checkoutType == models.CheckoutTypeLending && !role.IsAtLeast(models.RoleEditor) {
-		return nil, NewError(ErrPermissionDenied, "lending checkout requires editor or above")
+	if personInChargeID == "" {
+		personInChargeID = actorID
 	}
 
-	// 仕様メモ: スコープ・貸し出し可能区域・持ち出し可能区域のバリデーション本体は
-	// 未実装。実装時は活動メンバーの操作にのみ適用し、編集メンバー以上は
-	// バイパス可能とする（上位互換、`05_チェックアウト.md`「可用性制約のバイパス」）。
-	// 詳細は `09_継続的検討事項.md` の積み残しメモ参照。
+	// 権限チェック: 活動メンバーは自分自身を担当者にする場合のみ発行可能
+	if !role.IsAtLeast(models.RoleEditor) && personInChargeID != actorID {
+		return nil, NewError(ErrPermissionDenied, "members can only checkout for themselves")
+	}
+
+	now := time.Now()
+
+	// AvailablePeriod 制約: アクティブな期間が存在し、対象区域の親番が含まれていること
+	// 編集メンバーもバイパス不可（仕様 docs/wants/06_網羅管理.md / 09 継続的検討事項）
+	period, err := s.apSvc.GetActivePeriod(now)
+	if err != nil {
+		return nil, fmt.Errorf("get active period: %w", err)
+	}
+	if period == nil {
+		return nil, NewError(ErrInvalidState, "no active AvailablePeriod (cooldown)")
+	}
+
+	area, err := s.regionRepo.GetArea(areaID)
+	if err != nil || area == nil {
+		return nil, Errorf(ErrNotFound, "area not found: %s", areaID)
+	}
+	if !containsString(period.ParentAreaIDs, area.ParentAreaID) {
+		return nil, NewError(ErrPermissionDenied, "area's parent area is not in the active period's targets")
+	}
 
 	// 排他的チェックアウト: アクティブなチェックアウトがあればエラー
 	existing, _ := s.coRepo.GetActiveCheckout(areaID)
@@ -51,21 +85,15 @@ func (s *checkoutService) Checkout(actorID string, areaID string, checkoutType m
 		return nil, Errorf(ErrExclusiveCheckout, "area %s already has active checkout: %s", areaID, existing.ID)
 	}
 
-	now := time.Now()
 	c := &models.Checkout{
-		ID:           fmt.Sprintf("co-%d", now.UnixNano()),
-		AreaID:       areaID,
-		CheckoutType: checkoutType,
-		OwnerID:      ownerID,
-		Status:       models.CheckoutStatusActive,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-
-	if checkoutType == models.CheckoutTypeLending {
-		// LentByID は当該操作を行った editor+ の DID。
-		// editor+ が自分自身に貸し出す場合（ownerID == actorID）も許容され、その場合 OwnerID == LentByID となる。
-		c.LentByID = actorID
+		ID:                fmt.Sprintf("co-%d", now.UnixNano()),
+		AreaID:            areaID,
+		AvailablePeriodID: period.ID,
+		PersonInChargeID:  personInChargeID,
+		CheckedOutByID:    actorID,
+		Status:            models.CheckoutStatusActive,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 
 	if err := s.coRepo.SaveCheckout(c); err != nil {
@@ -110,13 +138,13 @@ func (s *checkoutService) ForceReturn(actorID string, checkoutID string) error {
 	return s.Return(actorID, checkoutID)
 }
 
-func (s *checkoutService) ReassignOwner(actorID string, checkoutID string, newOwnerID string) error {
+func (s *checkoutService) ReassignPersonInCharge(actorID string, checkoutID string, newPersonInChargeID string) error {
 	role, err := s.getActorRole(actorID)
 	if err != nil {
 		return err
 	}
 	if !role.IsAtLeast(models.RoleEditor) {
-		return NewError(ErrPermissionDenied, "reassign owner requires editor or above")
+		return NewError(ErrPermissionDenied, "reassign person in charge requires editor or above")
 	}
 
 	c, err := s.coRepo.GetCheckout(checkoutID)
@@ -127,19 +155,19 @@ func (s *checkoutService) ReassignOwner(actorID string, checkoutID string, newOw
 		return Errorf(ErrInvalidState, "reassign requires active checkout (status: %s)", c.Status)
 	}
 
-	if newOwnerID == c.OwnerID {
+	if newPersonInChargeID == c.PersonInChargeID {
 		return nil // 冪等: 同じ担当者への再任命は no-op で成功
 	}
 
-	if _, err := s.userRepo.GetUser(newOwnerID); err != nil {
-		return Errorf(ErrNotFound, "new owner not found: %s", newOwnerID)
+	if _, err := s.userRepo.GetUser(newPersonInChargeID); err != nil {
+		return Errorf(ErrNotFound, "new person in charge not found: %s", newPersonInChargeID)
 	}
 
 	now := time.Now()
-	c.OwnerID = newOwnerID
+	c.PersonInChargeID = newPersonInChargeID
 	c.UpdatedAt = now
-	// LentByID は変更しない（履歴として保持、仕様 Q16）
-	// 紐づく招待も維持（仕様 Q2）
+	// CheckedOutByID は変更しない（操作履歴として保持）
+	// 紐づく招待も維持（仕様: 担当者変更で招待は剥奪されない）
 	return s.coRepo.SaveCheckout(c)
 }
 
@@ -276,13 +304,13 @@ func (s *checkoutService) Invite(actorID string, checkoutID string, inviteeID st
 	if err != nil {
 		return nil, err
 	}
-	if !actorRole.IsAtLeast(models.RoleEditor) && actorID != c.OwnerID {
-		return nil, NewError(ErrPermissionDenied, "invite requires editor or current checkout owner")
+	if !actorRole.IsAtLeast(models.RoleEditor) && actorID != c.PersonInChargeID {
+		return nil, NewError(ErrPermissionDenied, "invite requires editor or current checkout person in charge")
 	}
 
 	// 被招待者の検証
-	if inviteeID == c.OwnerID {
-		return nil, NewError(ErrInvalidInput, "cannot invite the owner themselves")
+	if inviteeID == c.PersonInChargeID {
+		return nil, NewError(ErrInvalidInput, "cannot invite the person in charge themselves")
 	}
 	invitee, err := s.userRepo.GetUser(inviteeID)
 	if err != nil {
@@ -340,8 +368,8 @@ func (s *checkoutService) RevokeInvite(actorID string, invitationID string) erro
 		return err
 	}
 	// 取消可能: 招待者本人 / 現担当者 / editor+
-	if actorID != inv.InviterID && actorID != c.OwnerID && !actorRole.IsAtLeast(models.RoleEditor) {
-		return NewError(ErrPermissionDenied, "revoke requires inviter, current owner, or editor")
+	if actorID != inv.InviterID && actorID != c.PersonInChargeID && !actorRole.IsAtLeast(models.RoleEditor) {
+		return NewError(ErrPermissionDenied, "revoke requires inviter, current person in charge, or editor")
 	}
 
 	now := time.Now()
@@ -394,7 +422,7 @@ func (s *checkoutService) notifyAreaInvite(inv *models.CheckoutInvitation) {
 func (s *checkoutService) AreaAccessMode(userID string, areaID string) (models.AccessMode, error) {
 	// 1. 自分が担当者として active チェックアウトを持っているか
 	active, _ := s.coRepo.GetActiveCheckout(areaID)
-	if active != nil && active.OwnerID == userID && active.Status == models.CheckoutStatusActive {
+	if active != nil && active.PersonInChargeID == userID && active.Status == models.CheckoutStatusActive {
 		return models.AccessModeEditable, nil
 	}
 
@@ -438,7 +466,7 @@ func (s *checkoutService) ListAccessibleAreas(userID string) ([]AccessibleArea, 
 	seenCheckouts := make(map[string]bool) // 担当者でも被招待者でもある場合の重複排除
 
 	// 担当者として active なチェックアウトを持つ区域
-	owned, err := s.coRepo.ListActiveCheckoutsForOwner(userID)
+	owned, err := s.coRepo.ListActiveCheckoutsForPersonInCharge(userID)
 	if err != nil {
 		return nil, fmt.Errorf("list owned checkouts: %w", err)
 	}
@@ -446,7 +474,7 @@ func (s *checkoutService) ListAccessibleAreas(userID string) ([]AccessibleArea, 
 		result = append(result, AccessibleArea{
 			AreaID:     c.AreaID,
 			CheckoutID: c.ID,
-			Role:       AccessibleAreaRoleOwner,
+			Role:       AccessibleAreaRolePersonInCharge,
 		})
 		seenCheckouts[c.ID] = true
 	}
@@ -483,4 +511,13 @@ func (s *checkoutService) ListAccessibleAreas(userID string) ([]AccessibleArea, 
 	}
 
 	return result, nil
+}
+
+func containsString(haystack []string, needle string) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
 }

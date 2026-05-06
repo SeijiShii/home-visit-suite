@@ -25,7 +25,7 @@ func TestCanRead_AllRolesAllTables(t *testing.T) {
 }
 
 func TestCanWrite_AdminOnly(t *testing.T) {
-	adminTables := []string{linkself.TableRegions, linkself.TableUsers, linkself.TableOrgGroups}
+	adminTables := []string{linkself.TableRegions, linkself.TableUsers}
 	for _, tbl := range adminTables {
 		if !newPolicy("admin").CanWrite("", tbl) {
 			t.Errorf("admin should write to %s", tbl)
@@ -44,8 +44,7 @@ func TestCanWrite_EditorPlus(t *testing.T) {
 		linkself.TableParentAreas, linkself.TableAreas, linkself.TablePlaces,
 		linkself.TableMapNetwork, linkself.TableMemberTags,
 		linkself.TableVisitRecordEdits,
-		linkself.TableCoverages, linkself.TableSchedulePeriods,
-		linkself.TableScopes, linkself.TableAreaAvailability,
+		linkself.TableCoverages, linkself.TableAvailablePeriods, linkself.TableAvailablePeriodTags,
 		linkself.TableInvitations,
 	}
 	for _, tbl := range editorTables {

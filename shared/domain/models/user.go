@@ -29,21 +29,15 @@ func (r Role) IsAtLeast(required Role) bool {
 }
 
 // User はシステム利用者を表す。
+//
+// メンバーグループ（旧 OrgGroup）概念は 2026-05-06 に廃止された。
+// ロール・メンバータグでメンバー分類を表現する（仕様 04_メンバー管理と権限.md）
 type User struct {
-	ID         string    `json:"id"`         // LinkSelf DID
-	Name       string    `json:"name"`       // 表示名
-	Role       Role      `json:"role"`
-	OrgGroupID string    `json:"orgGroupId"` // 組織グループ（排他的所属、未所属は空文字）
-	TagIDs     []string  `json:"tagIds"`     // メンバータグIDリスト
-	JoinedAt   time.Time `json:"joinedAt"`   // 参加日時
-}
-
-// Group は管理者が作成するメンバーグループを表す。
-// メンバーは排他的に1つのグループにのみ所属する。
-type Group struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	SortOrder int    `json:"sortOrder"`
+	ID       string    `json:"id"`       // LinkSelf DID
+	Name     string    `json:"name"`     // 表示名
+	Role     Role      `json:"role"`
+	TagIDs   []string  `json:"tagIds"`   // メンバータグIDリスト
+	JoinedAt time.Time `json:"joinedAt"` // 参加日時
 }
 
 // TagColorPalette はタグに自動割り当てするプリセット色（8色）。

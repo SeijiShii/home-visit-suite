@@ -3450,7 +3450,7 @@ section {
   flex-wrap: wrap;
 }
 
-/* 貸し出しダイアログ */
+/* チェックアウト発行ダイアログ */
 .checkouts-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -3696,4 +3696,233 @@ section {
   border-radius: 4px;
   font-size: 13px;
   color: #475569;
+}
+
+/* --- Coverage Page (AvailablePeriod 管理) --- */
+.coverage-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.coverage-page-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.coverage-active-period {
+  background: #f1f5f9;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.coverage-active-period h2 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #475569;
+}
+.coverage-period-list {
+  margin-bottom: 24px;
+}
+.coverage-period-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.coverage-period-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid #cbd5e1;
+  background: #f8fafc;
+}
+.coverage-period-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.coverage-phase {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.coverage-phase-pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.coverage-phase-active {
+  background: #d1fae5;
+  color: #047857;
+}
+.coverage-phase-closed {
+  background: #fef3c7;
+  color: #92400e;
+}
+.coverage-tag-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid;
+  border-radius: 10px;
+  margin-right: 4px;
+  font-size: 11px;
+  background: #fff;
+}
+.coverage-tags {
+  margin-top: 24px;
+}
+.coverage-tags-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.coverage-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.coverage-tag-chip-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 12px;
+}
+.coverage-tag-chip-delete {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.coverage-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.coverage-dialog {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 20px;
+  width: 480px;
+  max-width: 92vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.coverage-dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.coverage-dialog-lock {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.coverage-dialog-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.coverage-dialog-row label {
+  width: 100px;
+  font-size: 13px;
+  color: #475569;
+}
+.coverage-dialog-row input[type="text"],
+.coverage-dialog-row input[type="date"] {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.coverage-dialog-section {
+  margin-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+}
+.coverage-dialog-section h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: #1e293b;
+}
+.coverage-pa-tree {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+.coverage-pa-region {
+  margin-bottom: 10px;
+}
+.coverage-pa-region-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.coverage-pa-region-name {
+  flex: 1;
+}
+.coverage-pa-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding-left: 16px;
+}
+.coverage-pa-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.coverage-tag-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.coverage-tag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.coverage-tag-toggle input {
+  display: none;
+}
+.coverage-tag-toggle-on {
+  background: #fff;
+  font-weight: 600;
+}
+.coverage-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
 }

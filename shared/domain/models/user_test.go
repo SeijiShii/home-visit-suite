@@ -10,17 +10,13 @@ import (
 func TestUser_NewFields(t *testing.T) {
 	now := time.Now()
 	u := models.User{
-		ID:         "did:key:z6Mktest123",
-		Name:       "田中太郎",
-		Role:       models.RoleEditor,
-		OrgGroupID: "group-a",
-		TagIDs:     []string{"tag-1", "tag-2"},
-		JoinedAt:   now,
+		ID:       "did:key:z6Mktest123",
+		Name:     "田中太郎",
+		Role:     models.RoleEditor,
+		TagIDs:   []string{"tag-1", "tag-2"},
+		JoinedAt: now,
 	}
 
-	if u.OrgGroupID != "group-a" {
-		t.Errorf("OrgGroupID = %q, want %q", u.OrgGroupID, "group-a")
-	}
 	if len(u.TagIDs) != 2 {
 		t.Errorf("TagIDs len = %d, want 2", len(u.TagIDs))
 	}
@@ -29,18 +25,6 @@ func TestUser_NewFields(t *testing.T) {
 	}
 	if !u.JoinedAt.Equal(now) {
 		t.Errorf("JoinedAt = %v, want %v", u.JoinedAt, now)
-	}
-}
-
-func TestUser_OrgGroupID_Empty(t *testing.T) {
-	u := models.User{
-		ID:   "did:key:z6Mktest456",
-		Name: "未所属メンバー",
-		Role: models.RoleMember,
-	}
-
-	if u.OrgGroupID != "" {
-		t.Errorf("OrgGroupID = %q, want empty (unassigned)", u.OrgGroupID)
 	}
 }
 

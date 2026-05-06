@@ -11,7 +11,6 @@ import (
 type InMemoryUserRepository struct {
 	mu          sync.RWMutex
 	users       map[string]*models.User
-	groups      map[string]*models.Group
 	tags        map[string]*models.Tag
 	invitations map[string]*models.Invitation
 }
@@ -19,7 +18,6 @@ type InMemoryUserRepository struct {
 func NewInMemoryUserRepository() *InMemoryUserRepository {
 	return &InMemoryUserRepository{
 		users:       make(map[string]*models.User),
-		groups:      make(map[string]*models.Group),
 		tags:        make(map[string]*models.Tag),
 		invitations: make(map[string]*models.Invitation),
 	}
@@ -74,54 +72,6 @@ func (r *InMemoryUserRepository) DeleteUser(id string) error {
 		return fmt.Errorf("user not found: %s", id)
 	}
 	delete(r.users, id)
-	return nil
-}
-
-// --- Group ---
-
-func (r *InMemoryUserRepository) ListGroups() ([]models.Group, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	result := make([]models.Group, 0, len(r.groups))
-	for _, v := range r.groups {
-		result = append(result, *v)
-	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].SortOrder < result[j].SortOrder
-	})
-	return result, nil
-}
-
-func (r *InMemoryUserRepository) GetGroup(id string) (*models.Group, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	v, ok := r.groups[id]
-	if !ok {
-		return nil, fmt.Errorf("group not found: %s", id)
-	}
-	copy := *v
-	return &copy, nil
-}
-
-func (r *InMemoryUserRepository) SaveGroup(group *models.Group) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	copy := *group
-	r.groups[group.ID] = &copy
-	return nil
-}
-
-func (r *InMemoryUserRepository) DeleteGroup(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, ok := r.groups[id]; !ok {
-		return fmt.Errorf("group not found: %s", id)
-	}
-	delete(r.groups, id)
 	return nil
 }
 

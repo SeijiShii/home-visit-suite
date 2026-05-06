@@ -6,8 +6,8 @@ export function AreaAccessMode(arg1, arg2) {
   return window['go']['binding']['CheckoutBinding']['AreaAccessMode'](arg1, arg2);
 }
 
-export function Checkout(arg1, arg2, arg3, arg4) {
-  return window['go']['binding']['CheckoutBinding']['Checkout'](arg1, arg2, arg3, arg4);
+export function Checkout(arg1, arg2, arg3) {
+  return window['go']['binding']['CheckoutBinding']['Checkout'](arg1, arg2, arg3);
 }
 
 export function ForceReturn(arg1, arg2) {
@@ -46,8 +46,8 @@ export function PlaceAccessMode(arg1, arg2) {
   return window['go']['binding']['CheckoutBinding']['PlaceAccessMode'](arg1, arg2);
 }
 
-export function ReassignOwner(arg1, arg2, arg3) {
-  return window['go']['binding']['CheckoutBinding']['ReassignOwner'](arg1, arg2, arg3);
+export function ReassignPersonInCharge(arg1, arg2, arg3) {
+  return window['go']['binding']['CheckoutBinding']['ReassignPersonInCharge'](arg1, arg2, arg3);
 }
 
 export function Return(arg1, arg2) {

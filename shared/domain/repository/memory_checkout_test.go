@@ -17,13 +17,14 @@ func newCheckoutRepo() *repository.InMemoryCheckoutRepository {
 func TestCheckout_SaveAndGet(t *testing.T) {
 	repo := newCheckoutRepo()
 	c := &models.Checkout{
-		ID:           "co-1",
-		AreaID:       "area-1",
-		CheckoutType: models.CheckoutTypeLending,
-		OwnerID:      "did:key:owner",
-		Status:       models.CheckoutStatusActive,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:                "co-1",
+		AreaID:            "area-1",
+		AvailablePeriodID: "ap-1",
+		PersonInChargeID:  "did:key:owner",
+		CheckedOutByID:    "did:key:editor",
+		Status:            models.CheckoutStatusActive,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 	if err := repo.SaveCheckout(c); err != nil {
 		t.Fatalf("SaveCheckout: %v", err)
@@ -32,8 +33,14 @@ func TestCheckout_SaveAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCheckout: %v", err)
 	}
-	if got.OwnerID != "did:key:owner" {
-		t.Errorf("OwnerID = %q, want did:key:owner", got.OwnerID)
+	if got.PersonInChargeID != "did:key:owner" {
+		t.Errorf("PersonInChargeID = %q, want did:key:owner", got.PersonInChargeID)
+	}
+	if got.CheckedOutByID != "did:key:editor" {
+		t.Errorf("CheckedOutByID = %q, want did:key:editor", got.CheckedOutByID)
+	}
+	if got.AvailablePeriodID != "ap-1" {
+		t.Errorf("AvailablePeriodID = %q, want ap-1", got.AvailablePeriodID)
 	}
 }
 
@@ -84,19 +91,19 @@ func TestCheckout_GetActive_NoneActive(t *testing.T) {
 	}
 }
 
-func TestCheckout_ListActiveForOwner(t *testing.T) {
+func TestCheckout_ListActiveForPersonInCharge(t *testing.T) {
 	repo := newCheckoutRepo()
-	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "a1", OwnerID: "u1", Status: models.CheckoutStatusActive})
-	repo.SaveCheckout(&models.Checkout{ID: "c2", AreaID: "a2", OwnerID: "u1", Status: models.CheckoutStatusActive})
-	repo.SaveCheckout(&models.Checkout{ID: "c3", AreaID: "a3", OwnerID: "u1", Status: models.CheckoutStatusReturned}) // 返却済みは除外
-	repo.SaveCheckout(&models.Checkout{ID: "c4", AreaID: "a4", OwnerID: "u2", Status: models.CheckoutStatusActive})
+	repo.SaveCheckout(&models.Checkout{ID: "c1", AreaID: "a1", PersonInChargeID: "u1", Status: models.CheckoutStatusActive})
+	repo.SaveCheckout(&models.Checkout{ID: "c2", AreaID: "a2", PersonInChargeID: "u1", Status: models.CheckoutStatusActive})
+	repo.SaveCheckout(&models.Checkout{ID: "c3", AreaID: "a3", PersonInChargeID: "u1", Status: models.CheckoutStatusReturned}) // 返却済みは除外
+	repo.SaveCheckout(&models.Checkout{ID: "c4", AreaID: "a4", PersonInChargeID: "u2", Status: models.CheckoutStatusActive})
 
-	list, err := repo.ListActiveCheckoutsForOwner("u1")
+	list, err := repo.ListActiveCheckoutsForPersonInCharge("u1")
 	if err != nil {
-		t.Fatalf("ListActiveCheckoutsForOwner: %v", err)
+		t.Fatalf("ListActiveCheckoutsForPersonInCharge: %v", err)
 	}
 	if len(list) != 2 {
-		t.Errorf("got %d, want 2 (c3 returned, c4 other owner)", len(list))
+		t.Errorf("got %d, want 2 (c3 returned, c4 other person in charge)", len(list))
 	}
 }
 

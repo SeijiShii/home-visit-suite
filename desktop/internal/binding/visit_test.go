@@ -18,12 +18,15 @@ func setupVisitBinding(t *testing.T) (*binding.VisitBinding, *repository.InMemor
 	userRepo := repository.NewInMemoryUserRepository()
 	userRepo.SaveUser(&models.User{ID: "user-A", Name: "A", Role: models.RoleMember})
 	coRepo.SaveCheckout(&models.Checkout{
-		ID: "co-1", AreaID: "area-1", OwnerID: "user-A",
+		ID: "co-1", AreaID: "area-1", PersonInChargeID: "user-A",
 		Status: models.CheckoutStatusActive, CreatedAt: time.Now(),
 	})
 
 	notifRepo := repository.NewInMemoryNotificationRepository()
-	svc := service.NewCheckoutService(coRepo, userRepo, notifRepo)
+	regionRepo := repository.NewInMemoryRepository()
+	covRepo := repository.NewInMemoryCoverageRepository()
+	apSvc := service.NewAvailablePeriodService(covRepo, coRepo, userRepo)
+	svc := service.NewCheckoutService(coRepo, userRepo, notifRepo, regionRepo, apSvc)
 	return binding.NewVisitBinding(coRepo, svc), coRepo
 }
 

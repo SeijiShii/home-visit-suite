@@ -11,7 +11,84 @@ var AllMigrations = []ls.Migration{
 	{Version: 5, SQL: migrationV5},
 	{Version: 6, SQL: migrationV6},
 	{Version: 7, SQL: migrationV7},
+	{Version: 8, SQL: migrationV8},
 }
+
+// migrationV8: チェックアウト可能期間（AvailablePeriod）の新設とスキーマ整理
+//   - 仕様 docs/wants/06_網羅管理.md「チェックアウト可能期間（AvailablePeriod）」、
+//     docs/wants/05_チェックアウト.md「区域の取得（チェックアウト）モデル」、
+//     docs/wants/04_メンバー管理と権限.md「メンバー分類の方針」
+//
+// 変更内容:
+//   - available_periods / available_period_tags テーブル新設
+//   - checkouts: scope_id・checkout_type・lent_by_id・owner_id を廃止し、
+//     available_period_id・person_in_charge_id・checked_out_by_id・force_closed_at に置換
+//   - users.org_group_id 列を廃止
+//   - org_groups / schedule_periods / scopes / area_availability テーブルを廃止
+const migrationV8 = `
+CREATE TABLE IF NOT EXISTS available_periods (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    parent_area_ids TEXT NOT NULL DEFAULT '[]',
+    tag_ids TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS available_period_tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL DEFAULT ''
+);
+
+-- checkouts テーブル再構成（SQLite は ALTER TABLE での DROP COLUMN/RENAME COLUMN 制限があるため
+-- 旧テーブルを退避 → 新スキーマで作成 → データ移行 → 退避テーブル削除）
+CREATE TABLE IF NOT EXISTS checkouts_v8 (
+    id TEXT PRIMARY KEY,
+    area_id TEXT NOT NULL,
+    available_period_id TEXT NOT NULL DEFAULT '',
+    person_in_charge_id TEXT NOT NULL,
+    checked_out_by_id TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    returned_at TEXT,
+    completed_at TEXT,
+    force_closed_at TEXT,
+    updated_at TEXT NOT NULL
+);
+
+INSERT INTO checkouts_v8 (id, area_id, available_period_id, person_in_charge_id,
+    checked_out_by_id, status, created_at, returned_at, completed_at, force_closed_at, updated_at)
+SELECT id, area_id, '', owner_id, lent_by_id, status, created_at,
+    returned_at, completed_at, NULL, updated_at
+FROM checkouts;
+
+DROP TABLE checkouts;
+ALTER TABLE checkouts_v8 RENAME TO checkouts;
+
+-- users.org_group_id 列廃止（OrgGroup 概念全廃）
+CREATE TABLE IF NOT EXISTS users_v8 (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    tag_ids TEXT NOT NULL DEFAULT '[]',
+    joined_at TEXT NOT NULL
+);
+
+INSERT INTO users_v8 (id, name, role, tag_ids, joined_at)
+SELECT id, name, role, tag_ids, joined_at FROM users;
+
+DROP TABLE users;
+ALTER TABLE users_v8 RENAME TO users;
+
+-- 廃止テーブルを削除
+DROP TABLE IF EXISTS org_groups;
+DROP TABLE IF EXISTS schedule_periods;
+DROP TABLE IF EXISTS scopes;
+DROP TABLE IF EXISTS area_availability;
+`
 
 // migrationV7: 訪問活動概念の廃止に伴うスキーマ変更
 //   - 仕様 docs/wants/05_チェックアウト.md（旧名称: 05_訪問活動とチーム.md）

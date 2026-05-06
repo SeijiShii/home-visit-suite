@@ -14,7 +14,6 @@ const (
 
 	// メンバー（ScopeNetwork）
 	TableUsers      = "users"
-	TableOrgGroups  = "org_groups"
 	TableMemberTags = "member_tags"
 
 	// チェックアウト（ScopeNetwork）
@@ -24,10 +23,9 @@ const (
 	TableVisitRecordEdits     = "visit_record_edits"
 
 	// 網羅管理（ScopeNetwork）
-	TableCoverages        = "coverages"
-	TableSchedulePeriods  = "schedule_periods"
-	TableScopes           = "scopes"
-	TableAreaAvailability = "area_availability"
+	TableCoverages           = "coverages"
+	TableAvailablePeriods    = "available_periods"
+	TableAvailablePeriodTags = "available_period_tags"
 
 	// 申請・通知（ScopeNetwork）
 	TableRequests      = "requests"
@@ -47,10 +45,10 @@ const (
 var NetworkTables = []string{
 	TableRegions, TableParentAreas, TableAreas, TablePlaces,
 	TableMapNetwork,
-	TableUsers, TableOrgGroups, TableMemberTags,
+	TableUsers, TableMemberTags,
 	TableCheckouts, TableCheckoutInvitations,
 	TableVisitRecords, TableVisitRecordEdits,
-	TableCoverages, TableSchedulePeriods, TableScopes, TableAreaAvailability,
+	TableCoverages, TableAvailablePeriods, TableAvailablePeriodTags,
 	TableRequests, TableInvitations, TableNotifications,
 	TableAuditLog,
 }

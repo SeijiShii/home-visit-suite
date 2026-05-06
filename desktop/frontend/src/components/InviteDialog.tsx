@@ -28,7 +28,7 @@ type TtlHours = (typeof TTL_HOURS_VALUES)[number];
  * 区域招待発行ダイアログ。
  * 仕様 docs/wants/05_チェックアウト.md「区域招待 > 招待 UI」:
  *   - 既定の候補リスト: 同一 LinkSelf グループ内の活動メンバー全員（担当者本人を除く）
- *   - OrgGroup フィルタ + インクリメンタルサーチ
+ *   - メンバータグフィルタ + インクリメンタルサーチ（OrgGroup 廃止後のフィルタ手段）
  *   - 有効期限プルダウン（既定 24 時間）
  *   - 同一被招待者への重複招待は ExpiresAt 上書き延長（サービス側で対応済み）
  *   - 編集メンバー以上は被招待者にできない（活動メンバー member のみ）
@@ -45,8 +45,8 @@ export function InviteDialog({
   const { t } = useI18n();
   const c = t.checkouts;
   const [users, setUsers] = useState<models.User[]>([]);
-  const [groups, setGroups] = useState<models.Group[]>([]);
-  const [groupFilter, setGroupFilter] = useState<string>("");
+  const [tags, setTags] = useState<models.Tag[]>([]);
+  const [tagFilter, setTagFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedInviteeId, setSelectedInviteeId] = useState<string>("");
   const [ttlHours, setTtlHours] = useState<TtlHours>(24);
@@ -57,13 +57,13 @@ export function InviteDialog({
     let cancelled = false;
     async function load() {
       try {
-        const [allUsers, allGroups] = await Promise.all([
+        const [allUsers, allTags] = await Promise.all([
           UserBinding.ListUsers(),
-          UserBinding.ListGroups(),
+          UserBinding.ListTags(),
         ]);
         if (cancelled) return;
         setUsers(allUsers ?? []);
-        setGroups(allGroups ?? []);
+        setTags(allTags ?? []);
       } catch (e) {
         if (!cancelled) {
           setLoadError(String(e));
@@ -80,7 +80,7 @@ export function InviteDialog({
    * 被招待者候補:
    *   - 活動メンバー (role === "member") のみ
    *   - 担当者本人（ownerId）を除外
-   *   - OrgGroup フィルタ適用
+   *   - メンバータグフィルタ適用（指定タグを持つメンバー）
    *   - インクリメンタルサーチ適用（氏名の小文字部分一致）
    */
   const candidates = useMemo(() => {
@@ -88,9 +88,9 @@ export function InviteDialog({
     return users
       .filter((u) => u.role === "member")
       .filter((u) => u.id !== ownerId)
-      .filter((u) => !groupFilter || u.orgGroupId === groupFilter)
+      .filter((u) => !tagFilter || (u.tagIds ?? []).includes(tagFilter))
       .filter((u) => !q || u.name.toLowerCase().includes(q));
-  }, [users, ownerId, groupFilter, searchQuery]);
+  }, [users, ownerId, tagFilter, searchQuery]);
 
   const handleIssue = async () => {
     if (!selectedInviteeId) return;
@@ -139,13 +139,13 @@ export function InviteDialog({
           <select
             className="invite-dialog-filter-select"
             aria-label={c.inviteDlgGroupFilter}
-            value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
           >
             <option value="">{c.inviteDlgGroupAll}</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
+            {tags.map((tg) => (
+              <option key={tg.id} value={tg.id}>
+                {tg.name}
               </option>
             ))}
           </select>
@@ -187,10 +187,9 @@ export function InviteDialog({
                   />
                   <span className="invite-dialog-item-name">{u.name}</span>
                   <span className="invite-dialog-item-meta">
-                    {u.orgGroupId
-                      ? groups.find((g) => g.id === u.orgGroupId)?.name ??
-                        u.orgGroupId
-                      : ""}
+                    {(u.tagIds ?? [])
+                      .map((id) => tags.find((tg) => tg.id === id)?.name ?? id)
+                      .join(", ")}
                   </span>
                 </label>
               );
@@ -199,19 +198,14 @@ export function InviteDialog({
         </div>
 
         <div className="invite-dialog-ttl-row">
-          <label
-            htmlFor="invite-dlg-ttl"
-            className="invite-dialog-ttl-label"
-          >
+          <label htmlFor="invite-dlg-ttl" className="invite-dialog-ttl-label">
             {c.inviteDlgTtl}
           </label>
           <select
             id="invite-dlg-ttl"
             className="invite-dialog-ttl-select"
             value={ttlHours}
-            onChange={(e) =>
-              setTtlHours(Number(e.target.value) as TtlHours)
-            }
+            onChange={(e) => setTtlHours(Number(e.target.value) as TtlHours)}
           >
             {TTL_HOURS_VALUES.map((h) => (
               <option key={h} value={h}>
