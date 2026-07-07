@@ -7,7 +7,9 @@ import { Layout } from "./components/Layout";
 import { useI18n } from "./contexts/I18nContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { UsersPage } from "./pages/UsersPage";
 
 export default function App() {
   const { t } = useI18n();
@@ -29,10 +31,7 @@ export default function App() {
             path="/regions"
             element={<PlaceholderPage title={t.regionManagement.title} />}
           />
-          <Route
-            path="/users"
-            element={<PlaceholderPage title={t.users.title} />}
-          />
+          <Route path="/users" element={<UsersPage />} />
           <Route
             path="/checkouts"
             element={<PlaceholderPage title={t.checkouts.title} />}
@@ -41,10 +40,7 @@ export default function App() {
             path="/coverage"
             element={<PlaceholderPage title={t.coverage.title} />}
           />
-          <Route
-            path="/requests"
-            element={<PlaceholderPage title={t.requests.title} />}
-          />
+          <Route path="/requests" element={<RequestsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
