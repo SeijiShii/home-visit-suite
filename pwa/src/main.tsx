@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { I18nProvider } from "./contexts/I18nContext";
 import { IdentityProvider } from "./contexts/IdentityContext";
 import {
@@ -35,15 +36,28 @@ async function bootstrap() {
 
   createRoot(container).render(
     <React.StrictMode>
-      <I18nProvider>
-        <ServicesProvider services={services}>
-          <IdentityProvider service={identityService}>
-            <App />
-          </IdentityProvider>
-        </ServicesProvider>
-      </I18nProvider>
+      <RootErrorBoundary>
+        <I18nProvider>
+          <ServicesProvider services={services}>
+            <IdentityProvider service={identityService}>
+              <App />
+            </IdentityProvider>
+          </ServicesProvider>
+        </I18nProvider>
+      </RootErrorBoundary>
     </React.StrictMode>,
   );
 }
 
-void bootstrap();
+// 起動時例外を画面に可視化する（真っ白のまま無反応になるのを防ぐ）。
+void bootstrap().catch((err) => {
+  console.error("[bootstrap] failed", err);
+  const container = document.getElementById("app");
+  if (container) {
+    container.innerHTML =
+      '<pre style="padding:16px;white-space:pre-wrap;color:#b91c1c;font-family:monospace;">' +
+      "起動に失敗しました:\n\n" +
+      String(err instanceof Error ? (err.stack ?? err.message) : err) +
+      "</pre>";
+  }
+});
