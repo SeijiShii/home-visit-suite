@@ -5,6 +5,7 @@
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { useI18n } from "./contexts/I18nContext";
+import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { RequestsPage } from "./pages/RequestsPage";
@@ -32,10 +33,7 @@ export default function App() {
             element={<PlaceholderPage title={t.regionManagement.title} />}
           />
           <Route path="/users" element={<UsersPage />} />
-          <Route
-            path="/checkouts"
-            element={<PlaceholderPage title={t.checkouts.title} />}
-          />
+          <Route path="/checkouts" element={<CheckoutsPage />} />
           <Route
             path="/coverage"
             element={<PlaceholderPage title={t.coverage.title} />}
