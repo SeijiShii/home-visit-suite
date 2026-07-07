@@ -5,6 +5,7 @@
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { useI18n } from "./contexts/I18nContext";
+import { DashboardPage } from "./pages/DashboardPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -15,9 +16,10 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
+          <Route index element={<DashboardPage />} />
           <Route
-            index
-            element={<PlaceholderPage title={t.dashboard.title} />}
+            path="/visits/:areaId"
+            element={<PlaceholderPage title={t.visitRecord.dialogTitle} />}
           />
           <Route
             path="/map"
