@@ -8,7 +8,11 @@ import {
   createInMemoryServices,
   reconcileOnStartup,
 } from "./contexts/ServicesContext";
-import { DevIdentityService, DEV_SEED_USERS } from "./services/identity-service";
+import {
+  DevIdentityService,
+  DEV_SEED_USERS,
+} from "./services/identity-service";
+import "leaflet/dist/leaflet.css";
 import "./style.css";
 
 // LinkSelf TS アダプタ完成までの暫定配線: インメモリ + 開発用シードユーザー。
@@ -19,7 +23,10 @@ async function bootstrap() {
   for (const u of DEV_SEED_USERS) {
     await services.userRepo.saveUser(u);
   }
-  const identityService = new DevIdentityService(services.userRepo, DEV_SEED_USERS[0].id);
+  const identityService = new DevIdentityService(
+    services.userRepo,
+    DEV_SEED_USERS[0].id,
+  );
 
   // PWA はバックグラウンド常駐がないため、期限系の後始末は起動時に実行する
   await reconcileOnStartup(services);

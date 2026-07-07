@@ -6,11 +6,13 @@ import { createContext, useContext, type ReactNode } from "react";
 import { InMemoryCheckoutRepository } from "../data/inmemory/inmemory-checkout-repository";
 import { InMemoryCoverageRepository } from "../data/inmemory/inmemory-coverage-repository";
 import { InMemoryNotificationRepository } from "../data/inmemory/inmemory-notification-repository";
+import { InMemoryPersonalRepository } from "../data/inmemory/inmemory-personal-repository";
 import { InMemoryRegionRepository } from "../data/inmemory/inmemory-region-repository";
 import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repository";
 import type { CheckoutRepository } from "../domain/repositories/checkout-repository";
 import type { CoverageRepository } from "../domain/repositories/coverage-repository";
 import type { NotificationRepository } from "../domain/repositories/notification-repository";
+import type { PersonalRepository } from "../domain/repositories/personal-repository";
 import type { RegionRepository } from "../domain/repositories/region-repository";
 import type { UserRepository } from "../domain/repositories/user-repository";
 import { AuthServiceImpl, type AuthService } from "../services/auth-service";
@@ -18,7 +20,15 @@ import {
   AvailablePeriodServiceImpl,
   type AvailablePeriodService,
 } from "../services/available-period-service";
-import { CheckoutServiceImpl, type CheckoutService } from "../services/checkout-service";
+import {
+  CheckoutServiceImpl,
+  type CheckoutService,
+} from "../services/checkout-service";
+import { RegionRepositoryBindingAdapter } from "../services/region-binding-adapter";
+import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
+import { SettingsService } from "../services/settings-service";
+import type { RegionBindingAPI } from "../services/region-service";
+import { LocalStorageMapBinding, type MapBindingAPI } from "../lib/map-storage";
 
 export interface AppServices {
   // リポジトリ（画面から直接使うのは読み取り系のみに留める）
@@ -27,11 +37,17 @@ export interface AppServices {
   checkoutRepo: CheckoutRepository;
   coverageRepo: CoverageRepository;
   notificationRepo: NotificationRepository;
+  personalRepo: PersonalRepository;
 
   // サービス
   authService: AuthService;
   availablePeriodService: AvailablePeriodService;
   checkoutService: CheckoutService;
+  settingsService: SettingsService;
+
+  // 地図編集用のアダプタ（旧 Wails RegionBinding / MapBinding 相当）
+  regionBindingApi: RegionBindingAPI;
+  mapBinding: MapBindingAPI;
 }
 
 /** インメモリ実装一式でサービス束を構築する（LinkSelf TS アダプタ完成までの暫定）。 */
@@ -41,6 +57,7 @@ export function createInMemoryServices(): AppServices {
   const checkoutRepo = new InMemoryCheckoutRepository();
   const coverageRepo = new InMemoryCoverageRepository();
   const notificationRepo = new InMemoryNotificationRepository();
+  const personalRepo = new InMemoryPersonalRepository();
 
   const availablePeriodService = new AvailablePeriodServiceImpl(
     coverageRepo,
@@ -55,6 +72,12 @@ export function createInMemoryServices(): AppServices {
     availablePeriodService,
   );
   const authService = new AuthServiceImpl(userRepo);
+  const settingsService = new SettingsService(
+    new PersonalRepositorySettingsAdapter(personalRepo),
+  );
+
+  const regionBindingApi = new RegionRepositoryBindingAdapter(regionRepo);
+  const mapBinding = new LocalStorageMapBinding();
 
   return {
     userRepo,
@@ -62,9 +85,13 @@ export function createInMemoryServices(): AppServices {
     checkoutRepo,
     coverageRepo,
     notificationRepo,
+    personalRepo,
     authService,
     availablePeriodService,
     checkoutService,
+    settingsService,
+    regionBindingApi,
+    mapBinding,
   };
 }
 
@@ -76,7 +103,9 @@ export function createInMemoryServices(): AppServices {
  */
 export async function reconcileOnStartup(services: AppServices): Promise<void> {
   try {
-    await services.availablePeriodService.forceCloseExpiredCheckouts(new Date());
+    await services.availablePeriodService.forceCloseExpiredCheckouts(
+      new Date(),
+    );
   } catch (e) {
     console.error("startup reconcile failed", e);
   }
@@ -89,8 +118,15 @@ interface ServicesProviderProps {
   services: AppServices;
 }
 
-export function ServicesProvider({ children, services }: ServicesProviderProps) {
-  return <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>;
+export function ServicesProvider({
+  children,
+  services,
+}: ServicesProviderProps) {
+  return (
+    <ServicesContext.Provider value={services}>
+      {children}
+    </ServicesContext.Provider>
+  );
 }
 
 export function useServices(): AppServices {
