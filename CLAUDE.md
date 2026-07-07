@@ -21,9 +21,9 @@
 - **アプリ形態**: 単一 PWA（React + TypeScript + Vite）+ ロール別 UI。実装場所は本リポジトリ `pwa/`（2026-07-07 決定）
   - 管理者・編集メンバー・活動メンバーの機能を権限ゲートで出し分ける（上位ロールは下位を包含する既存仕様に合わせる）
   - デスクトップ・モバイルの全プラットフォームでブラウザ／ホーム画面追加により動作
-- **Wails 版（`desktop/`）は新規開発凍結・段階的廃止**
-  - `desktop/frontend` の React 資産（画面・map-polygon-editor・i18n catalog・style.css）は PWA へ移植・流用する
-  - 凍結中の起動手順は下記「開発環境」を参照用に残す
+- **Wails 版（`desktop/`）は削除済み（2026-07-07）**
+  - React 資産（画面・map-polygon-editor・i18n catalog・style.css）と Go 参照実装のロジックはすべて `pwa/` へ移植完了したため、`desktop/` ディレクトリを削除した
+  - ドメイン・サービスの参照実装は `shared/`（Go）に残す（TS 移植の照合用）。git 履歴からは復元可能
 - **データインフラ**: LinkSelf（サーバーレスP2P）
   - https://github.com/SeijiShii/link-self
   - PWA からは **ブラウザ向け TypeScript 実装**（js-libp2p + sqlite-wasm + WebCrypto、Go 実装とワイヤ互換の第二実装）を使用する。TS 実装は link-self リポジトリ側で開発
@@ -35,18 +35,9 @@
 ## 開発環境
 - **コード編集・テスト**: WSL2 (Ubuntu) — Claude Code、VSCode Remote-WSL、vitest
 - **PWA 実行（開発）**: `cd pwa && npm install && npm run dev`（Vite dev サーバー、ブラウザで http://localhost:5173/）
-- PWA はブラウザで動作するため、以下の Wails 実行手順は**凍結中の参照用**（Wails 版を確認する場合のみ）
-- **Wails実行（開発中）**: WSL2で `desktop/dev.sh` を実行（依存チェック・webkit2gtk-4.1対応・npm install を自動化）
-  - 日本語入力不可、英字で動作確認
-- **Wails実行（最終確認）**: Windows ネイティブ — IME（日本語入力）が必要な場合
-  - Windows側に Go + Wails CLI をインストール
-  - `D:\home-visit-suite` に git clone
-  - Git Bash で `cd /d/home-visit-suite/desktop && wails dev`
-  - WSL↔Windows同期: GitHub経由で push/pull
-- **制約**:
-  - `\\wsl$\` パス経由では Go の file lock が動作しない（`go mod tidy` 失敗）
-  - `/mnt/c/`, `/mnt/d/` 経由は 9p オーバーヘッドで低速
-  - WSLg + WebKitGTK では IME 入力が機能しない
+- **PWA テスト**: `cd pwa && npm test`（vitest）
+- **Go 参照実装のテスト**: `cd shared && go test ./...`
+- ブラウザで動作するため IME（日本語入力）制約はなし。プラットフォーム別の起動手順も不要
 
 ## 開発方針
 - **仕様変更時**: `docs/wants/` 以下の該当ドキュメントを必ず更新する
@@ -61,10 +52,10 @@
 ## UI 実装方針
 
 - **ネイキッド UI 禁止**: 新規コンポーネントを書くときに素の HTML 要素＋ブラウザデフォルトスタイルのまま放置しない。table・button・select・input・label など必ず適切な class を当てる
-- **既存スタイル踏襲**: `desktop/frontend/src/style.css` の既存クラス命名規則（ハイフンケース、機能名 + 要素名、slate 系カラーパレット #1e293b/#475569/#64748b/#94a3b8/#cbd5e1/#e2e8f0/#f1f5f9）を踏襲する
+- **既存スタイル踏襲**: `pwa/src/style.css` の既存クラス命名規則（ハイフンケース、機能名 + 要素名、slate 系カラーパレット #1e293b/#475569/#64748b/#94a3b8/#cbd5e1/#e2e8f0/#f1f5f9）を踏襲する
 - **共通ボタン**: `.btn` / `.btn-primary` / `.btn-sm` を使う。新規パターンが必要なら `style.css` に追加してから使う
 - **インラインスタイル最小化**: `style={{ ... }}` は最終手段。繰り返し使う見た目は class 化する
-- **完了前の目視確認**: 新画面・新セクションを作ったら開発サーバーで起動して目視確認する（コミット前のチェックリストとして）。PWA は Vite dev サーバー、凍結中の Wails 版は `wails dev`
+- **完了前の目視確認**: 新画面・新セクションを作ったら Vite dev サーバー（`cd pwa && npm run dev`）で起動して目視確認する（コミット前のチェックリストとして）
 
 ## 用語
 - 区域 = 運用上の最小単位（旧称: 枝番）
