@@ -1,129 +1,120 @@
-# LinkSelf 拡張要望（モバイル対応）
+# LinkSelf 拡張要望（ブラウザ / PWA 対応）
 
-Home Visit Suite 活動メンバー向けアプリ（iOS/Android ネイティブ）を実装するために、LinkSelf 側に必要となる機能追加・変更事項をまとめる。
+Home Visit Suite を単一 PWA（2026-07-07 全面 PWA 化決定）として実装するために、LinkSelf 側に必要となる機能追加・変更事項をまとめる。
 
-本ドキュメントは **LinkSelf リポジトリ（`github.com/SeijiShii/link-self`）への提案書**の原稿であり、LinkSelf 側に手動で転記・加筆した上で LinkSelf 側の仕様書・ロードマップに取り込む。
+本ドキュメントは **LinkSelf リポジトリ（`github.com/SeijiShii/link-self`）への提案書**の原稿であり、LinkSelf 側の仕様書・ロードマップに取り込む。
 
-- 転記先候補: `link-self/docs/spec/mobile-support.md`（新規）
-- 関連する既存仕様: `link-self/docs/spec/overview.md`, `phase1-design.md`, `network-concept.md`
+- 対応する LinkSelf 側設計文書: `link-self/docs/spec/browser-pwa-support.md`（2026-07-02 の設計検討をコミット済み。技術的実現性・トポロジ・ホスティング検討の SoT）
+- 関連する既存仕様: `link-self/docs/spec/mobile-support.md`（旧モバイルネイティブ対応。共通要件はブラウザ対応へ引き継ぐ）
+
+## 旧版（モバイル gomobile 対応要望）の扱い
+
+- 本ドキュメントの旧版は Expo + gomobile によるモバイルネイティブ対応の要望だったが、**2026-07-07 の全面 PWA 化決定により gomobile ルートは廃止**した
+- 旧版の内容は `link-self/docs/spec/mobile-support.md` に転記済みであり、履歴はそちらに残る
+- 旧版の要求のうち以下は**ブラウザ対応でもそのまま必要**であり、本ドキュメントに引き継ぐ:
+  - 高速起動（FastStart / KnownPeerHints）
+  - peerstore / routing table の永続化
+  - Circuit Relay v2 クライアント対応
+  - 前景起動 → 高速差分同期 → graceful stop のライフサイクル
+  - 差分同期の優先度制御
 
 ---
 
 ## 1. 背景
 
-- Home Visit Suite は管理・編集用のデスクトップアプリ（Wails）と、活動メンバー用のモバイルアプリ（iOS/Android）の 2 系統で構成される
-- 両アプリともデータ永続化・同期は LinkSelf を共通基盤として使用する
-- デスクトップ側は既に LinkSelf を Go から直接利用する実装が進んでいるが、モバイル側は LinkSelf をモバイル環境に組み込む必要がある
-- 技術方針: **Expo (React Native) + gomobile** で `link-self/core/pkg/linkself` を iOS/Android 双方に組み込む
-- 参考先例: **Berty**（go-libp2p を iOS/Android で App Store/Play Store 配信している実装事例）
+- Home Visit Suite は**単一 PWA + ロール別 UI** の 1 系統に統合する（管理・編集・活動の全ロールが同一アプリを使う）
+- データ永続化・同期は引き続き LinkSelf を基盤とするが、ブラウザでは Go コアを動かせないため **TypeScript 実装が必要**
+- Go コアの WASM 化は不可（go-libp2p のトランスポート層が生ソケット前提で、ブラウザに API が存在しない。詳細は `browser-pwa-support.md` §2.1）
+- 方針: **js-libp2p 上に LinkSelf プロトコル層を TS で再実装**する（ワイヤ互換の「第二実装」。Go ノードと相互運用する）
 
-## 2. 前提制約
+## 2. 前提制約（ブラウザ環境）
 
-### モバイル OS のバックグラウンド制約
-
-| OS | 制約 |
-|----|------|
-| iOS | アプリが背面に回ると約 30 秒で suspend、socket 強制切断、コード実行停止。`voip` / `audio` / `location` / `background-fetch` 等の Background Mode 宣言で部分的に延命可能だが、P2P 常時接続目的での許可は App Store 審査で困難 |
-| Android | Doze Mode / App Standby により不定期に通信・CPU が制限される。iOS よりは緩いが、無制限ではない |
+| 制約 | 内容 |
+|------|------|
+| トランスポート | TCP / QUIC 不可。WebSocket / WebTransport / WebRTC のみ |
+| 着信 | ブラウザピアは外部から接続を受けられない → Circuit Relay v2 が必須 |
+| DHT | クライアントモードのみ（フル参加不可） |
+| ローカル発見 | mDNS / Bluetooth 不可 |
+| バックグラウンド | 実行ゼロ。タブ / PWA を閉じると完全停止 |
+| 通知 | Web Push はプッシュサーバー経由が仕様上必須 |
+| TLS 証明書 | WebTransport / WebRTC-direct の certhash 方式により**ドメイン・CA 証明書なしで接続可能** |
 
 ### Home Visit Suite のユースケース上の前提
 
 - 活動メンバーはチェックアウト中（訪問中）にアプリを前景で操作する
 - バックグラウンドでの常時同期は**不要**（次回起動時の差分同期で十分）
-- したがって LinkSelf も **「前景起動時に高速に同期完了 → 背面遷移で graceful stop」** というライフサイクルを想定できれば足りる
+- したがって「前景起動時に高速に同期完了 → 非表示遷移で graceful stop」のライフサイクルで足りる
 
 ## 3. 要求事項
 
-優先度: **必須** = モバイル対応の前提として必要、**推奨** = UX 上望ましい、**将来** = 次フェーズ以降。
+優先度: **必須** = PWA 対応の前提として必要、**推奨** = UX 上望ましい、**将来** = 次フェーズ以降。
 
 ### 3.1 必須
 
-#### 3.1.1 gomobile 向けファサード API
+#### 3.1.1 LinkSelf TypeScript 実装（ブラウザ版クライアント）
 
-- **現状**: `pkg/linkself/types.go` の `Client` / `MyDB` / `NetworkAPI` / `SharedDB` 等のインタフェースは `context.Context`, `...any`, `interface{}`, func 型引数（`SetOnMessage`）などを多用しており、gomobile bind の制約（interface / channel / func 型 / 可変長 `any` をそのまま export 不可）に抵触する
-- **要望**: `pkg/linkself/mobile`（仮）のような**モバイル専用ファサード層**を追加し、以下を満たす:
-  - 引数・戻り値は struct + 基本型（string, int64, []byte, bool）のみ
-  - context は内部で管理（タイムアウト値を引数で受け取る）
-  - 可変長引数・interface{} は使用しない（`Exec`/`Query` は JSON 文字列でパラメータを受け取る等）
-  - コールバックは function 型ではなく **Observer/Listener インタフェース**経由で受ける（gomobile は Go インタフェースを Objective-C/Java 側で実装可能）
-- **影響範囲**: `pkg/linkself/` のみ（internal パッケージには変更不要）
+- js-libp2p + sqlite-wasm (OPFS) + WebCrypto を土台に、`core/internal` の LinkSelf 固有プロトコル層（auth / envelope / storeforward / syncdb / group / role / permission / devicesync / sqlproxy 等 約 17 パッケージ相当）を TS で再実装する
+- libp2p のプロトコル ID とメッセージ形式を Go 実装と揃え、**Go ノードと相互運用可能**にする
+- アプリ向け API 面は Go 版 `pkg/linkself`（`Client` / `MyDB` / `NetworkAPI` / `SharedDB`）と同等の概念を TS で提供する
+- 複数タブからの同時アクセスは単一アクセサに直列化する（Web Locks / SharedWorker 等、方式は実装側で決定）
 
-#### 3.1.2 Foreground / Background ライフサイクル API
+#### 3.1.2 Go デーモンのブラウザ向けトランスポート
 
-- **要望**: モバイル側からアプリ状態を通知する以下の API を追加
-  - `Pause(ctx)`: 背面遷移時に呼ぶ。peerstore・DHT routing table をディスクに flush、アクティブな接続を graceful close、同期中タスクを中断可能な状態で保存
-  - `Resume(ctx)`: 前景復帰時に呼ぶ。保存された peerstore から既知ピアに直接再接続、差分同期を即座に開始
-- **理由**: iOS の場合、30 秒以内に graceful shutdown しないと強制 suspend され socket 半開き状態で次回起動することになる。ディスクに flush しておかないと再接続コストが毎回満額かかる
+- 常時稼働ノード（Go デーモン）に `/ws` または `/webtransport` の listen アドレスを追加する（go-libp2p は対応済みのため Config 追加程度の想定）
+- certhash 方式（WebTransport / WebRTC-direct）を採用し、ドメイン取得・CA 証明書なしで https 配信の PWA から接続できるようにする
 
-#### 3.1.3 高速起動モード
+#### 3.1.3 常時稼働ノード（リレー / ブートストラップ / メールボックス）
 
-- **現状**: `Start()` 内部で DHT full bootstrap（bootstrap peers へ接続 → kad-dht の routing table 充填）を行うため、コールドスタートから同期可能状態まで数秒〜十数秒かかる想定
-- **要望**: `Config` に以下を追加
-  - `FastStart bool`: 起動時の DHT full bootstrap をスキップし、前回保存の peerstore / routing table を起点に既知ピアへ直接接続
-  - `KnownPeerHints []string`: 既知ピア（他デバイス・他メンバー）の multiaddr を外部から注入可能にする
-- **理由**: モバイルで画面を開いてから同期結果が見えるまでの体感待ち時間を短縮する
+- ブラウザピアの通信を成立させる 3 役を Go デーモンが担えるようにする:
+  - **Circuit Relay v2**（リレー）: ブラウザ間接続の中継。E2E 暗号化により中身は読めない
+  - **ブートストラップ**: ブラウザ向けトランスポートを話す入口ノード
+  - **メールボックス（store-and-forward）**: オフラインピア宛メッセージの預かり
+- `Config.BootstrapPeers` / `Config.CircuitRelays` は**複数登録できる**リスト形式とし、稼働率を多重化で担保できる設計にする
 
-#### 3.1.4 peerstore / routing table の永続化
+#### 3.1.4 高速起動と peerstore 永続化（mobile-support §3.1.3 / §3.1.4 の引き継ぎ）
 
-- **要望**: libp2p の peerstore（DID ↔ multiaddr 対応表）および kad-dht の routing table を定期的にディスクへ永続化し、次回 `Start()` 時に復元する
-- **保存先**: `<dataroot>/<encodedDID>/peerstore.db` 等の所定パス
-- **理由**: `3.1.3` の前提
+- `FastStart`: 起動時の DHT full bootstrap をスキップし、前回保存の peerstore を起点に既知ピアへ直接接続
+- `KnownPeerHints []string`: 既知ピアの multiaddr を外部から注入可能に
+- TS 実装では peerstore / routing table を OPFS / IndexedDB に永続化し、次回起動時に復元する
+- 理由: PWA を開いてから同期結果が見えるまでの体感待ち時間の短縮。バックグラウンド実行ゼロのブラウザでは毎回コールドスタートになるため、モバイル以上に重要
 
 ### 3.2 推奨
 
-#### 3.2.1 Circuit Relay v2 ノード対応
+#### 3.2.1 WebRTC ブラウザ間直結
 
-- モバイルはキャリア NAT / モバイルキャリアの Carrier-Grade NAT 下に置かれることが多く、直接接続が成立しないケースが多い
-- LinkSelf が Circuit Relay v2 をクライアント側で利用できるようにし、home-visit-suite 運用者がデスクトップ常時稼働ノードをリレーとして設定できる構成を推奨
-- **要望**: `Config.CircuitRelays []string` のような設定項目を追加（既存 `BootstrapPeers` とは別枠として、明示的にリレー用途であることを示す）
+- リレー経由をフォールバックとし、シグナリング後は WebRTC でブラウザ同士が直接通信するトポロジ（`browser-pwa-support.md` §3 パターン 2）
+- 必須ではない（リレー経由で機能は成立する）が、リレーの帯域負荷を下げ、レイテンシを改善する
 
-#### 3.2.2 差分同期の優先度制御
+#### 3.2.2 差分同期の優先度制御（mobile-support §3.2.2 の引き継ぎ）
 
-- 前景起動時の短時間（〜数十秒）で**ユーザーに見える範囲**のデータを先に同期できることが UX 上重要
-- **要望**: `MyDB` / `SharedDB` に「この画面で表示する範囲のデータから優先的に同期する」ようなヒントを渡す API（例: `SyncPreferTables([]string)` / `SyncPreferChannels([]string)`）
-- 完全な優先キュー実装まで踏み込まず、**最低限「次回同期バッチで優先するテーブル/チャンネル集合」のヒントを受け付ける**だけでも可
-
-#### 3.2.3 gomobile 対応の CI
-
-- `link-self` リポジトリの CI に以下を追加することを推奨:
-  - `gomobile bind -target=ios pkg/linkself/mobile` のビルドが通ることを検証
-  - `gomobile bind -target=android pkg/linkself/mobile` のビルドが通ることを検証
-- 依存パッケージ（quic-go / pion-webrtc）の cgo 事情により突発的に build が落ちる可能性があり、CI で早期検知したい
+- 前景起動時の短時間で**ユーザーに見える範囲**のデータを先に同期できることが UX 上重要
+- 「次回同期バッチで優先するテーブル / チャンネル集合」のヒントを受け付ける API（例: `SyncPreferTables` / `SyncPreferChannels`）
 
 ### 3.3 将来（本スコープ外・検討事項として記載）
 
-#### 3.3.1 APNs / FCM 連携
+#### 3.3.1 Web Push 代理ノード
 
-- iOS バックグラウンドではサーバーからの Push 通知を起点にアプリを起こす必要がある
-- LinkSelf は P2P を原則とするため直接的な Push サーバーは持たないが、**代理ノード（クラウド常駐ノード）が他メンバーのデータ変更を検知し APNs/FCM に転送**する構成が取り得る
-- 本スコープでは「通知は画面を開いた時に差分同期で表示」方針としバックグラウンド通知は将来検討
-
-#### 3.3.2 省電力モード
-
-- Android Doze Mode / iOS Low Power Mode 時の通信頻度低減、同期間引き等
-- 本スコープでは常時接続を想定しないため優先度低
+- Web Push はプッシュサーバー経由が仕様上必須のため、**代理ノード（常時稼働ノード）が他メンバーのデータ変更を検知し Web Push を送出**する構成が取り得る（mobile-support §3.3.1 の APNs/FCM 問題と同型）
+- iOS では 16.4+ かつホーム画面追加時のみ Web Push が有効という制約がある
+- 本スコープでは「通知は画面を開いた時に差分同期で表示」方針とし、プッシュ通知は将来検討
 
 ## 4. マイルストーン案
 
 | フェーズ | 内容 | 成果物 |
 |---------|------|--------|
-| M1: 机上調査 | go-libp2p のモバイル動作実績・Berty 事例を調査、ライフサイクル設計を固める | 本ドキュメントの更新 |
-| M2: gomobile bind 試験 | 現状の `pkg/linkself` をそのまま gomobile で build してみて、落ちる箇所をリスト化 | ビルドログ・必要な API 変更の一覧 |
-| M3: モバイル用ファサード実装 | `3.1.1` を実装、simulator 上で最小動作確認 | `pkg/linkself/mobile` の初版 |
-| M4: ライフサイクル API | `3.1.2` `3.1.3` `3.1.4` を実装 | `Pause/Resume`, `FastStart`, peerstore 永続化 |
-| M5: 実機 PoC | iOS 実機 + Android 実機でデスクトップノードと同期 | PoC アプリ・測定値（前景同期完了までの時間） |
-| M6: Relay 運用 | `3.2.1` を実装、NAT 越え検証 | Circuit Relay v2 クライアント対応 |
+| M1: 疎通 PoC | js-libp2p ↔ go-libp2p を WebSocket + Circuit Relay v2 で接続し、Noise ハンドシェイクと基本メッセージ交換を確認 | PoC コード・接続測定値 |
+| M2: プロトコル層 TS 再実装 | auth / envelope / syncdb 等の LinkSelf 固有プロトコルを TS 化し、Go ノードと相互同期 | linkself-ts（仮）初版 |
+| M3: ストレージ層 | sqlite-wasm + OPFS 上の `MyDB` 相当 API、多タブ直列化 | TS 版 MyDB |
+| M4: 常時稼働ノード構成 | Go デーモンの /ws・relay・メールボックス構成、複数ノード登録 | デーモン設定・運用手順 |
+| M5: PWA 統合 | home-visit-suite の PWA から TS 実装を利用、FastStart・peerstore 永続化込みで前景同期時間を測定 | 統合アプリ・測定値 |
 
 ## 5. 参考
 
-- Berty — go-libp2p を iOS/Android で App Store/Play Store 配信している先例
-  - https://berty.tech/blog/bluetooth-low-energy
-- Briar — iOS 版を断念している事例（常時バックグラウンド通信が前提のため）
-  - https://briarproject.org/how-it-works/
-- gomobile 制約
-  - https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile
+- `link-self/docs/spec/browser-pwa-support.md` — 実現方式・トポロジ・ホスティング検討（Vercel 不可 / Oracle Cloud Always Free 推奨 / ローカル Windows ノードの条件）の詳細
+- js-libp2p — https://github.com/libp2p/js-libp2p
+- sqlite-wasm — https://sqlite.org/wasm/doc/trunk/index.md
 
 ## 6. 本ドキュメントの扱い
 
 - **本ドキュメントは home-visit-suite 側の要望をまとめた原稿**であり、LinkSelf 側の正式仕様になるわけではない
-- 転記・加筆の上、LinkSelf 側で実装スコープ・優先度・API 署名が確定したら、home-visit-suite 側は**本ドキュメントを削除するか、LinkSelf 側仕様への参照のみに縮退させる**
+- LinkSelf 側で実装スコープ・優先度・API 署名が確定したら、home-visit-suite 側は**本ドキュメントを削除するか、LinkSelf 側仕様への参照のみに縮退させる**

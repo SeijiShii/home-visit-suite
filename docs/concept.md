@@ -14,6 +14,10 @@
 > 本書はコードベースを網羅読みして得た「**実装の現実**」と、「意図↔実装の乖離（ドリフト）」を集約する。
 > 次の作業（① ドキュメント修正 → ② 設計・実装変更）の土台として、§8 のドリフト論点を参照する。
 
+> **2026-07-07 方針転換（全面 PWA 化）**
+> 意図側が大きく改訂された: アプリは**単一 PWA + ロール別 UI** へ全面転換し、Wails 版は新規開発凍結・段階的廃止、活動メンバー向けモバイルネイティブ（Expo + gomobile）案は廃止。LinkSelf はブラウザ向け TypeScript 実装（link-self リポジトリ側で開発）を使用する。
+> 本書の実装実態の記述（Wails 前提）は凍結時点のスナップショットとして正しいが、**意図の SoT は改訂後の `docs/wants/01/08/09/10/11` と `CLAUDE.md` 技術決定**を参照すること。設計 SoT: `link-self/docs/spec/browser-pwa-support.md`。
+
 ---
 
 ## §1 プロダクト概要
@@ -28,7 +32,7 @@
 - **ターゲット（1 LinkSelf グループ内、ロールで区別、上位互換）**:
   - **管理者 (admin)**: メンバー管理、ロール任免、メンバータグ、領域定義、区域セットの承認。
   - **編集メンバー (editor)**: ポリゴン／区域親番／区域の作成、AvailablePeriod・チェックアウト・強制返却・招待の管理、申請処理。デスクトップ管理アプリにログイン可。
-  - **活動メンバー (member)**: 現場作業者。区域をチェックアウトし、モバイルアプリで訪問記録を作成。デスクトップ管理アプリにはログイン不可（予定）。
+  - **活動メンバー (member)**: 現場作業者。区域をチェックアウトし、モバイル端末（PWA、2026-07-07 改訂）で訪問記録を作成。管理・編集系画面にはアクセス不可（権限ゲート、予定）。
   - 管理・編集アプリは活動アプリの**上位互換**。
 - **解決する課題**: テリトリー全体の系統的な戸別訪問を調整する（区域分割、担当者の割当・追跡＝排他的チェックアウト、訪問結果記録、再訪事故防止、網羅度測定）。
 
@@ -45,7 +49,7 @@
 | 5 | チェックアウト | `05_チェックアウト.md` | `models/{visit,checkout_invitation,available_period,access}.go`, `service/checkout*.go`, `service/available_period*.go`, `binding/{checkout,available_period}.go`, `pages/CheckoutsPage.tsx` | ✅ 稼働（Place レベル read-only は未実装） |
 | 6 | 網羅管理 | `06_網羅管理.md` | `models/coverage.go`, `service/available_period*.go`, `pages/CoveragePage.tsx` | ⚠️ 部分（AvailablePeriod は本実装、網羅率算出は未配線） |
 | 7 | 通知と申請 | `07_通知と申請.md` | `models/{notification,request,audit}.go`, `pages/RequestsPage.tsx` | ⚠️ スタブ（RequestsPage は静的、申請ライフサイクル未実装） |
-| 8 | 活動メンバー向けアプリ（モバイル） | `08_活動メンバー向けアプリ.md` | （未着手） | ❌ 未着手（技術方針: Expo RN + gomobile + MapLibre） |
+| 8 | 活動メンバー向けアプリ | `08_活動メンバー向けアプリ.md` | （未着手） | ❌ 未着手（技術方針: 単一 PWA のロール別 UI に統合 — 2026-07-07 改訂。旧案 Expo RN + gomobile は廃止） |
 | 9 | 継続的検討事項 | `09_継続的検討事項.md` | — | 未決論点集（§8 と連動） |
 | 10 | 画面設計 | `10_画面設計.md` | `pages/*`, `components/*` | ⚠️ 仕様が古い（後述 §8: 複数画面で実装が先行） |
 | 11 | LinkSelf 拡張要望 | `11_LinkSelf拡張要望.md` | （link-self リポジトリへの提案ドラフト） | ❌ 提案段階 |
@@ -109,7 +113,7 @@ home-visit-suite/
 
 | 区分 | 実装実態・目標 |
 |---|---|
-| デプロイ形態 | デスクトップネイティブ（Wails, Windows/Mac）。サーバーレス。将来モバイルネイティブ。 |
+| デプロイ形態 | 現状: デスクトップネイティブ（Wails, Windows/Mac）。目標: **単一 PWA**（2026-07-07 全面転換決定、Wails は凍結・段階的廃止）。サーバーレス（ブラウザピア向けに常時稼働ノードを追加、E2E 暗号化の土管のみ）。 |
 | データ機密性 | 全データはグループ内 P2P に閉じる（外部送信なし）。個人情報（訪問先住所・訪問拒否宅等）を扱うため機密性は最重要。 |
 | 同期・整合性 | LinkSelf に委譲。地図エンティティは LWW（Last-Write-Wins by timestamp）。オフラインは Store-and-Forward。 |
 | 可用性 | 単一プロセス（Wails）ローカルアクセス。ネットワーク断でもローカル DB で継続。 |
@@ -217,9 +221,10 @@ home-visit-suite/
 - **[論点-006] メンバー招待/任免 UI が未実装**
   - 検出根拠: `service/auth*.go` に InviteToRole/AcceptInvitation/DismissRole/RemoveMember は実装済みだが、`UsersPage` はタグ管理のみで招待/ロール変更/ユーザー作成 UI がない（04 は「招待・任免」を規定）。
   - 詰めるべき問い: 任免フローの UI を UsersPage に載せるか、専用画面にするか。
-- **[論点-007] モバイル活動メンバーアプリ + LinkSelf 拡張（08/11）未着手**
-  - 検出根拠: `mobile/` なし。11 は link-self への提案ドラフト。技術方針（Expo RN + gomobile + MapLibre）のみ確定。
-  - 詰めるべき問い: 着手時期、LinkSelf 拡張の採否確認。
+- **[論点-007] 活動メンバー向け機能 + LinkSelf 拡張（08/11）未着手**
+  - 検出根拠: 活動メンバー向け UI の本実装なし。11 は link-self への提案ドラフト。
+  - 2026-07-07 更新: 技術方針を全面改訂（単一 PWA のロール別 UI に統合。旧案 Expo RN + gomobile は廃止）。LinkSelf 拡張要望も PWA 対応（TS 実装・常時稼働ノード等）へ改訂済み。
+  - 詰めるべき問い: LinkSelf TS 実装（link-self 側 M1〜M4）の着手時期と、PWA 移行の段階計画（`09_継続的検討事項.md`）。
 
 ### C. コード内の残骸・技術的負債（整理が必要）
 

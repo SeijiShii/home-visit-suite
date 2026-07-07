@@ -15,17 +15,26 @@
   - 11_LinkSelf拡張要望.md - LinkSelf に必要な拡張点
 
 ## 技術決定
-- **管理・編集メンバー向けアプリ**: Wails (Go + Web Frontend)
-  - Go側: LinkSelf統合、ビジネスロジック、データ管理
-  - Web側: 地図UI（map-polygon-editor/TypeScript）、フロントエンド全般
-  - Electronは不採用（Go実装のLinkSelfにサイドカーが必要になるため）
-- **活動メンバー向けアプリ**: モバイルネイティブ（iOS/Android）- 技術選定未了
-- **データインフラ**: LinkSelf（Go実装、サーバーレスP2P）
+
+**2026-07-07 方針転換: 全面 PWA 化**（動機: プラットフォーム別ネイティブアプリはストア審査等の負担が大きいため）
+
+- **アプリ形態**: 単一 PWA（React + TypeScript + Vite）+ ロール別 UI
+  - 管理者・編集メンバー・活動メンバーの機能を権限ゲートで出し分ける（上位ロールは下位を包含する既存仕様に合わせる）
+  - デスクトップ・モバイルの全プラットフォームでブラウザ／ホーム画面追加により動作
+- **Wails 版（`desktop/`）は新規開発凍結・段階的廃止**
+  - `desktop/frontend` の React 資産（画面・map-polygon-editor・i18n catalog・style.css）は PWA へ移植・流用する
+  - 凍結中の起動手順は下記「開発環境」を参照用に残す
+- **データインフラ**: LinkSelf（サーバーレスP2P）
   - https://github.com/SeijiShii/link-self
-- **地図**: GSIタイル（日本）、map-polygon-editor（TypeScript実装）でポリゴン編集
+  - PWA からは **ブラウザ向け TypeScript 実装**（js-libp2p + sqlite-wasm + WebCrypto、Go 実装とワイヤ互換の第二実装）を使用する。TS 実装は link-self リポジトリ側で開発
+  - ブラウザピアは着信不可のため**常時稼働ノード**（リレー／ブートストラップ／メールボックス、Go デーモン）が必要。E2E 暗号化により中身を読めない「ただの土管」であり、データがグループ外に出ない原則は維持される
+  - 設計 SoT: `link-self/docs/spec/browser-pwa-support.md`
+- **地図**: GSIタイル（日本）、map-polygon-editor（TypeScript実装、DOM 前提のため PWA でそのまま流用可）でポリゴン編集
+- **廃止した選択肢**: 活動メンバー向けモバイルネイティブ（Expo + gomobile）、Electron
 
 ## 開発環境
 - **コード編集・テスト**: WSL2 (Ubuntu) — Claude Code、VSCode Remote-WSL、vitest
+- PWA はブラウザで動作するため、以下の Wails 実行手順は**凍結中の参照用**（Wails 版を確認する場合のみ）
 - **Wails実行（開発中）**: WSL2で `desktop/dev.sh` を実行（依存チェック・webkit2gtk-4.1対応・npm install を自動化）
   - 日本語入力不可、英字で動作確認
 - **Wails実行（最終確認）**: Windows ネイティブ — IME（日本語入力）が必要な場合
@@ -54,7 +63,7 @@
 - **既存スタイル踏襲**: `desktop/frontend/src/style.css` の既存クラス命名規則（ハイフンケース、機能名 + 要素名、slate 系カラーパレット #1e293b/#475569/#64748b/#94a3b8/#cbd5e1/#e2e8f0/#f1f5f9）を踏襲する
 - **共通ボタン**: `.btn` / `.btn-primary` / `.btn-sm` を使う。新規パターンが必要なら `style.css` に追加してから使う
 - **インラインスタイル最小化**: `style={{ ... }}` は最終手段。繰り返し使う見た目は class 化する
-- **完了前の目視確認**: 新画面・新セクションを作ったら `wails dev` で起動して目視確認する（コミット前のチェックリストとして）
+- **完了前の目視確認**: 新画面・新セクションを作ったら開発サーバーで起動して目視確認する（コミット前のチェックリストとして）。PWA は Vite dev サーバー、凍結中の Wails 版は `wails dev`
 
 ## 用語
 - 区域 = 運用上の最小単位（旧称: 枝番）
