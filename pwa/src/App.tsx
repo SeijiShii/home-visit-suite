@@ -1,31 +1,51 @@
-// PWA アプリシェル（スキャフォールド段階の最小構成）。
-// 画面群は desktop/frontend/src/pages から順次移植する。
+// PWA アプリのルーティング。
+// 画面は desktop/frontend/src/pages から順次移植する（未移植は PlaceholderPage）。
+// ルート構成とロール別ナビゲーションガードは docs/wants/10_画面設計.md に従う。
 
+import { HashRouter, Route, Routes } from "react-router-dom";
+import { Layout } from "./components/Layout";
 import { useI18n } from "./contexts/I18nContext";
+import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 export default function App() {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h3 className="app-title">Home Visit</h3>
-        </div>
-        <nav className="nav-links" />
-        <div className="sidebar-footer">
-          <button
-            type="button"
-            className="locale-btn"
-            onClick={() => void setLocale(locale === "ja" ? "en" : "ja")}
-          >
-            {locale === "ja" ? t.settings.languageEn : t.settings.languageJa}
-          </button>
-        </div>
-      </aside>
-      <main className="content">
-        <h1>{t.nav.dashboard}</h1>
-      </main>
-    </div>
+    <HashRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route
+            index
+            element={<PlaceholderPage title={t.dashboard.title} />}
+          />
+          <Route
+            path="/map"
+            element={<PlaceholderPage title={t.map.title} />}
+          />
+          <Route
+            path="/regions"
+            element={<PlaceholderPage title={t.regionManagement.title} />}
+          />
+          <Route
+            path="/users"
+            element={<PlaceholderPage title={t.users.title} />}
+          />
+          <Route
+            path="/checkouts"
+            element={<PlaceholderPage title={t.checkouts.title} />}
+          />
+          <Route
+            path="/coverage"
+            element={<PlaceholderPage title={t.coverage.title} />}
+          />
+          <Route
+            path="/requests"
+            element={<PlaceholderPage title={t.requests.title} />}
+          />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+      </Routes>
+    </HashRouter>
   );
 }
