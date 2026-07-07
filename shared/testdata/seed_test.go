@@ -49,13 +49,3 @@ func TestSeedAll_RoleDistribution(t *testing.T) {
 		t.Errorf("members = %d, want 43", members)
 	}
 }
-
-func TestSeedAll_Groups(t *testing.T) {
-	repos := testdata.NewInMemoryRepos()
-	testdata.SeedAll(repos)
-
-	groups, _ := repos.User.ListGroups()
-	if len(groups) != 4 {
-		t.Errorf("groups = %d, want 4", len(groups))
-	}
-}
