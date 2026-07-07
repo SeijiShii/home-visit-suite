@@ -7,12 +7,14 @@ import { InMemoryCheckoutRepository } from "../data/inmemory/inmemory-checkout-r
 import { InMemoryCoverageRepository } from "../data/inmemory/inmemory-coverage-repository";
 import { InMemoryNotificationRepository } from "../data/inmemory/inmemory-notification-repository";
 import { InMemoryPersonalRepository } from "../data/inmemory/inmemory-personal-repository";
+import { InMemoryPlaceRepository } from "../data/inmemory/inmemory-place-repository";
 import { InMemoryRegionRepository } from "../data/inmemory/inmemory-region-repository";
 import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repository";
 import type { CheckoutRepository } from "../domain/repositories/checkout-repository";
 import type { CoverageRepository } from "../domain/repositories/coverage-repository";
 import type { NotificationRepository } from "../domain/repositories/notification-repository";
 import type { PersonalRepository } from "../domain/repositories/personal-repository";
+import type { PlaceRepository } from "../domain/repositories/place-repository";
 import type { RegionRepository } from "../domain/repositories/region-repository";
 import type { UserRepository } from "../domain/repositories/user-repository";
 import { AuthServiceImpl, type AuthService } from "../services/auth-service";
@@ -27,6 +29,10 @@ import {
 import { RegionRepositoryBindingAdapter } from "../services/region-binding-adapter";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
+import { PlaceService } from "../services/place-service";
+import { PlaceRepositoryBindingAdapter } from "../services/place-binding-adapter";
+import { VisitService } from "../services/visit-service";
+import { VisitBindingAdapter } from "../services/visit-binding-adapter";
 import type { RegionBindingAPI } from "../services/region-service";
 import { LocalStorageMapBinding, type MapBindingAPI } from "../lib/map-storage";
 
@@ -38,12 +44,15 @@ export interface AppServices {
   coverageRepo: CoverageRepository;
   notificationRepo: NotificationRepository;
   personalRepo: PersonalRepository;
+  placeRepo: PlaceRepository;
 
   // サービス
   authService: AuthService;
   availablePeriodService: AvailablePeriodService;
   checkoutService: CheckoutService;
   settingsService: SettingsService;
+  placeService: PlaceService;
+  visitService: VisitService;
 
   // 地図編集用のアダプタ（旧 Wails RegionBinding / MapBinding 相当）
   regionBindingApi: RegionBindingAPI;
@@ -58,6 +67,7 @@ export function createInMemoryServices(): AppServices {
   const coverageRepo = new InMemoryCoverageRepository();
   const notificationRepo = new InMemoryNotificationRepository();
   const personalRepo = new InMemoryPersonalRepository();
+  const placeRepo = new InMemoryPlaceRepository();
 
   const availablePeriodService = new AvailablePeriodServiceImpl(
     coverageRepo,
@@ -75,6 +85,12 @@ export function createInMemoryServices(): AppServices {
   const settingsService = new SettingsService(
     new PersonalRepositorySettingsAdapter(personalRepo),
   );
+  const placeService = new PlaceService(
+    new PlaceRepositoryBindingAdapter(placeRepo),
+  );
+  const visitService = new VisitService(
+    new VisitBindingAdapter(checkoutService, checkoutRepo),
+  );
 
   const regionBindingApi = new RegionRepositoryBindingAdapter(regionRepo);
   const mapBinding = new LocalStorageMapBinding();
@@ -86,10 +102,13 @@ export function createInMemoryServices(): AppServices {
     coverageRepo,
     notificationRepo,
     personalRepo,
+    placeRepo,
     authService,
     availablePeriodService,
     checkoutService,
     settingsService,
+    placeService,
+    visitService,
     regionBindingApi,
     mapBinding,
   };

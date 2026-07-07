@@ -1,0 +1,811 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useI18n } from "../contexts/I18nContext";
+import { RegionService } from "../services/region-service";
+import type { Place, PlaceService } from "../services/place-service";
+import type { SettingsService } from "../services/settings-service";
+import { MapView, type MapViewHandle } from "../components/MapView";
+import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
+import { DeletePlaceConfirmDialog } from "../components/DeletePlaceConfirmDialog";
+import { AddPlaceInputDialog } from "../components/AddPlaceInputDialog";
+import { PlaceListPanel } from "../components/PlaceListPanel";
+import {
+  BuildingEditDialog,
+  type BuildingDialogMode,
+  type BuildingDialogSaveArgs,
+} from "../components/BuildingEditDialog";
+import { nextSortOrder, reorderPlaces } from "../lib/place-sort-order";
+import { diffRoomRows } from "../lib/building-flow";
+import { useServices } from "../contexts/ServicesContext";
+import { formatAreaLabel } from "../lib/area-detail-geo";
+import type { PolygonGeoSource } from "../lib/area-detail-controller";
+import { useAreaDetailMap } from "../hooks/useAreaDetailMap";
+import {
+  addPlaceFlowReducer,
+  selectCommit,
+  ADD_PLACE_RESTORE_RADIUS_M,
+  type AddPlaceCommitArgs,
+  type AddPlaceFlowState,
+} from "../lib/add-place-flow";
+import type { MovePlaceCommitArgs } from "../lib/move-place-flow";
+import { movePlaceFlowReducer, selectMoveCommit } from "../lib/move-place-flow";
+import type { NetworkPolygonEditor } from "map-polygon-editor";
+
+export interface AreaDetailEditPageProps {
+  /** テスト用に注入可能。未指定なら本番 RegionBinding を使う。 */
+  regionService?: RegionService;
+  /** 未指定ならプレースホルダ div のみ描画 (テスト経路)。 */
+  editor?: NetworkPolygonEditor | PolygonGeoSource;
+  /** polygonId → areaId の紐付け表。editor 指定時に必須。 */
+  polygonToArea?: ReadonlyMap<string, string>;
+  /** 対象区域の場所取得。未指定なら場所は描画しない。 */
+  placeService?: PlaceService;
+  /** ui.areaDetailRadiusKm の取得。未指定なら既定 2.5km。 */
+  settingsService?: SettingsService;
+  /** 初期リンク済みポリゴン ID 集合 (renderAll 用)。 */
+  linkedPolygonIds?: Set<string>;
+  /** 家を追加 commit の副作用フック。指定時はこちらが優先される。 */
+  onCommitAddPlace?: (args: AddPlaceCommitArgs) => Promise<void> | void;
+  /** 場所削除 commit の副作用フック。指定時はこちらが優先される。 */
+  onCommitDeletePlace?: (placeId: string) => Promise<void> | void;
+  /** 場所移動 commit の副作用フック。指定時はこちらが優先される。 */
+  onCommitMovePlace?: (args: MovePlaceCommitArgs) => Promise<void> | void;
+  /**
+   * 場所移動開始の通知 (テスト用)。指定時は MapView の startPlaceMove は呼ばれず
+   * このコールバックのみが発火する。
+   */
+  onMovePlaceStart?: (placeId: string) => void;
+}
+
+type ContextMenuState =
+  | null
+  | { variant: "blank"; x: number; y: number; lat: number; lng: number }
+  | { variant: "place"; x: number; y: number; placeId: string };
+
+const initialFlow: AddPlaceFlowState = { kind: "idle" };
+
+export function AreaDetailEditPage({
+  regionService,
+  editor,
+  polygonToArea,
+  placeService,
+  settingsService,
+  linkedPolygonIds,
+  onCommitAddPlace,
+  onCommitDeletePlace,
+  onCommitMovePlace,
+  onMovePlaceStart,
+}: AreaDetailEditPageProps = {}) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { areaId = "" } = useParams<{ areaId: string }>();
+  const { regionBindingApi } = useServices();
+  const service = useMemo(
+    () => regionService ?? new RegionService(regionBindingApi),
+    [regionService, regionBindingApi],
+  );
+  const [label, setLabel] = useState<string | null>(null);
+  const mapRef = useRef<MapViewHandle>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [flow, dispatchFlow] = useReducer(addPlaceFlowReducer, initialFlow);
+  const [moveFlow, dispatchMove] = useReducer(movePlaceFlowReducer, {
+    kind: "idle",
+  } as const);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [pendingAddArgs, setPendingAddArgs] =
+    useState<AddPlaceCommitArgs | null>(null);
+  const [editingPlace, setEditingPlace] = useState<Place | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const [panelOpen, setPanelOpenState] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("ui.areaDetailPlaceListOpen");
+      return v === null ? true : v === "true";
+    } catch {
+      return true;
+    }
+  });
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  // 集合住宅関連
+  const [buildingDialog, setBuildingDialog] = useState<
+    | { mode: "create"; lat: number; lng: number }
+    | { mode: "edit"; building: Place }
+    | null
+  >(null);
+  const [pendingBuildingDelete, setPendingBuildingDelete] =
+    useState<Place | null>(null);
+  const { places, rooms, setPlaces, isInsideTarget } = useAreaDetailMap({
+    mapRef,
+    containerRef,
+    editor,
+    polygonToArea,
+    areaId,
+    placeService,
+    settingsService,
+    linkedPolygonIds,
+    selectedPlaceId,
+    refreshKey,
+    noNameLabel: t.areaDetail.noName,
+    enableInitialSortAssignment: true,
+  });
+  const setPanelOpen = useCallback((next: boolean) => {
+    setPanelOpenState(next);
+    try {
+      localStorage.setItem("ui.areaDetailPlaceListOpen", String(next));
+    } catch {
+      // ignore
+    }
+  }, []);
+  // 地図コンテナのサイズ変化を監視して Leaflet のレイアウトを再計算する。
+  // パネルの開閉・ウィンドウリサイズ・CSS transition 完了時のいずれでも
+  // invalidateSize を確実に呼び、タイルの未描画領域が残らないようにする。
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const showOutsideError = useCallback(() => {
+    setErrorMessage(t.areaDetail.outsideAreaError);
+  }, [t]);
+
+  // エラーメッセージは 4 秒で自動消去 (クリックでも消える)
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    service.loadTree().then((tree) => {
+      if (cancelled) return;
+      setLabel(formatAreaLabel(tree, areaId));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [service, areaId]);
+
+  // 場所マーカー右クリックを page 側 state へ橋渡し
+  useEffect(() => {
+    if (!editor || !polygonToArea) return;
+    const handle = mapRef.current;
+    if (!handle) return;
+    handle.setPlaceContextMenuHandler((placeId, _type, x, y) => {
+      setContextMenu({ variant: "place", placeId, x, y });
+    });
+    return () => {
+      handle.setPlaceContextMenuHandler(null);
+    };
+  }, [editor, polygonToArea]);
+
+  const handleMapContextMenu = useCallback(
+    (lat: number, lng: number, x: number, y: number) => {
+      setContextMenu({ variant: "blank", lat, lng, x, y });
+    },
+    [],
+  );
+
+  const commit = useCallback(
+    async (args: AddPlaceCommitArgs) => {
+      if (onCommitAddPlace) {
+        await onCommitAddPlace(args);
+        return;
+      }
+      // 既定: PlaceService.savePlace を最小フィールドで呼ぶ
+      // Go 側 (time.Time) は空文字を JSON パースできないため ISO 文字列を渡す
+      if (!placeService) return;
+      const nowIso = new Date().toISOString();
+      await placeService.savePlace({
+        id: "",
+        areaId,
+        coord: { lat: args.lat, lng: args.lng },
+        type: "house",
+        label: args.label ?? "",
+        displayName: "",
+        address: args.address ?? "",
+        description: "",
+        parentId: "",
+        sortOrder: 0,
+        languages: [],
+        doNotVisit: false,
+        doNotVisitNote: "",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        deletedAt: null,
+        restoredFromId: args.restoredFromId ?? null,
+      });
+    },
+    [onCommitAddPlace, placeService, areaId],
+  );
+
+  const handleAddHouse = useCallback(async () => {
+    if (!contextMenu || contextMenu.variant !== "blank") return;
+    const { lat, lng } = contextMenu;
+    setContextMenu(null);
+    if (!isInsideTarget(lat, lng)) {
+      showOutsideError();
+      return;
+    }
+    const nearby = placeService
+      ? await placeService
+          .listDeletedPlacesNear(lat, lng, ADD_PLACE_RESTORE_RADIUS_M)
+          .catch(() => [])
+      : [];
+    dispatchFlow({
+      type: "open",
+      lat,
+      lng,
+      nearbyDeleted: nearby.map((p) => ({
+        id: p.id,
+        lat: p.coord.lat,
+        lng: p.coord.lng,
+        deletedAt: p.deletedAt ?? null,
+      })),
+    });
+  }, [contextMenu, placeService, isInsideTarget, showOutsideError]);
+
+  // ready 状態に来たら入力ダイアログを開く (commit は入力確定後)
+  useEffect(() => {
+    if (flow.kind !== "ready") return;
+    const args = selectCommit(flow);
+    if (!args) return;
+    setPendingAddArgs(args);
+    dispatchFlow({ type: "cancel" });
+  }, [flow]);
+
+  const handleRestoreYes = useCallback(() => {
+    if (flow.kind !== "confirmingRestore") return;
+    const args = selectCommit(flow, "yes");
+    if (args) setPendingAddArgs(args);
+    dispatchFlow({ type: "cancel" });
+  }, [flow]);
+
+  const handleRestoreNo = useCallback(() => {
+    if (flow.kind !== "confirmingRestore") return;
+    const args = selectCommit(flow, "no");
+    if (args) setPendingAddArgs(args);
+    dispatchFlow({ type: "cancel" });
+  }, [flow]);
+
+  const handleAddPlaceSave = useCallback(
+    async (values: { address: string; label: string }) => {
+      if (!pendingAddArgs) return;
+      const args: AddPlaceCommitArgs = {
+        ...pendingAddArgs,
+        address: values.address,
+        label: values.label,
+      };
+      setPendingAddArgs(null); // ダイアログを先に閉じて二重保存を防止
+      try {
+        await commit(args);
+      } catch (err) {
+        console.error("[AreaDetailEditPage] savePlace failed:", err);
+      }
+      bumpRefresh();
+    },
+    [pendingAddArgs, commit, bumpRefresh],
+  );
+
+  const handleAddPlaceCancel = useCallback(() => {
+    setPendingAddArgs(null);
+  }, []);
+
+  const moveCommit = useCallback(
+    async (args: MovePlaceCommitArgs) => {
+      if (onCommitMovePlace) {
+        await onCommitMovePlace(args);
+        return;
+      }
+      if (!placeService) return;
+      const cur = await placeService.getPlace(args.placeId).catch(() => null);
+      if (!cur) return;
+      await placeService.savePlace({
+        ...cur,
+        coord: { lat: args.lat, lng: args.lng },
+        restoredFromId: args.restoredFromId ?? cur.restoredFromId ?? null,
+      });
+    },
+    [onCommitMovePlace, placeService],
+  );
+
+  const handleMoveConfirmAt = useCallback(
+    async (lat: number, lng: number) => {
+      if (!isInsideTarget(lat, lng)) {
+        showOutsideError();
+        dispatchMove({ type: "cancel" });
+        bumpRefresh(); // マーカー位置を元に戻すために再描画
+        return;
+      }
+      // 5m チェック用に削除済みを取得 (自身は move-flow 内で除外)
+      const nearby = placeService
+        ? await placeService
+            .listDeletedPlacesNear(lat, lng, ADD_PLACE_RESTORE_RADIUS_M)
+            .catch(() => [])
+        : [];
+      // reducer 側で state.kind === "tracking" をチェックするため
+      // ここでの guard は不要 (stale closure 回避)
+      dispatchMove({ type: "updatePosition", lat, lng });
+      dispatchMove({
+        type: "confirm",
+        nearbyDeleted: nearby.map((p) => ({
+          id: p.id,
+          lat: p.coord.lat,
+          lng: p.coord.lng,
+          deletedAt: p.deletedAt ?? null,
+        })),
+      });
+    },
+    [placeService, isInsideTarget, showOutsideError, bumpRefresh],
+  );
+
+  const handleMoveCancel = useCallback(() => {
+    dispatchMove({ type: "cancel" });
+  }, []);
+
+  const handleMovePlace = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    const { placeId } = contextMenu;
+    setContextMenu(null);
+    dispatchMove({ type: "start", placeId, lat: 0, lng: 0 });
+    if (onMovePlaceStart) {
+      onMovePlaceStart(placeId);
+      return;
+    }
+    mapRef.current?.startPlaceMove(
+      placeId,
+      (lat, lng) => {
+        // 確定: handleMoveConfirmAt 経由で flow を進める
+        void handleMoveConfirmAt(lat, lng);
+      },
+      () => {
+        handleMoveCancel();
+      },
+    );
+  }, [contextMenu, onMovePlaceStart, handleMoveConfirmAt, handleMoveCancel]);
+
+  // committed → savePlace → reset
+  useEffect(() => {
+    if (moveFlow.kind !== "committed") return;
+    const args = selectMoveCommit(moveFlow);
+    if (!args) return;
+    let cancelled = false;
+    (async () => {
+      await moveCommit(args);
+      if (cancelled) return;
+      dispatchMove({ type: "reset" });
+      bumpRefresh();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [moveFlow, moveCommit, bumpRefresh]);
+
+  const handleMoveRestoreYes = useCallback(() => {
+    if (moveFlow.kind !== "confirmingRestore") return;
+    dispatchMove({ type: "restoreYes" });
+  }, [moveFlow]);
+
+  const handleMoveRestoreNo = useCallback(() => {
+    if (moveFlow.kind !== "confirmingRestore") return;
+    dispatchMove({ type: "restoreNo" });
+  }, [moveFlow]);
+
+  const handleEditPlace = useCallback(async () => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    const { placeId } = contextMenu;
+    setContextMenu(null);
+    if (!placeService) return;
+    const place = await placeService.getPlace(placeId).catch(() => null);
+    if (!place) return;
+    if (place.type === "building") {
+      setBuildingDialog({ mode: "edit", building: place });
+    } else {
+      setEditingPlace(place);
+    }
+  }, [contextMenu, placeService]);
+
+  const handleEditPlaceSave = useCallback(
+    async (values: { address: string; label: string }) => {
+      if (!editingPlace) return;
+      const updated: Place = {
+        ...editingPlace,
+        label: values.label,
+        address: values.address,
+      };
+      setEditingPlace(null);
+      try {
+        if (placeService) await placeService.savePlace(updated);
+      } catch (err) {
+        console.error("[AreaDetailEditPage] editPlace failed:", err);
+      }
+      bumpRefresh();
+    },
+    [editingPlace, placeService, bumpRefresh],
+  );
+
+  const handleEditPlaceCancel = useCallback(() => {
+    setEditingPlace(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    const id = deleteTargetId;
+    if (!id) return;
+    setDeleteTargetId(null);
+    if (onCommitDeletePlace) {
+      await onCommitDeletePlace(id);
+    } else if (placeService) {
+      await placeService.deletePlace(id);
+    }
+    bumpRefresh();
+  }, [deleteTargetId, onCommitDeletePlace, placeService, bumpRefresh]);
+
+  const handlePlaceRowClick = useCallback(
+    (placeId: string) => {
+      const p = places.find((x) => x.id === placeId);
+      if (!p) return;
+      setSelectedPlaceId(placeId);
+      mapRef.current?.focusPlace(p.coord.lat, p.coord.lng);
+    },
+    [places],
+  );
+
+  const handleReorder = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      const sorted = [...places]
+        .filter((p) => p.type !== "room")
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      const next = reorderPlaces(sorted, fromIndex, toIndex);
+      setPlaces(next);
+      if (!placeService) return;
+      try {
+        for (const p of next) {
+          await placeService.savePlace(p);
+        }
+      } catch (err) {
+        console.error("[AreaDetailEditPage] reorder save failed:", err);
+      }
+      bumpRefresh();
+    },
+    [places, placeService, bumpRefresh],
+  );
+
+  // --- 集合住宅 ---
+
+  const handleAddBuilding = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "blank") return;
+    const { lat, lng } = contextMenu;
+    setContextMenu(null);
+    if (!isInsideTarget(lat, lng)) {
+      showOutsideError();
+      return;
+    }
+    setBuildingDialog({ mode: "create", lat, lng });
+  }, [contextMenu, isInsideTarget, showOutsideError]);
+
+  const handlePlaceDoubleClick = useCallback(
+    (placeId: string) => {
+      const p = places.find((x) => x.id === placeId);
+      if (!p) return;
+      if (p.type === "building") {
+        setBuildingDialog({ mode: "edit", building: p });
+      } else if (p.type === "house" && placeService) {
+        setEditingPlace(p);
+      }
+    },
+    [places, placeService],
+  );
+
+  const handleBuildingDialogSave = useCallback(
+    async (args: BuildingDialogSaveArgs) => {
+      const snapshot = buildingDialog;
+      setBuildingDialog(null);
+      if (!snapshot || !placeService) return;
+      const nowIso = new Date().toISOString();
+      try {
+        let buildingId: string;
+        if (snapshot.mode === "create") {
+          const building = await placeService.savePlace({
+            id: "",
+            areaId,
+            coord: { lat: snapshot.lat, lng: snapshot.lng },
+            type: "building",
+            label: args.label,
+            displayName: "",
+            address: args.address,
+            description: args.description,
+            parentId: "",
+            sortOrder: nextSortOrder(places),
+            languages: [],
+            doNotVisit: false,
+            doNotVisitNote: "",
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            deletedAt: null,
+            restoredFromId: null,
+          });
+          buildingId = building.id;
+          // 新規作成: すべての行を Room として追加
+          for (let i = 0; i < args.rows.length; i++) {
+            const row = args.rows[i];
+            await placeService.savePlace({
+              id: "",
+              areaId,
+              coord: { lat: 0, lng: 0 },
+              type: "room",
+              label: "",
+              displayName: row.displayName,
+              address: "",
+              description: "",
+              parentId: buildingId,
+              sortOrder: i,
+              languages: [],
+              doNotVisit: false,
+              doNotVisitNote: "",
+              createdAt: nowIso,
+              updatedAt: nowIso,
+              deletedAt: null,
+              restoredFromId: null,
+            });
+          }
+        } else {
+          buildingId = snapshot.building.id;
+          const updatedBuilding: Place = {
+            ...snapshot.building,
+            label: args.label,
+            address: args.address,
+            description: args.description,
+          };
+          await placeService.savePlace(updatedBuilding);
+          const existing = rooms.filter(
+            (r) => r.parentId === buildingId && !r.deletedAt,
+          );
+          const { toAdd, toUpdate, toDelete } = diffRoomRows(
+            existing,
+            args.rows,
+            buildingId,
+          );
+          for (const r of toAdd) {
+            await placeService.savePlace({ ...r, areaId });
+          }
+          for (const r of toUpdate) {
+            await placeService.savePlace(r);
+          }
+          for (const id of toDelete) {
+            await placeService.deletePlace(id);
+          }
+        }
+      } catch (err) {
+        console.error("[AreaDetailEditPage] saveBuilding failed:", err);
+      }
+      bumpRefresh();
+    },
+    [buildingDialog, placeService, areaId, places, rooms, bumpRefresh],
+  );
+
+  const handleBuildingDialogCancel = useCallback(() => {
+    setBuildingDialog(null);
+  }, []);
+
+  const handleDeletePlaceGeneric = useCallback(() => {
+    if (!contextMenu || contextMenu.variant !== "place") return;
+    const { placeId } = contextMenu;
+    setContextMenu(null);
+    const p = places.find((x) => x.id === placeId);
+    if (p && p.type === "building") {
+      setPendingBuildingDelete(p);
+      return;
+    }
+    setDeleteTargetId(placeId);
+  }, [contextMenu, places]);
+
+  const buildingRoomCount = useCallback(
+    (buildingId: string): number =>
+      rooms.filter((r) => r.parentId === buildingId && !r.deletedAt).length,
+    [rooms],
+  );
+
+  const handleBuildingDeleteConfirm = useCallback(async () => {
+    const target = pendingBuildingDelete;
+    if (!target || !placeService) {
+      setPendingBuildingDelete(null);
+      return;
+    }
+    setPendingBuildingDelete(null);
+    try {
+      const childRooms = rooms.filter(
+        (r) => r.parentId === target.id && !r.deletedAt,
+      );
+      for (const r of childRooms) {
+        await placeService.deletePlace(r.id);
+      }
+      await placeService.deletePlace(target.id);
+    } catch (err) {
+      console.error(
+        "[AreaDetailEditPage] deleteBuilding (cascade) failed:",
+        err,
+      );
+    }
+    bumpRefresh();
+  }, [pendingBuildingDelete, placeService, rooms, bumpRefresh]);
+
+  const handleBuildingDeleteCancel = useCallback(() => {
+    setPendingBuildingDelete(null);
+  }, []);
+
+  const mapEnabled = Boolean(editor && polygonToArea);
+
+  const roomCountsMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of places) {
+      if (p.type === "building") m.set(p.id, buildingRoomCount(p.id));
+    }
+    return m;
+  }, [places, buildingRoomCount]);
+
+  return (
+    <div className="area-detail-edit-page">
+      <div className="area-detail-body">
+        <div
+          ref={containerRef}
+          className="area-detail-map"
+          data-testid="area-detail-map"
+        >
+          <button
+            type="button"
+            className="area-detail-topbar"
+            onClick={() => navigate(-1)}
+            aria-label={t.areaDetail.back}
+          >
+            <span className="area-detail-back-icon" aria-hidden="true">
+              ←
+            </span>
+            <span className="area-detail-label">
+              {label ?? t.areaDetail.title}
+            </span>
+          </button>
+          {mapEnabled && (
+            <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
+          )}
+          {contextMenu && (
+            <AreaDetailContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              variant={contextMenu.variant}
+              onAddHouse={handleAddHouse}
+              onAddBuilding={handleAddBuilding}
+              onEditPlace={handleEditPlace}
+              onMovePlace={handleMovePlace}
+              onDeletePlace={handleDeletePlaceGeneric}
+              onClose={() => setContextMenu(null)}
+            />
+          )}
+          {errorMessage && (
+            <div
+              role="alert"
+              className="area-detail-error-banner"
+              onClick={() => setErrorMessage(null)}
+            >
+              {errorMessage}
+            </div>
+          )}
+        </div>
+        <PlaceListPanel
+          places={places}
+          open={panelOpen}
+          onToggleOpen={setPanelOpen}
+          onPlaceClick={handlePlaceRowClick}
+          onPlaceDoubleClick={handlePlaceDoubleClick}
+          onReorder={handleReorder}
+          selectedPlaceId={selectedPlaceId}
+          roomCounts={roomCountsMap}
+        />
+      </div>
+      {deleteTargetId && (
+        <DeletePlaceConfirmDialog
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTargetId(null)}
+        />
+      )}
+      {pendingAddArgs && (
+        <AddPlaceInputDialog
+          onSave={handleAddPlaceSave}
+          onCancel={handleAddPlaceCancel}
+        />
+      )}
+      {editingPlace && (
+        <AddPlaceInputDialog
+          onSave={handleEditPlaceSave}
+          onCancel={handleEditPlaceCancel}
+          initialLabel={editingPlace.label}
+          initialAddress={editingPlace.address}
+          title={t.areaDetail.editPlaceDialogTitle}
+        />
+      )}
+      {flow.kind === "confirmingRestore" && (
+        <div
+          role="dialog"
+          aria-label={t.areaDetail.linkRestoredPrompt}
+          className="area-detail-restore-dialog"
+        >
+          <p>{t.areaDetail.linkRestoredPrompt}</p>
+          <button onClick={handleRestoreYes}>{t.areaDetail.yes}</button>
+          <button onClick={handleRestoreNo}>{t.areaDetail.no}</button>
+        </div>
+      )}
+      {moveFlow.kind === "confirmingRestore" && (
+        <div
+          role="dialog"
+          aria-label={t.areaDetail.linkRestoredPrompt}
+          className="area-detail-restore-dialog"
+        >
+          <p>{t.areaDetail.linkRestoredPrompt}</p>
+          <button onClick={handleMoveRestoreYes}>{t.areaDetail.yes}</button>
+          <button onClick={handleMoveRestoreNo}>{t.areaDetail.no}</button>
+        </div>
+      )}
+      {buildingDialog && (
+        <BuildingEditDialog
+          mode={buildingDialog.mode as BuildingDialogMode}
+          initialLabel={
+            buildingDialog.mode === "edit" ? buildingDialog.building.label : ""
+          }
+          initialAddress={
+            buildingDialog.mode === "edit"
+              ? buildingDialog.building.address
+              : ""
+          }
+          initialDescription={
+            buildingDialog.mode === "edit"
+              ? buildingDialog.building.description
+              : ""
+          }
+          initialRooms={
+            buildingDialog.mode === "edit"
+              ? rooms.filter(
+                  (r) =>
+                    r.parentId === buildingDialog.building.id && !r.deletedAt,
+                )
+              : []
+          }
+          onSave={handleBuildingDialogSave}
+          onCancel={handleBuildingDialogCancel}
+        />
+      )}
+      {pendingBuildingDelete && (
+        <div
+          role="dialog"
+          aria-label={t.areaDetail.buildingConfirmDeleteCascade}
+          className="delete-place-confirm-dialog"
+        >
+          <p>
+            {t.areaDetail.buildingConfirmDeleteCascade.replace(
+              "{count}",
+              String(buildingRoomCount(pendingBuildingDelete.id)),
+            )}
+          </p>
+          <button onClick={handleBuildingDeleteCancel}>
+            {t.areaDetail.cancel}
+          </button>
+          <button onClick={handleBuildingDeleteConfirm}>
+            {t.areaDetail.deletePlace}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
