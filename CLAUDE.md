@@ -34,6 +34,7 @@
 
 ## 開発環境
 - **コード編集・テスト**: WSL2 (Ubuntu) — Claude Code、VSCode Remote-WSL、vitest
+- **PWA 実行（開発）**: `cd pwa && npm install && npm run dev`（Vite dev サーバー、ブラウザで http://localhost:5173/）
 - PWA はブラウザで動作するため、以下の Wails 実行手順は**凍結中の参照用**（Wails 版を確認する場合のみ）
 - **Wails実行（開発中）**: WSL2で `desktop/dev.sh` を実行（依存チェック・webkit2gtk-4.1対応・npm install を自動化）
   - 日本語入力不可、英字で動作確認
