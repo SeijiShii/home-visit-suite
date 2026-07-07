@@ -40,6 +40,23 @@ describe("InMemoryUserRepository", () => {
     expect((await repo.getUser(alice.id))!.tagIds).toEqual(["t1"]);
   });
 
+  it("招待を保存し、被招待者で絞り込んで一覧できる", async () => {
+    await repo.saveInvitation({
+      id: "i1",
+      type: "role_promote",
+      status: "pending",
+      inviterId: "did:example:admin",
+      inviteeId: alice.id,
+      targetRole: "editor",
+      description: "",
+      createdAt: "2026-07-07T00:00:00Z",
+      resolvedAt: null,
+    });
+    expect(await repo.listInvitations(alice.id)).toHaveLength(1);
+    expect(await repo.listInvitations("did:example:other")).toHaveLength(0);
+    expect((await repo.getInvitation("i1"))?.targetRole).toBe("editor");
+  });
+
   it("タグを保存・一覧・削除できる", async () => {
     await repo.saveTag({ id: "t1", name: "Aチーム", color: "#3b82f6" });
     expect(await repo.listTags()).toHaveLength(1);

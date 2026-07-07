@@ -5,6 +5,8 @@
 // メンバーグループ（旧 OrgGroup）概念は 2026-05-06 に廃止された。
 // ロール・メンバータグでメンバー分類を表現する。
 
+import { HEX_COLOR_RE } from "./color";
+
 /** LinkSelf グループ内のロール。上位互換: admin > editor > member */
 export type Role = "admin" | "editor" | "member";
 
@@ -50,8 +52,6 @@ export interface Tag {
   name: string;
   color: string;
 }
-
-const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 /**
  * タグの入力値を検証し、不正なら英語のエラーメッセージを返す（正常時は null）。

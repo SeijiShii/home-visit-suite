@@ -4,9 +4,8 @@
 // PWA では実装をアダプタとして差し替える:
 // - InMemoryUserRepository（data/inmemory/、開発・テスト用の先行実装）
 // - LinkSelf TS 実装のアダプタ（LinkSelf TS 完成後に追加）
-//
-// Invitation 系メソッドは Invitation モデルの TS 移植時に追加する。
 
+import type { Invitation } from "../models/invitation";
 import type { Tag, User } from "../models/user";
 
 export interface UserRepository {
@@ -20,4 +19,9 @@ export interface UserRepository {
   listTags(): Promise<Tag[]>;
   saveTag(tag: Tag): Promise<void>;
   deleteTag(id: string): Promise<void>;
+
+  // Invitation
+  listInvitations(inviteeId: string): Promise<Invitation[]>;
+  getInvitation(id: string): Promise<Invitation | null>;
+  saveInvitation(inv: Invitation): Promise<void>;
 }
