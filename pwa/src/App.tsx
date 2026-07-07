@@ -9,6 +9,7 @@ import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { CoveragePage } from "./pages/CoveragePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { RegionManagementPage } from "./pages/RegionManagementPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -29,10 +30,7 @@ export default function App() {
             path="/map"
             element={<PlaceholderPage title={t.map.title} />}
           />
-          <Route
-            path="/regions"
-            element={<PlaceholderPage title={t.regionManagement.title} />}
-          />
+          <Route path="/regions" element={<RegionManagementPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/checkouts" element={<CheckoutsPage />} />
           <Route path="/coverage" element={<CoveragePage />} />
