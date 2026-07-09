@@ -183,6 +183,7 @@ export function MapPage() {
   } | null>(null);
   const [alignOpacity, setAlignOpacity] = useState(0.6);
   const [alignScale, setAlignScale] = useState(1);
+  const [alignRotation, setAlignRotation] = useState(0);
 
   const handleManualAlign = useCallback((image: Blob, draft: ImportDraft) => {
     const url = URL.createObjectURL(image);
@@ -190,6 +191,7 @@ export function MapPage() {
     img.onload = () => {
       setAlignOpacity(0.6);
       setAlignScale(1);
+      setAlignRotation(0);
       setAlignment({
         url,
         imageSize: { width: img.naturalWidth, height: img.naturalHeight },
@@ -217,13 +219,14 @@ export function MapPage() {
         alignment.imageSize,
         bounds,
         alignment.boundaries,
+        alignRotation,
       );
       commitDraftPolygons(ed, polys);
       await ed.save();
       await reloadPolygonsRef.current();
     }
     clearAlignment();
-  }, [alignment, clearAlignment]);
+  }, [alignment, alignRotation, clearAlignment]);
 
   const {
     editor,
@@ -720,6 +723,21 @@ export function MapPage() {
                 const v = Number(e.target.value);
                 setAlignScale(v);
                 mapRef.current?.setAlignmentOverlayScale(v);
+              }}
+            />
+          </label>
+          <label className="align-panel-field">
+            {t.map.aiImport.alignRotation}
+            <input
+              type="range"
+              min={-180}
+              max={180}
+              step={1}
+              value={alignRotation}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setAlignRotation(v);
+                mapRef.current?.setAlignmentOverlayRotation(v);
               }}
             />
           </label>

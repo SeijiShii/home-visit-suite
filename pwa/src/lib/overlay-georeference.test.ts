@@ -28,9 +28,10 @@ describe("overlayPixelToLatLng", () => {
   });
 
   it("右下画素は南東角", () => {
-    expect(
-      overlayPixelToLatLng(SIZE, BOUNDS, { x: 200, y: 100 }),
-    ).toEqual({ lat: 35.76, lng: 140.33 });
+    expect(overlayPixelToLatLng(SIZE, BOUNDS, { x: 200, y: 100 })).toEqual({
+      lat: 35.76,
+      lng: 140.33,
+    });
   });
 
   it("中央画素は中心", () => {
@@ -66,5 +67,31 @@ describe("overlayBoundariesToPolygons", () => {
     expect(() =>
       overlayPixelToLatLng({ width: 0, height: 100 }, BOUNDS, { x: 1, y: 1 }),
     ).toThrow();
+  });
+});
+
+describe("overlayPixelToLatLng（回転）", () => {
+  // 経度圧縮の影響を消すため cos(lat)=1 に近い赤道付近の対称 bounds で検証する。
+  const B: OverlayBounds = {
+    north: 0.01,
+    south: -0.01,
+    east: 0.01,
+    west: -0.01,
+  };
+  const S: ImageSize = { width: 200, height: 200 };
+
+  it("回転 0 は無回転と一致する", () => {
+    const p = { x: 200, y: 100 }; // 中央右端 = 中心の真東
+    expect(overlayPixelToLatLng(S, B, p, 0)).toEqual(
+      overlayPixelToLatLng(S, B, p),
+    );
+  });
+
+  it("時計回り 90 度で『真東の点』が『真南』へ移る", () => {
+    const east = { x: 200, y: 100 }; // 中心の真東
+    const r = overlayPixelToLatLng(S, B, east, 90);
+    // 真南 = 経度は中心、緯度は南（負）
+    expect(r.lng).toBeCloseTo(0, 6);
+    expect(r.lat).toBeLessThan(0);
   });
 });

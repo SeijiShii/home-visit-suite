@@ -116,6 +116,7 @@ export interface Translations {
       alignHint: string;
       alignOpacity: string;
       alignScale: string;
+      alignRotation: string;
       alignConfirm: string;
       alignImported: (n: number) => string;
     };

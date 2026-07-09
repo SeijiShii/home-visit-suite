@@ -66,6 +66,7 @@ export interface MapViewHandle {
   showAlignmentOverlay(imageUrl: string, opacity?: number): void;
   setAlignmentOverlayOpacity(opacity: number): void;
   setAlignmentOverlayScale(scale: number): void;
+  setAlignmentOverlayRotation(deg: number): void;
   getAlignmentOverlayBounds(): {
     north: number;
     south: number;
@@ -219,6 +220,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     setAlignmentOverlayScale(scale) {
       rendererRef.current?.setAlignmentOverlayScale(scale);
+    },
+    setAlignmentOverlayRotation(deg) {
+      rendererRef.current?.setAlignmentOverlayRotation(deg);
     },
     getAlignmentOverlayBounds() {
       return rendererRef.current?.getAlignmentOverlayBounds() ?? null;

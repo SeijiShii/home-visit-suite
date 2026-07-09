@@ -128,6 +128,7 @@ const en: Translations = {
         "Drag the image to move it, and use the sliders to scale and adjust opacity so it overlays the real map.",
       alignOpacity: "Opacity",
       alignScale: "Scale",
+      alignRotation: "Rotation",
       alignConfirm: "Import boundaries at this position",
       alignImported: (n: number): string => `Imported ${n} boundary polygon(s)`,
     },

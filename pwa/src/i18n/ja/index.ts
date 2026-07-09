@@ -127,6 +127,7 @@ const ja: Translations = {
         "画像をドラッグで移動、スライダーで拡大縮小・透過度を調整し、実地図に重ねてください。",
       alignOpacity: "透過度",
       alignScale: "拡大縮小",
+      alignRotation: "回転",
       alignConfirm: "この配置で境界を取り込む",
       alignImported: (n: number): string =>
         `境界ポリゴン ${n} 件を取り込みました`,

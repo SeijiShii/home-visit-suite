@@ -149,6 +149,7 @@ export class MapRenderer {
   private alignmentBaseHalfLat = 0;
   private alignmentBaseHalfLng = 0;
   private alignmentScale = 1;
+  private alignmentRotationDeg = 0;
   private alignmentDragMove: ((e: L.LeafletMouseEvent) => void) | null = null;
   private alignmentDragEnd: (() => void) | null = null;
   private placeBadgeMarkers = new Map<string, L.Marker>();
@@ -271,6 +272,7 @@ export class MapRenderer {
     this.alignmentBaseHalfLat = (view.getNorth() - view.getSouth()) * 0.2;
     this.alignmentBaseHalfLng = (view.getEast() - view.getWest()) * 0.2;
     this.alignmentScale = 1;
+    this.alignmentRotationDeg = 0;
     this.alignmentOverlay = L.imageOverlay(
       imageUrl,
       this.computeAlignmentBounds(),
@@ -279,6 +281,9 @@ export class MapRenderer {
         interactive: true,
       },
     ).addTo(this.map);
+
+    // ズーム/ビュー変更で Leaflet が img の transform を再設定するため、回転を再適用する
+    this.map.on("zoomend viewreset", this.reapplyAlignmentTransform);
 
     // ドラッグで平行移動（地図パンは一時無効化）
     this.alignmentOverlay.on("mousedown", (e: L.LeafletMouseEvent) => {
@@ -292,6 +297,7 @@ export class MapRenderer {
           startCenter.lng + (ev.latlng.lng - start.lng),
         );
         this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
+        this.reapplyAlignmentTransform();
       };
       this.alignmentDragEnd = () => {
         if (this.alignmentDragMove)
@@ -323,9 +329,30 @@ export class MapRenderer {
 
   setAlignmentOverlayScale(scale: number): void {
     this.alignmentScale = scale;
-    if (this.alignmentCenter)
+    if (this.alignmentCenter) {
       this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
+      this.reapplyAlignmentTransform();
+    }
   }
+
+  /** オーバーレイ画像を中心まわりに回転表示する（CSS transform、時計回り正）。 */
+  setAlignmentOverlayRotation(deg: number): void {
+    this.alignmentRotationDeg = deg;
+    this.reapplyAlignmentTransform();
+  }
+
+  /**
+   * Leaflet が img に設定した translate（位置）を保持したまま rotate を合成する。
+   * setBounds / zoom のたびに Leaflet が transform を上書きするため再適用が必要。
+   */
+  private reapplyAlignmentTransform = (): void => {
+    const el = this.alignmentOverlay?.getElement();
+    if (!el) return;
+    const base = el.style.transform.replace(/\s*rotate\([^)]*\)/, "");
+    el.style.transformOrigin = "center center";
+    el.style.transform =
+      `${base} rotate(${this.alignmentRotationDeg}deg)`.trim();
+  };
 
   /** 現在のオーバーレイの軸平行境界を返す（未表示なら null）。 */
   getAlignmentOverlayBounds(): {
@@ -351,11 +378,13 @@ export class MapRenderer {
     this.alignmentDragMove = null;
     this.alignmentDragEnd = null;
     this.map?.dragging.enable();
+    this.map?.off("zoomend viewreset", this.reapplyAlignmentTransform);
     if (this.alignmentOverlay) {
       this.alignmentOverlay.remove();
       this.alignmentOverlay = null;
     }
     this.alignmentCenter = null;
+    this.alignmentRotationDeg = 0;
   }
 
   unmount(): void {
