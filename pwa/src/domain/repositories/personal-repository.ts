@@ -19,7 +19,9 @@ export interface PersonalRepository {
   deletePersonalTag(id: string): Promise<void>;
 
   // PersonalTagAssignment
-  listPersonalTagAssignments(visitRecordId: string): Promise<PersonalTagAssignment[]>;
+  listPersonalTagAssignments(
+    visitRecordId: string,
+  ): Promise<PersonalTagAssignment[]>;
   savePersonalTagAssignment(a: PersonalTagAssignment): Promise<void>;
   deletePersonalTagAssignment(id: string): Promise<void>;
 
@@ -41,4 +43,14 @@ export interface PersonalRepository {
   getAreaDetailRadiusKm(): Promise<number>;
   /** 隣接半径(km)を保存する。 */
   setAreaDetailRadiusKm(km: number): Promise<void>;
+
+  /** AI 地図取込用の生成 AI プロバイダ識別子を返す。未設定時は空文字。 */
+  getAiProvider(): Promise<string>;
+  /** AI プロバイダ識別子を保存する。 */
+  setAiProvider(provider: string): Promise<void>;
+
+  /** AI 地図取込用の API キー（秘匿）を返す。未設定時は空文字。 */
+  getAiApiKey(): Promise<string>;
+  /** API キーを保存する。 */
+  setAiApiKey(key: string): Promise<void>;
 }

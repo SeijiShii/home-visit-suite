@@ -2,16 +2,62 @@
 // ヘルプ表示リセット（TipsContext）と開発用データ削除（RegionBinding /
 // AvailablePeriodBinding）のセクションは、対応するサービス層の移植時に追加する。
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
+import { useServices } from "../contexts/ServicesContext";
+import { maskApiKey } from "../services/settings-service";
 import type { Locales } from "../i18n/i18n-types";
 
 export function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
-  const { currentActorID, realDID, isDevMode, availableIdentities, switchIdentity } =
-    useIdentity();
+  const {
+    currentActorID,
+    realDID,
+    isDevMode,
+    availableIdentities,
+    switchIdentity,
+  } = useIdentity();
+  const { settingsService } = useServices();
   const [identityMsg, setIdentityMsg] = useState<string>("");
+
+  const [aiProvider, setAiProvider] = useState<string>("anthropic");
+  const [aiKeyInput, setAiKeyInput] = useState<string>("");
+  const [aiSavedKey, setAiSavedKey] = useState<string>("");
+  const [aiMsg, setAiMsg] = useState<string>("");
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const [provider, key] = await Promise.all([
+        settingsService.getAiProvider(),
+        settingsService.getAiApiKey(),
+      ]);
+      if (!active) return;
+      setAiProvider(provider);
+      setAiSavedKey(key);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [settingsService]);
+
+  const handleAiSave = async () => {
+    await settingsService.setAiProvider(aiProvider);
+    if (aiKeyInput !== "") {
+      await settingsService.setAiApiKey(aiKeyInput);
+      setAiSavedKey(aiKeyInput);
+      setAiKeyInput("");
+    }
+    setAiMsg(t.settings.aiSaved);
+    setTimeout(() => setAiMsg(""), 3000);
+  };
+
+  const handleAiClear = async () => {
+    await settingsService.setAiApiKey("");
+    setAiSavedKey("");
+    setAiKeyInput("");
+  };
 
   const handleIdentitySwitch = async (did: string) => {
     if (did === currentActorID) return;
@@ -57,6 +103,69 @@ export function SettingsPage() {
             {t.settings.languageEn}
           </label>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <h2>{t.settings.aiSection}</h2>
+        <p className="settings-section-description">
+          {t.settings.aiDescription}
+        </p>
+        <div className="settings-field">
+          <label className="settings-field-label" htmlFor="ai-provider">
+            {t.settings.aiProvider}
+          </label>
+          <select
+            id="ai-provider"
+            className="settings-select"
+            value={aiProvider}
+            onChange={(e) => setAiProvider(e.target.value)}
+          >
+            <option value="anthropic">{t.settings.aiProviderAnthropic}</option>
+          </select>
+        </div>
+        <div className="settings-field">
+          <label className="settings-field-label" htmlFor="ai-api-key">
+            {t.settings.aiApiKey}
+          </label>
+          <span className="settings-ai-key-status">
+            {aiSavedKey
+              ? `${t.settings.aiApiKeyRegistered}（${maskApiKey(aiSavedKey)}）`
+              : t.settings.aiApiKeyNotSet}
+          </span>
+          <input
+            id="ai-api-key"
+            className="settings-input"
+            type="password"
+            autoComplete="off"
+            placeholder={t.settings.aiApiKeyPlaceholder}
+            value={aiKeyInput}
+            onChange={(e) => setAiKeyInput(e.target.value)}
+          />
+        </div>
+        <div className="settings-field-actions">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => void handleAiSave()}
+          >
+            {t.settings.aiSave}
+          </button>
+          {aiSavedKey && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void handleAiClear()}
+            >
+              {t.settings.aiClear}
+            </button>
+          )}
+        </div>
+        <p className="settings-section-note">{t.settings.aiApiKeyNote}</p>
+        {aiMsg && (
+          <p className="settings-msg" role="status">
+            {aiMsg}
+          </p>
+        )}
       </section>
 
       {isDevMode && (

@@ -392,6 +392,20 @@ const en: Translations = {
     language: "Language",
     languageJa: "日本語",
     languageEn: "English",
+    aiSection: "AI map import",
+    aiDescription:
+      "Register the API key used to draft area polygons from map images or PDFs with AI. Key provisioning and billing are under your own contract.",
+    aiProvider: "Provider",
+    aiProviderAnthropic: "Anthropic (Claude)",
+    aiApiKey: "API key",
+    aiApiKeyPlaceholder: "Enter API key",
+    aiApiKeyRegistered: "Registered",
+    aiApiKeyNotSet: "Not set",
+    aiApiKeyNote:
+      "Images are sent to an external AI provider for analysis. Activity data such as visit records is never sent.",
+    aiSave: "Save",
+    aiSaved: "API key saved",
+    aiClear: "Clear",
   },
   settingsDev: {
     title: "Developer",

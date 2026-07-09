@@ -3146,6 +3146,56 @@ section {
   margin-top: 8px;
 }
 
+/* 設定画面: AI 地図取込セクション（プロバイダ選択 + API キー入力） */
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  max-width: 420px;
+}
+
+.settings-field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.settings-select,
+.settings-input {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #fff;
+}
+
+.settings-select:focus,
+.settings-input:focus {
+  outline: none;
+  border-color: #64748b;
+}
+
+.settings-ai-key-status {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.settings-field-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.settings-section-note {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 4px;
+  max-width: 420px;
+}
+
 /* 設定画面 dev セクション: アイデンティティ切替 */
 
 .settings-dev-identity-list {

@@ -382,6 +382,18 @@ export interface Translations {
     language: string;
     languageJa: string;
     languageEn: string;
+    aiSection: string;
+    aiDescription: string;
+    aiProvider: string;
+    aiProviderAnthropic: string;
+    aiApiKey: string;
+    aiApiKeyPlaceholder: string;
+    aiApiKeyRegistered: string;
+    aiApiKeyNotSet: string;
+    aiApiKeyNote: string;
+    aiSave: string;
+    aiSaved: string;
+    aiClear: string;
   };
   tips: {
     dontShowAgain: string;

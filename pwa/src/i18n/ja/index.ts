@@ -391,6 +391,20 @@ const ja: Translations = {
     language: "言語",
     languageJa: "日本語",
     languageEn: "English",
+    aiSection: "AI 地図取込",
+    aiDescription:
+      "地図画像・PDF から区域ポリゴンを AI で下書き生成する機能に使う API キーを登録します。キーの発行・課金はご自身の契約に基づきます。",
+    aiProvider: "プロバイダ",
+    aiProviderAnthropic: "Anthropic (Claude)",
+    aiApiKey: "API キー",
+    aiApiKeyPlaceholder: "API キーを入力",
+    aiApiKeyRegistered: "登録済み",
+    aiApiKeyNotSet: "未登録",
+    aiApiKeyNote:
+      "画像は解析のため外部 AI プロバイダへ送信されます。訪問記録などの活動データは送信しません。",
+    aiSave: "保存",
+    aiSaved: "API キーを保存しました",
+    aiClear: "削除",
   },
   settingsDev: {
     title: "開発用",

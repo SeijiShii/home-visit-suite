@@ -7,6 +7,23 @@ export interface SettingsBindingAPI {
   SetLocale(locale: string): Promise<void>;
   GetAreaDetailRadiusKm(): Promise<number>;
   SetAreaDetailRadiusKm(km: number): Promise<void>;
+  GetAiProvider(): Promise<string>;
+  SetAiProvider(provider: string): Promise<void>;
+  GetAiApiKey(): Promise<string>;
+  SetAiApiKey(key: string): Promise<void>;
+}
+
+/** AI 地図取込用 API キーの既定プロバイダ識別子。 */
+export const DEFAULT_AI_PROVIDER = "anthropic";
+
+/**
+ * API キーを表示用にマスクする。末尾 4 文字のみ残し、それ以外を `•` に置換する。
+ * ただし 4 文字以下のキーは末尾も露出させず全マスクする（短いキーの推測防止）。
+ */
+export function maskApiKey(key: string): string {
+  if (key.length === 0) return "";
+  if (key.length <= 4) return "•".repeat(key.length);
+  return "•".repeat(key.length - 4) + key.slice(-4);
 }
 
 // フロントエンド向けサービス（Wails バインディングの薄いラッパ）
@@ -40,5 +57,24 @@ export class SettingsService {
 
   async setAreaDetailRadiusKm(km: number): Promise<void> {
     await this.api.SetAreaDetailRadiusKm(km);
+  }
+
+  /** AI プロバイダ識別子を返す。未設定時は既定 (`anthropic`) を返す。 */
+  async getAiProvider(): Promise<string> {
+    const p = await this.api.GetAiProvider();
+    return p || DEFAULT_AI_PROVIDER;
+  }
+
+  async setAiProvider(provider: string): Promise<void> {
+    await this.api.SetAiProvider(provider);
+  }
+
+  /** AI API キーを返す。未設定時は空文字を返す。 */
+  async getAiApiKey(): Promise<string> {
+    return await this.api.GetAiApiKey();
+  }
+
+  async setAiApiKey(key: string): Promise<void> {
+    await this.api.SetAiApiKey(key);
   }
 }

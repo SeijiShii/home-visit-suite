@@ -17,6 +17,8 @@ export class InMemoryPersonalRepository implements PersonalRepository {
   private hiddenTipKeys = new Set<string>();
   private locale = "";
   private areaDetailRadiusKm = 0;
+  private aiProvider = "";
+  private aiApiKey = "";
 
   async getPersonalNote(visitRecordId: string): Promise<PersonalNote | null> {
     const n = this.notes.get(visitRecordId);
@@ -45,7 +47,9 @@ export class InMemoryPersonalRepository implements PersonalRepository {
     this.tags.delete(id);
   }
 
-  async listPersonalTagAssignments(visitRecordId: string): Promise<PersonalTagAssignment[]> {
+  async listPersonalTagAssignments(
+    visitRecordId: string,
+  ): Promise<PersonalTagAssignment[]> {
     return [...this.assignments.values()]
       .filter((a) => a.visitRecordId === visitRecordId)
       .map((a) => ({ ...a }));
@@ -85,5 +89,21 @@ export class InMemoryPersonalRepository implements PersonalRepository {
 
   async setAreaDetailRadiusKm(km: number): Promise<void> {
     this.areaDetailRadiusKm = km;
+  }
+
+  async getAiProvider(): Promise<string> {
+    return this.aiProvider;
+  }
+
+  async setAiProvider(provider: string): Promise<void> {
+    this.aiProvider = provider;
+  }
+
+  async getAiApiKey(): Promise<string> {
+    return this.aiApiKey;
+  }
+
+  async setAiApiKey(key: string): Promise<void> {
+    this.aiApiKey = key;
   }
 }
