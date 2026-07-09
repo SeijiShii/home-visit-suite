@@ -54,6 +54,11 @@ export interface PersonalRepository {
   /** API キーを保存する。 */
   setAiApiKey(key: string): Promise<void>;
 
+  /** AI 地図取込用のモデル ID を返す。未設定時は空文字。 */
+  getAiModel(): Promise<string>;
+  /** モデル ID を保存する。 */
+  setAiModel(model: string): Promise<void>;
+
   /** AI 地図取込の画像外部送信への同意有無を返す。未設定時は false。 */
   getAiMapImportConsent(): Promise<boolean>;
   /** 画像外部送信への同意を保存する。 */

@@ -11,12 +11,24 @@ export interface SettingsBindingAPI {
   SetAiProvider(provider: string): Promise<void>;
   GetAiApiKey(): Promise<string>;
   SetAiApiKey(key: string): Promise<void>;
+  GetAiModel(): Promise<string>;
+  SetAiModel(model: string): Promise<void>;
   GetAiMapImportConsent(): Promise<boolean>;
   SetAiMapImportConsent(consented: boolean): Promise<void>;
 }
 
 /** AI 地図取込用 API キーの既定プロバイダ識別子。 */
 export const DEFAULT_AI_PROVIDER = "anthropic";
+
+/** AI 地図取込の既定モデル ID（vision 対応の最上位モデル）。 */
+export const DEFAULT_AI_MODEL = "claude-opus-4-8";
+
+/** 設定画面で選べる vision 対応モデル（品質/コストの異なる 3 段）。 */
+export const AI_MODEL_OPTIONS = [
+  "claude-opus-4-8",
+  "claude-sonnet-5",
+  "claude-haiku-4-5-20251001",
+] as const;
 
 /**
  * API キーを表示用にマスクする。末尾 4 文字のみ残し、それ以外を `•` に置換する。
@@ -78,6 +90,16 @@ export class SettingsService {
 
   async setAiApiKey(key: string): Promise<void> {
     await this.api.SetAiApiKey(key);
+  }
+
+  /** AI モデル ID を返す。未設定時は既定モデルを返す。 */
+  async getAiModel(): Promise<string> {
+    const m = await this.api.GetAiModel();
+    return m || DEFAULT_AI_MODEL;
+  }
+
+  async setAiModel(model: string): Promise<void> {
+    await this.api.SetAiModel(model);
   }
 
   /** AI 地図取込の画像外部送信への同意有無を返す。 */

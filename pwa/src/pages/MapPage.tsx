@@ -114,15 +114,18 @@ export function MapPage() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [apiKey, provider, consent] = await Promise.all([
+      const [apiKey, provider, model, consent] = await Promise.all([
         settingsService.getAiApiKey(),
         settingsService.getAiProvider(),
+        settingsService.getAiModel(),
         settingsService.getAiMapImportConsent(),
       ]);
       if (!active) return;
       setAiProviderName(provider);
       setAiConsent(consent);
-      setAiImportService(apiKey ? buildAiMapImportService(apiKey) : null);
+      setAiImportService(
+        apiKey ? buildAiMapImportService(apiKey, model) : null,
+      );
     })();
     return () => {
       active = false;

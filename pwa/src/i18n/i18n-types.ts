@@ -421,6 +421,10 @@ export interface Translations {
     aiDescription: string;
     aiProvider: string;
     aiProviderAnthropic: string;
+    aiModel: string;
+    aiModelOpus: string;
+    aiModelSonnet: string;
+    aiModelHaiku: string;
     aiApiKey: string;
     aiApiKeyPlaceholder: string;
     aiApiKeyRegistered: string;

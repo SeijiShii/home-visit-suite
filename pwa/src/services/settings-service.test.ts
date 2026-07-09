@@ -25,6 +25,17 @@ describe("AI プロバイダ", () => {
   });
 });
 
+describe("AI モデル", () => {
+  it("未設定時は既定モデル claude-opus-4-8 を返す", async () => {
+    expect(await svc.getAiModel()).toBe("claude-opus-4-8");
+  });
+
+  it("保存した値を取り出せる", async () => {
+    await svc.setAiModel("claude-haiku-4-5-20251001");
+    expect(await svc.getAiModel()).toBe("claude-haiku-4-5-20251001");
+  });
+});
+
 describe("AI API キー", () => {
   it("未設定時は空文字を返す", async () => {
     expect(await svc.getAiApiKey()).toBe("");

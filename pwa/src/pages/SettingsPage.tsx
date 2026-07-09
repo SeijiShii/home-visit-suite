@@ -22,6 +22,7 @@ export function SettingsPage() {
   const [identityMsg, setIdentityMsg] = useState<string>("");
 
   const [aiProvider, setAiProvider] = useState<string>("anthropic");
+  const [aiModel, setAiModel] = useState<string>("claude-opus-4-8");
   const [aiKeyInput, setAiKeyInput] = useState<string>("");
   const [aiSavedKey, setAiSavedKey] = useState<string>("");
   const [aiMsg, setAiMsg] = useState<string>("");
@@ -29,12 +30,14 @@ export function SettingsPage() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [provider, key] = await Promise.all([
+      const [provider, model, key] = await Promise.all([
         settingsService.getAiProvider(),
+        settingsService.getAiModel(),
         settingsService.getAiApiKey(),
       ]);
       if (!active) return;
       setAiProvider(provider);
+      setAiModel(model);
       setAiSavedKey(key);
     })();
     return () => {
@@ -44,6 +47,7 @@ export function SettingsPage() {
 
   const handleAiSave = async () => {
     await settingsService.setAiProvider(aiProvider);
+    await settingsService.setAiModel(aiModel);
     if (aiKeyInput !== "") {
       await settingsService.setAiApiKey(aiKeyInput);
       setAiSavedKey(aiKeyInput);
@@ -121,6 +125,23 @@ export function SettingsPage() {
             onChange={(e) => setAiProvider(e.target.value)}
           >
             <option value="anthropic">{t.settings.aiProviderAnthropic}</option>
+          </select>
+        </div>
+        <div className="settings-field">
+          <label className="settings-field-label" htmlFor="ai-model">
+            {t.settings.aiModel}
+          </label>
+          <select
+            id="ai-model"
+            className="settings-select"
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+          >
+            <option value="claude-opus-4-8">{t.settings.aiModelOpus}</option>
+            <option value="claude-sonnet-5">{t.settings.aiModelSonnet}</option>
+            <option value="claude-haiku-4-5-20251001">
+              {t.settings.aiModelHaiku}
+            </option>
           </select>
         </div>
         <div className="settings-field">

@@ -73,6 +73,21 @@ describe("SettingsPage AI 地図取込", () => {
     expect(screen.queryByText(/sk-ant-secret9999/)).not.toBeInTheDocument();
   });
 
+  it("モデルを選んで保存すると個人設定に永続化される", async () => {
+    const services = await renderSettings();
+    await screen.findByText("AI 地図取込");
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("モデル"),
+      "claude-haiku-4-5-20251001",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(await services.settingsService.getAiModel()).toBe(
+      "claude-haiku-4-5-20251001",
+    );
+  });
+
   it("登録済みキーを削除できる", async () => {
     const services = await renderSettings(async (s) => {
       await s.settingsService.setAiApiKey("sk-ant-todelete1234");
