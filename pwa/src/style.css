@@ -3203,6 +3203,11 @@ section {
   align-self: flex-start;
 }
 
+.polygon-list-ai-import-btn {
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
 .ai-import-dialog {
   min-width: 360px;
   max-width: 480px;

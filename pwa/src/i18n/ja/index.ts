@@ -119,6 +119,8 @@ const ja: Translations = {
       errorTitle: "解析に失敗しました",
       retry: "やり直す",
       close: "閉じる",
+      importPlaces: (n: number): string => `AI 場所 ${n} 件を取込`,
+      importedPlaces: (n: number): string => `場所 ${n} 件を取り込みました`,
     },
   },
   areaDetail: {

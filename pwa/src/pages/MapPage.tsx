@@ -35,6 +35,10 @@ import type {
   ImportDraft,
 } from "../services/ai-map-import";
 import { commitDraftPolygons } from "../lib/ai-map-commit";
+import {
+  assignPlacesToPolygons,
+  type PolygonRing,
+} from "../lib/assign-places-to-polygons";
 import type {
   PolygonID,
   EdgeID,
@@ -72,7 +76,8 @@ export function MapPage() {
     lng: number;
   } | null>(null);
 
-  const { regionBindingApi, mapBinding, settingsService } = useServices();
+  const { regionBindingApi, mapBinding, settingsService, placeImportService } =
+    useServices();
   const regionService = useMemo(
     () => new RegionService(regionBindingApi),
     [regionBindingApi],
@@ -84,6 +89,22 @@ export function MapPage() {
   const [aiProviderName, setAiProviderName] = useState("");
   const [aiConsent, setAiConsent] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPendingCounts, setAiPendingCounts] = useState<Map<string, number>>(
+    new Map(),
+  );
+
+  const refreshAiPendingCounts = useCallback(
+    async (polys: PolygonSnapshot[]) => {
+      const entries = await Promise.all(
+        polys.map(async (p) => {
+          const id = p.id as string;
+          return [id, await placeImportService.pendingCount(id)] as const;
+        }),
+      );
+      setAiPendingCounts(new Map(entries.filter(([, n]) => n > 0)));
+    },
+    [placeImportService],
+  );
 
   useEffect(() => {
     let active = true;
@@ -114,10 +135,36 @@ export function MapPage() {
       if (!ed) return 0;
       const ids = commitDraftPolygons(ed, draft.polygons);
       await ed.save();
+
+      // 場所番号は、内包する取込ポリゴンに束ねて一時保持する。
+      // 区域へ紐付けた後にポリゴン一覧から Place 化する（docs/wants/03 Phase 1.1）。
+      if (draft.places.length > 0) {
+        const rings: PolygonRing[] = [];
+        for (const id of ids) {
+          const geojson = ed.getPolygonGeoJSON(id);
+          const ring = geojson?.coordinates?.[0] as
+            [number, number][] | undefined;
+          if (ring) rings.push({ id: id as string, ring });
+        }
+        await placeImportService.stash(
+          assignPlacesToPolygons(rings, draft.places),
+        );
+      }
+
       await reloadPolygonsRef.current();
+      await refreshAiPendingCounts(ed.getPolygons());
       return ids.length;
     },
-    [],
+    [placeImportService, refreshAiPendingCounts],
+  );
+
+  const handleImportAiPlaces = useCallback(
+    async (polygonId: PolygonID, areaId: string) => {
+      await placeImportService.importForArea(areaId, [polygonId as string]);
+      const ed = editorRef.current;
+      if (ed) await refreshAiPendingCounts(ed.getPolygons());
+    },
+    [placeImportService, refreshAiPendingCounts],
   );
 
   const {
@@ -670,6 +717,10 @@ export function MapPage() {
               isEditing={isEditing}
               onStartDrawing={handleStartFreeDrawing}
               onPruneOrphans={handlePruneOrphans}
+              aiPendingCounts={aiPendingCounts}
+              onImportAiPlaces={(polygonId, areaId) =>
+                void handleImportAiPlaces(polygonId, areaId)
+              }
             />
           </div>
         </div>

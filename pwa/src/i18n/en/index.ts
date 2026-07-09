@@ -120,6 +120,8 @@ const en: Translations = {
       errorTitle: "Analysis failed",
       retry: "Retry",
       close: "Close",
+      importPlaces: (n: number): string => `Import ${n} AI place(s)`,
+      importedPlaces: (n: number): string => `Imported ${n} place(s)`,
     },
   },
   areaDetail: {

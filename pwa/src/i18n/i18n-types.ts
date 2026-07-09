@@ -109,6 +109,8 @@ export interface Translations {
       errorTitle: string;
       retry: string;
       close: string;
+      importPlaces: (n: number) => string;
+      importedPlaces: (n: number) => string;
     };
   };
   areaDetail: {

@@ -6,6 +6,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { InMemoryCheckoutRepository } from "../data/inmemory/inmemory-checkout-repository";
 import { InMemoryCoverageRepository } from "../data/inmemory/inmemory-coverage-repository";
 import { InMemoryNotificationRepository } from "../data/inmemory/inmemory-notification-repository";
+import { InMemoryPendingImportPlaceRepository } from "../data/inmemory/inmemory-pending-import-place-repository";
 import { InMemoryPersonalRepository } from "../data/inmemory/inmemory-personal-repository";
 import { InMemoryPlaceRepository } from "../data/inmemory/inmemory-place-repository";
 import { InMemoryRegionRepository } from "../data/inmemory/inmemory-region-repository";
@@ -31,6 +32,7 @@ import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-
 import { SettingsService } from "../services/settings-service";
 import { PlaceService } from "../services/place-service";
 import { PlaceRepositoryBindingAdapter } from "../services/place-binding-adapter";
+import { PlaceImportService } from "../services/place-import-service";
 import { VisitService } from "../services/visit-service";
 import { VisitBindingAdapter } from "../services/visit-binding-adapter";
 import type { RegionBindingAPI } from "../services/region-service";
@@ -52,6 +54,7 @@ export interface AppServices {
   checkoutService: CheckoutService;
   settingsService: SettingsService;
   placeService: PlaceService;
+  placeImportService: PlaceImportService;
   visitService: VisitService;
 
   // 地図編集用のアダプタ（旧 Wails RegionBinding / MapBinding 相当）
@@ -88,6 +91,11 @@ export function createInMemoryServices(): AppServices {
   const placeService = new PlaceService(
     new PlaceRepositoryBindingAdapter(placeRepo),
   );
+  const pendingImportPlaceRepo = new InMemoryPendingImportPlaceRepository();
+  const placeImportService = new PlaceImportService(
+    pendingImportPlaceRepo,
+    placeService,
+  );
   const visitService = new VisitService(
     new VisitBindingAdapter(checkoutService, checkoutRepo),
   );
@@ -108,6 +116,7 @@ export function createInMemoryServices(): AppServices {
     checkoutService,
     settingsService,
     placeService,
+    placeImportService,
     visitService,
     regionBindingApi,
     mapBinding,
