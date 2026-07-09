@@ -122,6 +122,14 @@ const en: Translations = {
       close: "Close",
       importPlaces: (n: number): string => `Import ${n} AI place(s)`,
       importedPlaces: (n: number): string => `Imported ${n} place(s)`,
+      manualAlign: "Align manually",
+      alignTitle: "Align the image to the map",
+      alignHint:
+        "Drag the image to move it, and use the sliders to scale and adjust opacity so it overlays the real map.",
+      alignOpacity: "Opacity",
+      alignScale: "Scale",
+      alignConfirm: "Import boundaries at this position",
+      alignImported: (n: number): string => `Imported ${n} boundary polygon(s)`,
     },
   },
   areaDetail: {

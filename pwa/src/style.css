@@ -3208,6 +3208,56 @@ section {
   white-space: nowrap;
 }
 
+/* 手動オーバーレイ整列パネル */
+
+.align-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.align-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.align-panel-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.align-panel-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.align-panel-field input[type="range"] {
+  flex: 1;
+}
+
+.align-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .ai-import-dialog {
   min-width: 360px;
   max-width: 480px;

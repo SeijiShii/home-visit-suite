@@ -39,6 +39,11 @@ import {
   assignPlacesToPolygons,
   type PolygonRing,
 } from "../lib/assign-places-to-polygons";
+import {
+  overlayBoundariesToPolygons,
+  type ImageSize,
+} from "../lib/overlay-georeference";
+import type { VisionBoundary } from "../services/ai-map-import";
 import type {
   PolygonID,
   EdgeID,
@@ -166,6 +171,56 @@ export function MapPage() {
     },
     [placeImportService, refreshAiPendingCounts],
   );
+
+  // --- 手動オーバーレイ整列（低信頼フォールバック） ---
+  const [alignment, setAlignment] = useState<{
+    url: string;
+    imageSize: ImageSize;
+    boundaries: VisionBoundary[];
+  } | null>(null);
+  const [alignOpacity, setAlignOpacity] = useState(0.6);
+  const [alignScale, setAlignScale] = useState(1);
+
+  const handleManualAlign = useCallback((file: File, draft: ImportDraft) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      setAlignOpacity(0.6);
+      setAlignScale(1);
+      setAlignment({
+        url,
+        imageSize: { width: img.naturalWidth, height: img.naturalHeight },
+        boundaries: draft.extraction.boundaries,
+      });
+      mapRef.current?.showAlignmentOverlay(url, 0.6);
+    };
+    img.src = url;
+    setAiDialogOpen(false);
+  }, []);
+
+  const clearAlignment = useCallback(() => {
+    mapRef.current?.hideAlignmentOverlay();
+    setAlignment((cur) => {
+      if (cur) URL.revokeObjectURL(cur.url);
+      return null;
+    });
+  }, []);
+
+  const handleAlignConfirm = useCallback(async () => {
+    const ed = editorRef.current;
+    const bounds = mapRef.current?.getAlignmentOverlayBounds();
+    if (ed && alignment && bounds) {
+      const polys = overlayBoundariesToPolygons(
+        alignment.imageSize,
+        bounds,
+        alignment.boundaries,
+      );
+      commitDraftPolygons(ed, polys);
+      await ed.save();
+      await reloadPolygonsRef.current();
+    }
+    clearAlignment();
+  }, [alignment, clearAlignment]);
 
   const {
     editor,
@@ -626,8 +681,57 @@ export function MapPage() {
           consentGiven={aiConsent}
           onGrantConsent={handleAiGrantConsent}
           onCommit={handleAiCommit}
+          onManualAlign={handleManualAlign}
           onClose={() => setAiDialogOpen(false)}
         />
+      )}
+
+      {alignment && (
+        <div className="align-panel">
+          <span className="align-panel-title">{t.map.aiImport.alignTitle}</span>
+          <p className="align-panel-hint">{t.map.aiImport.alignHint}</p>
+          <label className="align-panel-field">
+            {t.map.aiImport.alignOpacity}
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={alignOpacity}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setAlignOpacity(v);
+                mapRef.current?.setAlignmentOverlayOpacity(v);
+              }}
+            />
+          </label>
+          <label className="align-panel-field">
+            {t.map.aiImport.alignScale}
+            <input
+              type="range"
+              min={0.2}
+              max={3}
+              step={0.05}
+              value={alignScale}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setAlignScale(v);
+                mapRef.current?.setAlignmentOverlayScale(v);
+              }}
+            />
+          </label>
+          <div className="align-panel-actions">
+            <button className="btn btn-sm" onClick={clearAlignment}>
+              {t.common.cancel}
+            </button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => void handleAlignConfirm()}
+            >
+              {t.map.aiImport.alignConfirm}
+            </button>
+          </div>
+        </div>
       )}
 
       {isEditing && (

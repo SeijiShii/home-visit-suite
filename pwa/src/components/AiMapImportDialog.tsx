@@ -21,6 +21,8 @@ interface AiMapImportDialogProps {
   onGrantConsent: () => void | Promise<void>;
   /** 高信頼の下書きを地図へ取り込む（境界ポリゴン作成）。件数を返す。 */
   onCommit: (draft: ImportDraft) => number | Promise<number>;
+  /** 手動オーバーレイ整列を開始する（低信頼フォールバック）。 */
+  onManualAlign?: (file: File, draft: ImportDraft) => void;
   onClose: () => void;
 }
 
@@ -32,6 +34,7 @@ export function AiMapImportDialog({
   consentGiven,
   onGrantConsent,
   onCommit,
+  onManualAlign,
   onClose,
 }: AiMapImportDialogProps) {
   const { t } = useI18n();
@@ -217,6 +220,14 @@ export function AiMapImportDialog({
                   <button className="btn btn-sm" onClick={onClose}>
                     {ai.close}
                   </button>
+                  {onManualAlign && file && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => onManualAlign(file, draft)}
+                    >
+                      {ai.manualAlign}
+                    </button>
+                  )}
                 </div>
               </>
             )}

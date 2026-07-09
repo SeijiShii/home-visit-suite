@@ -121,6 +121,15 @@ const ja: Translations = {
       close: "閉じる",
       importPlaces: (n: number): string => `AI 場所 ${n} 件を取込`,
       importedPlaces: (n: number): string => `場所 ${n} 件を取り込みました`,
+      manualAlign: "手動で位置合わせする",
+      alignTitle: "画像を地図に合わせる",
+      alignHint:
+        "画像をドラッグで移動、スライダーで拡大縮小・透過度を調整し、実地図に重ねてください。",
+      alignOpacity: "透過度",
+      alignScale: "拡大縮小",
+      alignConfirm: "この配置で境界を取り込む",
+      alignImported: (n: number): string =>
+        `境界ポリゴン ${n} 件を取り込みました`,
     },
   },
   areaDetail: {

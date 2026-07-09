@@ -95,6 +95,11 @@ export interface ImportDraft {
   unmatchedLandmarks: string[];
   /** AI が推定した地区の自由記述。 */
   areaGuess?: string;
+  /**
+   * vision の生の抽出結果（画素空間）。低信頼で自動配置しない場合でも、
+   * 手動オーバーレイ整列（Phase 1.2）で境界線を配置するために保持する。
+   */
+  extraction: VisionExtraction;
 }
 
 export class AiMapImportService {
@@ -127,6 +132,7 @@ export class AiMapImportService {
       matchedGcps,
       unmatchedLandmarks,
       areaGuess: extraction.areaGuess,
+      extraction,
     };
 
     // 接地点が足りず変換を確定できない → 手動整列フォールバック。

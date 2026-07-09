@@ -111,6 +111,13 @@ export interface Translations {
       close: string;
       importPlaces: (n: number) => string;
       importedPlaces: (n: number) => string;
+      manualAlign: string;
+      alignTitle: string;
+      alignHint: string;
+      alignOpacity: string;
+      alignScale: string;
+      alignConfirm: string;
+      alignImported: (n: number) => string;
     };
   };
   areaDetail: {

@@ -142,13 +142,21 @@ export class MapRenderer {
 
   // 場所マーカー (詳細編集モード時のみ表示)
   private placeMarkers = new Map<string, L.CircleMarker>();
+
+  // 手動オーバーレイ整列 (AI 地図取込の低信頼フォールバック)
+  private alignmentOverlay: L.ImageOverlay | null = null;
+  private alignmentCenter: L.LatLng | null = null;
+  private alignmentBaseHalfLat = 0;
+  private alignmentBaseHalfLng = 0;
+  private alignmentScale = 1;
+  private alignmentDragMove: ((e: L.LeafletMouseEvent) => void) | null = null;
+  private alignmentDragEnd: (() => void) | null = null;
   private placeBadgeMarkers = new Map<string, L.Marker>();
   private placeContextMenuCallback:
-    | ((placeId: string, type: PlaceType, x: number, y: number) => void)
-    | null = null;
+    ((placeId: string, type: PlaceType, x: number, y: number) => void) | null =
+    null;
   private placeClickCallback:
-    | ((placeId: string, type: PlaceType) => void)
-    | null = null;
+    ((placeId: string, type: PlaceType) => void) | null = null;
   private placeZoomHandler: (() => void) | null = null;
 
   // 場所マーカー移動追従モード
@@ -251,8 +259,108 @@ export class MapRenderer {
     }
   }
 
+  // --- 手動オーバーレイ整列 ---
+
+  /** アップロード画像を現在ビュー中央に軸平行オーバーレイし、ドラッグ移動を有効化する。 */
+  showAlignmentOverlay(imageUrl: string, opacity = 0.6): void {
+    if (!this.map) return;
+    this.hideAlignmentOverlay();
+    const view = this.map.getBounds();
+    this.alignmentCenter = view.getCenter();
+    // 初期は現在ビューのおよそ 40% 四方
+    this.alignmentBaseHalfLat = (view.getNorth() - view.getSouth()) * 0.2;
+    this.alignmentBaseHalfLng = (view.getEast() - view.getWest()) * 0.2;
+    this.alignmentScale = 1;
+    this.alignmentOverlay = L.imageOverlay(
+      imageUrl,
+      this.computeAlignmentBounds(),
+      {
+        opacity,
+        interactive: true,
+      },
+    ).addTo(this.map);
+
+    // ドラッグで平行移動（地図パンは一時無効化）
+    this.alignmentOverlay.on("mousedown", (e: L.LeafletMouseEvent) => {
+      if (!this.map || !this.alignmentCenter) return;
+      this.map.dragging.disable();
+      const start = e.latlng;
+      const startCenter = this.alignmentCenter;
+      this.alignmentDragMove = (ev) => {
+        this.alignmentCenter = L.latLng(
+          startCenter.lat + (ev.latlng.lat - start.lat),
+          startCenter.lng + (ev.latlng.lng - start.lng),
+        );
+        this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
+      };
+      this.alignmentDragEnd = () => {
+        if (this.alignmentDragMove)
+          this.map?.off("mousemove", this.alignmentDragMove);
+        if (this.alignmentDragEnd)
+          this.map?.off("mouseup", this.alignmentDragEnd);
+        this.alignmentDragMove = null;
+        this.alignmentDragEnd = null;
+        this.map?.dragging.enable();
+      };
+      this.map.on("mousemove", this.alignmentDragMove);
+      this.map.on("mouseup", this.alignmentDragEnd);
+    });
+  }
+
+  private computeAlignmentBounds(): L.LatLngBounds {
+    const c = this.alignmentCenter!;
+    const halfLat = this.alignmentBaseHalfLat * this.alignmentScale;
+    const halfLng = this.alignmentBaseHalfLng * this.alignmentScale;
+    return L.latLngBounds(
+      [c.lat - halfLat, c.lng - halfLng],
+      [c.lat + halfLat, c.lng + halfLng],
+    );
+  }
+
+  setAlignmentOverlayOpacity(opacity: number): void {
+    this.alignmentOverlay?.setOpacity(opacity);
+  }
+
+  setAlignmentOverlayScale(scale: number): void {
+    this.alignmentScale = scale;
+    if (this.alignmentCenter)
+      this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
+  }
+
+  /** 現在のオーバーレイの軸平行境界を返す（未表示なら null）。 */
+  getAlignmentOverlayBounds(): {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null {
+    if (!this.alignmentOverlay) return null;
+    const b = this.alignmentOverlay.getBounds();
+    return {
+      north: b.getNorth(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      west: b.getWest(),
+    };
+  }
+
+  hideAlignmentOverlay(): void {
+    if (this.alignmentDragMove)
+      this.map?.off("mousemove", this.alignmentDragMove);
+    if (this.alignmentDragEnd) this.map?.off("mouseup", this.alignmentDragEnd);
+    this.alignmentDragMove = null;
+    this.alignmentDragEnd = null;
+    this.map?.dragging.enable();
+    if (this.alignmentOverlay) {
+      this.alignmentOverlay.remove();
+      this.alignmentOverlay = null;
+    }
+    this.alignmentCenter = null;
+  }
+
   unmount(): void {
     this.disableRubberBand();
+    this.hideAlignmentOverlay();
     if (this.map) {
       this.map.remove();
       this.map = null;
@@ -611,8 +719,7 @@ export class MapRenderer {
    */
   setPlaceContextMenuHandler(
     cb:
-      | ((placeId: string, type: PlaceType, x: number, y: number) => void)
-      | null,
+      ((placeId: string, type: PlaceType, x: number, y: number) => void) | null,
   ): void {
     this.placeContextMenuCallback = cb;
   }

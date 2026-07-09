@@ -12,14 +12,19 @@ import type {
 } from "../services/ai-map-import";
 import { AiMapImportDialog } from "./AiMapImportDialog";
 
+const EMPTY_EXTRACTION = { landmarks: [], boundaries: [], places: [] };
+
 const HIGH_DRAFT: ImportDraft = {
   confidence: "high",
   georeference: null,
   polygons: [{ vertices: [] }, { vertices: [] }],
-  places: [{ geo: { lat: 35.7, lng: 140.3 }, number: 1, label: "", address: "" }],
+  places: [
+    { geo: { lat: 35.7, lng: 140.3 }, number: 1, label: "", address: "" },
+  ],
   matchedGcps: [],
   unmatchedLandmarks: ["謎の目印"],
   areaGuess: "成田市 成田周辺",
+  extraction: EMPTY_EXTRACTION,
 };
 
 const LOW_DRAFT: ImportDraft = {
@@ -29,11 +34,10 @@ const LOW_DRAFT: ImportDraft = {
   places: [],
   matchedGcps: [],
   unmatchedLandmarks: [],
+  extraction: EMPTY_EXTRACTION,
 };
 
-function fakeService(
-  impl: () => Promise<ImportDraft>,
-): AiMapImportService {
+function fakeService(impl: () => Promise<ImportDraft>): AiMapImportService {
   return { buildDraft: impl } as unknown as AiMapImportService;
 }
 
@@ -46,6 +50,7 @@ function renderDialog(
     consentGiven: true,
     onGrantConsent: vi.fn(),
     onCommit: vi.fn(async () => 2),
+    onManualAlign: vi.fn(),
     onClose: vi.fn(),
     ...overrides,
   };
@@ -107,6 +112,23 @@ describe("AiMapImportDialog", () => {
     expect(
       screen.queryByRole("button", { name: "境界を地図に取り込む" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("低信頼: 手動整列ボタンを押すと onManualAlign を呼ぶ", async () => {
+    const props = renderDialog({
+      importService: fakeService(async () => LOW_DRAFT),
+    });
+    await uploadAndAnalyze();
+    await screen.findByText(/信頼度: 低/);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "手動で位置合わせする" }),
+    );
+    expect(props.onManualAlign).toHaveBeenCalledOnce();
+    expect(props.onManualAlign).toHaveBeenCalledWith(
+      expect.any(File),
+      LOW_DRAFT,
+    );
   });
 
   it("解析エラー時はエラー画面を表示する", async () => {

@@ -50,8 +50,7 @@ export interface MapViewHandle {
   invalidateSize(): void;
   setPlaceContextMenuHandler(
     cb:
-      | ((placeId: string, type: PlaceType, x: number, y: number) => void)
-      | null,
+      ((placeId: string, type: PlaceType, x: number, y: number) => void) | null,
   ): void;
   setPlaceClickHandler(
     cb: ((placeId: string, type: PlaceType) => void) | null,
@@ -63,6 +62,17 @@ export interface MapViewHandle {
   ): void;
   cancelPlaceMove(): void;
   isPlaceMoving(): boolean;
+  // --- 手動オーバーレイ整列 (AI 地図取込フォールバック) ---
+  showAlignmentOverlay(imageUrl: string, opacity?: number): void;
+  setAlignmentOverlayOpacity(opacity: number): void;
+  setAlignmentOverlayScale(scale: number): void;
+  getAlignmentOverlayBounds(): {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null;
+  hideAlignmentOverlay(): void;
 }
 
 interface MapViewProps {
@@ -200,6 +210,21 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     invalidateSize() {
       rendererRef.current?.invalidateSize();
+    },
+    showAlignmentOverlay(imageUrl, opacity) {
+      rendererRef.current?.showAlignmentOverlay(imageUrl, opacity);
+    },
+    setAlignmentOverlayOpacity(opacity) {
+      rendererRef.current?.setAlignmentOverlayOpacity(opacity);
+    },
+    setAlignmentOverlayScale(scale) {
+      rendererRef.current?.setAlignmentOverlayScale(scale);
+    },
+    getAlignmentOverlayBounds() {
+      return rendererRef.current?.getAlignmentOverlayBounds() ?? null;
+    },
+    hideAlignmentOverlay() {
+      rendererRef.current?.hideAlignmentOverlay();
     },
   }));
 
