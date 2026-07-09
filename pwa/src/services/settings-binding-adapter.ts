@@ -54,4 +54,12 @@ export class PersonalRepositorySettingsAdapter implements SettingsBindingAPI {
   async SetAiApiKey(key: string): Promise<void> {
     await this.repo.setAiApiKey(key);
   }
+
+  async GetAiMapImportConsent(): Promise<boolean> {
+    return this.repo.getAiMapImportConsent();
+  }
+
+  async SetAiMapImportConsent(consented: boolean): Promise<void> {
+    await this.repo.setAiMapImportConsent(consented);
+  }
 }

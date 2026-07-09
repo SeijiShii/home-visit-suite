@@ -84,6 +84,32 @@ export interface Translations {
     selectArea: string;
     areaAlreadyLinked: string;
     unlinkPolygon: string;
+    aiImport: {
+      button: string;
+      noApiKey: string;
+      title: string;
+      consentTitle: string;
+      consentBody: (provider: string) => string;
+      consentAgree: string;
+      cancel: string;
+      selectFile: string;
+      analyze: string;
+      analyzing: string;
+      resultTitle: string;
+      areaGuess: string;
+      confidenceHigh: string;
+      confidenceLow: string;
+      polygonCount: (n: number) => string;
+      placeCount: (n: number) => string;
+      unmatchedTitle: string;
+      placesDeferredNote: string;
+      commit: string;
+      committed: (n: number) => string;
+      lowConfidenceHelp: string;
+      errorTitle: string;
+      retry: string;
+      close: string;
+    };
   };
   areaDetail: {
     back: string;

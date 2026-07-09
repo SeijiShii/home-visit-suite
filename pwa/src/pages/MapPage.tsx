@@ -25,9 +25,16 @@ import { MapView, type MapViewHandle } from "../components/MapView";
 import { EdgeContextMenu } from "../components/EdgeContextMenu";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
+import { AiMapImportDialog } from "../components/AiMapImportDialog";
 import { useServices } from "../contexts/ServicesContext";
 import { RegionService } from "../services/region-service";
 import { buildPolygonAreaMap } from "../services/polygon-service";
+import { buildAiMapImportService } from "../services/ai-map-import-factory";
+import type {
+  AiMapImportService,
+  ImportDraft,
+} from "../services/ai-map-import";
+import { commitDraftPolygons } from "../lib/ai-map-commit";
 import type {
   PolygonID,
   EdgeID,
@@ -49,6 +56,7 @@ export function MapPage() {
   const mapRef = useRef<MapViewHandle>(null);
   const treeRef = useRef<AreaTreeHandle>(null);
   const editorRef = useRef<NetworkPolygonEditor | null>(null);
+  const reloadPolygonsRef = useRef<() => Promise<void>>(async () => {});
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_MIN_WIDTH);
   const [activeTab, setActiveTab] = useState<SidebarTab>("areas");
   const [polygons, setPolygons] = useState<PolygonSnapshot[]>([]);
@@ -64,10 +72,52 @@ export function MapPage() {
     lng: number;
   } | null>(null);
 
-  const { regionBindingApi, mapBinding } = useServices();
+  const { regionBindingApi, mapBinding, settingsService } = useServices();
   const regionService = useMemo(
     () => new RegionService(regionBindingApi),
     [regionBindingApi],
+  );
+
+  // --- AI 地図取込 ---
+  const [aiImportService, setAiImportService] =
+    useState<AiMapImportService | null>(null);
+  const [aiProviderName, setAiProviderName] = useState("");
+  const [aiConsent, setAiConsent] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const [apiKey, provider, consent] = await Promise.all([
+        settingsService.getAiApiKey(),
+        settingsService.getAiProvider(),
+        settingsService.getAiMapImportConsent(),
+      ]);
+      if (!active) return;
+      setAiProviderName(provider);
+      setAiConsent(consent);
+      setAiImportService(apiKey ? buildAiMapImportService(apiKey) : null);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [settingsService]);
+
+  const handleAiGrantConsent = useCallback(async () => {
+    await settingsService.setAiMapImportConsent(true);
+    setAiConsent(true);
+  }, [settingsService]);
+
+  const handleAiCommit = useCallback(
+    async (draft: ImportDraft): Promise<number> => {
+      const ed = editorRef.current;
+      if (!ed) return 0;
+      const ids = commitDraftPolygons(ed, draft.polygons);
+      await ed.save();
+      await reloadPolygonsRef.current();
+      return ids.length;
+    },
+    [],
   );
 
   const {
@@ -98,6 +148,7 @@ export function MapPage() {
     mapRef.current?.setLinkedPolygonIds(linkedIds);
     mapRef.current?.renderAll(linkedIds);
   }, [polygonService, editor, regionService]);
+  reloadPolygonsRef.current = reloadPolygons;
 
   // エディタ準備完了時に初期描画
   useEffect(() => {
@@ -519,6 +570,19 @@ export function MapPage() {
         />
       )}
 
+      {aiDialogOpen && aiImportService && (
+        <AiMapImportDialog
+          importService={aiImportService}
+          providerName={
+            aiProviderName === "anthropic" ? "Anthropic" : aiProviderName
+          }
+          consentGiven={aiConsent}
+          onGrantConsent={handleAiGrantConsent}
+          onCommit={handleAiCommit}
+          onClose={() => setAiDialogOpen(false)}
+        />
+      )}
+
       {isEditing && (
         <div className="drawing-toolbar">
           <span className="drawing-hint">{t.map.editingHint}</span>
@@ -583,6 +647,14 @@ export function MapPage() {
             className="sidebar-tab-panel"
             style={{ display: activeTab === "polygons" ? "flex" : "none" }}
           >
+            {aiImportService && (
+              <button
+                className="btn btn-sm ai-import-trigger"
+                onClick={() => setAiDialogOpen(true)}
+              >
+                {t.map.aiImport.button}
+              </button>
+            )}
             <PolygonList
               polygons={polygons}
               polygonAreaMap={polygonAreaMap}

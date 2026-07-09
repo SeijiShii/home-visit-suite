@@ -11,6 +11,8 @@ export interface SettingsBindingAPI {
   SetAiProvider(provider: string): Promise<void>;
   GetAiApiKey(): Promise<string>;
   SetAiApiKey(key: string): Promise<void>;
+  GetAiMapImportConsent(): Promise<boolean>;
+  SetAiMapImportConsent(consented: boolean): Promise<void>;
 }
 
 /** AI 地図取込用 API キーの既定プロバイダ識別子。 */
@@ -76,5 +78,14 @@ export class SettingsService {
 
   async setAiApiKey(key: string): Promise<void> {
     await this.api.SetAiApiKey(key);
+  }
+
+  /** AI 地図取込の画像外部送信への同意有無を返す。 */
+  async getAiMapImportConsent(): Promise<boolean> {
+    return await this.api.GetAiMapImportConsent();
+  }
+
+  async setAiMapImportConsent(consented: boolean): Promise<void> {
+    await this.api.SetAiMapImportConsent(consented);
   }
 }

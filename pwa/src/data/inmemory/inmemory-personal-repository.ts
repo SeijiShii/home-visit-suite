@@ -19,6 +19,7 @@ export class InMemoryPersonalRepository implements PersonalRepository {
   private areaDetailRadiusKm = 0;
   private aiProvider = "";
   private aiApiKey = "";
+  private aiMapImportConsent = false;
 
   async getPersonalNote(visitRecordId: string): Promise<PersonalNote | null> {
     const n = this.notes.get(visitRecordId);
@@ -105,5 +106,13 @@ export class InMemoryPersonalRepository implements PersonalRepository {
 
   async setAiApiKey(key: string): Promise<void> {
     this.aiApiKey = key;
+  }
+
+  async getAiMapImportConsent(): Promise<boolean> {
+    return this.aiMapImportConsent;
+  }
+
+  async setAiMapImportConsent(consented: boolean): Promise<void> {
+    this.aiMapImportConsent = consented;
   }
 }

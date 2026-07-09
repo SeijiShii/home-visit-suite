@@ -3196,6 +3196,74 @@ section {
   max-width: 420px;
 }
 
+/* AI 地図取込ダイアログ */
+
+.ai-import-trigger {
+  margin: 8px 8px 0;
+  align-self: flex-start;
+}
+
+.ai-import-dialog {
+  min-width: 360px;
+  max-width: 480px;
+}
+
+.ai-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-import-subtitle {
+  font-size: 14px;
+  color: #1e293b;
+  margin: 0;
+}
+
+.ai-import-note {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ai-import-error {
+  font-size: 13px;
+  color: #b91c1c;
+  margin: 0;
+}
+
+.ai-import-summary {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.ai-import-unmatched {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ai-import-unmatched ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.ai-import-confidence-high {
+  font-size: 14px;
+  font-weight: 500;
+  color: #15803d;
+  margin: 0;
+}
+
+.ai-import-confidence-low {
+  font-size: 14px;
+  font-weight: 500;
+  color: #b45309;
+  margin: 0;
+}
+
 /* 設定画面 dev セクション: アイデンティティ切替 */
 
 .settings-dev-identity-list {

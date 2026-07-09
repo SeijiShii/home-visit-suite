@@ -53,4 +53,9 @@ export interface PersonalRepository {
   getAiApiKey(): Promise<string>;
   /** API キーを保存する。 */
   setAiApiKey(key: string): Promise<void>;
+
+  /** AI 地図取込の画像外部送信への同意有無を返す。未設定時は false。 */
+  getAiMapImportConsent(): Promise<boolean>;
+  /** 画像外部送信への同意を保存する。 */
+  setAiMapImportConsent(consented: boolean): Promise<void>;
 }
