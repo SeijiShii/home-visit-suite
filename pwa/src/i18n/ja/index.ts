@@ -100,7 +100,7 @@ const ja: Translations = {
         `アップロードした地図画像は解析のため外部 AI（${provider}）へ送信されます。訪問記録などの活動データは送信しません。続行してよろしいですか？`,
       consentAgree: "同意して続行",
       cancel: "キャンセル",
-      selectFile: "地図画像を選択（PNG / JPEG / WebP / GIF）",
+      selectFile: "地図画像を選択（PNG / JPEG / WebP / GIF / PDF）",
       analyze: "解析する",
       analyzing: "解析中…",
       resultTitle: "解析結果",

@@ -181,8 +181,8 @@ export function MapPage() {
   const [alignOpacity, setAlignOpacity] = useState(0.6);
   const [alignScale, setAlignScale] = useState(1);
 
-  const handleManualAlign = useCallback((file: File, draft: ImportDraft) => {
-    const url = URL.createObjectURL(file);
+  const handleManualAlign = useCallback((image: Blob, draft: ImportDraft) => {
+    const url = URL.createObjectURL(image);
     const img = new Image();
     img.onload = () => {
       setAlignOpacity(0.6);

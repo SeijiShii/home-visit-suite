@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useI18n } from "../contexts/I18nContext";
+import { prepareImageBlob } from "../lib/pdf-raster";
 import type {
   AiMapImportService,
   ImportDraft,
@@ -21,8 +22,8 @@ interface AiMapImportDialogProps {
   onGrantConsent: () => void | Promise<void>;
   /** 高信頼の下書きを地図へ取り込む（境界ポリゴン作成）。件数を返す。 */
   onCommit: (draft: ImportDraft) => number | Promise<number>;
-  /** 手動オーバーレイ整列を開始する（低信頼フォールバック）。 */
-  onManualAlign?: (file: File, draft: ImportDraft) => void;
+  /** 手動オーバーレイ整列を開始する（低信頼フォールバック）。image は解析に使った画像。 */
+  onManualAlign?: (image: Blob, draft: ImportDraft) => void;
   onClose: () => void;
 }
 
@@ -43,6 +44,7 @@ export function AiMapImportDialog({
     consentGiven ? "select" : "consent",
   );
   const [file, setFile] = useState<File | null>(null);
+  const [preparedImage, setPreparedImage] = useState<Blob | null>(null);
   const [draft, setDraft] = useState<ImportDraft | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [committedMsg, setCommittedMsg] = useState<string>("");
@@ -57,7 +59,10 @@ export function AiMapImportDialog({
     setStage("analyzing");
     setErrorMsg("");
     try {
-      const buf = await file.arrayBuffer();
+      // PDF は 1 ページ目を PNG にラスタ化してから解析する
+      const image = await prepareImageBlob(file);
+      setPreparedImage(image);
+      const buf = await image.arrayBuffer();
       const result = await importService.buildDraft(buf);
       setDraft(result);
       setStage("result");
@@ -110,7 +115,7 @@ export function AiMapImportDialog({
               id="ai-import-file"
               className="settings-input"
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <div className="modal-actions">
@@ -220,10 +225,10 @@ export function AiMapImportDialog({
                   <button className="btn btn-sm" onClick={onClose}>
                     {ai.close}
                   </button>
-                  {onManualAlign && file && (
+                  {onManualAlign && preparedImage && (
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => onManualAlign(file, draft)}
+                      onClick={() => onManualAlign(preparedImage, draft)}
                     >
                       {ai.manualAlign}
                     </button>

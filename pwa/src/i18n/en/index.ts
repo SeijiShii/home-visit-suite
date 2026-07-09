@@ -101,7 +101,7 @@ const en: Translations = {
         `The uploaded map image will be sent to an external AI (${provider}) for analysis. Activity data such as visit records is never sent. Continue?`,
       consentAgree: "Agree and continue",
       cancel: "Cancel",
-      selectFile: "Select a map image (PNG / JPEG / WebP / GIF)",
+      selectFile: "Select a map image (PNG / JPEG / WebP / GIF / PDF)",
       analyze: "Analyze",
       analyzing: "Analyzing…",
       resultTitle: "Analysis result",
