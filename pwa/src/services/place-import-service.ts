@@ -27,6 +27,7 @@ export class PlaceImportService {
       number: a.place.number,
       label: a.place.label,
       address: a.place.address,
+      kind: a.place.kind,
     }));
     await this.pendingRepo.saveMany(pending);
   }
@@ -63,7 +64,7 @@ export class PlaceImportService {
         id: "",
         areaId,
         coord: p.coord,
-        type: "house",
+        type: p.kind,
         label: p.label,
         displayName: "",
         address: p.address,

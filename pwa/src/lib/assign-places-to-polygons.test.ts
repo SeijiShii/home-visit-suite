@@ -3,7 +3,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { DraftPlace } from "../services/ai-map-import";
-import { assignPlacesToPolygons, type PolygonRing } from "./assign-places-to-polygons";
+import {
+  assignPlacesToPolygons,
+  type PolygonRing,
+} from "./assign-places-to-polygons";
 
 // ring は [lng, lat] の配列（GeoJSON coordinates[0] 相当）。
 const SQUARE: PolygonRing = {
@@ -26,7 +29,7 @@ const OTHER: PolygonRing = {
 };
 
 function place(lat: number, lng: number, number: number): DraftPlace {
-  return { geo: { lat, lng }, number, label: "", address: "" };
+  return { geo: { lat, lng }, number, label: "", address: "", kind: "house" };
 }
 
 describe("assignPlacesToPolygons", () => {
@@ -51,13 +54,18 @@ describe("assignPlacesToPolygons", () => {
   });
 
   it("最初に内包したポリゴンに割り当てる（重複割当なし）", () => {
-    const res = assignPlacesToPolygons([SQUARE, SQUARE], [place(35.768, 140.3195, 1)]);
+    const res = assignPlacesToPolygons(
+      [SQUARE, SQUARE],
+      [place(35.768, 140.3195, 1)],
+    );
     expect(res).toHaveLength(1);
     expect(res[0].polygonId).toBe("poly-A");
   });
 
   it("空入力は空を返す", () => {
-    expect(assignPlacesToPolygons([], [place(35.768, 140.3195, 1)])).toEqual([]);
+    expect(assignPlacesToPolygons([], [place(35.768, 140.3195, 1)])).toEqual(
+      [],
+    );
     expect(assignPlacesToPolygons([SQUARE], [])).toEqual([]);
   });
 });

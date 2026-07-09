@@ -19,7 +19,13 @@ const HIGH_DRAFT: ImportDraft = {
   georeference: null,
   polygons: [{ vertices: [] }, { vertices: [] }],
   places: [
-    { geo: { lat: 35.7, lng: 140.3 }, number: 1, label: "", address: "" },
+    {
+      geo: { lat: 35.7, lng: 140.3 },
+      number: 1,
+      label: "",
+      address: "",
+      kind: "house",
+    },
   ],
   matchedGcps: [],
   unmatchedLandmarks: ["謎の目印"],

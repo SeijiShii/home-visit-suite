@@ -13,4 +13,6 @@ export interface PendingImportPlace {
   number: number;
   label: string;
   address: string;
+  /** 戸建て/集合住宅の別。 */
+  kind: "house" | "building";
 }

@@ -41,6 +41,8 @@ export interface VisionPlace {
   pixel: Pixel;
   label?: string;
   address?: string;
+  /** 戸建て/集合住宅の別（AI が判別できた場合。既定は戸建て）。 */
+  kind?: "house" | "building";
 }
 
 export interface VisionExtraction {
@@ -79,6 +81,8 @@ export interface DraftPlace {
   number: number;
   label: string;
   address: string;
+  /** 戸建て/集合住宅の別。既定は戸建て。 */
+  kind: "house" | "building";
 }
 
 export interface ImportDraft {
@@ -163,6 +167,7 @@ export class AiMapImportService {
       number: p.number,
       label: p.label ?? "",
       address: p.address ?? "",
+      kind: p.kind ?? "house",
     }));
 
     return { ...base, confidence, georeference, polygons, places };

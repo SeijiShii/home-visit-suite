@@ -21,16 +21,31 @@ beforeEach(() => {
   svc = new PlaceImportService(pendingRepo, placeService);
 });
 
-function assign(polygonId: string, number: number, label = ""): PlaceAssignment {
+function assign(
+  polygonId: string,
+  number: number,
+  label = "",
+  kind: "house" | "building" = "house",
+): PlaceAssignment {
   return {
     polygonId,
-    place: { geo: { lat: 35.768, lng: 140.3195 }, number, label, address: "" },
+    place: {
+      geo: { lat: 35.768, lng: 140.3195 },
+      number,
+      label,
+      address: "",
+      kind,
+    },
   };
 }
 
 describe("stash", () => {
   it("割り当てをポリゴン別に一時保持する", async () => {
-    await svc.stash([assign("poly-A", 1), assign("poly-A", 2), assign("poly-B", 3)]);
+    await svc.stash([
+      assign("poly-A", 1),
+      assign("poly-A", 2),
+      assign("poly-B", 3),
+    ]);
     expect(await svc.pendingCount("poly-A")).toBe(2);
     expect(await svc.pendingCount("poly-B")).toBe(1);
   });
@@ -43,10 +58,7 @@ describe("stash", () => {
 
 describe("importForArea", () => {
   it("紐付け後、指定ポリゴンの未確定場所を区域の戸建て Place として作成し pending を消す", async () => {
-    await svc.stash([
-      assign("poly-A", 1, "田中"),
-      assign("poly-A", 2, "鈴木"),
-    ]);
+    await svc.stash([assign("poly-A", 1, "田中"), assign("poly-A", 2, "鈴木")]);
 
     const n = await svc.importForArea("area-1", ["poly-A"]);
 
@@ -89,6 +101,19 @@ describe("importForArea", () => {
     const places = await placeService.listPlaces("area-1");
     expect(places).toHaveLength(2);
     expect(Math.max(...places.map((p) => p.sortOrder))).toBe(1);
+  });
+
+  it("集合住宅と判別された場所は type=building の Place を作る", async () => {
+    await svc.stash([
+      assign("poly-A", 1, "戸建て", "house"),
+      assign("poly-A", 2, "コーポ", "building"),
+    ]);
+    await svc.importForArea("area-1", ["poly-A"]);
+
+    const places = await placeService.listPlaces("area-1");
+    const byLabel = new Map(places.map((p) => [p.label, p.type]));
+    expect(byLabel.get("戸建て")).toBe("house");
+    expect(byLabel.get("コーポ")).toBe("building");
   });
 
   it("pending が無ければ 0 件で何も作らない", async () => {

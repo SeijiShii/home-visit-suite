@@ -5,10 +5,7 @@
 // （ユーザー自身の API キーを設定画面で登録して利用する前提）。
 // 画像は解析のため外部へ送信される（§プライバシー上の重要注意、同意ダイアログは UI 側）。
 
-import type {
-  MapVisionProvider,
-  VisionExtraction,
-} from "./ai-map-import";
+import type { MapVisionProvider, VisionExtraction } from "./ai-map-import";
 
 const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -22,13 +19,13 @@ const EXTRACTION_PROMPT = `あなたは地図画像の解析アシスタント�
   "areaGuess": "推定した地区の自由記述（例: 千葉県成田市成田周辺）",
   "landmarks": [{ "label": "ジオコーディング可能な住所・地名・施設名", "pixel": { "x": 数値, "y": 数値 } }],
   "boundaries": [{ "vertices": [{ "x": 数値, "y": 数値 }] }],
-  "places": [{ "number": 整数, "pixel": { "x": 数値, "y": 数値 }, "label": "任意(表札名)", "address": "任意(住所)" }]
+  "places": [{ "number": 整数, "pixel": { "x": 数値, "y": 数値 }, "label": "任意(表札名)", "address": "任意(住所)", "kind": "house または building" }]
 }
 
 - pixel は画像左上を原点 (0,0) とし、右が +x・下が +y のピクセル座標。
 - landmarks は町名・丁目・駅・学校・寺社・公園・大型店など、実在の場所として住所検索できる手がかりを、画像内での位置とともに列挙する。多いほど接地精度が上がる。
 - boundaries は地図に描かれた区域の境界線を、各区域ごとに頂点列としてトレースする。
-- places は場所番号付きのマーカー。number は地図に書かれた番号。label/address は読み取れた場合のみ。
+- places は場所番号付きのマーカー。number は地図に書かれた番号。label/address は読み取れた場合のみ。kind は集合住宅（アパート・マンション等）と判別できれば "building"、それ以外は "house"。
 - 手がかりが乏しく判断できない項目は空配列にする。推測で埋めない。`;
 
 export interface AnthropicMapVisionOptions {
@@ -138,8 +135,7 @@ export class AnthropicMapVision implements MapVisionProvider {
     const body = (await res.json()) as {
       content?: { type: string; text?: string }[];
     };
-    const text =
-      body.content?.find((c) => c.type === "text")?.text ?? "";
+    const text = body.content?.find((c) => c.type === "text")?.text ?? "";
     const json = extractJson(text);
 
     let parsed: unknown;
@@ -181,9 +177,11 @@ function normalizeExtraction(v: unknown): VisionExtraction {
           number: Number(q.number) || 0,
           pixel: asPixel(q.pixel),
         };
-        if (q.label != null && String(q.label) !== "") out.label = String(q.label);
+        if (q.label != null && String(q.label) !== "")
+          out.label = String(q.label);
         if (q.address != null && String(q.address) !== "")
           out.address = String(q.address);
+        if (q.kind === "building" || q.kind === "house") out.kind = q.kind;
         return out;
       })
     : [];
