@@ -5,11 +5,18 @@ import type { AuditLog } from "../../domain/models/audit";
 import type { Notification } from "../../domain/models/notification";
 import type { Request } from "../../domain/models/request";
 import type { NotificationRepository } from "../../domain/repositories/notification-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
 export class InMemoryNotificationRepository implements NotificationRepository {
-  private notifications = new Map<string, Notification>();
-  private requests = new Map<string, Request>();
-  private auditLogs = new Map<string, AuditLog>();
+  private notifications: Map<string, Notification>;
+  private requests: Map<string, Request>;
+  private auditLogs: Map<string, AuditLog>;
+
+  constructor(storagePrefix?: string) {
+    this.notifications = backedMap(storagePrefix, "notifications");
+    this.requests = backedMap(storagePrefix, "requests");
+    this.auditLogs = backedMap(storagePrefix, "auditLogs");
+  }
 
   async listNotifications(targetId: string): Promise<Notification[]> {
     return [...this.notifications.values()]
@@ -25,6 +32,7 @@ export class InMemoryNotificationRepository implements NotificationRepository {
     const n = this.notifications.get(id);
     if (n) {
       n.read = true;
+      this.notifications.set(id, n); // 永続 Map への write-through を発火させる
     }
   }
 

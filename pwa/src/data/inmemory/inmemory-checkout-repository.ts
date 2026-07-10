@@ -5,12 +5,20 @@ import type { CheckoutInvitation } from "../../domain/models/checkout-invitation
 import type { Checkout, VisitRecord } from "../../domain/models/visit";
 import type { VisitRecordEdit } from "../../domain/models/visit-edit";
 import type { CheckoutRepository } from "../../domain/repositories/checkout-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
 export class InMemoryCheckoutRepository implements CheckoutRepository {
-  private checkouts = new Map<string, Checkout>();
-  private invitations = new Map<string, CheckoutInvitation>();
-  private visitRecords = new Map<string, VisitRecord>();
-  private visitRecordEdits = new Map<string, VisitRecordEdit>();
+  private checkouts: Map<string, Checkout>;
+  private invitations: Map<string, CheckoutInvitation>;
+  private visitRecords: Map<string, VisitRecord>;
+  private visitRecordEdits: Map<string, VisitRecordEdit>;
+
+  constructor(storagePrefix?: string) {
+    this.checkouts = backedMap(storagePrefix, "checkouts");
+    this.invitations = backedMap(storagePrefix, "invitations");
+    this.visitRecords = backedMap(storagePrefix, "visitRecords");
+    this.visitRecordEdits = backedMap(storagePrefix, "visitRecordEdits");
+  }
 
   async listCheckouts(areaId: string): Promise<Checkout[]> {
     return [...this.checkouts.values()]
@@ -36,9 +44,13 @@ export class InMemoryCheckoutRepository implements CheckoutRepository {
     return null;
   }
 
-  async listActiveCheckoutsForPersonInCharge(personInChargeId: string): Promise<Checkout[]> {
+  async listActiveCheckoutsForPersonInCharge(
+    personInChargeId: string,
+  ): Promise<Checkout[]> {
     return [...this.checkouts.values()]
-      .filter((c) => c.personInChargeId === personInChargeId && c.status === "active")
+      .filter(
+        (c) => c.personInChargeId === personInChargeId && c.status === "active",
+      )
       .map((c) => ({ ...c }));
   }
 
@@ -67,7 +79,9 @@ export class InMemoryCheckoutRepository implements CheckoutRepository {
     return null;
   }
 
-  async listCheckoutInvitations(checkoutId: string): Promise<CheckoutInvitation[]> {
+  async listCheckoutInvitations(
+    checkoutId: string,
+  ): Promise<CheckoutInvitation[]> {
     return [...this.invitations.values()]
       .filter((inv) => inv.checkoutId === checkoutId)
       .map((inv) => ({ ...inv }));
@@ -98,7 +112,10 @@ export class InMemoryCheckoutRepository implements CheckoutRepository {
       .map(cloneVisitRecord);
   }
 
-  async listMyVisitRecordsByPlace(placeId: string, userId: string): Promise<VisitRecord[]> {
+  async listMyVisitRecordsByPlace(
+    placeId: string,
+    userId: string,
+  ): Promise<VisitRecord[]> {
     return [...this.visitRecords.values()]
       .filter((vr) => vr.placeId === placeId && vr.userId === userId)
       .map(cloneVisitRecord);
@@ -117,7 +134,9 @@ export class InMemoryCheckoutRepository implements CheckoutRepository {
     this.visitRecords.delete(id);
   }
 
-  async listVisitRecordEdits(visitRecordId: string): Promise<VisitRecordEdit[]> {
+  async listVisitRecordEdits(
+    visitRecordId: string,
+  ): Promise<VisitRecordEdit[]> {
     return [...this.visitRecordEdits.values()]
       .filter((e) => e.visitRecordId === visitRecordId)
       .map((e) => ({ ...e }));

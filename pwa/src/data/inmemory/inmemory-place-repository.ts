@@ -5,6 +5,7 @@
 
 import type { Place } from "../../domain/models/place";
 import type { PlaceRepository } from "../../domain/repositories/place-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
 /** Haversine 距離（メートル）。 */
 function distanceMeters(
@@ -28,9 +29,14 @@ function clonePlace(p: Place): Place {
 }
 
 export class InMemoryPlaceRepository implements PlaceRepository {
-  private places = new Map<string, Place>();
+  private places: Map<string, Place>;
 
-  constructor(private nowFn: () => Date = () => new Date()) {}
+  constructor(
+    private nowFn: () => Date = () => new Date(),
+    storagePrefix?: string,
+  ) {
+    this.places = backedMap(storagePrefix, "places");
+  }
 
   async listPlaces(areaId: string): Promise<Place[]> {
     return [...this.places.values()]
@@ -61,7 +67,10 @@ export class InMemoryPlaceRepository implements PlaceRepository {
   ): Promise<Place[]> {
     return [...this.places.values()]
       .filter((p) => !!p.deletedAt)
-      .filter((p) => distanceMeters(lat, lng, p.coord.lat, p.coord.lng) <= radiusMeters)
+      .filter(
+        (p) =>
+          distanceMeters(lat, lng, p.coord.lat, p.coord.lng) <= radiusMeters,
+      )
       .map(clonePlace);
   }
 }

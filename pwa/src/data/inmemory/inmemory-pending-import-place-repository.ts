@@ -3,11 +3,14 @@
 
 import type { PendingImportPlace } from "../../domain/models/pending-import-place";
 import type { PendingImportPlaceRepository } from "../../domain/repositories/pending-import-place-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
-export class InMemoryPendingImportPlaceRepository
-  implements PendingImportPlaceRepository
-{
-  private byId = new Map<string, PendingImportPlace>();
+export class InMemoryPendingImportPlaceRepository implements PendingImportPlaceRepository {
+  private byId: Map<string, PendingImportPlace>;
+
+  constructor(storagePrefix?: string) {
+    this.byId = backedMap(storagePrefix, "byId");
+  }
 
   async saveMany(places: readonly PendingImportPlace[]): Promise<void> {
     for (const p of places) this.byId.set(p.id, { ...p });

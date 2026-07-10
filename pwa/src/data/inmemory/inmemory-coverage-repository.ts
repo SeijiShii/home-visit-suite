@@ -8,11 +8,18 @@ import {
 } from "../../domain/models/available-period";
 import type { Coverage } from "../../domain/models/coverage";
 import type { CoverageRepository } from "../../domain/repositories/coverage-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
 export class InMemoryCoverageRepository implements CoverageRepository {
-  private coverages = new Map<string, Coverage>();
-  private periods = new Map<string, AvailablePeriod>();
-  private tags = new Map<string, AvailablePeriodTag>();
+  private coverages: Map<string, Coverage>;
+  private periods: Map<string, AvailablePeriod>;
+  private tags: Map<string, AvailablePeriodTag>;
+
+  constructor(storagePrefix?: string) {
+    this.coverages = backedMap(storagePrefix, "coverages");
+    this.periods = backedMap(storagePrefix, "periods");
+    this.tags = backedMap(storagePrefix, "tags");
+  }
 
   async listCoverages(parentAreaId: string): Promise<Coverage[]> {
     return [...this.coverages.values()]

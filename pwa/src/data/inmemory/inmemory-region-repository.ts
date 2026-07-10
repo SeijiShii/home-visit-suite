@@ -4,16 +4,26 @@
 
 import type { Area, ParentArea, Region } from "../../domain/models/region";
 import type { RegionRepository } from "../../domain/repositories/region-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
 export class InMemoryRegionRepository implements RegionRepository {
-  private regions = new Map<string, Region>();
-  private parentAreas = new Map<string, ParentArea>();
-  private areas = new Map<string, Area>();
+  private regions: Map<string, Region>;
+  private parentAreas: Map<string, ParentArea>;
+  private areas: Map<string, Area>;
+
+  // storagePrefix 指定時は localStorage 永続（runtime）、未指定はインメモリ（テスト）。
+  constructor(storagePrefix?: string) {
+    this.regions = backedMap(storagePrefix, "regions");
+    this.parentAreas = backedMap(storagePrefix, "parentAreas");
+    this.areas = backedMap(storagePrefix, "areas");
+  }
 
   // --- 領域 ---
 
   async listRegions(): Promise<Region[]> {
-    return [...this.regions.values()].filter((r) => !r.deletedAt).map((r) => ({ ...r }));
+    return [...this.regions.values()]
+      .filter((r) => !r.deletedAt)
+      .map((r) => ({ ...r }));
   }
 
   async getRegion(id: string): Promise<Region | null> {
@@ -34,6 +44,7 @@ export class InMemoryRegionRepository implements RegionRepository {
     const r = this.regions.get(id);
     if (r) {
       r.deletedAt = new Date().toISOString();
+      this.regions.set(id, r); // 永続 Map への write-through を発火させる
     }
   }
 
@@ -67,6 +78,7 @@ export class InMemoryRegionRepository implements RegionRepository {
     const pa = this.parentAreas.get(id);
     if (pa) {
       pa.deletedAt = new Date().toISOString();
+      this.parentAreas.set(id, pa); // 永続 Map への write-through を発火させる
     }
   }
 
@@ -100,6 +112,7 @@ export class InMemoryRegionRepository implements RegionRepository {
     const a = this.areas.get(id);
     if (a) {
       a.deletedAt = new Date().toISOString();
+      this.areas.set(id, a); // 永続 Map への write-through を発火させる
     }
   }
 

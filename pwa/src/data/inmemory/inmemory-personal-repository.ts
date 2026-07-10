@@ -18,7 +18,7 @@ export class InMemoryPersonalRepository implements PersonalRepository {
   private locale = "";
   private areaDetailRadiusKm = 0;
   private aiProvider = "";
-  private aiApiKey = "";
+  private aiApiKeys = new Map<string, string>();
   private aiModel = "";
   private aiMapImportConsent = false;
 
@@ -101,12 +101,12 @@ export class InMemoryPersonalRepository implements PersonalRepository {
     this.aiProvider = provider;
   }
 
-  async getAiApiKey(): Promise<string> {
-    return this.aiApiKey;
+  async getAiApiKey(provider: string): Promise<string> {
+    return this.aiApiKeys.get(provider) ?? "";
   }
 
-  async setAiApiKey(key: string): Promise<void> {
-    this.aiApiKey = key;
+  async setAiApiKey(provider: string, key: string): Promise<void> {
+    this.aiApiKeys.set(provider, key);
   }
 
   async getAiModel(): Promise<string> {

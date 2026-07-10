@@ -8,6 +8,7 @@ import { InMemoryCoverageRepository } from "../data/inmemory/inmemory-coverage-r
 import { InMemoryNotificationRepository } from "../data/inmemory/inmemory-notification-repository";
 import { InMemoryPendingImportPlaceRepository } from "../data/inmemory/inmemory-pending-import-place-repository";
 import { InMemoryPersonalRepository } from "../data/inmemory/inmemory-personal-repository";
+import { LocalStoragePersonalRepository } from "../data/localstorage/localstorage-personal-repository";
 import { InMemoryPlaceRepository } from "../data/inmemory/inmemory-place-repository";
 import { InMemoryRegionRepository } from "../data/inmemory/inmemory-region-repository";
 import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repository";
@@ -63,14 +64,33 @@ export interface AppServices {
 }
 
 /** インメモリ実装一式でサービス束を構築する（LinkSelf TS アダプタ完成までの暫定）。 */
-export function createInMemoryServices(): AppServices {
+export interface CreateServicesOptions {
+  /**
+   * true で全ドメインデータ + 個人設定を localStorage に永続化する（runtime 用。
+   * 再読み込みでも状態を保持）。省略時は全てインメモリ（テスト用）。
+   * LinkSelf TS アダプタ完成までの暫定ブリッジ。
+   * ※ユーザー（identity）は毎起動でシードされるため永続化しない。
+   */
+  persist?: boolean;
+}
+
+export function createInMemoryServices(
+  opts: CreateServicesOptions = {},
+): AppServices {
+  const prefix = opts.persist ? "hvs" : undefined;
+  const sub = (name: string) => (prefix ? `${prefix}:${name}` : undefined);
+
   const userRepo = new InMemoryUserRepository();
-  const regionRepo = new InMemoryRegionRepository();
-  const checkoutRepo = new InMemoryCheckoutRepository();
-  const coverageRepo = new InMemoryCoverageRepository();
-  const notificationRepo = new InMemoryNotificationRepository();
-  const personalRepo = new InMemoryPersonalRepository();
-  const placeRepo = new InMemoryPlaceRepository();
+  const regionRepo = new InMemoryRegionRepository(sub("region"));
+  const checkoutRepo = new InMemoryCheckoutRepository(sub("checkout"));
+  const coverageRepo = new InMemoryCoverageRepository(sub("coverage"));
+  const notificationRepo = new InMemoryNotificationRepository(
+    sub("notification"),
+  );
+  const personalRepo = opts.persist
+    ? new LocalStoragePersonalRepository()
+    : new InMemoryPersonalRepository();
+  const placeRepo = new InMemoryPlaceRepository(undefined, sub("place"));
 
   const availablePeriodService = new AvailablePeriodServiceImpl(
     coverageRepo,
@@ -91,7 +111,9 @@ export function createInMemoryServices(): AppServices {
   const placeService = new PlaceService(
     new PlaceRepositoryBindingAdapter(placeRepo),
   );
-  const pendingImportPlaceRepo = new InMemoryPendingImportPlaceRepository();
+  const pendingImportPlaceRepo = new InMemoryPendingImportPlaceRepository(
+    sub("pendingImportPlace"),
+  );
   const placeImportService = new PlaceImportService(
     pendingImportPlaceRepo,
     placeService,
