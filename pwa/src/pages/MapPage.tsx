@@ -23,6 +23,7 @@ const POLYGON_DRAWING_TIP_KEYS = [
 let __mapTipsInitialShown = false;
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { EdgeContextMenu } from "../components/EdgeContextMenu";
+import { VertexContextMenu } from "../components/VertexContextMenu";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
 import { AiMapImportDialog } from "../components/AiMapImportDialog";
@@ -50,6 +51,7 @@ import type { VisionBoundary } from "../services/ai-map-import";
 import type {
   PolygonID,
   EdgeID,
+  VertexID,
   PolygonSnapshot,
   NetworkPolygonEditor,
 } from "map-polygon-editor";
@@ -82,6 +84,11 @@ export function MapPage() {
     edgeId: EdgeID;
     lat: number;
     lng: number;
+  } | null>(null);
+  const [vertexMenu, setVertexMenu] = useState<{
+    x: number;
+    y: number;
+    vertexId: VertexID;
   } | null>(null);
 
   const { regionBindingApi, mapBinding, settingsService, placeImportService } =
@@ -492,8 +499,20 @@ export function MapPage() {
           mapRef.current?.pixelsToDegrees(
             mapRef.current.getSnapThresholdPx(),
           ) ?? 0.001;
+        // 頂点を優先（頂点はエッジ上にも乗るため、頂点上なら削除メニューを出す）。
+        const nearVertex = ed.findNearestVertex(lat, lng, thresholdDeg);
+        if (nearVertex) {
+          setEdgeMenu(null);
+          setVertexMenu({
+            x: containerX,
+            y: containerY,
+            vertexId: nearVertex.id,
+          });
+          return;
+        }
         const nearEdge = ed.findNearestEdge(lat, lng, thresholdDeg);
         if (nearEdge) {
+          setVertexMenu(null);
           setEdgeMenu({
             x: containerX,
             y: containerY,
@@ -518,6 +537,19 @@ export function MapPage() {
     editorRef.current.save().catch(console.error);
     setEdgeMenu(null);
   }, [edgeMenu]);
+
+  const handleVertexDelete = useCallback(() => {
+    if (!vertexMenu || !editorRef.current) return;
+    // dissolve: 頂点を除去して両隣を再接続。ポリゴン ID を保つので区域紐付けは維持。
+    // 溶解できない頂点（次数≠2・三角形の頂点等）は空の ChangeSet が返る。
+    const cs = editorRef.current.dissolveVertex(vertexMenu.vertexId);
+    if (cs.vertices.removed.length > 0) {
+      mapRef.current?.applyChangeSet(cs);
+      editorRef.current.save().catch(console.error);
+      setPolygons(editorRef.current.getPolygons());
+    }
+    setVertexMenu(null);
+  }, [vertexMenu]);
 
   const handlePruneOrphans = useCallback(() => {
     if (!editorRef.current) return;
@@ -691,8 +723,19 @@ export function MapPage() {
         <EdgeContextMenu
           x={edgeMenu.x}
           y={edgeMenu.y}
+          label={t.map.contextMenu.addVertex}
           onAddVertex={handleEdgeAddVertex}
           onClose={() => setEdgeMenu(null)}
+        />
+      )}
+
+      {vertexMenu && (
+        <VertexContextMenu
+          x={vertexMenu.x}
+          y={vertexMenu.y}
+          label={t.map.contextMenu.deleteVertex}
+          onDelete={handleVertexDelete}
+          onClose={() => setVertexMenu(null)}
         />
       )}
 

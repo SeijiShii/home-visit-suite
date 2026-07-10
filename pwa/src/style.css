@@ -2115,7 +2115,8 @@ section {
 
 /* --- Edge Context Menu --- */
 
-.edge-context-menu {
+.edge-context-menu,
+.vertex-context-menu {
   z-index: 1100;
   background: rgba(30, 41, 59, 0.95);
   border-radius: 6px;
@@ -2124,7 +2125,8 @@ section {
   min-width: 140px;
 }
 
-.edge-context-menu-item {
+.edge-context-menu-item,
+.vertex-context-menu-item {
   display: block;
   width: 100%;
   padding: 6px 14px;
@@ -2136,7 +2138,8 @@ section {
   cursor: pointer;
 }
 
-.edge-context-menu-item:hover {
+.edge-context-menu-item:hover,
+.vertex-context-menu-item:hover {
   background: rgba(71, 85, 105, 0.6);
 }
 

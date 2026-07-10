@@ -84,6 +84,10 @@ export interface Translations {
     selectArea: string;
     areaAlreadyLinked: string;
     unlinkPolygon: string;
+    contextMenu: {
+      addVertex: string;
+      deleteVertex: string;
+    };
     aiImport: {
       button: string;
       noApiKey: string;

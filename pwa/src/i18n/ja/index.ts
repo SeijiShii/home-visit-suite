@@ -91,6 +91,10 @@ const ja: Translations = {
     selectArea: "紐づける区域を選択",
     areaAlreadyLinked: "この区域は他のポリゴンに紐づけ済み",
     unlinkPolygon: "ポリゴン紐づけ解除",
+    contextMenu: {
+      addVertex: "頂点の追加",
+      deleteVertex: "頂点を削除",
+    },
     aiImport: {
       button: "AI で地図を取り込む",
       noApiKey: "設定画面で AI の API キーを登録すると利用できます",

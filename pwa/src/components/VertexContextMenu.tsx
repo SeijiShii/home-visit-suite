@@ -1,21 +1,25 @@
 import { useEffect, useRef } from "react";
 
-interface EdgeContextMenuProps {
+/**
+ * ポリゴンの頂点上で右クリックしたときのコンテキストメニュー。
+ * 現状は「頂点を削除」（dissolve: 両隣を再接続して頂点数を1つ減らす）を提供する。
+ */
+interface VertexContextMenuProps {
   x: number;
   y: number;
   /** メニュー項目のラベル（i18n 由来）。 */
   label: string;
-  onAddVertex: () => void;
+  onDelete: () => void;
   onClose: () => void;
 }
 
-export function EdgeContextMenu({
+export function VertexContextMenu({
   x,
   y,
   label,
-  onAddVertex,
+  onDelete,
   onClose,
-}: EdgeContextMenuProps) {
+}: VertexContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,16 +36,16 @@ export function EdgeContextMenu({
     <div
       ref={menuRef}
       role="menu"
-      className="edge-context-menu"
+      className="vertex-context-menu"
       style={{ position: "absolute", left: `${x}px`, top: `${y}px` }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <button
         role="menuitem"
-        className="edge-context-menu-item"
+        className="vertex-context-menu-item"
         onClick={() => {
-          onAddVertex();
+          onDelete();
           onClose();
         }}
       >

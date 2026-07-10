@@ -92,6 +92,10 @@ const en: Translations = {
     selectArea: "Select area to link",
     areaAlreadyLinked: "This area is already linked to another polygon",
     unlinkPolygon: "Unlink polygon",
+    contextMenu: {
+      addVertex: "Add vertex",
+      deleteVertex: "Delete vertex",
+    },
     aiImport: {
       button: "Import map with AI",
       noApiKey: "Register an AI API key in Settings to use this feature",
