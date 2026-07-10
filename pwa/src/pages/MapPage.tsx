@@ -654,8 +654,13 @@ export function MapPage() {
           polygonService.deletePolygonEdges(snapshot);
         }
         if (actions.selectedPolygonId === snapshot.id) {
-          actions.selectPolygon(null);
+          // 編集中のポリゴンを削除した場合は編集モードを解除する
+          // （selectPolygon(null) は Idle 時しか効かないため endEditing を使う）。
+          mapRef.current?.disableVertexDrag();
+          actions.endEditing();
           mapRef.current?.highlightPolygon(null);
+          setVertexMenu(null);
+          setEdgeMenu(null);
         }
         await polygonService.save();
         await reloadPolygons();
