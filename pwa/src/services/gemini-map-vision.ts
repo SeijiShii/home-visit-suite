@@ -1,12 +1,11 @@
-// Claude vision（Anthropic Messages API）による地図画像解析アダプタ。
+// Gemini vision（Google Generative Language API）による地図画像解析アダプタ。
 // docs/wants/03_地図機能.md「AI による区域地図作成」§処理フロー 1（抽出）/ 5（トレース）。
 //
-// ブラウザから直接 Anthropic API を叩くため anthropic-dangerous-direct-browser-access を付す
-// （ユーザー自身の API キーを設定画面で登録して利用する前提）。
+// ブラウザから直接 Google の generateContent エンドポイントを叩く
+// （ユーザー自身の API キーを設定画面で登録して利用する前提。無料枠あり）。
 // 画像は解析のため外部へ送信される（§プライバシー上の重要注意、同意ダイアログは UI 側）。
 //
-// プロンプト契約・画像判定・JSON 正規化は map-vision-extraction.ts に共通化し、
-// Gemini など他プロバイダのアダプタと共有する。
+// プロンプト契約・画像判定・JSON 正規化は map-vision-extraction.ts で Anthropic と共有する。
 
 import type { MapVisionProvider, VisionExtraction } from "./ai-map-import";
 import {
@@ -17,25 +16,24 @@ import {
   normalizeExtraction,
 } from "./map-vision-extraction";
 
-const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 const DEFAULT_MAX_TOKENS = 8192;
 
-export interface AnthropicMapVisionOptions {
+export interface GeminiMapVisionOptions {
   apiKey: string;
   model?: string;
   maxTokens?: number;
   fetchFn?: typeof fetch;
 }
 
-export class AnthropicMapVision implements MapVisionProvider {
+export class GeminiMapVision implements MapVisionProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly maxTokens: number;
   private readonly fetchFn: typeof fetch;
 
-  constructor(opts: AnthropicMapVisionOptions) {
+  constructor(opts: GeminiMapVisionOptions) {
     this.apiKey = opts.apiKey;
     this.model = opts.model ?? DEFAULT_MODEL;
     this.maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -49,29 +47,31 @@ export class AnthropicMapVision implements MapVisionProvider {
     const mediaType = detectMediaType(bytes);
     const data = arrayBufferToBase64(image);
 
-    const res = await this.fetchFn(ANTHROPIC_ENDPOINT, {
+    // API キーはクエリパラメータで渡す（Google が公式にブラウザ向けに案内する方式。
+    // カスタム認証ヘッダより CORS プリフライトが通りやすい）。
+    const endpoint = `${GEMINI_BASE}/${encodeURIComponent(
+      this.model,
+    )}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+
+    const res = await this.fetchFn(endpoint, {
       method: "POST",
       headers: {
-        "x-api-key": this.apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "anthropic-dangerous-direct-browser-access": "true",
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: this.model,
-        max_tokens: this.maxTokens,
-        messages: [
+        contents: [
           {
             role: "user",
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: mediaType, data },
-              },
-              { type: "text", text: EXTRACTION_PROMPT },
+            parts: [
+              { inline_data: { mime_type: mediaType, data } },
+              { text: EXTRACTION_PROMPT },
             ],
           },
         ],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: this.maxTokens,
+        },
       }),
     });
 
@@ -84,14 +84,16 @@ export class AnthropicMapVision implements MapVisionProvider {
         // ignore
       }
       throw new Error(
-        `AnthropicMapVision: 解析リクエストに失敗しました (HTTP ${res.status}${detail})`,
+        `GeminiMapVision: 解析リクエストに失敗しました (HTTP ${res.status}${detail})`,
       );
     }
 
     const body = (await res.json()) as {
-      content?: { type: string; text?: string }[];
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
     };
-    const text = body.content?.find((c) => c.type === "text")?.text ?? "";
+    const text =
+      body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ??
+      "";
     const json = extractJson(text);
 
     let parsed: unknown;
@@ -99,7 +101,7 @@ export class AnthropicMapVision implements MapVisionProvider {
       parsed = JSON.parse(json);
     } catch {
       throw new Error(
-        "AnthropicMapVision: 応答を JSON として解釈できませんでした",
+        "GeminiMapVision: 応答を JSON として解釈できませんでした",
       );
     }
     return normalizeExtraction(parsed);

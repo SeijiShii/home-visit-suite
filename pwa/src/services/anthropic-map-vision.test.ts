@@ -5,21 +5,27 @@ import { describe, expect, it, vi } from "vitest";
 import { AnthropicMapVision } from "./anthropic-map-vision";
 import type { VisionExtraction } from "./ai-map-import";
 
+// 座標は正規化後の 0〜1 比率（maxCoord ≤ 1.5 なので normalizeExtraction は素通し）。
 const SAMPLE: VisionExtraction = {
   areaGuess: "成田市 成田周辺",
-  landmarks: [{ label: "成田駅", pixel: { x: 120, y: 340 } }],
+  landmarks: [{ label: "成田駅", pixel: { x: 0.12, y: 0.34 } }],
   boundaries: [
     {
       vertices: [
-        { x: 10, y: 10 },
-        { x: 200, y: 10 },
-        { x: 200, y: 180 },
+        { x: 0.01, y: 0.01 },
+        { x: 0.2, y: 0.01 },
+        { x: 0.2, y: 0.18 },
       ],
     },
   ],
   places: [
-    { number: 1, pixel: { x: 60, y: 90 }, label: "田中", address: "成田1-2" },
-    { number: 2, pixel: { x: 130, y: 95 } },
+    {
+      number: 1,
+      pixel: { x: 0.06, y: 0.09 },
+      label: "田中",
+      address: "成田1-2",
+    },
+    { number: 2, pixel: { x: 0.13, y: 0.095 } },
   ],
 };
 

@@ -63,7 +63,7 @@ describe("SettingsPage AI 地図取込", () => {
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     // 永続化を検証
-    expect(await services.settingsService.getAiApiKey()).toBe(
+    expect(await services.settingsService.getAiApiKey("anthropic")).toBe(
       "sk-ant-secret9999",
     );
     // マスク表示（末尾 4 桁のみ露出）
@@ -90,13 +90,13 @@ describe("SettingsPage AI 地図取込", () => {
 
   it("登録済みキーを削除できる", async () => {
     const services = await renderSettings(async (s) => {
-      await s.settingsService.setAiApiKey("sk-ant-todelete1234");
+      await s.settingsService.setAiApiKey("anthropic", "sk-ant-todelete1234");
     });
     await screen.findByText(/1234/);
 
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
 
-    expect(await services.settingsService.getAiApiKey()).toBe("");
+    expect(await services.settingsService.getAiApiKey("anthropic")).toBe("");
     expect(await screen.findByText("未登録")).toBeInTheDocument();
   });
 });

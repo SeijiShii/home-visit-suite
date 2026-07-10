@@ -6,7 +6,16 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
-import { maskApiKey } from "../services/settings-service";
+import {
+  AI_MODEL_OPTIONS,
+  AI_PROVIDERS,
+  DEFAULT_AI_MODEL,
+  DEFAULT_AI_PROVIDER,
+  defaultModelForProvider,
+  maskApiKey,
+  resolveModel,
+} from "../services/settings-service";
+import { removeOrphanVertices } from "../lib/map-maintenance";
 import type { Locales } from "../i18n/i18n-types";
 
 export function SettingsPage() {
@@ -18,26 +27,45 @@ export function SettingsPage() {
     availableIdentities,
     switchIdentity,
   } = useIdentity();
-  const { settingsService } = useServices();
+  const { settingsService, mapBinding } = useServices();
   const [identityMsg, setIdentityMsg] = useState<string>("");
+  const [orphanMsg, setOrphanMsg] = useState<string>("");
 
-  const [aiProvider, setAiProvider] = useState<string>("anthropic");
-  const [aiModel, setAiModel] = useState<string>("claude-opus-4-8");
+  const [aiProvider, setAiProvider] = useState<string>(DEFAULT_AI_PROVIDER);
+  const [aiModel, setAiModel] = useState<string>(DEFAULT_AI_MODEL);
   const [aiKeyInput, setAiKeyInput] = useState<string>("");
   const [aiSavedKey, setAiSavedKey] = useState<string>("");
   const [aiMsg, setAiMsg] = useState<string>("");
 
+  // モデル ID → 表示ラベル（i18n）。一覧に無い ID は ID をそのまま表示する。
+  const modelLabels: Record<string, string> = {
+    "claude-haiku-4-5-20251001": t.settings.aiModelHaiku,
+    "claude-sonnet-5": t.settings.aiModelSonnet,
+    "claude-opus-4-8": t.settings.aiModelOpus,
+    "gemini-3.1-flash-lite": t.settings.aiModelGeminiFlashLite,
+    "gemini-3.5-flash": t.settings.aiModelGeminiFlash,
+  };
+  const providerLabels: Record<string, string> = {
+    anthropic: t.settings.aiProviderAnthropic,
+    gemini: t.settings.aiProviderGemini,
+  };
+  // プロバイダ別の API キー発行ページ（利用者が設定画面から直接飛べるように）。
+  const apiKeyGuideUrls: Record<string, string> = {
+    anthropic: "https://console.anthropic.com/settings/keys",
+    gemini: "https://aistudio.google.com/app/apikey",
+  };
+
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [provider, model, key] = await Promise.all([
+      const [provider, model] = await Promise.all([
         settingsService.getAiProvider(),
         settingsService.getAiModel(),
-        settingsService.getAiApiKey(),
       ]);
+      const key = await settingsService.getAiApiKey(provider);
       if (!active) return;
       setAiProvider(provider);
-      setAiModel(model);
+      setAiModel(resolveModel(provider, model));
       setAiSavedKey(key);
     })();
     return () => {
@@ -45,11 +73,20 @@ export function SettingsPage() {
     };
   }, [settingsService]);
 
+  // プロバイダ切替時: モデルをそのプロバイダの既定へ、登録キー表示をそのプロバイダの保存値へ更新。
+  const handleProviderChange = async (provider: string) => {
+    setAiProvider(provider);
+    setAiModel(defaultModelForProvider(provider));
+    setAiKeyInput("");
+    const key = await settingsService.getAiApiKey(provider);
+    setAiSavedKey(key);
+  };
+
   const handleAiSave = async () => {
     await settingsService.setAiProvider(aiProvider);
     await settingsService.setAiModel(aiModel);
     if (aiKeyInput !== "") {
-      await settingsService.setAiApiKey(aiKeyInput);
+      await settingsService.setAiApiKey(aiProvider, aiKeyInput);
       setAiSavedKey(aiKeyInput);
       setAiKeyInput("");
     }
@@ -58,7 +95,7 @@ export function SettingsPage() {
   };
 
   const handleAiClear = async () => {
-    await settingsService.setAiApiKey("");
+    await settingsService.setAiApiKey(aiProvider, "");
     setAiSavedKey("");
     setAiKeyInput("");
   };
@@ -77,6 +114,12 @@ export function SettingsPage() {
 
   const handleLocaleChange = async (newLocale: Locales) => {
     await setLocale(newLocale);
+  };
+
+  const handleRemoveOrphans = async () => {
+    const n = await removeOrphanVertices(mapBinding);
+    setOrphanMsg(t.settingsDev.orphanDone(n));
+    setTimeout(() => setOrphanMsg(""), 3000);
   };
 
   return (
@@ -122,9 +165,13 @@ export function SettingsPage() {
             id="ai-provider"
             className="settings-select"
             value={aiProvider}
-            onChange={(e) => setAiProvider(e.target.value)}
+            onChange={(e) => void handleProviderChange(e.target.value)}
           >
-            <option value="anthropic">{t.settings.aiProviderAnthropic}</option>
+            {AI_PROVIDERS.map((p) => (
+              <option key={p} value={p}>
+                {providerLabels[p] ?? p}
+              </option>
+            ))}
           </select>
         </div>
         <div className="settings-field">
@@ -137,11 +184,11 @@ export function SettingsPage() {
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
           >
-            <option value="claude-opus-4-8">{t.settings.aiModelOpus}</option>
-            <option value="claude-sonnet-5">{t.settings.aiModelSonnet}</option>
-            <option value="claude-haiku-4-5-20251001">
-              {t.settings.aiModelHaiku}
-            </option>
+            {(AI_MODEL_OPTIONS[aiProvider] ?? []).map((m) => (
+              <option key={m} value={m}>
+                {modelLabels[m] ?? m}
+              </option>
+            ))}
           </select>
         </div>
         <div className="settings-field">
@@ -162,6 +209,16 @@ export function SettingsPage() {
             value={aiKeyInput}
             onChange={(e) => setAiKeyInput(e.target.value)}
           />
+          {apiKeyGuideUrls[aiProvider] && (
+            <a
+              className="settings-ai-key-guide"
+              href={apiKeyGuideUrls[aiProvider]}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t.settings.aiApiKeyGuide}
+            </a>
+          )}
         </div>
         <div className="settings-field-actions">
           <button
@@ -220,6 +277,29 @@ export function SettingsPage() {
           {identityMsg && (
             <p className="settings-msg" role="status">
               {identityMsg}
+            </p>
+          )}
+        </section>
+      )}
+
+      {isDevMode && (
+        <section className="settings-section">
+          <h2>{t.settingsDev.orphanTitle}</h2>
+          <p className="settings-section-description">
+            {t.settingsDev.orphanDescription}
+          </p>
+          <div className="settings-field-actions">
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void handleRemoveOrphans()}
+            >
+              {t.settingsDev.orphanButton}
+            </button>
+          </div>
+          {orphanMsg && (
+            <p className="settings-msg" role="status">
+              {orphanMsg}
             </p>
           )}
         </section>

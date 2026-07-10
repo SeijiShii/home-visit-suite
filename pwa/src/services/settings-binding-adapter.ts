@@ -47,12 +47,12 @@ export class PersonalRepositorySettingsAdapter implements SettingsBindingAPI {
     await this.repo.setAiProvider(provider);
   }
 
-  async GetAiApiKey(): Promise<string> {
-    return this.repo.getAiApiKey();
+  async GetAiApiKey(provider: string): Promise<string> {
+    return this.repo.getAiApiKey(provider);
   }
 
-  async SetAiApiKey(key: string): Promise<void> {
-    await this.repo.setAiApiKey(key);
+  async SetAiApiKey(provider: string, key: string): Promise<void> {
+    await this.repo.setAiApiKey(provider, key);
   }
 
   async GetAiModel(): Promise<string> {

@@ -124,7 +124,7 @@ const ja: Translations = {
       manualAlign: "手動で位置合わせする",
       alignTitle: "画像を地図に合わせる",
       alignHint:
-        "画像をドラッグで移動、スライダーで拡大縮小・透過度を調整し、実地図に重ねてください。",
+        "画像をドラッグで移動、四隅のハンドルで拡大縮小、上部のハンドルで回転できます。透過度はスライダーで調整し、実地図に重ねてください。",
       alignOpacity: "透過度",
       alignScale: "拡大縮小",
       alignRotation: "回転",
@@ -437,11 +437,16 @@ const ja: Translations = {
       "地図画像・PDF から区域ポリゴンを AI で下書き生成する機能に使う API キーを登録します。キーの発行・課金はご自身の契約に基づきます。",
     aiProvider: "プロバイダ",
     aiProviderAnthropic: "Anthropic (Claude)",
+    aiProviderGemini: "Google (Gemini)",
     aiModel: "モデル",
     aiModelOpus: "Opus 4.8（最高品質）",
     aiModelSonnet: "Sonnet 5（バランス）",
     aiModelHaiku: "Haiku 4.5（高速・低コスト）",
+    aiModelGeminiFlashLite:
+      "Gemini 3.1 Flash Lite（高速・低コスト・無料枠あり）",
+    aiModelGeminiFlash: "Gemini 3.5 Flash（高精度）",
     aiApiKey: "API キー",
+    aiApiKeyGuide: "API キーの取得方法 ↗",
     aiApiKeyPlaceholder: "API キーを入力",
     aiApiKeyRegistered: "登録済み",
     aiApiKeyNotSet: "未登録",
@@ -466,6 +471,11 @@ const ja: Translations = {
       "API 呼び出し時のアクター DID を別ユーザーに切り替えます。HVS_DEV=1 で起動した場合のみ表示されます。",
     identitySelf: "[自分]",
     identitySwitched: (name: string) => `アクターを「${name}」に切り替えました`,
+    orphanTitle: "孤立頂点の削除（開発用）",
+    orphanDescription:
+      "どのポリゴンにも属さない孤立頂点を削除します（過去の取込失敗の残骸掃除）。",
+    orphanButton: "孤立頂点を削除",
+    orphanDone: (n: number) => `孤立頂点を ${n} 個削除しました`,
   },
   tips: {
     dontShowAgain: "このメッセージを表示しない",

@@ -367,6 +367,10 @@ export interface Translations {
     identityDescription: string;
     identitySelf: string;
     identitySwitched: (name: string) => string;
+    orphanTitle: string;
+    orphanDescription: string;
+    orphanButton: string;
+    orphanDone: (n: number) => string;
   };
   requests: {
     title: string;
@@ -422,11 +426,15 @@ export interface Translations {
     aiDescription: string;
     aiProvider: string;
     aiProviderAnthropic: string;
+    aiProviderGemini: string;
     aiModel: string;
     aiModelOpus: string;
     aiModelSonnet: string;
     aiModelHaiku: string;
+    aiModelGeminiFlashLite: string;
+    aiModelGeminiFlash: string;
     aiApiKey: string;
+    aiApiKeyGuide: string;
     aiApiKeyPlaceholder: string;
     aiApiKeyRegistered: string;
     aiApiKeyNotSet: string;

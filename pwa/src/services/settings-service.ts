@@ -9,26 +9,54 @@ export interface SettingsBindingAPI {
   SetAreaDetailRadiusKm(km: number): Promise<void>;
   GetAiProvider(): Promise<string>;
   SetAiProvider(provider: string): Promise<void>;
-  GetAiApiKey(): Promise<string>;
-  SetAiApiKey(key: string): Promise<void>;
+  /** プロバイダ別に API キーを取得する（プロバイダごとにキー体系が異なるため）。 */
+  GetAiApiKey(provider: string): Promise<string>;
+  SetAiApiKey(provider: string, key: string): Promise<void>;
   GetAiModel(): Promise<string>;
   SetAiModel(model: string): Promise<void>;
   GetAiMapImportConsent(): Promise<boolean>;
   SetAiMapImportConsent(consented: boolean): Promise<void>;
 }
 
-/** AI 地図取込用 API キーの既定プロバイダ識別子。 */
-export const DEFAULT_AI_PROVIDER = "anthropic";
+/** 選択可能な AI プロバイダ識別子。 */
+export const AI_PROVIDERS = ["anthropic", "gemini"] as const;
+export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-/** AI 地図取込の既定モデル ID（vision 対応の最上位モデル）。 */
-export const DEFAULT_AI_MODEL = "claude-opus-4-8";
+/** AI 地図取込の既定プロバイダ識別子。 */
+export const DEFAULT_AI_PROVIDER: AiProvider = "anthropic";
 
-/** 設定画面で選べる vision 対応モデル（品質/コストの異なる 3 段）。 */
-export const AI_MODEL_OPTIONS = [
-  "claude-opus-4-8",
-  "claude-sonnet-5",
-  "claude-haiku-4-5-20251001",
-] as const;
+/**
+ * プロバイダ別の vision 対応モデル一覧（各先頭が既定＝低コスト側）。
+ * Anthropic の既定は Haiku、Gemini の既定は無料枠のある Flash。
+ */
+export const AI_MODEL_OPTIONS: Record<string, readonly string[]> = {
+  anthropic: [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+  ],
+  gemini: ["gemini-3.1-flash-lite", "gemini-3.5-flash"],
+};
+
+/** プロバイダの既定モデル ID を返す（一覧の先頭）。未知プロバイダは既定プロバイダの先頭。 */
+export function defaultModelForProvider(provider: string): string {
+  const opts = AI_MODEL_OPTIONS[provider];
+  return (opts && opts[0]) ?? AI_MODEL_OPTIONS[DEFAULT_AI_PROVIDER][0];
+}
+
+/**
+ * 保存済みモデルがプロバイダの一覧に無ければ（プロバイダ切替直後など）
+ * そのプロバイダの既定モデルへフォールバックする。
+ */
+export function resolveModel(provider: string, model: string): string {
+  const opts = AI_MODEL_OPTIONS[provider];
+  return opts && opts.includes(model)
+    ? model
+    : defaultModelForProvider(provider);
+}
+
+/** AI 地図取込の既定モデル ID（既定プロバイダの既定モデル）。 */
+export const DEFAULT_AI_MODEL = defaultModelForProvider(DEFAULT_AI_PROVIDER);
 
 /**
  * API キーを表示用にマスクする。末尾 4 文字のみ残し、それ以外を `•` に置換する。
@@ -83,13 +111,13 @@ export class SettingsService {
     await this.api.SetAiProvider(provider);
   }
 
-  /** AI API キーを返す。未設定時は空文字を返す。 */
-  async getAiApiKey(): Promise<string> {
-    return await this.api.GetAiApiKey();
+  /** 指定プロバイダの AI API キーを返す。未設定時は空文字を返す。 */
+  async getAiApiKey(provider: string): Promise<string> {
+    return await this.api.GetAiApiKey(provider);
   }
 
-  async setAiApiKey(key: string): Promise<void> {
-    await this.api.SetAiApiKey(key);
+  async setAiApiKey(provider: string, key: string): Promise<void> {
+    await this.api.SetAiApiKey(provider, key);
   }
 
   /** AI モデル ID を返す。未設定時は既定モデルを返す。 */

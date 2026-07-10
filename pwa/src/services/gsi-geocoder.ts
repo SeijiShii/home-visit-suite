@@ -11,8 +11,7 @@
 
 import type { Geocoder, GeocodeHit } from "./ai-map-import";
 
-const GSI_ENDPOINT =
-  "https://msearch.gsi.go.jp/address-search/AddressSearch";
+const GSI_ENDPOINT = "https://msearch.gsi.go.jp/address-search/AddressSearch";
 
 interface GsiFeature {
   geometry?: { coordinates?: number[] } | null;
@@ -20,8 +19,10 @@ interface GsiFeature {
 }
 
 export class GsiGeocoder implements Geocoder {
+  // ネイティブ fetch はメソッド呼び出しにすると this が Window でなくなり
+  // 'Illegal invocation' になるため globalThis にバインドする。
   constructor(
-    private readonly fetchFn: typeof fetch = fetch,
+    private readonly fetchFn: typeof fetch = fetch.bind(globalThis),
     private readonly endpoint: string = GSI_ENDPOINT,
   ) {}
 
@@ -32,7 +33,9 @@ export class GsiGeocoder implements Geocoder {
     const url = `${this.endpoint}?q=${encodeURIComponent(q)}`;
     const res = await this.fetchFn(url);
     if (!res.ok) {
-      throw new Error(`GsiGeocoder: 住所検索に失敗しました (HTTP ${res.status})`);
+      throw new Error(
+        `GsiGeocoder: 住所検索に失敗しました (HTTP ${res.status})`,
+      );
     }
 
     const body = (await res.json()) as unknown;
