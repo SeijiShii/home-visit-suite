@@ -26,6 +26,7 @@ import { EdgeContextMenu } from "../components/EdgeContextMenu";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
 import { AiMapImportDialog } from "../components/AiMapImportDialog";
+import { TipStack } from "../components/TipStack";
 import { useServices } from "../contexts/ServicesContext";
 import { RegionService } from "../services/region-service";
 import { buildPolygonAreaMap } from "../services/polygon-service";
@@ -41,8 +42,10 @@ import {
 } from "../lib/assign-places-to-polygons";
 import {
   overlayBoundariesToPolygons,
+  largestBoundary,
   type ImageSize,
 } from "../lib/overlay-georeference";
+import { extractColorBoundaries } from "../lib/extract-boundary-color";
 import type { VisionBoundary } from "../services/ai-map-import";
 import type {
   PolygonID,
@@ -114,17 +117,17 @@ export function MapPage() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [apiKey, provider, model, consent] = await Promise.all([
-        settingsService.getAiApiKey(),
+      const [provider, model, consent] = await Promise.all([
         settingsService.getAiProvider(),
         settingsService.getAiModel(),
         settingsService.getAiMapImportConsent(),
       ]);
+      const apiKey = await settingsService.getAiApiKey(provider);
       if (!active) return;
       setAiProviderName(provider);
       setAiConsent(consent);
       setAiImportService(
-        apiKey ? buildAiMapImportService(apiKey, model) : null,
+        apiKey ? buildAiMapImportService(provider, apiKey, model) : null,
       );
     })();
     return () => {
@@ -181,23 +184,32 @@ export function MapPage() {
     imageSize: ImageSize;
     boundaries: VisionBoundary[];
   } | null>(null);
-  const [alignOpacity, setAlignOpacity] = useState(0.6);
-  const [alignScale, setAlignScale] = useState(1);
-  const [alignRotation, setAlignRotation] = useState(0);
+  const [alignOpacity, setAlignOpacity] = useState(0.9);
 
   const handleManualAlign = useCallback((image: Blob, draft: ImportDraft) => {
     const url = URL.createObjectURL(image);
     const img = new Image();
     img.onload = () => {
-      setAlignOpacity(0.6);
-      setAlignScale(1);
-      setAlignRotation(0);
-      setAlignment({
-        url,
-        imageSize: { width: img.naturalWidth, height: img.naturalHeight },
-        boundaries: draft.extraction.boundaries,
-      });
-      mapRef.current?.showAlignmentOverlay(url, 0.6);
+      setAlignOpacity(0.9);
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      void (async () => {
+        // 太い色付き境界線を色抽出で優先的に取得（vision の座標推定より正確）。
+        // 見つからなければ vision のトレース結果へフォールバックする。
+        let boundaries = draft.extraction.boundaries;
+        try {
+          const rings = await extractColorBoundaries(image);
+          if (rings.length > 0)
+            boundaries = rings.map((r) => ({ vertices: r }));
+        } catch {
+          // 色抽出に失敗しても vision 結果で継続
+        }
+        // 番号付き小枠などの誤検出を落とし、面積最大の外周 1 本だけ採用する。
+        boundaries = largestBoundary(boundaries);
+        setAlignment({ url, imageSize: { width, height }, boundaries });
+        // アスペクト比(幅/高さ)を渡して正方形化を防ぐ。拡大縮小・回転は地図上のハンドルで操作。
+        mapRef.current?.showAlignmentOverlay(url, 0.9, width / height);
+      })();
     };
     img.src = url;
     setAiDialogOpen(false);
@@ -214,19 +226,19 @@ export function MapPage() {
   const handleAlignConfirm = useCallback(async () => {
     const ed = editorRef.current;
     const bounds = mapRef.current?.getAlignmentOverlayBounds();
+    const rotation = mapRef.current?.getAlignmentOverlayRotation() ?? 0;
     if (ed && alignment && bounds) {
       const polys = overlayBoundariesToPolygons(
-        alignment.imageSize,
         bounds,
         alignment.boundaries,
-        alignRotation,
+        rotation,
       );
       commitDraftPolygons(ed, polys);
       await ed.save();
       await reloadPolygonsRef.current();
     }
     clearAlignment();
-  }, [alignment, alignRotation, clearAlignment]);
+  }, [alignment, clearAlignment]);
 
   const {
     editor,
@@ -319,7 +331,8 @@ export function MapPage() {
 
     actions.startEditing(id);
     mapRef.current?.highlightPolygon(id);
-    mapRef.current?.focusPolygon(id);
+    // 編集モードでは現在のズーム・位置を維持する（頂点編集のため拡大した状態を
+    // 保つ。focusPolygon は全体にフィットしてしまうので呼ばない）。
 
     // 頂点ドラッグを有効化（ドラッグ中もポリゴン形状がリアルタイム更新）
     mapRef.current?.enableVertexDrag({
@@ -655,19 +668,24 @@ export function MapPage() {
 
   return (
     <div className="map-page">
-      <MapView
-        ref={mapRef}
-        onMapClick={handleMapClick}
-        onPolygonClick={handlePolygonClick}
-        onPolygonDoubleClick={(id) => {
-          const info = polygonAreaMap.get(id as string);
-          if (info) navigate(`/map/area/${info.areaId}/detail`);
-        }}
-        onContextMenu={handleContextMenu}
-        onVertexHover={handleVertexHover}
-        onEdgeHover={handleEdgeHover}
-        onPolygonHover={handlePolygonHover}
-      />
+      {/* 地図パネル: ツールチップ(TipStack)は地図上（左）に重ね、右サイドバーの
+          区域リスト操作を塞がないようこのパネル内にアンカーする。 */}
+      <div className="map-panel">
+        <MapView
+          ref={mapRef}
+          onMapClick={handleMapClick}
+          onPolygonClick={handlePolygonClick}
+          onPolygonDoubleClick={(id) => {
+            const info = polygonAreaMap.get(id as string);
+            if (info) navigate(`/map/area/${info.areaId}/detail`);
+          }}
+          onContextMenu={handleContextMenu}
+          onVertexHover={handleVertexHover}
+          onEdgeHover={handleEdgeHover}
+          onPolygonHover={handlePolygonHover}
+        />
+        <TipStack />
+      </div>
 
       {edgeMenu && (
         <EdgeContextMenu
@@ -682,7 +700,11 @@ export function MapPage() {
         <AiMapImportDialog
           importService={aiImportService}
           providerName={
-            aiProviderName === "anthropic" ? "Anthropic" : aiProviderName
+            aiProviderName === "anthropic"
+              ? "Anthropic"
+              : aiProviderName === "gemini"
+                ? "Gemini"
+                : aiProviderName
           }
           consentGiven={aiConsent}
           onGrantConsent={handleAiGrantConsent}
@@ -708,36 +730,6 @@ export function MapPage() {
                 const v = Number(e.target.value);
                 setAlignOpacity(v);
                 mapRef.current?.setAlignmentOverlayOpacity(v);
-              }}
-            />
-          </label>
-          <label className="align-panel-field">
-            {t.map.aiImport.alignScale}
-            <input
-              type="range"
-              min={0.2}
-              max={3}
-              step={0.05}
-              value={alignScale}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setAlignScale(v);
-                mapRef.current?.setAlignmentOverlayScale(v);
-              }}
-            />
-          </label>
-          <label className="align-panel-field">
-            {t.map.aiImport.alignRotation}
-            <input
-              type="range"
-              min={-180}
-              max={180}
-              step={1}
-              value={alignRotation}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setAlignRotation(v);
-                mapRef.current?.setAlignmentOverlayRotation(v);
               }}
             />
           </label>

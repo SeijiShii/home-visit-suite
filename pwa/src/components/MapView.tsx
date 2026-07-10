@@ -63,10 +63,13 @@ export interface MapViewHandle {
   cancelPlaceMove(): void;
   isPlaceMoving(): boolean;
   // --- 手動オーバーレイ整列 (AI 地図取込フォールバック) ---
-  showAlignmentOverlay(imageUrl: string, opacity?: number): void;
+  showAlignmentOverlay(
+    imageUrl: string,
+    opacity?: number,
+    aspectRatio?: number,
+  ): void;
   setAlignmentOverlayOpacity(opacity: number): void;
-  setAlignmentOverlayScale(scale: number): void;
-  setAlignmentOverlayRotation(deg: number): void;
+  getAlignmentOverlayRotation(): number;
   getAlignmentOverlayBounds(): {
     north: number;
     south: number;
@@ -212,17 +215,14 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     invalidateSize() {
       rendererRef.current?.invalidateSize();
     },
-    showAlignmentOverlay(imageUrl, opacity) {
-      rendererRef.current?.showAlignmentOverlay(imageUrl, opacity);
+    showAlignmentOverlay(imageUrl, opacity, aspectRatio) {
+      rendererRef.current?.showAlignmentOverlay(imageUrl, opacity, aspectRatio);
     },
     setAlignmentOverlayOpacity(opacity) {
       rendererRef.current?.setAlignmentOverlayOpacity(opacity);
     },
-    setAlignmentOverlayScale(scale) {
-      rendererRef.current?.setAlignmentOverlayScale(scale);
-    },
-    setAlignmentOverlayRotation(deg) {
-      rendererRef.current?.setAlignmentOverlayRotation(deg);
+    getAlignmentOverlayRotation() {
+      return rendererRef.current?.getAlignmentOverlayRotation() ?? 0;
     },
     getAlignmentOverlayBounds() {
       return rendererRef.current?.getAlignmentOverlayBounds() ?? null;

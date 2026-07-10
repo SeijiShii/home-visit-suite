@@ -170,24 +170,69 @@ export interface ConfidenceThresholds {
   minGcps: number;
   /** high と判定する最大再投影誤差（地表メートル）。 */
   maxErrorMeters: number;
+  /** high と判定する画像全体の最大実寸（対角・メートル）。広域すぎ＝誤ジオコーディング検出。省略時は既定。 */
+  maxImageSpanMeters?: number;
+  /** high と判定する最大異方性（幅/高さの比の大きい方）。退化（細い縦横）検出。省略時は既定。 */
+  maxAnisotropy?: number;
 }
 
 /**
- * 既定閾値: 3 点以上かつ最大再投影誤差 15m 以内なら high。
- * 15m は小規模住宅ブロックの半分程度で、番号マーカーの取り違えが起きにくい目安。
+ * 既定閾値: 3 点以上かつ最大再投影誤差 15m 以内、かつ画像実寸が妥当なら high。
+ * - 15m は小規模住宅ブロックの半分程度で、番号マーカーの取り違えが起きにくい目安。
+ * - GCP がちょうど 3 点だとアフィン(6自由度)は必ず誤差 0 で完全フィットするため、
+ *   残差だけでは誤り（同名地点への誤ジオコーディング・共線退化）を検出できない。
+ *   画像実寸の妥当性（広域すぎ・異方性）で補完する。
+ * - 50km: 徒歩訪問用の地図画像としては十分大きい上限。これを超える＝別地域へ誤マッチ。
+ * - 20: 正しい地図なら幅/高さ比は数倍程度。極端な比は共線退化による細長ポリゴンの兆候。
  */
 export const DEFAULT_CONFIDENCE_THRESHOLDS: ConfidenceThresholds = {
   minGcps: 3,
   maxErrorMeters: 15,
+  maxImageSpanMeters: 50000,
+  maxAnisotropy: 20,
 };
+
+/**
+ * 変換後の画像全体（正規化座標 0..1 の単位正方形）の実寸を返す。
+ * 幅=(0,0)-(1,0)、高さ=(0,0)-(0,1)、対角=(0,0)-(1,1) の地表メートル。
+ */
+function imageSpanMeters(t: AffineTransform): {
+  width: number;
+  height: number;
+  diag: number;
+} {
+  const p00 = pixelToLatLng(t, { x: 0, y: 0 });
+  const p10 = pixelToLatLng(t, { x: 1, y: 0 });
+  const p01 = pixelToLatLng(t, { x: 0, y: 1 });
+  const p11 = pixelToLatLng(t, { x: 1, y: 1 });
+  return {
+    width: haversineKm(p00, p10) * 1000,
+    height: haversineKm(p00, p01) * 1000,
+    diag: haversineKm(p00, p11) * 1000,
+  };
+}
 
 /** ジオリファレンス結果を信頼度に分類する。 */
 export function classifyConfidence(
   result: GeoreferenceResult,
   thresholds: ConfidenceThresholds = DEFAULT_CONFIDENCE_THRESHOLDS,
 ): ConfidenceLevel {
-  return result.gcpCount >= thresholds.minGcps &&
-    result.maxMeters <= thresholds.maxErrorMeters
-    ? "high"
-    : "low";
+  if (
+    result.gcpCount < thresholds.minGcps ||
+    result.maxMeters > thresholds.maxErrorMeters
+  ) {
+    return "low";
+  }
+  // 画像実寸の妥当性: 広域すぎ（誤ジオコーディング）・退化（共線→細長）を弾く。
+  const maxSpan =
+    thresholds.maxImageSpanMeters ??
+    DEFAULT_CONFIDENCE_THRESHOLDS.maxImageSpanMeters!;
+  const maxAniso =
+    thresholds.maxAnisotropy ?? DEFAULT_CONFIDENCE_THRESHOLDS.maxAnisotropy!;
+  const span = imageSpanMeters(result.transform);
+  const small = Math.max(Math.min(span.width, span.height), 1e-6);
+  const anisotropy = Math.max(span.width, span.height) / small;
+  if (span.diag > maxSpan) return "low";
+  if (anisotropy > maxAniso) return "low";
+  return "high";
 }

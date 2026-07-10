@@ -50,7 +50,7 @@ export class PolygonService {
     await this.regionAPI.UnbindPolygonFromArea(areaId);
   }
 
-  /** ポリゴンの構成エッジを全削除（穴含む）→ ポリゴン消滅 */
+  /** ポリゴンの構成エッジを全削除（穴含む）→ ポリゴン消滅。孤立頂点も掃除する。 */
   deletePolygonEdges(snapshot: PolygonSnapshot): ChangeSet {
     let lastCs: ChangeSet | null = null;
     // 穴のエッジを先に削除
@@ -62,6 +62,22 @@ export class PolygonService {
     // 外周エッジを削除
     for (const edgeId of snapshot.edgeIds) {
       lastCs = this.editor.removeEdge(edgeId);
+    }
+    // エッジ削除では頂点が残る（ネットワークモデル）。他のエッジで使われて
+    // いない、このポリゴンの頂点だけを削除して孤立頂点を残さない。
+    const used = new Set<string>();
+    for (const e of this.editor.getEdges()) {
+      used.add(e.v1 as string);
+      used.add(e.v2 as string);
+    }
+    for (const vid of snapshot.vertexIds) {
+      if (!used.has(vid as string)) {
+        try {
+          lastCs = this.editor.removeVertex(vid);
+        } catch {
+          // 既に連鎖削除済み等は無視
+        }
+      }
     }
     return lastCs!;
   }

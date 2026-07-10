@@ -3,7 +3,6 @@
 
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
-import { TipStack } from "./components/TipStack";
 import { useServices } from "./contexts/ServicesContext";
 import { TipsProvider } from "./contexts/TipsContext";
 import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
@@ -40,7 +39,6 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
-        <TipStack />
       </TipsProvider>
     </HashRouter>
   );

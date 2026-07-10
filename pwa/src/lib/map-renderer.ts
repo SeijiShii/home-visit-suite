@@ -146,12 +146,13 @@ export class MapRenderer {
   // 手動オーバーレイ整列 (AI 地図取込の低信頼フォールバック)
   private alignmentOverlay: L.ImageOverlay | null = null;
   private alignmentCenter: L.LatLng | null = null;
-  private alignmentBaseHalfLat = 0;
-  private alignmentBaseHalfLng = 0;
+  private alignmentBaseHalfLat = 0; // scale=1 の緯度半幅（画像アスペクト比を反映）
+  private alignmentBaseHalfLng = 0; // scale=1 の経度半幅
   private alignmentScale = 1;
   private alignmentRotationDeg = 0;
-  private alignmentDragMove: ((e: L.LeafletMouseEvent) => void) | null = null;
-  private alignmentDragEnd: (() => void) | null = null;
+  // 地図上に表示する拡大縮小/回転ハンドル層と、進行中ポインタ操作の解除関数。
+  private alignmentHandleLayer: HTMLDivElement | null = null;
+  private alignmentPointerCleanup: (() => void) | null = null;
   private placeBadgeMarkers = new Map<string, L.Marker>();
   private placeContextMenuCallback:
     ((placeId: string, type: PlaceType, x: number, y: number) => void) | null =
@@ -175,7 +176,10 @@ export class MapRenderer {
 
   // 頂点ドラッグ
   private vertexDragCallbacks: VertexDragCallbacks | null = null;
-  private draggableVertexIds = new Set<string>();
+  // renderAll で頂点マーカーは作り直されるため、二重付与の判定は「頂点ID」ではなく
+  // 「マーカー実体」で行う（ID 基準だと再生成後の新マーカーに listener が付かず、
+  // 頂点ドラッグが効かず地図がパンしてしまう）。
+  private draggableMarkers = new WeakSet<L.CircleMarker>();
 
   // ホバーコールバック（ヘルプツールチップ用）
   private vertexHoverCallback: ((id: VertexID) => void) | null = null;
@@ -263,54 +267,53 @@ export class MapRenderer {
   // --- 手動オーバーレイ整列 ---
 
   /** アップロード画像を現在ビュー中央に軸平行オーバーレイし、ドラッグ移動を有効化する。 */
-  showAlignmentOverlay(imageUrl: string, opacity = 0.6): void {
+  /**
+   * 手動整列オーバーレイを表示する。
+   * aspectRatio（画像の 幅/高さ）を渡すと、画像のアスペクト比を保った初期サイズにする
+   * （正方形化を防ぐ）。拡大縮小・回転は地図上のハンドルで操作し、平行移動は画像の
+   * ドラッグで行う（pointer capture により地図外で離しても確実に解除される）。
+   */
+  showAlignmentOverlay(imageUrl: string, opacity = 0.9, aspectRatio = 1): void {
     if (!this.map) return;
     this.hideAlignmentOverlay();
-    const view = this.map.getBounds();
-    this.alignmentCenter = view.getCenter();
-    // 初期は現在ビューのおよそ 40% 四方
-    this.alignmentBaseHalfLat = (view.getNorth() - view.getSouth()) * 0.2;
-    this.alignmentBaseHalfLng = (view.getEast() - view.getWest()) * 0.2;
+    const map = this.map;
+    const center = map.getCenter();
+    this.alignmentCenter = center;
     this.alignmentScale = 1;
     this.alignmentRotationDeg = 0;
+
+    // 画像アスペクト比を保った初期サイズ（ビュー幅の約 40% を基準に高さを算出）。
+    const size = map.getSize();
+    const halfWpx = Math.max(40, size.x * 0.2);
+    const halfHpx = halfWpx / Math.max(aspectRatio, 1e-6);
+    const cp = map.latLngToContainerPoint(center);
+    const west = map.containerPointToLatLng([cp.x - halfWpx, cp.y]).lng;
+    const east = map.containerPointToLatLng([cp.x + halfWpx, cp.y]).lng;
+    const north = map.containerPointToLatLng([cp.x, cp.y - halfHpx]).lat;
+    const south = map.containerPointToLatLng([cp.x, cp.y + halfHpx]).lat;
+    this.alignmentBaseHalfLng = Math.abs(east - west) / 2;
+    this.alignmentBaseHalfLat = Math.abs(north - south) / 2;
+
     this.alignmentOverlay = L.imageOverlay(
       imageUrl,
       this.computeAlignmentBounds(),
-      {
-        opacity,
-        interactive: true,
-      },
-    ).addTo(this.map);
+      { opacity, interactive: true },
+    ).addTo(map);
+    // 既存ポリゴン/エッジより前面に出す。加えて整列中は既存ベクタ層（SVG）の
+    // pointer-events を無効化し（下記クラス + CSS）、画像とハンドルへ確実に
+    // ポインタイベントが届くようにする（重なり部でも地図パンにならない）。
+    this.alignmentOverlay.bringToFront();
+    map.getContainer().classList.add("hvs-align-active");
 
-    // ズーム/ビュー変更で Leaflet が img の transform を再設定するため、回転を再適用する
-    this.map.on("zoomend viewreset", this.reapplyAlignmentTransform);
+    // ズーム/ビュー変更で Leaflet が img の transform を上書きするため回転を再適用し、
+    // 地図の移動/ズームでハンドル位置を追従させる。
+    map.on("zoomend viewreset", this.reapplyAlignmentTransform);
+    map.on("move zoom viewreset", this.layoutAlignmentHandles);
 
-    // ドラッグで平行移動（地図パンは一時無効化）
-    this.alignmentOverlay.on("mousedown", (e: L.LeafletMouseEvent) => {
-      if (!this.map || !this.alignmentCenter) return;
-      this.map.dragging.disable();
-      const start = e.latlng;
-      const startCenter = this.alignmentCenter;
-      this.alignmentDragMove = (ev) => {
-        this.alignmentCenter = L.latLng(
-          startCenter.lat + (ev.latlng.lat - start.lat),
-          startCenter.lng + (ev.latlng.lng - start.lng),
-        );
-        this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
-        this.reapplyAlignmentTransform();
-      };
-      this.alignmentDragEnd = () => {
-        if (this.alignmentDragMove)
-          this.map?.off("mousemove", this.alignmentDragMove);
-        if (this.alignmentDragEnd)
-          this.map?.off("mouseup", this.alignmentDragEnd);
-        this.alignmentDragMove = null;
-        this.alignmentDragEnd = null;
-        this.map?.dragging.enable();
-      };
-      this.map.on("mousemove", this.alignmentDragMove);
-      this.map.on("mouseup", this.alignmentDragEnd);
-    });
+    this.attachAlignmentImageDrag();
+    this.createAlignmentHandles();
+    this.reapplyAlignmentTransform();
+    this.layoutAlignmentHandles();
   }
 
   private computeAlignmentBounds(): L.LatLngBounds {
@@ -327,18 +330,9 @@ export class MapRenderer {
     this.alignmentOverlay?.setOpacity(opacity);
   }
 
-  setAlignmentOverlayScale(scale: number): void {
-    this.alignmentScale = scale;
-    if (this.alignmentCenter) {
-      this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
-      this.reapplyAlignmentTransform();
-    }
-  }
-
-  /** オーバーレイ画像を中心まわりに回転表示する（CSS transform、時計回り正）。 */
-  setAlignmentOverlayRotation(deg: number): void {
-    this.alignmentRotationDeg = deg;
-    this.reapplyAlignmentTransform();
+  /** 現在の回転角（度・時計回り正）を返す。commit 時に参照する。 */
+  getAlignmentOverlayRotation(): number {
+    return this.alignmentRotationDeg;
   }
 
   /**
@@ -371,20 +365,224 @@ export class MapRenderer {
     };
   }
 
+  // 画像ドラッグ（平行移動）。pointer capture で地図外リリースでも確実に解除する。
+  private attachAlignmentImageDrag(): void {
+    const el = this.alignmentOverlay?.getElement();
+    if (!el || !this.map) return;
+    const map = this.map;
+    const onDown = (e: PointerEvent) => {
+      if (!this.alignmentCenter) return;
+      e.preventDefault();
+      e.stopPropagation();
+      map.dragging.disable();
+      el.setPointerCapture(e.pointerId);
+      const start = map.mouseEventToLatLng(e);
+      const startCenter = this.alignmentCenter;
+      const onMove = (ev: PointerEvent) => {
+        const cur = map.mouseEventToLatLng(ev);
+        this.alignmentCenter = L.latLng(
+          startCenter.lat + (cur.lat - start.lat),
+          startCenter.lng + (cur.lng - start.lng),
+        );
+        this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
+        this.reapplyAlignmentTransform();
+        this.layoutAlignmentHandles();
+      };
+      const onUp = () => {
+        el.removeEventListener("pointermove", onMove);
+        el.removeEventListener("pointerup", onUp);
+        el.removeEventListener("pointercancel", onUp);
+        map.dragging.enable();
+        this.alignmentPointerCleanup = null;
+      };
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+      this.alignmentPointerCleanup = onUp;
+    };
+    el.style.cursor = "move";
+    el.style.touchAction = "none"; // タッチでのドラッグを地図パンに奪われないように
+    el.addEventListener("pointerdown", onDown);
+  }
+
+  // 地図上に拡大縮小(四隅)・回転(上部)ハンドルを生成する。
+  private createAlignmentHandles(): void {
+    if (!this.map) return;
+    const layer = document.createElement("div");
+    layer.className = "align-handle-layer";
+    this.map.getContainer().appendChild(layer);
+    this.alignmentHandleLayer = layer;
+
+    (["nw", "ne", "se", "sw"] as const).forEach((corner) => {
+      const h = document.createElement("div");
+      h.className = "align-handle align-handle--scale";
+      h.dataset.role = "scale";
+      h.dataset.corner = corner;
+      layer.appendChild(h);
+      this.attachScaleHandle(h);
+    });
+    const rot = document.createElement("div");
+    rot.className = "align-handle align-handle--rotate";
+    rot.dataset.role = "rotate";
+    layer.appendChild(rot);
+    this.attachRotateHandle(rot);
+  }
+
+  // 回転を反映した各隅の画面座標を返す（center を軸に時計回り回転）。
+  private alignmentHandlePoints(): {
+    center: L.Point;
+    corners: Record<string, L.Point>;
+    topMid: L.Point;
+  } | null {
+    if (!this.map || !this.alignmentCenter) return null;
+    const map = this.map;
+    const b = this.computeAlignmentBounds();
+    const center = map.latLngToContainerPoint(this.alignmentCenter);
+    const th = (this.alignmentRotationDeg * Math.PI) / 180;
+    const cos = Math.cos(th);
+    const sin = Math.sin(th);
+    const rot = (p: L.Point): L.Point => {
+      const dx = p.x - center.x;
+      const dy = p.y - center.y;
+      // 時計回り（画面 y 下向き）
+      return L.point(
+        center.x + dx * cos - dy * sin,
+        center.y + dx * sin + dy * cos,
+      );
+    };
+    const nwRaw = map.latLngToContainerPoint([b.getNorth(), b.getWest()]);
+    const neRaw = map.latLngToContainerPoint([b.getNorth(), b.getEast()]);
+    const seRaw = map.latLngToContainerPoint([b.getSouth(), b.getEast()]);
+    const swRaw = map.latLngToContainerPoint([b.getSouth(), b.getWest()]);
+    const nw = rot(nwRaw);
+    const ne = rot(neRaw);
+    const se = rot(seRaw);
+    const sw = rot(swRaw);
+    return {
+      center,
+      corners: { nw, ne, se, sw },
+      topMid: L.point((nw.x + ne.x) / 2, (nw.y + ne.y) / 2),
+    };
+  }
+
+  private layoutAlignmentHandles = (): void => {
+    const layer = this.alignmentHandleLayer;
+    const pts = this.alignmentHandlePoints();
+    if (!layer || !pts) return;
+    const place = (el: HTMLElement, p: L.Point) => {
+      el.style.left = `${p.x}px`;
+      el.style.top = `${p.y}px`;
+    };
+    layer
+      .querySelectorAll<HTMLElement>(".align-handle--scale")
+      .forEach((el) => {
+        const c = el.dataset.corner as keyof typeof pts.corners;
+        place(el, pts.corners[c]);
+      });
+    // 回転ハンドルは上辺中点から外向き（回転後の上方向）へ 28px 離す。
+    const up = L.point(
+      pts.topMid.x - pts.center.x,
+      pts.topMid.y - pts.center.y,
+    );
+    const len = Math.max(Math.hypot(up.x, up.y), 1e-6);
+    const rotPt = L.point(
+      pts.topMid.x + (up.x / len) * 28,
+      pts.topMid.y + (up.y / len) * 28,
+    );
+    const rotEl = layer.querySelector<HTMLElement>(".align-handle--rotate");
+    if (rotEl) place(rotEl, rotPt);
+  };
+
+  private attachScaleHandle(h: HTMLElement): void {
+    const onDown = (e: PointerEvent) => {
+      if (!this.map || !this.alignmentCenter) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.map.dragging.disable();
+      h.setPointerCapture(e.pointerId);
+      const center = this.map.latLngToContainerPoint(this.alignmentCenter);
+      const ptOf = (ev: PointerEvent) =>
+        this.map!.mouseEventToContainerPoint(ev);
+      const startDist = Math.max(this.distance(center, ptOf(e)), 1e-6);
+      const startScale = this.alignmentScale;
+      const onMove = (ev: PointerEvent) => {
+        const dist = this.distance(center, ptOf(ev));
+        const next = Math.min(
+          Math.max((startScale * dist) / startDist, 0.1),
+          20,
+        );
+        this.alignmentScale = next;
+        this.alignmentOverlay?.setBounds(this.computeAlignmentBounds());
+        this.reapplyAlignmentTransform();
+        this.layoutAlignmentHandles();
+      };
+      const onUp = () => {
+        h.removeEventListener("pointermove", onMove);
+        h.removeEventListener("pointerup", onUp);
+        h.removeEventListener("pointercancel", onUp);
+        this.map?.dragging.enable();
+      };
+      h.addEventListener("pointermove", onMove);
+      h.addEventListener("pointerup", onUp);
+      h.addEventListener("pointercancel", onUp);
+    };
+    h.addEventListener("pointerdown", onDown);
+  }
+
+  private attachRotateHandle(h: HTMLElement): void {
+    const onDown = (e: PointerEvent) => {
+      if (!this.map || !this.alignmentCenter) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.map.dragging.disable();
+      h.setPointerCapture(e.pointerId);
+      const center = this.map.latLngToContainerPoint(this.alignmentCenter);
+      const angleOf = (ev: PointerEvent) => {
+        const p = this.map!.mouseEventToContainerPoint(ev);
+        return (Math.atan2(p.y - center.y, p.x - center.x) * 180) / Math.PI;
+      };
+      const startAngle = angleOf(e);
+      const startRotation = this.alignmentRotationDeg;
+      const onMove = (ev: PointerEvent) => {
+        this.alignmentRotationDeg = startRotation + (angleOf(ev) - startAngle);
+        this.reapplyAlignmentTransform();
+        this.layoutAlignmentHandles();
+      };
+      const onUp = () => {
+        h.removeEventListener("pointermove", onMove);
+        h.removeEventListener("pointerup", onUp);
+        h.removeEventListener("pointercancel", onUp);
+        this.map?.dragging.enable();
+      };
+      h.addEventListener("pointermove", onMove);
+      h.addEventListener("pointerup", onUp);
+      h.addEventListener("pointercancel", onUp);
+    };
+    h.addEventListener("pointerdown", onDown);
+  }
+
+  private distance(a: L.Point, b: L.Point): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
   hideAlignmentOverlay(): void {
-    if (this.alignmentDragMove)
-      this.map?.off("mousemove", this.alignmentDragMove);
-    if (this.alignmentDragEnd) this.map?.off("mouseup", this.alignmentDragEnd);
-    this.alignmentDragMove = null;
-    this.alignmentDragEnd = null;
+    this.alignmentPointerCleanup?.();
+    this.alignmentPointerCleanup = null;
+    this.map?.getContainer().classList.remove("hvs-align-active");
     this.map?.dragging.enable();
     this.map?.off("zoomend viewreset", this.reapplyAlignmentTransform);
+    this.map?.off("move zoom viewreset", this.layoutAlignmentHandles);
+    if (this.alignmentHandleLayer) {
+      this.alignmentHandleLayer.remove();
+      this.alignmentHandleLayer = null;
+    }
     if (this.alignmentOverlay) {
       this.alignmentOverlay.remove();
       this.alignmentOverlay = null;
     }
     this.alignmentCenter = null;
     this.alignmentRotationDeg = 0;
+    this.alignmentScale = 1;
   }
 
   unmount(): void {
@@ -579,8 +777,8 @@ export class MapRenderer {
   }
 
   private makeVertexDraggable(id: VertexID, marker: L.CircleMarker): void {
-    if (this.draggableVertexIds.has(id as string)) return;
-    this.draggableVertexIds.add(id as string);
+    if (this.draggableMarkers.has(marker)) return;
+    this.draggableMarkers.add(marker);
 
     let dragging = false;
 
