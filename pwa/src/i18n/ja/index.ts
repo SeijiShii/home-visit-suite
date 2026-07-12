@@ -91,6 +91,8 @@ const ja: Translations = {
     selectArea: "紐づける区域を選択",
     areaAlreadyLinked: "この区域は他のポリゴンに紐づけ済み",
     unlinkPolygon: "ポリゴン紐づけ解除",
+    baseMapRoadmap: "地図",
+    baseMapAerial: "航空写真",
     contextMenu: {
       addVertex: "頂点の追加",
       deleteVertex: "頂点を削除",

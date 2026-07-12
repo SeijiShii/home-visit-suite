@@ -92,6 +92,8 @@ const en: Translations = {
     selectArea: "Select area to link",
     areaAlreadyLinked: "This area is already linked to another polygon",
     unlinkPolygon: "Unlink polygon",
+    baseMapRoadmap: "Map",
+    baseMapAerial: "Satellite",
     contextMenu: {
       addVertex: "Add vertex",
       deleteVertex: "Delete vertex",

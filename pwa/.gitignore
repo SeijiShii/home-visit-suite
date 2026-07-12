@@ -1,3 +1,7 @@
 node_modules
 dist
 dev-dist
+
+# ローカル環境変数（実 API キー等の秘匿値）。.env.example のみコミットする
+.env.local
+.env.*.local

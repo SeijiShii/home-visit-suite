@@ -353,11 +353,18 @@ export function MapPage() {
         setPolygons(editorRef.current.getPolygons());
       },
       onDragEnd: () => {
-        if (!editorRef.current) return;
-        const cs = editorRef.current.endDrag();
+        const ed = editorRef.current;
+        if (!ed) return;
+        // 終点が近傍の頂点/辺なら融合・辺分割して境界を共有する（スナップ）。
+        // 対象が無ければ従来の交差解決で確定する。
+        const thresholdDeg =
+          mapRef.current?.pixelsToDegrees(
+            mapRef.current.getSnapThresholdPx(),
+          ) ?? 0;
+        const cs = ed.endDragWithSnap(thresholdDeg);
         mapRef.current?.applyChangeSet(cs);
-        setPolygons(editorRef.current.getPolygons());
-        editorRef.current.save().catch(console.error);
+        setPolygons(ed.getPolygons());
+        ed.save().catch(console.error);
       },
     });
   };

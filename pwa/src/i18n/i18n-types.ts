@@ -84,6 +84,8 @@ export interface Translations {
     selectArea: string;
     areaAlreadyLinked: string;
     unlinkPolygon: string;
+    baseMapRoadmap: string;
+    baseMapAerial: string;
     contextMenu: {
       addVertex: string;
       deleteVertex: string;

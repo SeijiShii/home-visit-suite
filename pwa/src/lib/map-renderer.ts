@@ -13,6 +13,66 @@ const GSI_ATTRIBUTION =
 
 const SNAP_THRESHOLD_PX = 20;
 
+/** ベース地図プロバイダ設定。GSI はキー不要、Google は API キー必須。 */
+export interface BaseMapConfig {
+  provider: "gsi" | "google";
+  /** Google Maps JavaScript API キー（provider === "google" のとき必須）。 */
+  googleApiKey?: string;
+  /** Google のレイヤー種別（既定は roadmap）。 */
+  googleMapType?: "roadmap" | "satellite" | "terrain" | "hybrid";
+  /**
+   * Google のときだけ地図/航空写真を切り替えるトグルの表示ラベル（i18n 済み文字列）。
+   * 省略時はトグルを表示しない。MapRenderer は i18n 非依存のため呼び出し側から渡す。
+   */
+  googleTypeLabels?: { map: string; aerial: string };
+}
+
+const DEFAULT_BASE_MAP: BaseMapConfig = { provider: "gsi" };
+
+// Google Maps JS API は 1 度だけ読み込む。読み込み中/完了の Promise を使い回す。
+let googleMapsLoader: Promise<void> | null = null;
+
+/**
+ * Google Maps JavaScript API を <script> 動的挿入で読み込む。
+ * GoogleMutant プラグインが window.google.maps を参照するため、レイヤー生成前に解決させる。
+ */
+function loadGoogleMapsApi(apiKey: string): Promise<void> {
+  if (typeof window !== "undefined" && window.google?.maps) {
+    return Promise.resolve();
+  }
+  if (googleMapsLoader) return googleMapsLoader;
+  googleMapsLoader = new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src =
+      "https://maps.googleapis.com/maps/api/js?key=" +
+      encodeURIComponent(apiKey) +
+      "&loading=async";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      googleMapsLoader = null; // 失敗時は次回リトライできるようにする
+      reject(new Error("Google Maps API の読み込みに失敗しました"));
+    };
+    document.head.appendChild(script);
+  });
+  return googleMapsLoader;
+}
+
+// GoogleMutant プラグインは bare な global `L` を参照するため、動的 import 前に window.L を注入する。
+let googleMutantLoader: Promise<void> | null = null;
+function loadGoogleMutantPlugin(): Promise<void> {
+  if (googleMutantLoader) return googleMutantLoader;
+  (window as unknown as { L: typeof L }).L = L;
+  // パッケージの package.json は main/exports 未定義でバンドラが entry 解決に失敗するため、
+  // 自己完結した IIFE ビルド（global L を参照）を明示パスで読み込む。
+  googleMutantLoader =
+    import("leaflet.gridlayer.googlemutant/dist/Leaflet.GoogleMutant.js").then(
+      () => undefined,
+    );
+  return googleMutantLoader;
+}
+
 export interface PolygonStyle {
   color: string;
   weight: number;
@@ -116,6 +176,17 @@ export class MapRenderer {
   private map: L.Map | null = null;
   private editor: NetworkPolygonEditor | null = null;
 
+  // ベース地図（背景タイル）レイヤー。プロバイダ切替時に差し替える。
+  private baseLayer: L.Layer | null = null;
+  private baseMapConfig: BaseMapConfig = DEFAULT_BASE_MAP;
+  // 非同期のベース地図適用が競合したとき、最後の要求だけを反映するための世代カウンタ。
+  private baseMapGeneration = 0;
+  // 地図/航空写真トグル（Google のときのみ表示する Leaflet コントロール）。
+  private baseMapControl: L.Control | null = null;
+  private baseMapControlEl: HTMLDivElement | null = null;
+  // 現在の Google レイヤー種別。トグルの active 表示と再適用に使う。
+  private googleMapType: "roadmap" | "hybrid" = "roadmap";
+
   // ネットワーク要素のレイヤー
   private vertexLayers = new Map<string, L.CircleMarker>();
   private edgeLayers = new Map<string, L.Polyline>();
@@ -186,7 +257,11 @@ export class MapRenderer {
   private edgeHoverCallback: ((id: EdgeID) => void) | null = null;
   private polygonHoverCallback: ((id: PolygonID) => void) | null = null;
 
-  mount(container: HTMLElement, callbacks: MapRendererCallbacks = {}): void {
+  mount(
+    container: HTMLElement,
+    callbacks: MapRendererCallbacks = {},
+    baseMap: BaseMapConfig = DEFAULT_BASE_MAP,
+  ): void {
     const saved = this.loadView();
     const center = saved
       ? ([saved.lat, saved.lng] as L.LatLngExpression)
@@ -202,11 +277,7 @@ export class MapRenderer {
       clickTolerance: 8,
     } as L.MapOptions).setView(center, zoom);
 
-    L.tileLayer(GSI_TILE_URL, {
-      attribution: GSI_ATTRIBUTION,
-      maxNativeZoom: 18,
-      maxZoom: 19,
-    }).addTo(this.map);
+    this.setBaseMap(baseMap);
 
     this.map.on("moveend", () => this.saveView());
 
@@ -237,6 +308,168 @@ export class MapRenderer {
 
   setEditor(editor: NetworkPolygonEditor): void {
     this.editor = editor;
+  }
+
+  /**
+   * ベース地図（背景タイル）を切り替える。GSI は同期的に、Google は API 読み込み後に適用する。
+   * Google に必要な API キーが無い、または読み込みに失敗した場合は GSI にフォールバックする。
+   * ポリゴン・マーカー等の上位レイヤーは別 pane のため差し替えても保持される。
+   */
+  setBaseMap(config: BaseMapConfig): void {
+    if (!this.map) return;
+    const prev = this.baseMapConfig;
+    this.baseMapConfig = config;
+    const generation = ++this.baseMapGeneration;
+
+    if (config.provider === "google" && config.googleApiKey) {
+      // 種別は config 既定 → 現在値の順で決める（初回は roadmap）。
+      this.googleMapType =
+        config.googleMapType === "hybrid" ? "hybrid" : "roadmap";
+      // 先に GSI を出しておき、Google 読み込み完了後に差し替える（読み込み中の空白を防ぐ）。
+      if (!this.baseLayer) this.applyGsiLayer();
+      void this.applyGoogleLayer(config, generation);
+      return;
+    }
+    // GSI を既に表示中なら貼り直さない（マウント直後の二重適用によるタイル再読み込みを防ぐ）。
+    if (
+      this.baseLayer &&
+      prev.provider === "gsi" &&
+      config.provider === "gsi"
+    ) {
+      return;
+    }
+    this.applyGsiLayer();
+  }
+
+  /** 現在のベース地図プロバイダ識別子を返す。 */
+  getBaseMapProvider(): "gsi" | "google" {
+    return this.baseMapConfig.provider;
+  }
+
+  private replaceBaseLayer(layer: L.Layer): void {
+    if (!this.map) return;
+    if (this.baseLayer) this.map.removeLayer(this.baseLayer);
+    this.baseLayer = layer;
+    layer.addTo(this.map);
+    // ベースタイルは最背面へ（後から追加すると上に載るため）。
+    if ("bringToBack" in layer) {
+      (layer as L.GridLayer).bringToBack();
+    }
+  }
+
+  private applyGsiLayer(): void {
+    this.replaceBaseLayer(
+      L.tileLayer(GSI_TILE_URL, {
+        attribution: GSI_ATTRIBUTION,
+        maxNativeZoom: 18,
+        maxZoom: 19,
+      }),
+    );
+    this.removeBaseMapToggle();
+  }
+
+  /** 地図/航空写真を切り替える（Google 表示中のみ有効）。 */
+  setGoogleMapType(type: "roadmap" | "hybrid"): void {
+    if (this.baseMapConfig.provider !== "google" || !this.map) return;
+    if (this.googleMapType === type) return;
+    this.googleMapType = type;
+    this.baseMapConfig = { ...this.baseMapConfig, googleMapType: type };
+    const generation = ++this.baseMapGeneration;
+    void this.applyGoogleLayer(this.baseMapConfig, generation);
+    this.updateBaseMapToggleActive();
+  }
+
+  /** 地図/航空写真トグル（Leaflet コントロール, 右上）を追加する。既に在れば何もしない。 */
+  private addBaseMapToggle(labels: { map: string; aerial: string }): void {
+    if (!this.map || this.baseMapControl) return;
+    const control = new L.Control({ position: "topright" });
+    control.onAdd = () => {
+      const el = L.DomUtil.create(
+        "div",
+        "map-basemap-toggle leaflet-bar",
+      ) as HTMLDivElement;
+      const mk = (text: string, type: "roadmap" | "hybrid") => {
+        const btn = L.DomUtil.create(
+          "button",
+          "map-basemap-toggle-btn",
+          el,
+        ) as HTMLButtonElement;
+        btn.type = "button";
+        btn.textContent = text;
+        btn.dataset.type = type;
+        L.DomEvent.on(btn, "click", (e) => {
+          L.DomEvent.stop(e);
+          this.setGoogleMapType(type);
+        });
+      };
+      mk(labels.map, "roadmap");
+      mk(labels.aerial, "hybrid");
+      // 地図のドラッグ/クリックにコントロール操作が漏れないようにする。
+      L.DomEvent.disableClickPropagation(el);
+      this.baseMapControlEl = el;
+      this.updateBaseMapToggleActive();
+      return el;
+    };
+    control.addTo(this.map);
+    this.baseMapControl = control;
+  }
+
+  private removeBaseMapToggle(): void {
+    if (this.baseMapControl && this.map) {
+      this.map.removeControl(this.baseMapControl);
+    }
+    this.baseMapControl = null;
+    this.baseMapControlEl = null;
+  }
+
+  /** トグル内の 2 ボタンの active 表示を現在種別に合わせて更新する。 */
+  private updateBaseMapToggleActive(): void {
+    if (!this.baseMapControlEl) return;
+    const btns = this.baseMapControlEl.querySelectorAll<HTMLButtonElement>(
+      ".map-basemap-toggle-btn",
+    );
+    btns.forEach((btn) => {
+      btn.classList.toggle(
+        "is-active",
+        btn.dataset.type === this.googleMapType,
+      );
+    });
+  }
+
+  private async applyGoogleLayer(
+    config: BaseMapConfig,
+    generation: number,
+  ): Promise<void> {
+    try {
+      await loadGoogleMapsApi(config.googleApiKey!);
+      await loadGoogleMutantPlugin();
+      // 読み込み中にさらに切替要求が来ていたら、この結果は破棄する。
+      if (generation !== this.baseMapGeneration || !this.map) return;
+      // プラグインは untyped のため L.gridLayer.googleMutant をキャストして呼ぶ。
+      const googleMutant = (
+        L.gridLayer as unknown as {
+          googleMutant: (opts: {
+            type?: string;
+            maxZoom?: number;
+          }) => L.GridLayer;
+        }
+      ).googleMutant;
+      this.replaceBaseLayer(
+        googleMutant({
+          // 航空写真は hybrid（衛星＋道路/地名ラベル）にして訪問時に道路名を残す。
+          type: this.googleMapType,
+          maxZoom: 21,
+        }),
+      );
+      // 地図/航空写真トグルを表示（ラベルがあるときのみ）。
+      if (config.googleTypeLabels) {
+        this.addBaseMapToggle(config.googleTypeLabels);
+      }
+      this.updateBaseMapToggleActive();
+    } catch (e) {
+      // 失敗時は GSI のまま（applyGsiLayer は setBaseMap 側で既に適用済み）。
+      console.error("Google Maps ベース地図の適用に失敗しました:", e);
+    }
   }
 
   private saveView(): void {
@@ -588,6 +821,10 @@ export class MapRenderer {
   unmount(): void {
     this.disableRubberBand();
     this.hideAlignmentOverlay();
+    // map.remove() がコントロールも破棄するため参照だけ落とす。
+    this.baseMapControl = null;
+    this.baseMapControlEl = null;
+    this.baseLayer = null;
     if (this.map) {
       this.map.remove();
       this.map = null;

@@ -692,6 +692,34 @@ section {
   overflow: hidden;
 }
 
+/* 地図/航空写真トグル（Google 表示時のみ右上に出る Leaflet コントロール） */
+.map-basemap-toggle {
+  display: flex;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+}
+.map-basemap-toggle-btn {
+  border: none;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.map-basemap-toggle-btn + .map-basemap-toggle-btn {
+  border-left: 1px solid #e2e8f0;
+}
+.map-basemap-toggle-btn:hover {
+  background: #f1f5f9;
+}
+.map-basemap-toggle-btn.is-active {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
 /* 区域詳細編集モード */
 .area-detail-edit-page {
   display: flex;

@@ -4,6 +4,8 @@ import {
   type VertexDragCallbacks,
   type PlaceType,
 } from "../lib/map-renderer";
+import { resolveBaseMapConfig } from "../lib/map-config";
+import { useI18n } from "../contexts/I18nContext";
 import type {
   ChangeSet,
   PolygonID,
@@ -106,6 +108,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   },
   ref,
 ) {
+  const { t } = useI18n();
+  // 地図/航空写真トグルのラベルは mount 時点の値を使う（他の地図ラベル同様、再マウントで追従）。
+  const baseMapLabelsRef = useRef({
+    map: t.map.baseMapRoadmap,
+    aerial: t.map.baseMapAerial,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
   const callbacksRef = useRef({
@@ -235,17 +243,23 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     if (!containerRef.current) return;
     const renderer = new MapRenderer();
-    renderer.mount(containerRef.current, {
-      onMapClick: (lat, lng) => callbacksRef.current.onMapClick?.(lat, lng),
-      onPolygonClick: (id) => callbacksRef.current.onPolygonClick?.(id),
-      onPolygonDoubleClick: (id) =>
-        callbacksRef.current.onPolygonDoubleClick?.(id),
-      onContextMenu: (lat, lng, cx, cy) =>
-        callbacksRef.current.onContextMenu?.(lat, lng, cx, cy),
-      onVertexHover: (id) => callbacksRef.current.onVertexHover?.(id),
-      onEdgeHover: (id) => callbacksRef.current.onEdgeHover?.(id),
-      onPolygonHover: (id) => callbacksRef.current.onPolygonHover?.(id),
-    });
+    renderer.mount(
+      containerRef.current,
+      {
+        onMapClick: (lat, lng) => callbacksRef.current.onMapClick?.(lat, lng),
+        onPolygonClick: (id) => callbacksRef.current.onPolygonClick?.(id),
+        onPolygonDoubleClick: (id) =>
+          callbacksRef.current.onPolygonDoubleClick?.(id),
+        onContextMenu: (lat, lng, cx, cy) =>
+          callbacksRef.current.onContextMenu?.(lat, lng, cx, cy),
+        onVertexHover: (id) => callbacksRef.current.onVertexHover?.(id),
+        onEdgeHover: (id) => callbacksRef.current.onEdgeHover?.(id),
+        onPolygonHover: (id) => callbacksRef.current.onPolygonHover?.(id),
+      },
+      // ベース地図プロバイダは環境変数（サービス全体設定）から解決し、
+      // Google のときだけ地図/航空写真トグルのラベルを渡す。
+      { ...resolveBaseMapConfig(), googleTypeLabels: baseMapLabelsRef.current },
+    );
     rendererRef.current = renderer;
     return () => {
       renderer.unmount();
