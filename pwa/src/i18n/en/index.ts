@@ -520,6 +520,8 @@ const en: Translations = {
     syncPendingNote:
       "Cross-device data sync is not available yet (each device keeps its own data)",
     expiresNote: "This QR / URL expires in a few minutes",
+    copyUrl: "Copy URL",
+    copied: "Copied",
     close: "Close",
     listTitle: "Registered devices",
     thisDevice: "This device",

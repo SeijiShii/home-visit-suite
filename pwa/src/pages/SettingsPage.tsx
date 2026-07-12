@@ -2,7 +2,7 @@
 // ヘルプ表示リセット（TipsContext）と開発用データ削除（RegionBinding /
 // AvailablePeriodBinding）のセクションは、対応するサービス層の移植時に追加する。
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCode } from "../components/QrCode";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
@@ -41,6 +41,8 @@ export function SettingsPage() {
   const [orphanMsg, setOrphanMsg] = useState<string>("");
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
   const [pairingErr, setPairingErr] = useState<string>("");
+  const [urlCopied, setUrlCopied] = useState(false);
+  const pairingUrlRef = useRef<HTMLInputElement>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>("");
   const [renameTarget, setRenameTarget] = useState<{
@@ -152,12 +154,33 @@ export function SettingsPage() {
 
   const handleAddDevice = async () => {
     setPairingErr("");
+    setUrlCopied(false);
     try {
       const { url } = await createPairingToken();
       setPairingUrl(url);
     } catch (e) {
       console.error("createPairingToken failed", e);
       setPairingErr(String(e));
+    }
+  };
+
+  const handleCopyPairingUrl = async () => {
+    if (!pairingUrl) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(pairingUrl);
+      } else {
+        // 非セキュアコンテキスト(http LAN 等)で clipboard API が使えない場合のフォールバック
+        const el = pairingUrlRef.current;
+        if (el) {
+          el.select();
+          document.execCommand("copy");
+        }
+      }
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 2000);
+    } catch (e) {
+      console.error("copy failed", e);
     }
   };
 
@@ -403,12 +426,22 @@ export function SettingsPage() {
             <div className="device-pairing-qr">
               <QrCode text={pairingUrl} />
             </div>
-            <input
-              className="device-pairing-url"
-              value={pairingUrl}
-              readOnly
-              onFocus={(e) => e.currentTarget.select()}
-            />
+            <div className="device-pairing-url-row">
+              <input
+                ref={pairingUrlRef}
+                className="device-pairing-url"
+                value={pairingUrl}
+                readOnly
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => void handleCopyPairingUrl()}
+              >
+                {urlCopied ? t.devicePairing.copied : t.devicePairing.copyUrl}
+              </button>
+            </div>
             <p className="device-pairing-note">{t.devicePairing.expiresNote}</p>
             <p className="device-pairing-note">
               {t.devicePairing.syncPendingNote}

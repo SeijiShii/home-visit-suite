@@ -484,6 +484,8 @@ export interface Translations {
     dialogHint: string;
     syncPendingNote: string;
     expiresNote: string;
+    copyUrl: string;
+    copied: string;
     close: string;
     listTitle: string;
     thisDevice: string;

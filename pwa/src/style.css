@@ -4443,9 +4443,16 @@ section {
   gap: 6px;
 }
 
-.device-pairing-url {
-  width: 100%;
+.device-pairing-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 8px;
+}
+
+.device-pairing-url {
+  flex: 1;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -4453,4 +4460,9 @@ section {
   font-family: monospace;
   color: #475569;
   box-sizing: border-box;
+}
+
+.device-pairing-url-row .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }

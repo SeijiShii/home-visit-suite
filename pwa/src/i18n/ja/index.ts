@@ -524,6 +524,8 @@ const ja: Translations = {
     syncPendingNote:
       "現時点では端末間のデータ同期は未対応です（各端末のデータは別々に保持されます）",
     expiresNote: "この QR / URL は数分で期限切れになります",
+    copyUrl: "URL をコピー",
+    copied: "コピーしました",
     close: "閉じる",
     listTitle: "登録済みデバイス",
     thisDevice: "この端末",
