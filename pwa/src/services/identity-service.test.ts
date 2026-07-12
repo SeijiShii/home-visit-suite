@@ -1,6 +1,6 @@
 // LocalIdentityService: 初回作成・永続・端末ペアリング（同一 DID コピー）の検証。
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repository";
 import { LocalIdentityService } from "./identity-service";
 
@@ -69,6 +69,18 @@ describe("端末ペアリング（同一 DID の別端末追加）", () => {
     const svc = new LocalIdentityService(new InMemoryUserRepository());
     await svc.createIdentity("鈴木");
     await expect(svc.completePairing("garbage")).rejects.toThrow();
+  });
+
+  it("VITE_PAIRING_BASE_URL があればペアリング URL のベースを上書きする", async () => {
+    vi.stubEnv("VITE_PAIRING_BASE_URL", "https://app.example.com/");
+    try {
+      const svc = new LocalIdentityService(new InMemoryUserRepository());
+      await svc.createIdentity("岡田");
+      const { url } = await svc.createPairingToken();
+      expect(url.startsWith("https://app.example.com/#/pair?d=")).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

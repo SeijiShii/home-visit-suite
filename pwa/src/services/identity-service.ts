@@ -247,7 +247,11 @@ export class LocalIdentityService implements IdentityService {
       role: s.role,
       did: s.did,
     };
-    const baseUrl = window.location.origin + import.meta.env.BASE_URL;
+    // ペアリング URL のベース。env で正規の公開 URL を上書きでき（プロキシ/独自ドメイン、
+    // localhost からスキャンできない開発時など）、未設定なら実行時オリジンにフォールバックする。
+    const baseUrl =
+      (import.meta.env.VITE_PAIRING_BASE_URL as string | undefined) ||
+      window.location.origin + import.meta.env.BASE_URL;
     return {
       url: buildPairingUrl(baseUrl, payload),
       expiresAt: token.expiresAt,
