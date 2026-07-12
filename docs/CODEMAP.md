@@ -1,0 +1,166 @@
+# CODEMAP — 仕様↔コード対応インデックス
+
+**目的:** 仕様変更のたびにコードベースを全調査するコンテキスト消費を避けるためのナビゲーション索引。
+「`docs/wants/NN` の仕様を変えたい → どのファイルを見ればよいか」を Grep せずに引く。
+
+**使い方（AI/人間共通）:**
+- 仕様変更に着手するとき、まず該当テーマ節だけを読み、記載ファイルへ直行する。全 Grep/Glob は原則しない。
+- ここに載っていない挙動に触れて初めて探索する（＝索引の穴を見つけたら下記ルールで追記）。
+
+**維持ルール（コード変更と同じコミットで更新する）:**
+1. ファイルを**新規追加**したら、対応テーマ節に1行追記する。
+2. ファイルの**責務が変わった**ら、その行の説明を直す。
+3. ファイルを**削除/リネーム**したら、該当行も直す。
+4. テーマをまたぐファイルは主テーマに載せ、`(→NN)` で従テーマを併記する。
+
+> この索引は仕様の複製ではなくナビゲーション補助のため、CLAUDE.md「補助ドキュメントは作らない」方針の例外として維持する（詳細は CLAUDE.md 開発方針を参照）。
+> パスは `pwa/src/` からの相対。テスト（`*.test.ts(x)`）は原則載せない。
+
+---
+
+## 01 共通基盤（データ構造/実行環境/DI/i18n/永続化基盤）
+- `services/errors.ts` — サービス層の構造化エラー（ErrCode/ServiceError/isCode）
+- `services/id.ts` — 単調増加カウンタ併用のエンティティID生成
+- `services/test-fixture.ts` — サービス層テスト用の共通フィクスチャ
+- `services/settings-service.ts` — ロケール/Tips/AIプロバイダ/モデル/APIキー/取込同意など個人設定と定数 (→03)
+- `services/settings-binding-adapter.ts` — SettingsBindingAPI を PersonalRepository 上に実装する設定永続化アダプタ
+- `contexts/ServicesContext.tsx` — リポジトリ/サービス群をアプリ全体へ配線する DI コンテキスト
+- `contexts/I18nContext.tsx` — ロケール選択/翻訳と永続化ストア注入の i18n コンテキスト
+- `contexts/TipsContext.tsx` — 操作ヒント(Tips)の表示キュー制御と非表示状態の永続化 (→10)
+- `components/Layout.tsx` — アプリ共通レイアウトとロール別ナビゲーション (→10)
+- `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
+- `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
+- `pages/SettingsPage.tsx` — 設定画面（言語/ID切替(dev)/AIプロバイダ・キー/地図メンテナンス）(→10)
+- `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ (→03)
+- `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
+- `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
+
+## 02 領域と区域（領域/区域親番/区域）
+- `services/region-service.ts` — 領域/区域親番/区域のツリー管理・RegionBindingAPI 抽象・AreaTreeNode
+- `services/region-binding-adapter.ts` — RegionBindingAPI 実装（記号変更の ID 連鎖更新等）
+- `services/command-executor.ts` — region/parentArea/area 削除の undo/redo を API 経由で実行
+- `services/command-history.ts` — 領域ツリー編集の削除コマンドを undo/redo スタックで保持
+- `domain/models/region.ts` — 領域/区域親番/区域の階層モデルと識別子・表示ラベル生成
+- `domain/repositories/region-repository.ts` — 領域ツリーの取得/保存/論理・物理削除 IF
+- `data/inmemory/inmemory-region-repository.ts` — RegionRepository の InMemory 実装（論理削除フィルタ）
+- `pages/RegionManagementPage.tsx` — 領域記号・区域番号の CRUD 画面 (→10)
+- `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け）(→03)
+- `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ (→03)
+- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック・AI下書き取込）(→03)
+
+## 03 地図機能（ポリゴン編集/紐付け/住宅情報/AI取込）
+### サービス
+- `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea)・エリアマップ構築
+- `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
+- `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
+- `services/place-import-service.ts` — AI下書き場所の stash とポリゴン紐付け後の区域 Place 取込
+- `services/ai-map-import-factory.ts` — 設定から AI地図取込サービス（vision+GSI）を組立
+- `services/ai-map-import.ts` — vision抽出→GSI接地→ジオリファレンス変換で区域下書き生成
+- `services/anthropic-map-vision.ts` — Anthropic Messages API による地図画像解析アダプタ
+- `services/gemini-map-vision.ts` — Gemini generateContent API による地図画像解析アダプタ
+- `services/map-vision-extraction.ts` — vision 共通のプロンプト契約/画像判定/base64・JSON抽出/正規化
+- `services/gsi-geocoder.ts` — 国土地理院住所検索 API による Geocoder（住所→座標接地）
+### 画面/コンポーネント
+- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/AI取込の統合）(→10)
+- `pages/AreaDetailEditPage.tsx` — 区域詳細編集（家/集合住宅/場所の追加・移動・削除＋地図編集）(→10)
+- `pages/AreaDetailEditPageContainer.tsx` — 区域詳細編集の DI 組立ラッパ (→01)
+- `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント
+- `components/AiMapImportDialog.tsx` — AI地図取込ダイアログ（同意→画像→解析→下書きレビュー→取込）
+- `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
+- `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（部屋行の追加・並替・削除）
+- `components/PlaceListPanel.tsx` — 区域内の場所一覧パネル（D&D並替・部屋数表示）
+- `components/AreaDetailContextMenu.tsx` — 区域詳細編集の右クリックメニュー
+- `components/EdgeContextMenu.tsx` — ポリゴン辺の右クリック（頂点追加）
+- `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
+- `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
+### lib（純ロジック/幾何/画像処理）
+- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー描画・ベース地図切替
+- `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
+- `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
+- `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）
+- `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群
+- `lib/area-detail-geo.ts` — 幾何計算基盤（重心/haversine/点内包/近傍削除場所探索）
+- `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層
+- `lib/add-place-flow.ts` — 「家を追加」フローの純状態機械（削除済み場所の復元判定含む）
+- `lib/move-place-flow.ts` — 場所マーカー移動フローの純状態機械
+- `lib/building-flow.ts` — 集合住宅編集の部屋行モデルと保存差分計算
+- `lib/place-sort-order.ts` — 場所一覧の初回並び順採番
+- `lib/polygon-clip.ts` — 隣接境界共有のスナップ・差集合クリップ幾何
+- `lib/assign-places-to-polygons.ts` — AI下書き場所を内包取込ポリゴンへ割当 (→06)
+- `lib/ai-map-commit.ts` — AI下書きポリゴンを NetworkPolygonEditor へ流し込み（正規化/クリップ/失敗スキップ）
+- `lib/extract-boundary-color.ts` — 画像から色ベースで境界線検出しポリゴン化
+- `lib/georeference.ts` — GCP対応点から画素→緯度経度アフィン変換を最小二乗推定
+- `lib/overlay-georeference.ts` — 手動オーバーレイ整列の相対座標→緯度経度線形写像
+- `lib/pdf-raster.ts` — AI取込の PDF 入力を1ページ目 PNG にラスタ化
+### hooks
+- `hooks/useAreaDetailMap.ts` — 区域詳細編集の地図/場所描画とビューモデル適用を束ねる
+- `hooks/useCommandHistory.ts` — Undo/Redo コマンドヒストリを React へ購読
+- `hooks/useMapState.ts` — MapState ストアを useSyncExternalStore で購読
+- `hooks/usePolygonEditor.ts` — NetworkPolygonEditor/PolygonService の初期化・配線
+### domain / data
+- `domain/models/geometry.ts` — 地理座標と GeoJSON ポリゴンの基礎型
+- `domain/models/place.ts` — 座標に紐づく場所（戸建/集合住宅/部屋）モデル (→08)
+- `domain/models/pending-import-place.ts` — AI取込の未確定場所（紐付け前）モデル
+- `domain/repositories/place-repository.ts` — 場所の取得/保存/論理削除・近傍削除済み検索 IF (→08)
+- `domain/repositories/pending-import-place-repository.ts` — AI取込未確定場所の保存/取得/件数/削除 IF
+- `data/inmemory/inmemory-place-repository.ts` — PlaceRepository の InMemory 実装（論理削除除外・Haversine 近傍）(→08)
+- `data/inmemory/inmemory-pending-import-place-repository.ts` — PendingImportPlaceRepository の InMemory 実装
+
+## 04 メンバー管理と権限（ロール/招待/承認）
+- `services/auth-service.ts` — ロール権限判定・招待/受理・降格/メンバー削除のロジック
+- `services/identity-service.ts` — アクター DID 解決（LinkSelf 相当の抽象、dev 切替含む）(→11)
+- `contexts/IdentityContext.tsx` — actorID/ロール/開発モードの一元管理（権限ガード基盤）
+- `pages/UsersPage.tsx` — メンバー一覧とタグ CRUD・検索/フィルタ画面 (→10)
+- `domain/models/user.ts` — メンバー/ロール(admin/editor/member)権限判定・メンバータグ
+- `domain/models/invitation.ts` — グループ参加・ロール任命の招待モデル
+- `domain/repositories/user-repository.ts` — メンバー/メンバータグ/招待の永続化 IF
+- `data/inmemory/inmemory-user-repository.ts` — UserRepository の InMemory 実装
+
+## 05 チェックアウト（返却回収/担当者/区域アクセス権/区域招待）
+- `services/checkout-service.ts` — チェックアウト操作・担当者/招待・区域アクセス権・訪問記録書込
+- `services/available-period-service.ts` — チェックアウト可能期間の作成/更新/重複制約 (→06)
+- `pages/CheckoutsPage.tsx` — チェックアウト一覧/発行/招待/状態タブ管理 (→10)
+- `components/InviteDialog.tsx` — チェックアウト招待発行（被招待者選択/TTL）(→07)
+- `domain/models/access.ts` — 訪問記録画面の編集/読取アクセスモードと親子合成
+- `domain/models/checkout-invitation.ts` — 区域招待（時間制限付き参加）モデルと有効判定
+- `domain/models/visit.ts` — 訪問記録＋チェックアウト（排他取得）モデル・申請要否判定 (→08)
+- `domain/repositories/checkout-repository.ts` — チェックアウト/区域招待/訪問記録/編集履歴の永続化 IF
+- `data/inmemory/inmemory-checkout-repository.ts` — CheckoutRepository の InMemory/localStorage 実装
+
+## 06 網羅管理（網羅活動/進捗/予定）
+- `services/available-period-service.ts` — チェックアウト可能期間（活動戦略の親概念）管理 (→05)
+- `pages/CoveragePage.tsx` — 網羅管理画面（AvailablePeriod 管理・進捗参照）(→10)
+- `domain/models/available-period.ts` — チェックアウト可能期間モデル・検証・重複/フェーズ判定
+- `domain/models/coverage.ts` — 区域親番単位の網羅活動（進捗率/ステータス）モデル
+- `domain/repositories/coverage-repository.ts` — 網羅活動/可能期間/専用タグの永続化 IF
+- `data/inmemory/inmemory-coverage-repository.ts` — CoverageRepository の InMemory/localStorage 実装
+
+## 07 通知と申請（通知/申請/監査ログ/データ保持）
+- `pages/RequestsPage.tsx` — 通知と申請画面（保留/解決一覧、現状プレースホルダ）(→10)
+- `components/PlaceCreateRequestDialog.tsx` — 場所作成申請（house/building/other＋座標）(→08)
+- `components/VisitRecordDialog.tsx` — 訪問記録入力（結果/メモ/修正・申請テキスト）(→08)
+- `domain/models/notification.ts` — 任命/貸出/返却/申請結果等の通知モデル
+- `domain/models/request.ts` — 各種申請（場所追加/修正/地図更新/訪問拒否）モデル
+- `domain/models/audit.ts` — 重要操作（ロール変更/強制回収等）の監査ログモデル
+- `domain/repositories/notification-repository.ts` — 通知/申請/監査ログの永続化 IF
+- `data/inmemory/inmemory-notification-repository.ts` — NotificationRepository の InMemory/localStorage 実装
+
+## 08 活動メンバー向けアプリ（訪問記録/最新状況/場所データ）
+- `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定
+- `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
+- `pages/VisitPage.tsx` — 訪問記録画面（場所/集合住宅への記録入力・場所作成申請）(→10)
+- `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ (→01)
+- `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・招待導線）(→10)
+- `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択
+- `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定
+- `domain/models/personal.ts` — 端末内個人スコープの個人メモ/個人タグ/割当モデル
+- `domain/models/visit-edit.ts` — 訪問記録の編集履歴（変更前後スナップショット）モデル
+- `domain/repositories/personal-repository.ts` — 個人データ＋アプリ設定の永続化 IF (→01)
+- `data/inmemory/inmemory-personal-repository.ts` — PersonalRepository の InMemory 実装
+
+## 10 画面設計
+各画面は上記の機能テーマ節に `pages/*` として掲載。画面横断の構成・Binding 対応は `docs/wants/10_画面設計.md` を参照。共通レイアウト/ナビは `components/Layout.tsx`（01節）。
+
+## 11 LinkSelf 拡張要望（データインフラ）
+- `services/identity-service.ts` — アクター DID 解決の抽象（04節に掲載、LinkSelf 移行点）
+- 各 `*-binding-adapter.ts`（01/02/03/08節）— ドメイン↔BindingAPI 境界。LinkSelf 実装差し替えの接続点。

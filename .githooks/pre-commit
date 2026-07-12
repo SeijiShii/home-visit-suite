@@ -1,0 +1,42 @@
+#!/bin/sh
+# CODEMAP 反映チェック（2段構え）
+#   docs/CODEMAP.md = 仕様テーマ↔実装ファイルの対応索引（維持ルールは CLAUDE.md 開発方針）
+#
+# [1] 構造変更（.ts/.tsx の 追加/削除/リネーム）で CODEMAP 未更新 → コミットを止める（索引漏れは機械判定可能）
+# [2] 既存 .ts/.tsx の修正のみで CODEMAP 未更新 → 止めずにリマインド（責務が変わったなら直して、の促し）
+#   ※ 意味的ドリフト（責務説明の陳腐化）は機械判定できないため [2] はブロックしない
+#
+# 緊急回避: git commit --no-verify
+
+is_target='\.(ts|tsx)$'
+not_test='\.test\.(ts|tsx)$'
+
+structural=$(git diff --cached --name-only --diff-filter=ADR -- pwa/src \
+  | grep -E "$is_target" | grep -vE "$not_test" || true)
+
+modified=$(git diff --cached --name-only --diff-filter=M -- pwa/src \
+  | grep -E "$is_target" | grep -vE "$not_test" || true)
+
+# CODEMAP がステージ済みなら両方 OK
+if git diff --cached --name-only -- docs/CODEMAP.md | grep -q 'docs/CODEMAP.md'; then
+  exit 0
+fi
+
+# [1] 構造変更 → ブロック
+if [ -n "$structural" ]; then
+  echo "✖ CODEMAP 未更新: pwa/src の .ts(x) が増減/リネームされていますが docs/CODEMAP.md がステージされていません。" >&2
+  echo "" >&2
+  echo "対象:" >&2
+  echo "$structural" | sed 's/^/  - /' >&2
+  echo "" >&2
+  echo "docs/CODEMAP.md に該当行を追加/削除してからコミットしてください。" >&2
+  echo "意図的にスキップ: git commit --no-verify" >&2
+  exit 1
+fi
+
+# [2] 修正のみ → リマインド（非ブロック）
+if [ -n "$modified" ]; then
+  echo "ⓘ CODEMAP 確認: pwa/src の .ts(x) を修正しています。責務が変わったなら docs/CODEMAP.md の該当行も直してください（不変ならこのまま OK）。" >&2
+fi
+
+exit 0
