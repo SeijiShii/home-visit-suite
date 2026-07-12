@@ -356,11 +356,13 @@ export function MapPage() {
       onDragEnd: () => {
         const ed = editorRef.current;
         if (!ed) return;
-        // 交差解決してドラッグを確定する。
-        // NOTE: 近傍頂点/辺への融合による境界共有スナップ（旧 endDragWithSnap 相当）は
-        // map-polygon-editor@0.7.0 に該当 API が存在せず実行時に throw していたため撤去した。
-        // 復活させる場合はパッケージ側にスナップ付き endDrag を実装してから呼び出すこと。
-        const cs = ed.endDrag();
+        // 終点近傍に別の頂点/辺があれば融合して境界を共有する（スナップ付き確定）。
+        // 対象が無ければ endDragWithSnap 内部で従来の交差解決 moveVertex にフォールバックする。
+        const thresholdDeg =
+          mapRef.current?.pixelsToDegrees(
+            mapRef.current.getSnapThresholdPx(),
+          ) ?? 0.001;
+        const cs = ed.endDragWithSnap(thresholdDeg);
         mapRef.current?.applyChangeSet(cs);
         setPolygons(ed.getPolygons());
         ed.save().catch(console.error);

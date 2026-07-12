@@ -13,7 +13,7 @@
   "dependencies": {
     "leaflet": "^1.9.4",
     "leaflet.gridlayer.googlemutant": "^0.14.1",
-    "map-polygon-editor": "^0.7.0",
+    "map-polygon-editor": "^0.8.0",
     "pdfjs-dist": "^5.6.205",
     "polygon-clipping": "^0.15.7",
     "react": "^19.2.4",
