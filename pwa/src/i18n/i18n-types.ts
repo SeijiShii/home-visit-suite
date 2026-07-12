@@ -484,6 +484,7 @@ export interface Translations {
     dialogHint: string;
     syncPendingNote: string;
     expiresNote: string;
+    expiresIn: (time: string) => string;
     copyUrl: string;
     copied: string;
     close: string;

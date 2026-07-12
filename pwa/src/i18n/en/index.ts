@@ -519,7 +519,9 @@ const en: Translations = {
       "Photograph this QR with the camera app on the device you want to add, or open the shown URL in a browser",
     syncPendingNote:
       "Cross-device data sync is not available yet (each device keeps its own data)",
-    expiresNote: "This QR / URL expires in a few minutes",
+    expiresNote:
+      "The QR / URL refreshes automatically while this dialog is open",
+    expiresIn: (time: string) => `Expires in ${time}`,
     copyUrl: "Copy URL",
     copied: "Copied",
     close: "Close",

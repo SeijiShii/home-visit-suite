@@ -4466,3 +4466,11 @@ section {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+/* ペアリング URL の有効期限カウントダウン */
+.device-pairing-countdown {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #475569;
+}

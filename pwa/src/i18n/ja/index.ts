@@ -523,7 +523,8 @@ const ja: Translations = {
       "追加したい端末の OS カメラアプリでこの QR を撮影するか、表示の URL をブラウザで開いてください",
     syncPendingNote:
       "現時点では端末間のデータ同期は未対応です（各端末のデータは別々に保持されます）",
-    expiresNote: "この QR / URL は数分で期限切れになります",
+    expiresNote: "この画面を開いている間、QR / URL は自動で更新されます",
+    expiresIn: (time: string) => `有効期限まで ${time}`,
     copyUrl: "URL をコピー",
     copied: "コピーしました",
     close: "閉じる",

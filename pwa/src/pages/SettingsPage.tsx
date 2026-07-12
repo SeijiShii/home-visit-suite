@@ -20,6 +20,14 @@ import {
 import { removeOrphanVertices } from "../lib/map-maintenance";
 import type { Locales } from "../i18n/i18n-types";
 
+/** ミリ秒を M:SS 形式に整形する（負値は 0:00）。 */
+function formatMMSS(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
   const {
@@ -39,6 +47,8 @@ export function SettingsPage() {
   const [identityMsg, setIdentityMsg] = useState<string>("");
   const [orphanMsg, setOrphanMsg] = useState<string>("");
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
+  const [pairingExpiresAt, setPairingExpiresAt] = useState<number>(0);
+  const [pairingRemainingMs, setPairingRemainingMs] = useState<number>(0);
   const [pairingErr, setPairingErr] = useState<string>("");
   const [urlCopied, setUrlCopied] = useState(false);
   const pairingUrlRef = useRef<HTMLInputElement>(null);
@@ -151,17 +161,44 @@ export function SettingsPage() {
     }
   };
 
-  const handleAddDevice = async () => {
-    setPairingErr("");
-    setUrlCopied(false);
+  // ペアリング URL を（再）発行する。ダイアログ表示中は期限手前で自動再発行される。
+  const refreshPairing = useCallback(async () => {
     try {
-      const { url } = await createPairingToken();
+      const { url, expiresAt } = await createPairingToken();
       setPairingUrl(url);
+      setPairingExpiresAt(expiresAt);
+      setPairingRemainingMs(expiresAt - Date.now());
+      setUrlCopied(false);
     } catch (e) {
       console.error("createPairingToken failed", e);
       setPairingErr(String(e));
     }
+  }, [createPairingToken]);
+
+  const handleAddDevice = () => {
+    setPairingErr("");
+    void refreshPairing();
   };
+
+  const closePairing = () => {
+    setPairingUrl(null);
+    setPairingExpiresAt(0);
+  };
+
+  // ダイアログ表示中: 1秒ごとに残り時間を更新し、期限の少し前に自動再発行する。
+  useEffect(() => {
+    if (!pairingUrl) return;
+    const REFRESH_MARGIN_MS = 20_000;
+    const id = window.setInterval(() => {
+      const remain = pairingExpiresAt - Date.now();
+      if (remain <= REFRESH_MARGIN_MS) {
+        void refreshPairing();
+      } else {
+        setPairingRemainingMs(remain);
+      }
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [pairingUrl, pairingExpiresAt, refreshPairing]);
 
   const handleCopyPairingUrl = async () => {
     if (!pairingUrl) return;
@@ -400,7 +437,7 @@ export function SettingsPage() {
       )}
 
       {pairingUrl && (
-        <div className="modal-overlay" onClick={() => setPairingUrl(null)}>
+        <div className="modal-overlay" onClick={closePairing}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-title">{t.devicePairing.dialogTitle}</h3>
             <p className="settings-section-description">
@@ -425,6 +462,9 @@ export function SettingsPage() {
                 {urlCopied ? t.devicePairing.copied : t.devicePairing.copyUrl}
               </button>
             </div>
+            <p className="device-pairing-countdown">
+              {t.devicePairing.expiresIn(formatMMSS(pairingRemainingMs))}
+            </p>
             <p className="device-pairing-note">{t.devicePairing.expiresNote}</p>
             <p className="device-pairing-note">
               {t.devicePairing.syncPendingNote}
@@ -433,7 +473,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => setPairingUrl(null)}
+                onClick={closePairing}
               >
                 {t.devicePairing.close}
               </button>
