@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { Device } from "../domain/models/device";
 import type { User } from "../domain/models/user";
 import type { IdentityService } from "../services/identity-service";
 
@@ -50,10 +51,20 @@ export interface IdentityContextValue {
   identityReady: boolean;
   /** 新しい ID を作成して入室する（初回オンボーディング） */
   createIdentity: (name: string) => Promise<void>;
-  /** 既存端末の QR/コードを取り込み、同一 ID で入室する */
-  completePairing: (text: string) => Promise<void>;
-  /** この ID に別端末を追加するペアリング用テキスト（QR 内容）を作る */
-  createPairingToken: () => Promise<{ text: string; expiresAt: number }>;
+  /** 既存端末のペアリング URL/コードを取り込み、同一 ID で入室する */
+  completePairing: (input: string) => Promise<void>;
+  /** この ID に別端末を追加するペアリング用 URL（QR 内容）を作る */
+  createPairingToken: () => Promise<{ url: string; expiresAt: number }>;
+  /** この端末の deviceId */
+  getCurrentDeviceId: () => Promise<string>;
+  /** 自分の ID に紐づくデバイス一覧 */
+  listDevices: () => Promise<Device[]>;
+  /** デバイスのラベルを変更する */
+  renameDevice: (deviceId: string, label: string) => Promise<void>;
+  /** 当該デバイス以外を削除する */
+  removeDevice: (deviceId: string) => Promise<void>;
+  /** この端末の登録を解除しオンボーディングへ戻る */
+  unregisterThisDevice: () => Promise<void>;
 }
 
 const IdentityContext = createContext<IdentityContextValue | null>(null);
@@ -174,6 +185,32 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     [service],
   );
 
+  const getCurrentDeviceId = useCallback(
+    () => service.getCurrentDeviceId(),
+    [service],
+  );
+
+  const listDevices = useCallback(() => service.listDevices(), [service]);
+
+  const renameDevice = useCallback(
+    (deviceId: string, label: string) => service.renameDevice(deviceId, label),
+    [service],
+  );
+
+  const removeDevice = useCallback(
+    (deviceId: string) => service.removeDevice(deviceId),
+    [service],
+  );
+
+  const unregisterThisDevice = useCallback(async () => {
+    await service.unregisterThisDevice();
+    // この端末は未登録状態へ戻る（App ゲートがオンボーディングを表示）。
+    setHasIdentity(false);
+    setCurrentActorID("");
+    setCurrentRole("");
+    setRealDID("");
+  }, [service]);
+
   const switchIdentity = useCallback(
     async (did: string) => {
       await service.setCurrentActor(did);
@@ -198,6 +235,11 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       createIdentity,
       completePairing,
       createPairingToken,
+      getCurrentDeviceId,
+      listDevices,
+      renameDevice,
+      removeDevice,
+      unregisterThisDevice,
     }),
     [
       currentActorID,
@@ -212,6 +254,11 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       createIdentity,
       completePairing,
       createPairingToken,
+      getCurrentDeviceId,
+      listDevices,
+      renameDevice,
+      removeDevice,
+      unregisterThisDevice,
     ],
   );
 

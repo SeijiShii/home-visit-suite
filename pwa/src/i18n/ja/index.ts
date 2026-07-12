@@ -492,22 +492,26 @@ const ja: Translations = {
     createOptionDesc:
       "初めて使う場合。あなたが最初のメンバー（管理者）になります",
     linkOption: "既存の自分の端末から引き継ぐ",
-    linkOptionDesc: "PC など既存の端末に表示した QR を読み取ります",
+    linkOptionDesc:
+      "既存端末の QR をカメラアプリで撮影するか URL を開くと自動で引き継げます。手動貼付もできます",
     nameLabel: "表示名",
     namePlaceholder: "例: 山田太郎",
     start: "はじめる",
     creating: "作成中…",
     createError: "ID の作成に失敗しました",
     linkHint:
-      "既存の端末の設定「デバイス」で表示した QR を枠内に写してください",
-    scanFallback: "カメラが使えない場合はコードを貼り付ける",
-    manualCodeLabel: "引き継ぎコード",
-    manualCodePlaceholder: "既存の端末に表示されたコードを貼り付け",
+      "既存端末の設定「デバイス」に表示した URL、または読み取ったコードを貼り付けてください",
+    manualCodeLabel: "引き継ぎ URL / コード",
+    manualCodePlaceholder: "https://… または コードを貼り付け",
     submitLink: "取り込む",
     back: "戻る",
-    cameraError:
-      "カメラを起動できませんでした。コードの貼り付けをお試しください",
-    invalidCode: "コードが正しくないか期限切れです",
+    invalidCode: "URL/コードが正しくないか期限切れです",
+  },
+  pair: {
+    title: "端末の引き継ぎ",
+    pending: "登録処理中です…",
+    error: "引き継ぎに失敗しました。URL/コードが正しくないか期限切れです",
+    toOnboarding: "オンボーディングへ",
   },
   devicePairing: {
     section: "デバイス",
@@ -516,11 +520,26 @@ const ja: Translations = {
     addDevice: "この ID に端末を追加",
     dialogTitle: "別端末を追加",
     dialogHint:
-      "追加したい端末のオンボーディングで「既存の端末から引き継ぐ」を選び、この QR を読み取ってください",
+      "追加したい端末の OS カメラアプリでこの QR を撮影するか、表示の URL をブラウザで開いてください",
     syncPendingNote:
       "現時点では端末間のデータ同期は未対応です（各端末のデータは別々に保持されます）",
-    expiresNote: "この QR は数分で期限切れになります",
+    expiresNote: "この QR / URL は数分で期限切れになります",
     close: "閉じる",
+    listTitle: "登録済みデバイス",
+    thisDevice: "この端末",
+    unnamedDevice: "（名称未設定）",
+    listPendingNote:
+      "他端末の一覧・削除の反映はデータ同期対応後に有効になります",
+    rename: "名称変更",
+    renameTitle: "デバイス名を変更",
+    labelLabel: "デバイス名",
+    remove: "削除",
+    confirmRemove: "このデバイスを削除しますか？",
+    unregister: "この端末の登録を解除",
+    confirmUnregister:
+      "この端末の登録を解除しますか？ この端末はオンボーディングからやり直しになります",
+    save: "保存",
+    cancel: "キャンセル",
   },
   tips: {
     dontShowAgain: "このメッセージを表示しない",

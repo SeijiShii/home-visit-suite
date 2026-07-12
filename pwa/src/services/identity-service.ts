@@ -2,6 +2,7 @@
 // desktop/frontend の Wails IdentityBinding 相当を PWA 向けに抽象化したもの。
 // 本番実装は LinkSelf TS（自 DID の解決）を用いるアダプタに差し替える。
 
+import type { Device } from "../domain/models/device";
 import type { Role, User } from "../domain/models/user";
 import type { UserRepository } from "../domain/repositories/user-repository";
 import {
@@ -11,9 +12,10 @@ import {
   seedToBase64,
 } from "../lib/identity-crypto";
 import {
+  buildPairingUrl,
   createPairingToken,
   decodePairingPayload,
-  encodePairingPayload,
+  extractPairingPayloadParam,
   PairingError,
   validatePairing,
   type PairingPayload,
@@ -38,17 +40,40 @@ export interface IdentityService {
   loadIdentity(): Promise<User | null>;
   /** 新しい identity を生成し、自分（創設 = 管理者）のユーザーを作成する。 */
   createIdentity(name: string): Promise<User>;
-  /** この ID に別端末を追加するためのペアリング用テキスト（QR 内容）を作る。 */
-  createPairingToken(): Promise<{ text: string; expiresAt: number }>;
-  /** 別端末で表示された QR/コードを取り込み、同一 identity を復元してユーザーを返す。 */
-  completePairing(text: string): Promise<User>;
+  /** この ID に別端末を追加するためのペアリング用 URL（QR 内容）を作る。 */
+  createPairingToken(): Promise<{ url: string; expiresAt: number }>;
+  /** ペアリング URL / コードを取り込み、同一 identity を復元してユーザーを返す。 */
+  completePairing(input: string): Promise<User>;
+  /** この端末の deviceId を返す。 */
+  getCurrentDeviceId(): Promise<string>;
+  /** 自分の ID に紐づくデバイス一覧を返す。 */
+  listDevices(): Promise<Device[]>;
+  /** デバイスのラベルを変更する。 */
+  renameDevice(deviceId: string, label: string): Promise<void>;
+  /** 当該デバイス以外を削除する（当該デバイスの指定は拒否）。 */
+  removeDevice(deviceId: string): Promise<void>;
+  /** この端末の登録を解除する（identity/デバイスを消しオンボーディングへ戻す）。 */
+  unregisterThisDevice(): Promise<void>;
 }
 
 const DEV_ACTOR_KEY = "dev.identity.actor";
 /** 自分の identity（did / 秘密鍵シード / 表示名 / ロール）の localStorage キー。 */
 const IDENTITY_KEY = "hvs.identity";
+/** この端末の deviceId の localStorage キー。 */
+const DEVICE_ID_KEY = "hvs.deviceId";
+/** デバイス登録簿（暫定 localStorage、M5 で同期リポジトリへ移行）の localStorage キー。 */
+const DEVICES_KEY = "hvs.devices";
 /** ペアリングトークンの有効期限（5分）。 */
 const PAIRING_TTL_MS = 5 * 60_000;
+
+/** ランダムな deviceId を生成する。 */
+function newDeviceId(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let hex = "";
+  for (const b of bytes) hex += b.toString(16).padStart(2, "0");
+  return `dev-${hex}`;
+}
 
 interface StoredIdentity {
   did: string;
@@ -97,6 +122,54 @@ export class LocalIdentityService implements IdentityService {
     };
   }
 
+  private ensureDeviceId(): string {
+    try {
+      let id = localStorage.getItem(DEVICE_ID_KEY);
+      if (!id) {
+        id = newDeviceId();
+        localStorage.setItem(DEVICE_ID_KEY, id);
+      }
+      return id;
+    } catch {
+      return "dev-local";
+    }
+  }
+
+  private readDevices(): Device[] {
+    try {
+      const raw = localStorage.getItem(DEVICES_KEY);
+      return raw ? (JSON.parse(raw) as Device[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeDevices(list: Device[]): void {
+    try {
+      localStorage.setItem(DEVICES_KEY, JSON.stringify(list));
+    } catch {
+      // ignore
+    }
+  }
+
+  /** 新規作成/ペアリング時: この端末を登録簿に（他端末は同期到来まで不明のため）記録する。 */
+  private registerThisDevice(userId: string): void {
+    const id = this.ensureDeviceId();
+    this.writeDevices([
+      { id, userId, label: "", createdAt: new Date().toISOString() },
+    ]);
+  }
+
+  /** 起動復元時: ラベル等を壊さず、この端末が登録簿に無ければ追加する。 */
+  private ensureThisDeviceListed(userId: string): void {
+    const id = this.ensureDeviceId();
+    const list = this.readDevices();
+    if (!list.some((d) => d.id === id)) {
+      list.push({ id, userId, label: "", createdAt: new Date().toISOString() });
+      this.writeDevices(list);
+    }
+  }
+
   async hasIdentity(): Promise<boolean> {
     return this.read() !== null;
   }
@@ -140,6 +213,7 @@ export class LocalIdentityService implements IdentityService {
     if (!s) return null;
     const user = this.toUser(s);
     await this.repo.saveUser(user); // 毎起動シードの repo へ自己ユーザーを復元
+    this.ensureThisDeviceListed(s.did);
     return user;
   }
 
@@ -154,12 +228,13 @@ export class LocalIdentityService implements IdentityService {
       role: "admin", // 最初のユーザーは創設管理者（04_メンバー管理と権限.md）
     };
     this.write(stored);
+    this.registerThisDevice(stored.did);
     const user = this.toUser(stored);
     await this.repo.saveUser(user);
     return user;
   }
 
-  async createPairingToken(): Promise<{ text: string; expiresAt: number }> {
+  async createPairingToken(): Promise<{ url: string; expiresAt: number }> {
     const s = this.read();
     if (!s) throw new Error("no identity to pair");
     const token = createPairingToken(PAIRING_TTL_MS, Date.now());
@@ -172,11 +247,15 @@ export class LocalIdentityService implements IdentityService {
       role: s.role,
       did: s.did,
     };
-    return { text: encodePairingPayload(payload), expiresAt: token.expiresAt };
+    const baseUrl = window.location.origin + import.meta.env.BASE_URL;
+    return {
+      url: buildPairingUrl(baseUrl, payload),
+      expiresAt: token.expiresAt,
+    };
   }
 
-  async completePairing(text: string): Promise<User> {
-    const payload = decodePairingPayload(text);
+  async completePairing(input: string): Promise<User> {
+    const payload = decodePairingPayload(extractPairingPayloadParam(input));
     validatePairing(payload, Date.now());
     // シードから DID を再導出し payload.did と一致するか検証（破損/改竄検知）。
     const id = await identityFromSeed(seedFromBase64(payload.seedB64));
@@ -196,9 +275,48 @@ export class LocalIdentityService implements IdentityService {
       role,
     };
     this.write(stored);
+    this.registerThisDevice(stored.did);
     const user = this.toUser(stored);
     await this.repo.saveUser(user);
     return user;
+  }
+
+  async getCurrentDeviceId(): Promise<string> {
+    return this.ensureDeviceId();
+  }
+
+  async listDevices(): Promise<Device[]> {
+    const s = this.read();
+    if (!s) return [];
+    return this.readDevices().filter((d) => d.userId === s.did);
+  }
+
+  async renameDevice(deviceId: string, label: string): Promise<void> {
+    const list = this.readDevices().map((d) =>
+      d.id === deviceId ? { ...d, label: label.trim() } : d,
+    );
+    this.writeDevices(list);
+  }
+
+  async removeDevice(deviceId: string): Promise<void> {
+    if (deviceId === this.ensureDeviceId()) {
+      // 当該デバイス自身は removeDevice では消さない（unregisterThisDevice を使う）。
+      throw new Error(
+        "cannot remove the current device; use unregisterThisDevice",
+      );
+    }
+    this.writeDevices(this.readDevices().filter((d) => d.id !== deviceId));
+  }
+
+  async unregisterThisDevice(): Promise<void> {
+    try {
+      localStorage.removeItem(IDENTITY_KEY);
+      localStorage.removeItem(DEVICE_ID_KEY);
+      localStorage.removeItem(DEVICES_KEY);
+      localStorage.removeItem(DEV_ACTOR_KEY);
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -262,12 +380,32 @@ export class DevIdentityService implements IdentityService {
     throw new Error("createIdentity is not supported in DevIdentityService");
   }
 
-  async createPairingToken(): Promise<{ text: string; expiresAt: number }> {
+  async createPairingToken(): Promise<{ url: string; expiresAt: number }> {
     throw new Error("pairing is not supported in DevIdentityService");
   }
 
   async completePairing(): Promise<User> {
     throw new Error("pairing is not supported in DevIdentityService");
+  }
+
+  async getCurrentDeviceId(): Promise<string> {
+    return "dev-device";
+  }
+
+  async listDevices(): Promise<Device[]> {
+    return [];
+  }
+
+  async renameDevice(): Promise<void> {
+    // no-op
+  }
+
+  async removeDevice(): Promise<void> {
+    // no-op
+  }
+
+  async unregisterThisDevice(): Promise<void> {
+    // no-op
   }
 }
 

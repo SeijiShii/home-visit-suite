@@ -464,13 +464,17 @@ export interface Translations {
     creating: string;
     createError: string;
     linkHint: string;
-    scanFallback: string;
     manualCodeLabel: string;
     manualCodePlaceholder: string;
     submitLink: string;
     back: string;
-    cameraError: string;
     invalidCode: string;
+  };
+  pair: {
+    title: string;
+    pending: string;
+    error: string;
+    toOnboarding: string;
   };
   devicePairing: {
     section: string;
@@ -481,6 +485,19 @@ export interface Translations {
     syncPendingNote: string;
     expiresNote: string;
     close: string;
+    listTitle: string;
+    thisDevice: string;
+    unnamedDevice: string;
+    listPendingNote: string;
+    rename: string;
+    renameTitle: string;
+    labelLabel: string;
+    remove: string;
+    confirmRemove: string;
+    unregister: string;
+    confirmUnregister: string;
+    save: string;
+    cancel: string;
   };
   tips: {
     dontShowAgain: string;

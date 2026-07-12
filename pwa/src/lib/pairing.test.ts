@@ -2,9 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  buildPairingUrl,
   createPairingToken,
   decodePairingPayload,
   encodePairingPayload,
+  extractPairingPayloadParam,
   PairingError,
   validatePairing,
   type PairingPayload,
@@ -42,6 +44,30 @@ describe("ペイロード往復", () => {
   it("形の合わない JSON は token_invalid", () => {
     const bad = btoa(JSON.stringify({ v: 1, secret: "x" }));
     expect(() => decodePairingPayload(bad)).toThrow(PairingError);
+  });
+
+  it("base64url なので URL 安全文字のみ（+ / = を含まない）", () => {
+    // 多数試行して +/= が出ないことを確認
+    for (let i = 0; i < 20; i++) {
+      const enc = encodePairingPayload(basePayload({ secret: "a".repeat(32) }));
+      expect(enc).not.toMatch(/[+/=]/);
+    }
+  });
+});
+
+describe("ペアリング URL", () => {
+  it("buildPairingUrl は #/pair?d=<payload> を組み立て、末尾スラッシュ/既存ハッシュを正規化する", () => {
+    const url = buildPairingUrl("https://host/app/#/settings", basePayload());
+    expect(url.startsWith("https://host/app/#/pair?d=")).toBe(true);
+    const d = extractPairingPayloadParam(url);
+    expect(decodePairingPayload(d)).toEqual(basePayload());
+  });
+
+  it("extractPairingPayloadParam は URL・フラグメント・生ペイロードのいずれからも取り出す", () => {
+    const enc = encodePairingPayload(basePayload());
+    expect(extractPairingPayloadParam(`https://h/#/pair?d=${enc}`)).toBe(enc);
+    expect(extractPairingPayloadParam(`#/pair?d=${enc}`)).toBe(enc);
+    expect(extractPairingPayloadParam(enc)).toBe(enc);
   });
 });
 

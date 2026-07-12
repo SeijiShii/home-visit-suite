@@ -5,7 +5,6 @@
 //       docs/wants/04_メンバー管理と権限.md「初回オンボーディングと創設メンバー」
 
 import { useCallback, useState } from "react";
-import { QrScanner } from "../components/QrScanner";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 
@@ -51,10 +50,6 @@ export function OnboardingPage() {
     },
     [busy, completePairing, m.invalidCode],
   );
-
-  const handleScanError = useCallback(() => {
-    setError(m.cameraError);
-  }, [m.cameraError]);
 
   return (
     <div className="onboarding">
@@ -132,30 +127,16 @@ export function OnboardingPage() {
         {mode === "link" && (
           <div className="onboarding-form">
             <p className="onboarding-hint">{m.linkHint}</p>
-            <div className="onboarding-scanner">
-              <QrScanner onResult={handlePairing} onError={handleScanError} />
-            </div>
-            <details className="onboarding-manual">
-              <summary>{m.scanFallback}</summary>
-              <label className="onboarding-label" htmlFor="onboarding-code">
-                {m.manualCodeLabel}
-              </label>
-              <textarea
-                id="onboarding-code"
-                className="onboarding-textarea"
-                value={manualCode}
-                placeholder={m.manualCodePlaceholder}
-                onChange={(e) => setManualCode(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => void handlePairing(manualCode)}
-                disabled={!manualCode.trim() || busy}
-              >
-                {m.submitLink}
-              </button>
-            </details>
+            <label className="onboarding-label" htmlFor="onboarding-code">
+              {m.manualCodeLabel}
+            </label>
+            <textarea
+              id="onboarding-code"
+              className="onboarding-textarea"
+              value={manualCode}
+              placeholder={m.manualCodePlaceholder}
+              onChange={(e) => setManualCode(e.target.value)}
+            />
             {error && <p className="onboarding-error">{error}</p>}
             <div className="onboarding-actions">
               <button
@@ -165,6 +146,14 @@ export function OnboardingPage() {
                 disabled={busy}
               >
                 {m.back}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void handlePairing(manualCode)}
+                disabled={!manualCode.trim() || busy}
+              >
+                {m.submitLink}
               </button>
             </div>
           </div>

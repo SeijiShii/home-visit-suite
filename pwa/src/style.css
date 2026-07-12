@@ -4393,3 +4393,64 @@ section {
   font-size: 12px;
   color: #64748b;
 }
+
+/* ===== 設定内: デバイス一覧・管理 ===== */
+.device-list-title {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.device-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.device-list-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.device-list-current {
+  font-size: 11px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.device-list-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.device-pairing-url {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  color: #475569;
+  box-sizing: border-box;
+}

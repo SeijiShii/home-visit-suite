@@ -51,19 +51,29 @@ export function createPairingToken(ttlMs: number, now: number): PairingToken {
   return { secret: randomSecretHex(), expiresAt: now + ttlMs };
 }
 
-/** ペイロードを QR/コード用のテキスト（base64 の JSON）へ符号化する。 */
+function toBase64Url(b64: string): string {
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(s: string): string {
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
+  return b64 + pad;
+}
+
+/** ペイロードを URL/QR 用のテキスト（base64url の JSON）へ符号化する。 */
 export function encodePairingPayload(payload: PairingPayload): string {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary);
+  return toBase64Url(btoa(binary));
 }
 
-/** QR/コードのテキストからペイロードへ復号する。 */
+/** base64url（旧 base64 も許容）のテキストからペイロードへ復号する。 */
 export function decodePairingPayload(text: string): PairingPayload {
   let payload: unknown;
   try {
-    const binary = atob(text.trim());
+    const binary = atob(fromBase64Url(text.trim()));
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const json = new TextDecoder().decode(bytes);
@@ -75,6 +85,29 @@ export function decodePairingPayload(text: string): PairingPayload {
     throw new PairingError("token_invalid", "payload shape invalid");
   }
   return payload;
+}
+
+/**
+ * ペアリング用のアプリ URL を組み立てる。鍵素材はサーバーへ送られない
+ * フラグメント（`#/pair?d=...`）に載せる。
+ * baseUrl 例: `https://host/` や `http://localhost:5173/`（末尾 / と既存 hash は正規化）。
+ */
+export function buildPairingUrl(
+  baseUrl: string,
+  payload: PairingPayload,
+): string {
+  const base = baseUrl.replace(/#.*$/, "").replace(/\/+$/, "");
+  return `${base}/#/pair?d=${encodePairingPayload(payload)}`;
+}
+
+/**
+ * 入力（ペアリング URL 全体、フラグメント、または生のペイロード文字列）から
+ * ペイロード部分を取り出す。`d=` パラメータがあればその値を、無ければ入力自体を返す。
+ */
+export function extractPairingPayloadParam(input: string): string {
+  const s = input.trim();
+  const m = s.match(/[?&]d=([^&\s]+)/);
+  return m ? m[1] : s;
 }
 
 /** 期限・形式を検証する。無効なら PairingError を投げる。 */

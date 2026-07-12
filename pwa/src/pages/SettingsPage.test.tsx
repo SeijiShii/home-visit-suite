@@ -28,10 +28,15 @@ const fakeIdentityService: IdentityService = {
   createIdentity: async () => {
     throw new Error("not supported");
   },
-  createPairingToken: async () => ({ text: "", expiresAt: 0 }),
+  createPairingToken: async () => ({ url: "", expiresAt: 0 }),
   completePairing: async () => {
     throw new Error("not supported");
   },
+  getCurrentDeviceId: async () => "dev-test",
+  listDevices: async () => [],
+  renameDevice: async () => {},
+  removeDevice: async () => {},
+  unregisterThisDevice: async () => {},
 };
 
 async function renderSettings(

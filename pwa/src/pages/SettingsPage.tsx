@@ -2,11 +2,12 @@
 // ヘルプ表示リセット（TipsContext）と開発用データ削除（RegionBinding /
 // AvailablePeriodBinding）のセクションは、対応するサービス層の移植時に追加する。
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { QrCode } from "../components/QrCode";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
+import type { Device } from "../domain/models/device";
 import {
   AI_MODEL_OPTIONS,
   AI_PROVIDERS,
@@ -29,12 +30,44 @@ export function SettingsPage() {
     switchIdentity,
     hasIdentity,
     createPairingToken,
+    listDevices,
+    getCurrentDeviceId,
+    renameDevice,
+    removeDevice,
+    unregisterThisDevice,
   } = useIdentity();
   const { settingsService, mapBinding } = useServices();
   const [identityMsg, setIdentityMsg] = useState<string>("");
   const [orphanMsg, setOrphanMsg] = useState<string>("");
-  const [pairingText, setPairingText] = useState<string | null>(null);
+  const [pairingUrl, setPairingUrl] = useState<string | null>(null);
   const [pairingErr, setPairingErr] = useState<string>("");
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>("");
+  const [renameTarget, setRenameTarget] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
+  const [deviceConfirm, setDeviceConfirm] = useState<
+    { type: "remove"; id: string } | { type: "unregister" } | null
+  >(null);
+
+  const reloadDevices = useCallback(async () => {
+    if (!hasIdentity) return;
+    try {
+      const [list, cur] = await Promise.all([
+        listDevices(),
+        getCurrentDeviceId(),
+      ]);
+      setDevices(list);
+      setCurrentDeviceId(cur);
+    } catch (e) {
+      console.error("listDevices failed", e);
+    }
+  }, [hasIdentity, listDevices, getCurrentDeviceId]);
+
+  useEffect(() => {
+    void reloadDevices();
+  }, [reloadDevices]);
 
   const [aiProvider, setAiProvider] = useState<string>(DEFAULT_AI_PROVIDER);
   const [aiModel, setAiModel] = useState<string>(DEFAULT_AI_MODEL);
@@ -120,11 +153,36 @@ export function SettingsPage() {
   const handleAddDevice = async () => {
     setPairingErr("");
     try {
-      const { text } = await createPairingToken();
-      setPairingText(text);
+      const { url } = await createPairingToken();
+      setPairingUrl(url);
     } catch (e) {
       console.error("createPairingToken failed", e);
       setPairingErr(String(e));
+    }
+  };
+
+  const handleRenameDevice = async () => {
+    if (!renameTarget) return;
+    await renameDevice(renameTarget.id, renameTarget.label);
+    setRenameTarget(null);
+    await reloadDevices();
+  };
+
+  const handleDeviceConfirm = async () => {
+    if (!deviceConfirm) return;
+    try {
+      if (deviceConfirm.type === "remove") {
+        await removeDevice(deviceConfirm.id);
+        setDeviceConfirm(null);
+        await reloadDevices();
+      } else {
+        await unregisterThisDevice();
+        setDeviceConfirm(null);
+        // unregisterThisDevice で hasIdentity=false → App がオンボーディングへ遷移する
+      }
+    } catch (e) {
+      console.error("device action failed", e);
+      setDeviceConfirm(null);
     }
   };
 
@@ -282,19 +340,75 @@ export function SettingsPage() {
               {pairingErr}
             </p>
           )}
+
+          <h3 className="device-list-title">{t.devicePairing.listTitle}</h3>
+          <ul className="device-list">
+            {devices.map((d) => (
+              <li key={d.id} className="device-list-item">
+                <span className="device-list-label">
+                  {d.label || t.devicePairing.unnamedDevice}
+                  {d.id === currentDeviceId && (
+                    <span className="device-list-current">
+                      {t.devicePairing.thisDevice}
+                    </span>
+                  )}
+                </span>
+                <span className="device-list-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() =>
+                      setRenameTarget({ id: d.id, label: d.label })
+                    }
+                  >
+                    {t.devicePairing.rename}
+                  </button>
+                  {d.id !== currentDeviceId && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={() =>
+                        setDeviceConfirm({ type: "remove", id: d.id })
+                      }
+                    >
+                      {t.devicePairing.remove}
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="device-pairing-note">
+            {t.devicePairing.listPendingNote}
+          </p>
+          <div className="settings-field-actions">
+            <button
+              type="button"
+              className="btn btn-sm btn-danger"
+              onClick={() => setDeviceConfirm({ type: "unregister" })}
+            >
+              {t.devicePairing.unregister}
+            </button>
+          </div>
         </section>
       )}
 
-      {pairingText && (
-        <div className="modal-overlay" onClick={() => setPairingText(null)}>
+      {pairingUrl && (
+        <div className="modal-overlay" onClick={() => setPairingUrl(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-title">{t.devicePairing.dialogTitle}</h3>
             <p className="settings-section-description">
               {t.devicePairing.dialogHint}
             </p>
             <div className="device-pairing-qr">
-              <QrCode text={pairingText} />
+              <QrCode text={pairingUrl} />
             </div>
+            <input
+              className="device-pairing-url"
+              value={pairingUrl}
+              readOnly
+              onFocus={(e) => e.currentTarget.select()}
+            />
             <p className="device-pairing-note">{t.devicePairing.expiresNote}</p>
             <p className="device-pairing-note">
               {t.devicePairing.syncPendingNote}
@@ -303,9 +417,80 @@ export function SettingsPage() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => setPairingText(null)}
+                onClick={() => setPairingUrl(null)}
               >
                 {t.devicePairing.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renameTarget && (
+        <div className="modal-overlay" onClick={() => setRenameTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">{t.devicePairing.renameTitle}</h3>
+            <div className="modal-field">
+              <label className="modal-label">
+                {t.devicePairing.labelLabel}
+              </label>
+              <input
+                className="modal-input"
+                value={renameTarget.label}
+                autoFocus
+                onChange={(e) =>
+                  setRenameTarget({ ...renameTarget, label: e.target.value })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleRenameDevice();
+                  if (e.key === "Escape") setRenameTarget(null);
+                }}
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setRenameTarget(null)}
+              >
+                {t.devicePairing.cancel}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void handleRenameDevice()}
+              >
+                {t.devicePairing.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deviceConfirm && (
+        <div className="modal-overlay" onClick={() => setDeviceConfirm(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <p className="polygon-delete-dialog-message">
+              {deviceConfirm.type === "remove"
+                ? t.devicePairing.confirmRemove
+                : t.devicePairing.confirmUnregister}
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setDeviceConfirm(null)}
+              >
+                {t.devicePairing.cancel}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => void handleDeviceConfirm()}
+              >
+                {deviceConfirm.type === "remove"
+                  ? t.devicePairing.remove
+                  : t.devicePairing.unregister}
               </button>
             </div>
           </div>
