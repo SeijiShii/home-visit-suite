@@ -133,6 +133,37 @@ describe("デバイス登録簿", () => {
     expect(devices.map((d) => d.id)).toEqual([currentId]);
   });
 
+  it("再登録(upsert)は同一ユーザーの他端末エントリと自端末ラベルを温存する", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    const user = await svc.createIdentity("松本");
+    const myId = await svc.getCurrentDeviceId();
+    await svc.renameDevice(myId, "自宅PC");
+    // 同一ユーザーの別端末が同期で現れた状況を模して登録簿へ直接追加
+    localStorage.setItem(
+      "hvs.devices",
+      JSON.stringify([
+        {
+          id: myId,
+          userId: user.id,
+          label: "自宅PC",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        {
+          id: "dev-phone",
+          userId: user.id,
+          label: "スマホ",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ]),
+    );
+    // 同一 ID を再取り込み（registerThisDevice を通る）しても他端末は消えない
+    const { url } = await svc.createPairingToken();
+    await svc.completePairing(url);
+    const devices = await svc.listDevices();
+    expect(devices.map((d) => d.id).sort()).toEqual(["dev-phone", myId].sort());
+    expect(devices.find((d) => d.id === myId)?.label).toBe("自宅PC");
+  });
+
   it("unregisterThisDevice で identity とデバイスが消えオンボーディングへ戻る", async () => {
     const svc = new LocalIdentityService(new InMemoryUserRepository());
     await svc.createIdentity("中村");

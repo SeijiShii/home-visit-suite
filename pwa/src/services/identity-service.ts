@@ -152,11 +152,26 @@ export class LocalIdentityService implements IdentityService {
     }
   }
 
-  /** 新規作成/ペアリング時: この端末を登録簿に（他端末は同期到来まで不明のため）記録する。 */
+  /**
+   * 新規作成/ペアリング時: この端末を登録簿へ upsert する。
+   * デバイス登録簿は ScopeDevice（同一ユーザーの端末間で同期）を想定するため、
+   * reset せず「同一ユーザーの他端末エントリを保持しつつ自端末を upsert」する
+   * （同期導入=M5 で他端末の登録が消えないよう前方互換にする。自端末のラベル/
+   * 登録日時は既存があれば温存）。docs/wants/01_共通基盤.md「同期スコープ」参照。
+   */
   private registerThisDevice(userId: string): void {
     const id = this.ensureDeviceId();
+    const list = this.readDevices();
+    const existing = list.find((d) => d.id === id);
+    const others = list.filter((d) => d.userId === userId && d.id !== id);
     this.writeDevices([
-      { id, userId, label: "", createdAt: new Date().toISOString() },
+      ...others,
+      {
+        id,
+        userId,
+        label: existing?.label ?? "",
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+      },
     ]);
   }
 
