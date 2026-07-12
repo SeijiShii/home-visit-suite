@@ -20,9 +20,11 @@ export function buildPolygonAreaMap(
     for (const pa of region.parentAreas) {
       for (const area of pa.areas) {
         if (area.polygonId) {
+          // 区域親番に名前があれば「ID 名前」で併記する（空名は ID のみ）。
+          const areaLabel = pa.name ? `${area.id} ${pa.name}` : area.id;
           map.set(area.polygonId, {
             areaId: area.id,
-            areaLabel: area.id,
+            areaLabel,
           });
         }
       }

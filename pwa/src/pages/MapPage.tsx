@@ -59,6 +59,8 @@ import type { PolygonAreaInfo } from "../services/polygon-service";
 import type { AreaTreeNode } from "../services/region-service";
 
 const SIDEBAR_MIN_WIDTH = 260;
+// 区域親番名（例: NRT-001-05 加良部1丁目）を折り返さず表示できる初期幅。
+const SIDEBAR_DEFAULT_WIDTH = 340;
 
 type SidebarTab = "areas" | "polygons";
 
@@ -71,7 +73,7 @@ export function MapPage() {
   const treeRef = useRef<AreaTreeHandle>(null);
   const editorRef = useRef<NetworkPolygonEditor | null>(null);
   const reloadPolygonsRef = useRef<() => Promise<void>>(async () => {});
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_MIN_WIDTH);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("areas");
   const [polygons, setPolygons] = useState<PolygonSnapshot[]>([]);
