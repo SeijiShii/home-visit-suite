@@ -52,8 +52,6 @@ export interface IdentityService {
   renameDevice(deviceId: string, label: string): Promise<void>;
   /** 当該デバイス以外を削除する（当該デバイスの指定は拒否）。 */
   removeDevice(deviceId: string): Promise<void>;
-  /** この端末の登録を解除する（identity/デバイスを消しオンボーディングへ戻す）。 */
-  unregisterThisDevice(): Promise<void>;
 }
 
 const DEV_ACTOR_KEY = "dev.identity.actor";
@@ -318,24 +316,13 @@ export class LocalIdentityService implements IdentityService {
   }
 
   async removeDevice(deviceId: string): Promise<void> {
+    // 当該デバイス自身は削除できない（削除は自分以外の端末のみ）。
+    // 削除＝同一ユーザーのデバイス集合（同期ロスター）から外す＝以後同期しない。
+    // 鍵は端末に残るため、再度ペアリング URL を渡せば再登録（再同期）できる。
     if (deviceId === this.ensureDeviceId()) {
-      // 当該デバイス自身は removeDevice では消さない（unregisterThisDevice を使う）。
-      throw new Error(
-        "cannot remove the current device; use unregisterThisDevice",
-      );
+      throw new Error("cannot remove the current device");
     }
     this.writeDevices(this.readDevices().filter((d) => d.id !== deviceId));
-  }
-
-  async unregisterThisDevice(): Promise<void> {
-    try {
-      localStorage.removeItem(IDENTITY_KEY);
-      localStorage.removeItem(DEVICE_ID_KEY);
-      localStorage.removeItem(DEVICES_KEY);
-      localStorage.removeItem(DEV_ACTOR_KEY);
-    } catch {
-      // ignore
-    }
   }
 }
 
@@ -420,10 +407,6 @@ export class DevIdentityService implements IdentityService {
   }
 
   async removeDevice(): Promise<void> {
-    // no-op
-  }
-
-  async unregisterThisDevice(): Promise<void> {
     // no-op
   }
 }

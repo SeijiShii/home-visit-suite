@@ -34,7 +34,6 @@ export function SettingsPage() {
     getCurrentDeviceId,
     renameDevice,
     removeDevice,
-    unregisterThisDevice,
   } = useIdentity();
   const { settingsService, mapBinding } = useServices();
   const [identityMsg, setIdentityMsg] = useState<string>("");
@@ -49,9 +48,9 @@ export function SettingsPage() {
     id: string;
     label: string;
   } | null>(null);
-  const [deviceConfirm, setDeviceConfirm] = useState<
-    { type: "remove"; id: string } | { type: "unregister" } | null
-  >(null);
+  const [deviceConfirm, setDeviceConfirm] = useState<{ id: string } | null>(
+    null,
+  );
 
   const reloadDevices = useCallback(async () => {
     if (!hasIdentity) return;
@@ -194,15 +193,9 @@ export function SettingsPage() {
   const handleDeviceConfirm = async () => {
     if (!deviceConfirm) return;
     try {
-      if (deviceConfirm.type === "remove") {
-        await removeDevice(deviceConfirm.id);
-        setDeviceConfirm(null);
-        await reloadDevices();
-      } else {
-        await unregisterThisDevice();
-        setDeviceConfirm(null);
-        // unregisterThisDevice で hasIdentity=false → App がオンボーディングへ遷移する
-      }
+      await removeDevice(deviceConfirm.id);
+      setDeviceConfirm(null);
+      await reloadDevices();
     } catch (e) {
       console.error("device action failed", e);
       setDeviceConfirm(null);
@@ -390,9 +383,7 @@ export function SettingsPage() {
                     <button
                       type="button"
                       className="btn btn-sm btn-danger"
-                      onClick={() =>
-                        setDeviceConfirm({ type: "remove", id: d.id })
-                      }
+                      onClick={() => setDeviceConfirm({ id: d.id })}
                     >
                       {t.devicePairing.remove}
                     </button>
@@ -404,15 +395,7 @@ export function SettingsPage() {
           <p className="device-pairing-note">
             {t.devicePairing.listPendingNote}
           </p>
-          <div className="settings-field-actions">
-            <button
-              type="button"
-              className="btn btn-sm btn-danger"
-              onClick={() => setDeviceConfirm({ type: "unregister" })}
-            >
-              {t.devicePairing.unregister}
-            </button>
-          </div>
+          <p className="device-pairing-note">{t.devicePairing.removeNote}</p>
         </section>
       )}
 
@@ -504,9 +487,7 @@ export function SettingsPage() {
         <div className="modal-overlay" onClick={() => setDeviceConfirm(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <p className="polygon-delete-dialog-message">
-              {deviceConfirm.type === "remove"
-                ? t.devicePairing.confirmRemove
-                : t.devicePairing.confirmUnregister}
+              {t.devicePairing.confirmRemove}
             </p>
             <div className="modal-actions">
               <button
@@ -521,9 +502,7 @@ export function SettingsPage() {
                 className="btn btn-danger"
                 onClick={() => void handleDeviceConfirm()}
               >
-                {deviceConfirm.type === "remove"
-                  ? t.devicePairing.remove
-                  : t.devicePairing.unregister}
+                {t.devicePairing.remove}
               </button>
             </div>
           </div>

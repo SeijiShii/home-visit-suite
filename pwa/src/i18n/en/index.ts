@@ -533,9 +533,8 @@ const en: Translations = {
     labelLabel: "Device name",
     remove: "Remove",
     confirmRemove: "Remove this device?",
-    unregister: "Unregister this device",
-    confirmUnregister:
-      "Unregister this device? This device will start over from onboarding",
+    removeNote:
+      "A removed device stops syncing. You can re-add it by sharing a pairing URL again",
     save: "Save",
     cancel: "Cancel",
   },

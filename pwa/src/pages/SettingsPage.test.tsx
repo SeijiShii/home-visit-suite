@@ -36,7 +36,6 @@ const fakeIdentityService: IdentityService = {
   listDevices: async () => [],
   renameDevice: async () => {},
   removeDevice: async () => {},
-  unregisterThisDevice: async () => {},
 };
 
 async function renderSettings(

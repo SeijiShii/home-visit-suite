@@ -30,7 +30,7 @@
 - `components/Layout.tsx` — アプリ共通レイアウトとロール別ナビゲーション (→10)
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
 - `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
-- `pages/SettingsPage.tsx` — 設定画面（言語/ID切替(dev)/デバイス管理(端末追加QR・一覧・ラベル・削除・当該端末の登録解除)/AIプロバイダ・キー/地図メンテナンス）(→04,10)
+- `pages/SettingsPage.tsx` — 設定画面（言語/ID切替(dev)/デバイス管理(端末追加QR・一覧・ラベル・自分以外の削除)/AIプロバイダ・キー/地図メンテナンス）(→04,10)
 - `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ (→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
@@ -109,7 +109,7 @@
 ## 04 メンバー管理と権限（ロール/招待/承認）
 - `services/auth-service.ts` — ロール権限判定・招待/受理・降格/メンバー削除のロジック
 - `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング・デバイス登録簿）と DevIdentityService（dev 切替）(→01,11)
-- `contexts/IdentityContext.tsx` — actorID/ロール/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice/unregisterThisDevice）(→10)
+- `contexts/IdentityContext.tsx` — actorID/ロール/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice=自分以外）(→10)
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
 - `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label、暫定 localStorage・M5 で同期リポジトリへ）

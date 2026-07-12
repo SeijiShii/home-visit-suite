@@ -496,8 +496,7 @@ export interface Translations {
     labelLabel: string;
     remove: string;
     confirmRemove: string;
-    unregister: string;
-    confirmUnregister: string;
+    removeNote: string;
     save: string;
     cancel: string;
   };

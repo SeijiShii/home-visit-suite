@@ -163,12 +163,4 @@ describe("デバイス登録簿", () => {
     expect(devices.map((d) => d.id).sort()).toEqual(["dev-phone", myId].sort());
     expect(devices.find((d) => d.id === myId)?.label).toBe("自宅PC");
   });
-
-  it("unregisterThisDevice で identity とデバイスが消えオンボーディングへ戻る", async () => {
-    const svc = new LocalIdentityService(new InMemoryUserRepository());
-    await svc.createIdentity("中村");
-    await svc.unregisterThisDevice();
-    expect(await svc.hasIdentity()).toBe(false);
-    expect(await svc.listDevices()).toEqual([]);
-  });
 });

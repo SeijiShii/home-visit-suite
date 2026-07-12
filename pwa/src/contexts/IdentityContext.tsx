@@ -63,8 +63,6 @@ export interface IdentityContextValue {
   renameDevice: (deviceId: string, label: string) => Promise<void>;
   /** 当該デバイス以外を削除する */
   removeDevice: (deviceId: string) => Promise<void>;
-  /** この端末の登録を解除しオンボーディングへ戻る */
-  unregisterThisDevice: () => Promise<void>;
 }
 
 const IdentityContext = createContext<IdentityContextValue | null>(null);
@@ -202,15 +200,6 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     [service],
   );
 
-  const unregisterThisDevice = useCallback(async () => {
-    await service.unregisterThisDevice();
-    // この端末は未登録状態へ戻る（App ゲートがオンボーディングを表示）。
-    setHasIdentity(false);
-    setCurrentActorID("");
-    setCurrentRole("");
-    setRealDID("");
-  }, [service]);
-
   const switchIdentity = useCallback(
     async (did: string) => {
       await service.setCurrentActor(did);
@@ -239,7 +228,6 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       listDevices,
       renameDevice,
       removeDevice,
-      unregisterThisDevice,
     }),
     [
       currentActorID,
@@ -258,7 +246,6 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       listDevices,
       renameDevice,
       removeDevice,
-      unregisterThisDevice,
     ],
   );
 

@@ -537,9 +537,8 @@ const ja: Translations = {
     labelLabel: "デバイス名",
     remove: "削除",
     confirmRemove: "このデバイスを削除しますか？",
-    unregister: "この端末の登録を解除",
-    confirmUnregister:
-      "この端末の登録を解除しますか？ この端末はオンボーディングからやり直しになります",
+    removeNote:
+      "削除した端末は同期対象から外れます。再度ペアリング URL を渡せば再登録できます",
     save: "保存",
     cancel: "キャンセル",
   },
