@@ -3,6 +3,7 @@
 // AvailablePeriodBinding）のセクションは、対応するサービス層の移植時に追加する。
 
 import { useEffect, useState } from "react";
+import { QrCode } from "../components/QrCode";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
@@ -26,10 +27,14 @@ export function SettingsPage() {
     isDevMode,
     availableIdentities,
     switchIdentity,
+    hasIdentity,
+    createPairingToken,
   } = useIdentity();
   const { settingsService, mapBinding } = useServices();
   const [identityMsg, setIdentityMsg] = useState<string>("");
   const [orphanMsg, setOrphanMsg] = useState<string>("");
+  const [pairingText, setPairingText] = useState<string | null>(null);
+  const [pairingErr, setPairingErr] = useState<string>("");
 
   const [aiProvider, setAiProvider] = useState<string>(DEFAULT_AI_PROVIDER);
   const [aiModel, setAiModel] = useState<string>(DEFAULT_AI_MODEL);
@@ -109,6 +114,17 @@ export function SettingsPage() {
       setTimeout(() => setIdentityMsg(""), 3000);
     } catch (e) {
       setIdentityMsg(`switch failed: ${String(e)}`);
+    }
+  };
+
+  const handleAddDevice = async () => {
+    setPairingErr("");
+    try {
+      const { text } = await createPairingToken();
+      setPairingText(text);
+    } catch (e) {
+      console.error("createPairingToken failed", e);
+      setPairingErr(String(e));
     }
   };
 
@@ -245,6 +261,56 @@ export function SettingsPage() {
           </p>
         )}
       </section>
+
+      {hasIdentity && (
+        <section className="settings-section">
+          <h2>{t.devicePairing.section}</h2>
+          <p className="settings-section-description">
+            {t.devicePairing.description}
+          </p>
+          <div className="settings-field-actions">
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void handleAddDevice()}
+            >
+              {t.devicePairing.addDevice}
+            </button>
+          </div>
+          {pairingErr && (
+            <p className="settings-msg" role="status">
+              {pairingErr}
+            </p>
+          )}
+        </section>
+      )}
+
+      {pairingText && (
+        <div className="modal-overlay" onClick={() => setPairingText(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">{t.devicePairing.dialogTitle}</h3>
+            <p className="settings-section-description">
+              {t.devicePairing.dialogHint}
+            </p>
+            <div className="device-pairing-qr">
+              <QrCode text={pairingText} />
+            </div>
+            <p className="device-pairing-note">{t.devicePairing.expiresNote}</p>
+            <p className="device-pairing-note">
+              {t.devicePairing.syncPendingNote}
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setPairingText(null)}
+              >
+                {t.devicePairing.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isDevMode && (
         <section className="settings-section">

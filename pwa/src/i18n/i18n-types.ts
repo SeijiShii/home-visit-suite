@@ -451,6 +451,37 @@ export interface Translations {
     aiSaved: string;
     aiClear: string;
   };
+  onboarding: {
+    title: string;
+    subtitle: string;
+    createOption: string;
+    createOptionDesc: string;
+    linkOption: string;
+    linkOptionDesc: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    start: string;
+    creating: string;
+    createError: string;
+    linkHint: string;
+    scanFallback: string;
+    manualCodeLabel: string;
+    manualCodePlaceholder: string;
+    submitLink: string;
+    back: string;
+    cameraError: string;
+    invalidCode: string;
+  };
+  devicePairing: {
+    section: string;
+    description: string;
+    addDevice: string;
+    dialogTitle: string;
+    dialogHint: string;
+    syncPendingNote: string;
+    expiresNote: string;
+    close: string;
+  };
   tips: {
     dontShowAgain: string;
     map: {

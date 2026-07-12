@@ -23,6 +23,15 @@ const fakeIdentityService: IdentityService = {
   isDevMode: async () => false,
   listAvailableIdentities: async () => [],
   getUser: async () => null,
+  hasIdentity: async () => true,
+  loadIdentity: async () => null,
+  createIdentity: async () => {
+    throw new Error("not supported");
+  },
+  createPairingToken: async () => ({ text: "", expiresAt: 0 }),
+  completePairing: async () => {
+    throw new Error("not supported");
+  },
 };
 
 async function renderSettings(

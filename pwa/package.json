@@ -11,11 +11,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@noble/ed25519": "^3.1.0",
+    "@types/qrcode": "^1.5.6",
+    "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "leaflet.gridlayer.googlemutant": "^0.14.1",
     "map-polygon-editor": "^0.8.0",
     "pdfjs-dist": "^5.6.205",
     "polygon-clipping": "^0.15.7",
+    "qrcode": "^1.5.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1"

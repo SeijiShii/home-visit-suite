@@ -3,6 +3,7 @@
 
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
+import { useIdentity } from "./contexts/IdentityContext";
 import { useServices } from "./contexts/ServicesContext";
 import { TipsProvider } from "./contexts/TipsContext";
 import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
@@ -10,6 +11,7 @@ import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { CoveragePage } from "./pages/CoveragePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
+import { OnboardingPage } from "./pages/OnboardingPage";
 import { RegionManagementPage } from "./pages/RegionManagementPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -18,6 +20,12 @@ import { VisitPageContainer } from "./pages/VisitPageContainer";
 
 export default function App() {
   const { settingsService } = useServices();
+  const { identityReady, hasIdentity } = useIdentity();
+
+  // 起動時の identity 判定が済むまでは何も描画しない（オンボーディングのちらつき防止）。
+  if (!identityReady) return null;
+  // 自分の ID が未保存なら全ルートに優先してオンボーディングへ誘導する。
+  if (!hasIdentity) return <OnboardingPage />;
 
   return (
     <HashRouter>

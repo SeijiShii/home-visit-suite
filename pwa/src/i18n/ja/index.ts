@@ -485,6 +485,43 @@ const ja: Translations = {
     orphanButton: "孤立頂点を削除",
     orphanDone: (n: number) => `孤立頂点を ${n} 個削除しました`,
   },
+  onboarding: {
+    title: "ようこそ",
+    subtitle: "まず自分の ID を作成するか、既存の端末から引き継ぎます",
+    createOption: "新しく ID を作成する",
+    createOptionDesc:
+      "初めて使う場合。あなたが最初のメンバー（管理者）になります",
+    linkOption: "既存の自分の端末から引き継ぐ",
+    linkOptionDesc: "PC など既存の端末に表示した QR を読み取ります",
+    nameLabel: "表示名",
+    namePlaceholder: "例: 山田太郎",
+    start: "はじめる",
+    creating: "作成中…",
+    createError: "ID の作成に失敗しました",
+    linkHint:
+      "既存の端末の設定「デバイス」で表示した QR を枠内に写してください",
+    scanFallback: "カメラが使えない場合はコードを貼り付ける",
+    manualCodeLabel: "引き継ぎコード",
+    manualCodePlaceholder: "既存の端末に表示されたコードを貼り付け",
+    submitLink: "取り込む",
+    back: "戻る",
+    cameraError:
+      "カメラを起動できませんでした。コードの貼り付けをお試しください",
+    invalidCode: "コードが正しくないか期限切れです",
+  },
+  devicePairing: {
+    section: "デバイス",
+    description:
+      "この ID にスマホなど別の端末を追加します。追加した端末は同じ ID で動作します",
+    addDevice: "この ID に端末を追加",
+    dialogTitle: "別端末を追加",
+    dialogHint:
+      "追加したい端末のオンボーディングで「既存の端末から引き継ぐ」を選び、この QR を読み取ってください",
+    syncPendingNote:
+      "現時点では端末間のデータ同期は未対応です（各端末のデータは別々に保持されます）",
+    expiresNote: "この QR は数分で期限切れになります",
+    close: "閉じる",
+  },
   tips: {
     dontShowAgain: "このメッセージを表示しない",
     map: {

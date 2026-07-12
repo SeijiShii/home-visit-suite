@@ -4231,3 +4231,165 @@ section {
   padding-top: 12px;
   border-top: 1px solid #e2e8f0;
 }
+
+/* ===== オンボーディング（初回 ID 作成 / 端末引き継ぎ） ===== */
+.onboarding {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f1f5f9;
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 28px 24px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+.onboarding-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: #1e293b;
+}
+
+.onboarding-subtitle {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.onboarding-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboarding-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.onboarding-option:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.onboarding-option-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.onboarding-option-desc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboarding-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.onboarding-input,
+.onboarding-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.onboarding-textarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: monospace;
+}
+
+.onboarding-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.onboarding-scanner {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0f172a;
+  aspect-ratio: 4 / 3;
+}
+
+.onboarding-manual {
+  font-size: 13px;
+  color: #475569;
+}
+
+.onboarding-manual > summary {
+  cursor: pointer;
+  color: #2563eb;
+  margin-bottom: 8px;
+}
+
+.onboarding-error {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ===== QR（生成 / スキャン） ===== */
+.qr-canvas {
+  display: block;
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+}
+
+.qr-scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ===== 設定内: デバイスペアリング ===== */
+.device-pairing-qr {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.device-pairing-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}

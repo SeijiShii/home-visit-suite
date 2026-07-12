@@ -482,6 +482,41 @@ const en: Translations = {
     orphanButton: "Delete orphan vertices",
     orphanDone: (n: number) => `Deleted ${n} orphan vertices`,
   },
+  onboarding: {
+    title: "Welcome",
+    subtitle: "Create your ID, or carry it over from an existing device",
+    createOption: "Create a new ID",
+    createOptionDesc: "For first-time use. You become the first member (admin)",
+    linkOption: "Carry over from my existing device",
+    linkOptionDesc: "Scan the QR shown on an existing device such as a PC",
+    nameLabel: "Display name",
+    namePlaceholder: "e.g. Taro Yamada",
+    start: "Get started",
+    creating: "Creating…",
+    createError: "Failed to create ID",
+    linkHint:
+      "Point the frame at the QR shown under Settings › Devices on your existing device",
+    scanFallback: "Camera unavailable? Paste the code instead",
+    manualCodeLabel: "Transfer code",
+    manualCodePlaceholder: "Paste the code shown on your existing device",
+    submitLink: "Import",
+    back: "Back",
+    cameraError: "Couldn't start the camera. Try pasting the code instead",
+    invalidCode: "The code is invalid or expired",
+  },
+  devicePairing: {
+    section: "Devices",
+    description:
+      "Add another device (such as a phone) to this ID. Added devices run under the same ID",
+    addDevice: "Add a device to this ID",
+    dialogTitle: "Add another device",
+    dialogHint:
+      "On the device you want to add, choose “Carry over from existing device” and scan this QR",
+    syncPendingNote:
+      "Cross-device data sync is not available yet (each device keeps its own data)",
+    expiresNote: "This QR expires in a few minutes",
+    close: "Close",
+  },
   tips: {
     dontShowAgain: "Don't show this again",
     map: {

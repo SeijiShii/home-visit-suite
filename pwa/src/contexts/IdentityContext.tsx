@@ -44,6 +44,16 @@ export interface IdentityContextValue {
   switchIdentity: (did: string) => Promise<void>;
   /** 切替可能ユーザー一覧を再取得する（ユーザー追加後など） */
   refreshAvailableIdentities: () => Promise<void>;
+  /** 自分の ID がローカルに存在するか（false ならオンボーディングへ誘導） */
+  hasIdentity: boolean;
+  /** 起動時の identity 判定が完了したか（未完了中はゲートを描画しない） */
+  identityReady: boolean;
+  /** 新しい ID を作成して入室する（初回オンボーディング） */
+  createIdentity: (name: string) => Promise<void>;
+  /** 既存端末の QR/コードを取り込み、同一 ID で入室する */
+  completePairing: (text: string) => Promise<void>;
+  /** この ID に別端末を追加するペアリング用テキスト（QR 内容）を作る */
+  createPairingToken: () => Promise<{ text: string; expiresAt: number }>;
 }
 
 const IdentityContext = createContext<IdentityContextValue | null>(null);
@@ -59,6 +69,20 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
   const [realDID, setRealDID] = useState<string>("");
   const [isDevMode, setIsDevMode] = useState<boolean>(false);
   const [availableIdentities, setAvailableIdentities] = useState<User[]>([]);
+  const [hasIdentity, setHasIdentity] = useState<boolean>(false);
+  const [identityReady, setIdentityReady] = useState<boolean>(false);
+
+  // 作成/ペアリング/復元後、User から context 状態を反映する。
+  const applyIdentity = useCallback((user: User) => {
+    setRealDID(user.id);
+    setCurrentActorID(user.id);
+    setCurrentRole(
+      user.role === "admin" || user.role === "editor" || user.role === "member"
+        ? user.role
+        : "",
+    );
+    setHasIdentity(true);
+  }, []);
 
   // currentActorID 変化時にロールを取得する
   const fetchCurrentRole = useCallback(
@@ -66,7 +90,10 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       if (!did) return "";
       try {
         const u = await service.getUser(did);
-        if (u && (u.role === "admin" || u.role === "editor" || u.role === "member")) {
+        if (
+          u &&
+          (u.role === "admin" || u.role === "editor" || u.role === "member")
+        ) {
           return u.role;
         }
       } catch (e) {
@@ -93,15 +120,19 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     let cancelled = false;
     async function init() {
       try {
-        const [real, current, dev] = await Promise.all([
+        // 保存済み identity があれば自己ユーザーを復元する。
+        await service.loadIdentity();
+        const [real, current, dev, exists] = await Promise.all([
           service.getRealDID(),
           service.getCurrentActor(),
           service.isDevMode(),
+          service.hasIdentity(),
         ]);
         if (cancelled) return;
         setRealDID(real);
         setCurrentActorID(current);
         setIsDevMode(dev);
+        setHasIdentity(exists);
         const role = await fetchCurrentRole(current);
         if (!cancelled) setCurrentRole(role);
         if (dev) {
@@ -112,6 +143,8 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
         }
       } catch (e) {
         console.error("IdentityProvider init failed", e);
+      } finally {
+        if (!cancelled) setIdentityReady(true);
       }
     }
     init();
@@ -119,6 +152,27 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       cancelled = true;
     };
   }, [fetchCurrentRole, service]);
+
+  const createIdentity = useCallback(
+    async (name: string) => {
+      const user = await service.createIdentity(name);
+      applyIdentity(user);
+    },
+    [applyIdentity, service],
+  );
+
+  const completePairing = useCallback(
+    async (text: string) => {
+      const user = await service.completePairing(text);
+      applyIdentity(user);
+    },
+    [applyIdentity, service],
+  );
+
+  const createPairingToken = useCallback(
+    () => service.createPairingToken(),
+    [service],
+  );
 
   const switchIdentity = useCallback(
     async (did: string) => {
@@ -139,6 +193,11 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       availableIdentities,
       switchIdentity,
       refreshAvailableIdentities,
+      hasIdentity,
+      identityReady,
+      createIdentity,
+      completePairing,
+      createPairingToken,
     }),
     [
       currentActorID,
@@ -148,10 +207,19 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       availableIdentities,
       switchIdentity,
       refreshAvailableIdentities,
+      hasIdentity,
+      identityReady,
+      createIdentity,
+      completePairing,
+      createPairingToken,
     ],
   );
 
-  return <IdentityContext.Provider value={value}>{children}</IdentityContext.Provider>;
+  return (
+    <IdentityContext.Provider value={value}>
+      {children}
+    </IdentityContext.Provider>
+  );
 }
 
 export function useIdentity(): IdentityContextValue {
