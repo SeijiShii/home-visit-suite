@@ -223,6 +223,34 @@ section {
   overflow: hidden;
 }
 
+/* 折りたたみ時の細い縦レール（展開ボタンのみ残す） */
+.map-sidebar-collapsed {
+  width: 32px;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+/* 一覧サイドバーの開閉トグル（タブ行の右端 / 折りたたみレール内） */
+.sidebar-collapse-btn {
+  flex-shrink: 0;
+  padding: 0 8px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.sidebar-collapse-btn:hover {
+  color: #1e293b;
+}
+
 /* ポリゴンタブ内のツールバー (描画開始 / 不要要素削除) */
 .polygon-list-toolbar {
   display: flex;

@@ -62,6 +62,8 @@ const ja: Translations = {
     loading: "地図を読み込み中...",
     tabAreas: "区域",
     tabPolygons: "ポリゴン",
+    collapseSidebar: "一覧を閉じる",
+    expandSidebar: "一覧を開く",
     drawPolygon: "ポリゴン描画",
     closePolygon: "ポリゴンを閉じる",
     savePolygon: "保存",

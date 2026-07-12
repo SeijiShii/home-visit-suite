@@ -63,6 +63,8 @@ const en: Translations = {
     loading: "Loading map...",
     tabAreas: "Areas",
     tabPolygons: "Polygons",
+    collapseSidebar: "Collapse list",
+    expandSidebar: "Expand list",
     drawPolygon: "Draw Polygon",
     closePolygon: "Close Polygon",
     savePolygon: "Save",

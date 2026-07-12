@@ -56,6 +56,8 @@ export interface Translations {
     loading: string;
     tabAreas: string;
     tabPolygons: string;
+    collapseSidebar: string;
+    expandSidebar: string;
     drawPolygon: string;
     closePolygon: string;
     savePolygon: string;

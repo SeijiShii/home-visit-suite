@@ -72,6 +72,7 @@ export function MapPage() {
   const editorRef = useRef<NetworkPolygonEditor | null>(null);
   const reloadPolygonsRef = useRef<() => Promise<void>>(async () => {});
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_MIN_WIDTH);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("areas");
   const [polygons, setPolygons] = useState<PolygonSnapshot[]>([]);
   const [polygonAreaMap, setPolygonAreaMap] = useState<
@@ -826,77 +827,105 @@ export function MapPage() {
         </div>
       )}
 
-      <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
-      <div className="map-sidebar" style={{ width: sidebarWidth }}>
-        <div className="sidebar-tabs">
+      {sidebarCollapsed ? (
+        <div className="map-sidebar-collapsed">
           <button
-            className={`sidebar-tab${activeTab === "areas" ? " sidebar-tab-active" : ""}`}
-            onClick={() => setActiveTab("areas")}
+            className="sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed(false)}
+            title={t.map.expandSidebar}
+            aria-label={t.map.expandSidebar}
           >
-            {t.map.tabAreas}
-          </button>
-          <button
-            className={`sidebar-tab${activeTab === "polygons" ? " sidebar-tab-active" : ""}`}
-            onClick={() => setActiveTab("polygons")}
-          >
-            {t.map.tabPolygons}
+            ◀
           </button>
         </div>
-        <div className="sidebar-tab-content">
+      ) : (
+        <>
           <div
-            className="sidebar-tab-panel"
-            style={{ display: activeTab === "areas" ? "flex" : "none" }}
-          >
-            <AreaTree
-              ref={treeRef}
-              service={regionService}
-              api={regionBindingApi}
-              onUnlinkPolygon={handleUnlinkArea}
-              onSelectPolygon={(polygonId) =>
-                handlePolygonFocus(polygonId as PolygonID)
-              }
-              selectedPolygonId={snapshot.selectedPolygonId as string | null}
-              onTreeChanged={handleTreeChanged}
-              onOpenAreaDetail={(areaId) =>
-                navigate(`/map/area/${areaId}/detail`)
-              }
-            />
-          </div>
-          <div
-            className="sidebar-tab-panel"
-            style={{ display: activeTab === "polygons" ? "flex" : "none" }}
-          >
-            {aiImportService && (
+            className="sidebar-resize-handle"
+            onMouseDown={handleResizeStart}
+          />
+          <div className="map-sidebar" style={{ width: sidebarWidth }}>
+            <div className="sidebar-tabs">
               <button
-                className="btn btn-sm ai-import-trigger"
-                onClick={() => setAiDialogOpen(true)}
+                className={`sidebar-tab${activeTab === "areas" ? " sidebar-tab-active" : ""}`}
+                onClick={() => setActiveTab("areas")}
               >
-                {t.map.aiImport.button}
+                {t.map.tabAreas}
               </button>
-            )}
-            <PolygonList
-              polygons={polygons}
-              polygonAreaMap={polygonAreaMap}
-              tree={areaTree}
-              selectedPolygonId={snapshot.selectedPolygonId}
-              onPolygonClick={handlePolygonFocus}
-              onDeletePolygon={handleDeletePolygon}
-              onToggleActive={handleToggleActive}
-              onToggleLocked={handleToggleLocked}
-              onLinkPolygon={handleLinkPolygon}
-              onUnlinkPolygon={handleUnlinkPolygon}
-              isDrawing={isDrawing}
-              isEditing={isEditing}
-              onStartDrawing={handleStartFreeDrawing}
-              onPruneOrphans={handlePruneOrphans}
-              aiPendingCounts={aiPendingCounts}
-              onImportAiPlaces={(polygonId, areaId) =>
-                void handleImportAiPlaces(polygonId, areaId)
-              }
-            />
+              <button
+                className={`sidebar-tab${activeTab === "polygons" ? " sidebar-tab-active" : ""}`}
+                onClick={() => setActiveTab("polygons")}
+              >
+                {t.map.tabPolygons}
+              </button>
+              <button
+                className="sidebar-collapse-btn"
+                onClick={() => setSidebarCollapsed(true)}
+                title={t.map.collapseSidebar}
+                aria-label={t.map.collapseSidebar}
+              >
+                ▶
+              </button>
+            </div>
+            <div className="sidebar-tab-content">
+              <div
+                className="sidebar-tab-panel"
+                style={{ display: activeTab === "areas" ? "flex" : "none" }}
+              >
+                <AreaTree
+                  ref={treeRef}
+                  service={regionService}
+                  api={regionBindingApi}
+                  onUnlinkPolygon={handleUnlinkArea}
+                  onSelectPolygon={(polygonId) =>
+                    handlePolygonFocus(polygonId as PolygonID)
+                  }
+                  selectedPolygonId={
+                    snapshot.selectedPolygonId as string | null
+                  }
+                  onTreeChanged={handleTreeChanged}
+                  onOpenAreaDetail={(areaId) =>
+                    navigate(`/map/area/${areaId}/detail`)
+                  }
+                />
+              </div>
+              <div
+                className="sidebar-tab-panel"
+                style={{ display: activeTab === "polygons" ? "flex" : "none" }}
+              >
+                {aiImportService && (
+                  <button
+                    className="btn btn-sm ai-import-trigger"
+                    onClick={() => setAiDialogOpen(true)}
+                  >
+                    {t.map.aiImport.button}
+                  </button>
+                )}
+                <PolygonList
+                  polygons={polygons}
+                  polygonAreaMap={polygonAreaMap}
+                  tree={areaTree}
+                  selectedPolygonId={snapshot.selectedPolygonId}
+                  onPolygonClick={handlePolygonFocus}
+                  onDeletePolygon={handleDeletePolygon}
+                  onToggleActive={handleToggleActive}
+                  onToggleLocked={handleToggleLocked}
+                  onLinkPolygon={handleLinkPolygon}
+                  onUnlinkPolygon={handleUnlinkPolygon}
+                  isDrawing={isDrawing}
+                  isEditing={isEditing}
+                  onStartDrawing={handleStartFreeDrawing}
+                  onPruneOrphans={handlePruneOrphans}
+                  aiPendingCounts={aiPendingCounts}
+                  onImportAiPlaces={(polygonId, areaId) =>
+                    void handleImportAiPlaces(polygonId, areaId)
+                  }
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
