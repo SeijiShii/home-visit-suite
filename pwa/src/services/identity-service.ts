@@ -38,8 +38,17 @@ export interface IdentityService {
   hasIdentity(): Promise<boolean>;
   /** 保存済み identity があれば UserRepository へ自己ユーザーを復元して返す。 */
   loadIdentity(): Promise<User | null>;
-  /** 新しい identity を生成し、自分（創設 = 管理者）のユーザーを作成する。 */
-  createIdentity(name: string): Promise<User>;
+  /**
+   * 新しい identity を生成し、自分のユーザーを作成する。role 省略時は創設＝管理者
+   * （オンボーディング）。招待経由の参加では "member" で作成し、参加成立時に
+   * setRole で招待ロールを採用する（JoinPage）。
+   */
+  createIdentity(name: string, role?: Role): Promise<User>;
+  /**
+   * 自分のロールを変更して保存する（グループ参加成立時に招待ロールを採用する等）。
+   * identity 未作成なら例外。
+   */
+  setRole(role: Role): Promise<User>;
   /** この ID に別端末を追加するためのペアリング用 URL（QR 内容）を作る。 */
   createPairingToken(): Promise<{ url: string; expiresAt: number }>;
   /** ペアリング URL / コードを取り込み、同一 identity を復元してユーザーを返す。 */
@@ -250,7 +259,7 @@ export class LocalIdentityService implements IdentityService {
     return user;
   }
 
-  async createIdentity(name: string): Promise<User> {
+  async createIdentity(name: string, role: Role = "admin"): Promise<User> {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("name is required");
     const id = await generateIdentity();
@@ -258,10 +267,22 @@ export class LocalIdentityService implements IdentityService {
       did: id.did,
       seedB64: seedToBase64(id.seed),
       name: trimmed,
-      role: "admin", // 最初のユーザーは創設管理者（04_メンバー管理と権限.md）
+      // 既定は創設管理者（04_メンバー管理と権限.md）。招待参加は "member" で
+      // 作成し、参加成立時に setRole で招待ロールを採用する。
+      role,
     };
     this.write(stored);
     this.registerThisDevice(stored.did);
+    const user = this.toUser(stored);
+    await this.repo.saveUser(user);
+    return user;
+  }
+
+  async setRole(role: Role): Promise<User> {
+    const s = this.read();
+    if (!s) throw new Error("no identity");
+    const stored: StoredIdentity = { ...s, role };
+    this.write(stored);
     const user = this.toUser(stored);
     await this.repo.saveUser(user);
     return user;
@@ -404,6 +425,10 @@ export class DevIdentityService implements IdentityService {
 
   async createIdentity(): Promise<User> {
     throw new Error("createIdentity is not supported in DevIdentityService");
+  }
+
+  async setRole(): Promise<User> {
+    throw new Error("setRole is not supported in DevIdentityService");
   }
 
   async createPairingToken(): Promise<{ url: string; expiresAt: number }> {

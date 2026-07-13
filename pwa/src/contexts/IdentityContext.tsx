@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Device } from "../domain/models/device";
-import type { User } from "../domain/models/user";
+import type { Role as DomainRole, User } from "../domain/models/user";
 import type { IdentityService } from "../services/identity-service";
 
 /** ロール文字列の型エイリアス（domain の Role + 未取得状態の空文字） */
@@ -49,8 +49,10 @@ export interface IdentityContextValue {
   hasIdentity: boolean;
   /** 起動時の identity 判定が完了したか（未完了中はゲートを描画しない） */
   identityReady: boolean;
-  /** 新しい ID を作成して入室する（初回オンボーディング） */
-  createIdentity: (name: string) => Promise<void>;
+  /** 新しい ID を作成して入室する（初回オンボーディング。招待参加時は role を指定） */
+  createIdentity: (name: string, role?: DomainRole) => Promise<void>;
+  /** 自分のロールを変更する（グループ参加成立時に招待ロールを採用する） */
+  adoptRole: (role: DomainRole) => Promise<void>;
   /** 既存端末のペアリング URL/コードを取り込み、同一 ID で入室する */
   completePairing: (input: string) => Promise<void>;
   /** この ID に別端末を追加するペアリング用 URL（QR 内容）を作る */
@@ -163,8 +165,16 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
   }, [fetchCurrentRole, service]);
 
   const createIdentity = useCallback(
-    async (name: string) => {
-      const user = await service.createIdentity(name);
+    async (name: string, role?: DomainRole) => {
+      const user = await service.createIdentity(name, role);
+      applyIdentity(user);
+    },
+    [applyIdentity, service],
+  );
+
+  const adoptRole = useCallback(
+    async (role: DomainRole) => {
+      const user = await service.setRole(role);
       applyIdentity(user);
     },
     [applyIdentity, service],
@@ -222,6 +232,7 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       hasIdentity,
       identityReady,
       createIdentity,
+      adoptRole,
       completePairing,
       createPairingToken,
       getCurrentDeviceId,
@@ -240,6 +251,7 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
       hasIdentity,
       identityReady,
       createIdentity,
+      adoptRole,
       completePairing,
       createPairingToken,
       getCurrentDeviceId,

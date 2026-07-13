@@ -430,8 +430,8 @@ export interface Translations {
     title: string;
     subtitle: string;
     pending: string;
-    needIdentity: string;
-    toOnboarding: string;
+    createHint: string;
+    createAndJoin: string;
     displayNameLabel: string;
     displayNamePlaceholder: string;
     submit: string;

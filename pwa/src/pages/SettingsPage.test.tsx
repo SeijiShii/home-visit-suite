@@ -36,6 +36,9 @@ const fakeIdentityService: IdentityService = {
   listDevices: async () => [],
   renameDevice: async () => {},
   removeDevice: async () => {},
+  setRole: async () => {
+    throw new Error("not used in this test");
+  },
 };
 
 async function renderSettings(

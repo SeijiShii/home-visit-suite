@@ -461,9 +461,9 @@ const ja: Translations = {
     title: "グループへの参加",
     subtitle: "招待を受けてグループに参加します",
     pending: "参加処理中です…",
-    needIdentity:
-      "参加するにはまず自分の ID を作成してください。作成後、もう一度この招待 URL を開いてください",
-    toOnboarding: "ID を作成する",
+    createHint:
+      "この端末にはまだ ID がありません。表示名を入力すると、ID を作成してそのまま参加します（活動メンバーとして参加）",
+    createAndJoin: "ID を作成して参加",
     displayNameLabel: "表示名",
     displayNamePlaceholder: "例: 山田太郎",
     submit: "参加する",

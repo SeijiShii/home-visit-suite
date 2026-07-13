@@ -457,9 +457,9 @@ const en: Translations = {
     title: "Join the group",
     subtitle: "Accept an invitation to join the group",
     pending: "Joining…",
-    needIdentity:
-      "To join, first create your own ID. After that, open this invite URL again",
-    toOnboarding: "Create an ID",
+    createHint:
+      "This device has no ID yet. Enter a display name to create one and join right away (as an activity member)",
+    createAndJoin: "Create ID and join",
     displayNameLabel: "Display name",
     displayNamePlaceholder: "e.g. Jane Doe",
     submit: "Join",

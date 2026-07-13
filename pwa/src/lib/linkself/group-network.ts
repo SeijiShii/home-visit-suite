@@ -94,6 +94,11 @@ export class GroupNetworkService {
     return this.store.get();
   }
 
+  /** 自分のアカウント DID（参加応答の memberRoles から自ロールを引くのに使う）。 */
+  get selfDID(): string {
+    return this.client.userIdentity.did;
+  }
+
   /**
    * 創設: 未作成ならこのユーザーを管理者とするネットワークを作成し ID を永続化する。
    * 既存があればそれを返す（冪等）。
