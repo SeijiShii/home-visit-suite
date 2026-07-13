@@ -171,6 +171,7 @@
 - 各 `*-binding-adapter.ts`（01/02/03/08節）— ドメイン↔BindingAPI 境界。LinkSelf 実装差し替えの接続点。
 - `lib/linkself/client-factory.ts` — ブラウザ用 LinkSelf クライアント（@linkself/core）の組み立て。WebSocket/Noise/yamux で libp2p を構成し `createLinkSelfClient()` が起動済み `LinkSelfSession`（client + libp2p + graceful stop）を返す。M5 統合の実利用エントリ
 - `lib/linkself/identity-bridge.ts` — アプリの identity（32byte Ed25519 シード, `identity-crypto.ts`）から @linkself/core の `Identity` を導出（`linkselfIdentityFromSeed`）。同一シード→同一 did:key で既存ユーザーの DID を保ったまま LinkSelf 統合へ移行（04節 identity-service と対）
+- `data/linkself/linkself-personal-repository.ts` — PersonalRepository の LinkSelf(MyDB) 実装。アプリ設定(`my_settings`)・非表示tip(`hidden_tips`)を MyDB KV に保存（ScopeDevice=端末間 devicesync）。ノート/タグは当面 InMemory 委譲。localStorage 実装の置き換え（ScopeDevice フェーズ Slice-1）
 - `lib/linkself/linkself-wiring.test.ts` — @linkself/core が alias 経由で pwa のツールチェーン下に解決・トランスパイルできる配線確認（CP-A）
 - `lib/linkself/linkself-interop.test.ts` — client-factory から Go ノード（link-self/core `poc-wsnode`）へ実 WebSocket 接続・LinkSelf auth・echo 往復の自動 interop 検証（CP-B、`go` 無ければ skip）
 - 依存リンク: `@linkself/core` は姉妹リポジトリ `../../link-self/ts/linkself/src` の TS ソースを Vite `resolve.alias` + tsconfig `paths` で直接参照（build 不要）。libp2p 実行時依存は pwa 側に固定バージョンで導入し `resolve.dedupe` で単一化（`pwa/vite.config.ts` / `pwa/tsconfig.json`）
