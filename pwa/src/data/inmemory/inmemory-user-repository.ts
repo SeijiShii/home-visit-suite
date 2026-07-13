@@ -5,11 +5,21 @@
 import type { Invitation } from "../../domain/models/invitation";
 import type { Tag, User } from "../../domain/models/user";
 import type { UserRepository } from "../../domain/repositories/user-repository";
+import { backedMap } from "../localstorage/persistent-map";
 
 export class InMemoryUserRepository implements UserRepository {
-  private users = new Map<string, User>();
-  private tags = new Map<string, Tag>();
-  private invitations = new Map<string, Invitation>();
+  private users: Map<string, User>;
+  private tags: Map<string, Tag>;
+  private invitations: Map<string, Invitation>;
+
+  // storagePrefix 指定時は localStorage 永続（runtime）、未指定はインメモリ（テスト）。
+  // 永続が無いと、参加受理で記録したメンバー（onMemberJoined→saveUser）が
+  // リロードで消える。
+  constructor(storagePrefix?: string) {
+    this.users = backedMap(storagePrefix, "users");
+    this.tags = backedMap(storagePrefix, "tags");
+    this.invitations = backedMap(storagePrefix, "invitations");
+  }
 
   async listUsers(): Promise<User[]> {
     return [...this.users.values()].map(cloneUser);

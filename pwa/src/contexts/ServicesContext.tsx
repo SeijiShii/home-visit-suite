@@ -75,7 +75,7 @@ export function createInMemoryServices(
   const prefix = opts.persist ? "hvs" : undefined;
   const sub = (name: string) => (prefix ? `${prefix}:${name}` : undefined);
 
-  const userRepo = new InMemoryUserRepository();
+  const userRepo = new InMemoryUserRepository(sub("user"));
   const regionRepo = new InMemoryRegionRepository(sub("region"));
   const checkoutRepo = new InMemoryCheckoutRepository(sub("checkout"));
   const coverageRepo = new InMemoryCoverageRepository(sub("coverage"));
