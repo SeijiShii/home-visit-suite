@@ -143,10 +143,9 @@
 
 ## 07 通知と申請（通知/申請/監査ログ/データ保持）
 - `pages/RequestsPage.tsx` — 通知と申請画面（保留/解決一覧、現状プレースホルダ）(→10)
-- `components/PlaceCreateRequestDialog.tsx` — 場所作成申請（house/building/other＋座標）(→08)
-- `components/VisitRecordDialog.tsx` — 訪問記録入力（結果/メモ/修正・申請テキスト）(→08)
+- `components/VisitRecordDialog.tsx` — 訪問記録入力（結果/メモ）＋編集リクエスト（要削除/要移動/その他）(→08)
 - `domain/models/notification.ts` — 任命/貸出/返却/申請結果等の通知モデル
-- `domain/models/request.ts` — 各種申請（場所追加/修正/地図更新/訪問拒否）モデル
+- `domain/models/request.ts` — 各種申請（場所削除/情報修正/地図更新/訪問拒否）モデル
 - `domain/models/audit.ts` — 重要操作（ロール変更/強制回収等）の監査ログモデル
 - `domain/repositories/notification-repository.ts` — 通知/申請/監査ログの永続化 IF
 - `data/inmemory/inmemory-notification-repository.ts` — NotificationRepository の InMemory/localStorage 実装
@@ -154,7 +153,7 @@
 ## 08 活動メンバー向けアプリ（訪問記録/最新状況/場所データ）
 - `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定
 - `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
-- `pages/VisitPage.tsx` — 訪問記録画面（場所/集合住宅への記録入力・場所作成申請）(→10)
+- `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加・編集リクエスト。移動/削除は直接不可）(→10)
 - `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ (→01)
 - `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・招待導線）(→10)
 - `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択

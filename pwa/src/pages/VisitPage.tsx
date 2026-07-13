@@ -3,9 +3,15 @@ import type { NetworkPolygonEditor } from "map-polygon-editor";
 import { useI18n } from "../contexts/I18nContext";
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { BuildingVisitDialog } from "../components/BuildingVisitDialog";
-import { PlaceCreateRequestDialog } from "../components/PlaceCreateRequestDialog";
+import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
+import { AddPlaceInputDialog } from "../components/AddPlaceInputDialog";
+import {
+  BuildingEditDialog,
+  type BuildingDialogSaveArgs,
+} from "../components/BuildingEditDialog";
 import {
   VisitRecordDialog,
+  type PlaceEditRequestKind,
   type VisitRecordSaveArgs,
 } from "../components/VisitRecordDialog";
 import type { Place } from "../services/place-service";
@@ -13,7 +19,7 @@ import type {
   VisitRecord,
   VisitService as VisitServiceClass,
 } from "../services/visit-service";
-import type { PlaceCreateRequestSaveArgs } from "../components/PlaceCreateRequestDialog";
+import { nextSortOrder } from "../lib/place-sort-order";
 import type { PolygonGeoSource } from "../lib/area-detail-controller";
 import {
   useAreaDetailMap,
@@ -21,7 +27,10 @@ import {
   type UseAreaDetailMapSettingsService,
 } from "../hooks/useAreaDetailMap";
 
-export type VisitPagePlaceServiceLike = UseAreaDetailMapPlaceService;
+/** 直接作成に savePlace が必須（一般スタッフの場所直接追加。docs/wants/08） */
+export type VisitPagePlaceServiceLike = UseAreaDetailMapPlaceService & {
+  savePlace: (place: Place) => Promise<Place>;
+};
 
 export type VisitPageVisitServiceLike = Pick<
   VisitServiceClass,
@@ -47,10 +56,15 @@ export interface VisitPageProps {
   linkedPolygonIds?: Set<string>;
   /** 半径取得 (任意) */
   settingsService?: UseAreaDetailMapSettingsService;
-  /** 場所作成申請の処理は本ページ外（申請サービス）に委譲する */
-  onPlaceCreateRequest: (args: PlaceCreateRequestSaveArgs) => void;
-  /** 場所修正申請の処理も外部委譲（PlaceID とテキスト） */
-  onPlaceModifyRequest: (placeId: string, text: string) => void;
+  /**
+   * 編集リクエスト（要削除/要移動/その他）の処理は本ページ外（申請サービス）に委譲する。
+   * 仕様 docs/wants/07_通知と申請.md「場所操作の権限」
+   */
+  onPlaceEditRequest: (
+    placeId: string,
+    kind: PlaceEditRequestKind,
+    text: string,
+  ) => void;
   /**
    * 区域レベルのアクセスモード。仕様 docs/wants/05_チェックアウト.md「アクセスモード」
    * 未指定の場合は editable 扱い（後方互換）。
@@ -69,8 +83,18 @@ export interface VisitPageProps {
 type DialogState =
   | { kind: "house"; place: Place; parent?: Place }
   | { kind: "building"; place: Place }
-  | { kind: "create-request"; lat: number; lng: number }
+  // 一般スタッフの場所直接追加（docs/wants/08「場所の直接追加」）
+  | { kind: "add-house"; lat: number; lng: number }
+  | { kind: "add-building"; lat: number; lng: number }
   | null;
+
+/** 空白ロングタップ時の「家/集合住宅を追加」選択メニュー */
+type BlankMenuState = {
+  lat: number;
+  lng: number;
+  x: number;
+  y: number;
+} | null;
 
 export function VisitPage({
   areaId,
@@ -81,8 +105,7 @@ export function VisitPage({
   polygonToArea,
   linkedPolygonIds,
   settingsService,
-  onPlaceCreateRequest,
-  onPlaceModifyRequest,
+  onPlaceEditRequest,
   accessMode = "editable",
   activeCheckoutOwnerName = null,
   onSelfCheckout,
@@ -93,8 +116,11 @@ export function VisitPage({
   const mapRef = useRef<MapViewHandle | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [blankMenu, setBlankMenu] = useState<BlankMenuState>(null);
   const [lastMetDate, setLastMetDate] = useState<Date | null>(null);
   const [myHistory, setMyHistory] = useState<VisitRecord[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   const { places, rooms } = useAreaDetailMap({
     mapRef,
@@ -105,6 +131,7 @@ export function VisitPage({
     placeService,
     settingsService,
     linkedPolygonIds,
+    refreshKey,
     noNameLabel: t.areaDetail.noName,
   });
 
@@ -203,13 +230,119 @@ export function VisitPage({
   );
 
   const handleMapContextMenu = useCallback(
-    (lat: number, lng: number, _x: number, _y: number) => {
-      // 空白部分の長押し/右クリック → 場所作成申請ダイアログを開く。
+    (lat: number, lng: number, x: number, y: number) => {
+      // 空白部分の長押し/右クリック → 「家/集合住宅を追加」選択メニューを開く。
       // 場所アイコン上の contextmenu は MapRenderer 側で stopPropagation
-      // されているため、ここには到達しない。
-      setDialog({ kind: "create-request", lat, lng });
+      // されているため、ここには到達しない（ドラッグ移動・直接削除は提供しない）。
+      // 仕様 docs/wants/08「場所の直接追加」
+      setBlankMenu({ lat, lng, x, y });
     },
     [],
+  );
+
+  // 「家を追加」→ 家追加ダイアログ。区域内制約は課さず当該区域へ帰属させる
+  // （docs/wants/03「住宅マーカーの区域帰属」）。
+  const handleAddHouse = useCallback(() => {
+    if (!blankMenu) return;
+    const { lat, lng } = blankMenu;
+    setBlankMenu(null);
+    setDialog({ kind: "add-house", lat, lng });
+  }, [blankMenu]);
+
+  const handleAddBuilding = useCallback(() => {
+    if (!blankMenu) return;
+    const { lat, lng } = blankMenu;
+    setBlankMenu(null);
+    setDialog({ kind: "add-building", lat, lng });
+  }, [blankMenu]);
+
+  const handleAddHouseSave = useCallback(
+    async (values: { address: string; label: string }) => {
+      if (dialog?.kind !== "add-house") return;
+      const { lat, lng } = dialog;
+      setDialog(null);
+      const nowIso = new Date().toISOString();
+      try {
+        await placeService.savePlace({
+          id: "",
+          areaId,
+          coord: { lat, lng },
+          type: "house",
+          label: values.label,
+          displayName: "",
+          address: values.address,
+          description: "",
+          parentId: "",
+          sortOrder: nextSortOrder(places),
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          deletedAt: null,
+          restoredFromId: null,
+        });
+      } catch (err) {
+        console.error("[VisitPage] add house failed:", err);
+      }
+      bumpRefresh();
+    },
+    [dialog, placeService, areaId, places, bumpRefresh],
+  );
+
+  const handleAddBuildingSave = useCallback(
+    async (args: BuildingDialogSaveArgs) => {
+      if (dialog?.kind !== "add-building") return;
+      const { lat, lng } = dialog;
+      setDialog(null);
+      const nowIso = new Date().toISOString();
+      try {
+        const building = await placeService.savePlace({
+          id: "",
+          areaId,
+          coord: { lat, lng },
+          type: "building",
+          label: args.label,
+          displayName: "",
+          address: args.address,
+          description: args.description,
+          parentId: "",
+          sortOrder: nextSortOrder(places),
+          languages: [],
+          doNotVisit: false,
+          doNotVisitNote: "",
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          deletedAt: null,
+          restoredFromId: null,
+        });
+        for (let i = 0; i < args.rows.length; i++) {
+          await placeService.savePlace({
+            id: "",
+            areaId,
+            coord: { lat: 0, lng: 0 },
+            type: "room",
+            label: "",
+            displayName: args.rows[i].displayName,
+            address: "",
+            description: "",
+            parentId: building.id,
+            sortOrder: i,
+            languages: [],
+            doNotVisit: false,
+            doNotVisitNote: "",
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            deletedAt: null,
+            restoredFromId: null,
+          });
+        }
+      } catch (err) {
+        console.error("[VisitPage] add building failed:", err);
+      }
+      bumpRefresh();
+    },
+    [dialog, placeService, areaId, places, bumpRefresh],
   );
 
   const isReadOnly = accessMode === "read_only";
@@ -291,6 +424,16 @@ export function VisitPage({
         {editor && polygonToArea && (
           <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
         )}
+        {blankMenu && (
+          <AreaDetailContextMenu
+            x={blankMenu.x}
+            y={blankMenu.y}
+            variant="blank"
+            onAddHouse={handleAddHouse}
+            onAddBuilding={handleAddBuilding}
+            onClose={() => setBlankMenu(null)}
+          />
+        )}
       </div>
 
       {dialog?.kind === "house" &&
@@ -313,8 +456,8 @@ export function VisitPage({
               myHistory={myHistory}
               onSave={(args) => handleSaveVisit(dialog.place, args)}
               onCancel={closeDialog}
-              onPlaceModifyRequest={(text) =>
-                onPlaceModifyRequest(dialog.place.id, text)
+              onPlaceEditRequest={(kind, text) =>
+                onPlaceEditRequest(dialog.place.id, kind, text)
               }
               readOnly={isReadOnly}
               readOnlyHint={
@@ -332,21 +475,24 @@ export function VisitPage({
           rooms={rooms.filter((r) => r.parentId === dialog.place.id)}
           roomLastVisitMap={new Map()}
           onSelectRoom={openRoomDialog}
-          onPlaceModifyRequest={(text) =>
-            onPlaceModifyRequest(dialog.place.id, text)
+          onPlaceEditRequest={(kind, text) =>
+            onPlaceEditRequest(dialog.place.id, kind, text)
           }
           onCancel={closeDialog}
         />
       )}
 
-      {dialog?.kind === "create-request" && (
-        <PlaceCreateRequestDialog
-          lat={dialog.lat}
-          lng={dialog.lng}
-          onSave={(args) => {
-            onPlaceCreateRequest(args);
-            setDialog(null);
-          }}
+      {dialog?.kind === "add-house" && (
+        <AddPlaceInputDialog
+          onSave={handleAddHouseSave}
+          onCancel={closeDialog}
+        />
+      )}
+
+      {dialog?.kind === "add-building" && (
+        <BuildingEditDialog
+          mode="create"
+          onSave={handleAddBuildingSave}
           onCancel={closeDialog}
         />
       )}

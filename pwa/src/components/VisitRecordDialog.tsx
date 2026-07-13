@@ -15,6 +15,21 @@ export interface VisitRecordSaveArgs {
   applicationText: string;
 }
 
+/**
+ * 編集リクエストの種別。
+ * 仕様 docs/wants/07_通知と申請.md「場所操作の権限 / 申請種別」
+ * - delete: 要削除（place_delete）
+ * - move: 要移動（place_move）
+ * - other: その他（place_info_modify、既定）
+ */
+export type PlaceEditRequestKind = "delete" | "move" | "other";
+
+export const PLACE_EDIT_REQUEST_KINDS: readonly PlaceEditRequestKind[] = [
+  "other",
+  "move",
+  "delete",
+] as const;
+
 export interface VisitRecordDialogProps {
   placeLabel: string;
   placeAddress: string;
@@ -25,12 +40,15 @@ export interface VisitRecordDialogProps {
   myHistory: readonly VisitRecord[];
   onSave: (args: VisitRecordSaveArgs) => void;
   onCancel: () => void;
-  /** 「場所情報の修正を申請」テキスト送信時 */
-  onPlaceModifyRequest: (text: string) => void;
+  /**
+   * 「編集をリクエスト」送信時。種別（要削除/要移動/その他）と詳細テキスト。
+   * 仕様 docs/wants/07_通知と申請.md「場所操作の権限 / 申請種別」
+   */
+  onPlaceEditRequest: (kind: PlaceEditRequestKind, text: string) => void;
   /**
    * 読み取り専用モード。仕様 docs/wants/05_チェックアウト.md「アクセスモード」:
    *   入力エリアを表示せず、参考情報（場所名 / 最近会えた / 履歴）のみ表示する。
-   *   保存ボタンは出さない。場所情報修正申請ボタンは引き続き有効（仕様 Q15）。
+   *   保存ボタンは出さない。編集リクエストボタンは引き続き有効（仕様 Q15）。
    */
   readOnly?: boolean;
   /** 読み取り専用時のヒントメッセージ（区域 read-only / 場所 read-only で文言が異なる） */
@@ -47,6 +65,20 @@ function formatDate(d: Date): string {
 function toDatetimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function editKindLabel(
+  kind: PlaceEditRequestKind,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
+  switch (kind) {
+    case "delete":
+      return t.visitRecord.placeEditKindDelete;
+    case "move":
+      return t.visitRecord.placeEditKindMove;
+    case "other":
+      return t.visitRecord.placeEditKindOther;
+  }
 }
 
 function visitResultLabel(
@@ -74,7 +106,7 @@ export function VisitRecordDialog({
   myHistory,
   onSave,
   onCancel,
-  onPlaceModifyRequest,
+  onPlaceEditRequest,
   readOnly = false,
   readOnlyHint,
 }: VisitRecordDialogProps) {
@@ -92,9 +124,10 @@ export function VisitRecordDialog({
     useState<VisitResult | null>(null);
   const [applicationText, setApplicationText] = useState("");
 
-  // 場所情報修正申請ダイアログ
-  const [modifyOpen, setModifyOpen] = useState(false);
-  const [modifyText, setModifyText] = useState("");
+  // 編集リクエスト（要削除/要移動/その他）ダイアログ
+  const [editOpen, setEditOpen] = useState(false);
+  const [editKind, setEditKind] = useState<PlaceEditRequestKind>("other");
+  const [editText, setEditText] = useState("");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -153,11 +186,17 @@ export function VisitRecordDialog({
     });
   };
 
-  const submitModify = () => {
-    if (modifyText.trim().length === 0) return;
-    onPlaceModifyRequest(modifyText);
-    setModifyOpen(false);
-    setModifyText("");
+  const openEdit = () => {
+    setEditKind("other");
+    setEditText("");
+    setEditOpen(true);
+  };
+
+  const submitEdit = () => {
+    if (editText.trim().length === 0) return;
+    onPlaceEditRequest(editKind, editText);
+    setEditOpen(false);
+    setEditText("");
   };
 
   return (
@@ -281,10 +320,10 @@ export function VisitRecordDialog({
 
       <button
         type="button"
-        className="visit-record-modify-request"
-        onClick={() => setModifyOpen(true)}
+        className="visit-record-edit-request"
+        onClick={openEdit}
       >
-        {t.visitRecord.placeModifyRequestButton}
+        {t.visitRecord.placeEditRequestButton}
       </button>
 
       {pendingApplicationResult && (
@@ -319,33 +358,48 @@ export function VisitRecordDialog({
         </div>
       )}
 
-      {modifyOpen && (
+      {editOpen && (
         <div
           role="dialog"
-          aria-label={t.visitRecord.placeModifyDialogTitle}
-          className="visit-record-modify-dialog"
+          aria-label={t.visitRecord.placeEditDialogTitle}
+          className="visit-record-edit-dialog"
         >
-          <h4>{t.visitRecord.placeModifyDialogTitle}</h4>
-          <label>
-            <span>{t.visitRecord.placeModifyTextLabel}</span>
+          <h4>{t.visitRecord.placeEditDialogTitle}</h4>
+          <label className="visit-record-edit-field">
+            <span>{t.visitRecord.placeEditKindLabel}</span>
+            <select
+              value={editKind}
+              onChange={(e) =>
+                setEditKind(e.target.value as PlaceEditRequestKind)
+              }
+            >
+              {PLACE_EDIT_REQUEST_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {editKindLabel(k, t)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="visit-record-edit-field">
+            <span>{t.visitRecord.placeEditTextLabel}</span>
             <textarea
-              value={modifyText}
-              onChange={(e) => setModifyText(e.target.value)}
-              placeholder={t.visitRecord.placeModifyTextPlaceholder}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              placeholder={t.visitRecord.placeEditTextPlaceholder}
               rows={4}
               autoFocus
             />
           </label>
-          <div className="visit-record-modify-actions">
-            <button type="button" onClick={() => setModifyOpen(false)}>
+          <div className="visit-record-edit-actions">
+            <button type="button" onClick={() => setEditOpen(false)}>
               {t.areaDetail.cancel}
             </button>
             <button
               type="button"
-              onClick={submitModify}
-              disabled={modifyText.trim().length === 0}
+              onClick={submitEdit}
+              disabled={editText.trim().length === 0}
             >
-              {t.visitRecord.placeModifySubmit}
+              {t.visitRecord.placeEditSubmit}
             </button>
           </div>
         </div>

@@ -40,9 +40,9 @@ func TestNotification_MarkRead(t *testing.T) {
 
 func TestRequest_SaveAndList(t *testing.T) {
 	repo := newNotificationRepo()
-	repo.SaveRequest(&models.Request{ID: "req-1", AreaID: "a1", Type: models.RequestTypePlaceAdd, Status: models.RequestStatusPending})
+	repo.SaveRequest(&models.Request{ID: "req-1", AreaID: "a1", Type: models.RequestTypePlaceDelete, Status: models.RequestStatusPending})
 	repo.SaveRequest(&models.Request{ID: "req-2", AreaID: "a1", Type: models.RequestTypeDoNotVisit, Status: models.RequestStatusResolved})
-	repo.SaveRequest(&models.Request{ID: "req-3", AreaID: "a2", Type: models.RequestTypePlaceAdd, Status: models.RequestStatusPending})
+	repo.SaveRequest(&models.Request{ID: "req-3", AreaID: "a2", Type: models.RequestTypePlaceDelete, Status: models.RequestStatusPending})
 
 	list, _ := repo.ListRequests("a1")
 	if len(list) != 2 {

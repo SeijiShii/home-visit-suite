@@ -1240,12 +1240,11 @@ section {
   flex: 1;
 }
 
-/* ===== 訪問記録ダイアログ群 (戸建て / 集合住宅 / 場所作成申請) ===== */
+/* ===== 訪問記録ダイアログ群 (戸建て / 集合住宅) ===== */
 
 /* 共通: モーダル風の中央配置 + バックドロップ */
 .visit-record-dialog,
-.building-visit-dialog,
-.place-create-request-dialog {
+.building-visit-dialog {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -1384,7 +1383,7 @@ section {
 .visit-record-save:hover {
   background: #1d4ed8 !important;
 }
-.visit-record-modify-request {
+.visit-record-edit-request {
   align-self: center;
   background: none;
   border: none;
@@ -1495,7 +1494,7 @@ section {
 .building-visit-cancel:hover {
   background: #f9fafb;
 }
-.building-visit-modify-request {
+.building-visit-edit-request {
   background: none;
   border: none;
   color: #2563eb;
@@ -1506,78 +1505,10 @@ section {
   padding: 4px;
 }
 
-/* 場所作成申請: PlaceCreateRequestDialog */
-.place-create-request-dialog h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-}
-.place-create-request-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-}
-.place-create-request-field > span {
-  color: #4b5563;
-  font-weight: 500;
-}
-.place-create-request-field select,
-.place-create-request-field textarea {
-  padding: 6px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font: inherit;
-  background: #fff;
-}
-.place-create-request-field textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-.place-create-request-coord {
-  margin: 0;
-  padding: 6px 10px;
-  background: #f3f4f6;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #4b5563;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.place-create-request-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-.place-create-request-actions button {
-  padding: 6px 16px;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  cursor: pointer;
-  font: inherit;
-}
-.place-create-request-actions button:hover:not(:disabled) {
-  background: #f9fafb;
-}
-.place-create-request-actions button[type="submit"] {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-}
-.place-create-request-actions button[type="submit"]:hover:not(:disabled) {
-  background: #1d4ed8;
-}
-.place-create-request-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 入れ子サブダイアログ: 申請テキスト入力 / 場所修正申請 */
+/* 入れ子サブダイアログ: 申請テキスト入力 / 編集リクエスト */
 .visit-record-application-dialog,
-.visit-record-modify-dialog,
-.building-visit-modify-dialog {
+.visit-record-edit-dialog,
+.building-visit-edit-dialog {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -1597,16 +1528,16 @@ section {
   gap: 12px;
 }
 .visit-record-application-dialog h4,
-.visit-record-modify-dialog h4,
-.building-visit-modify-dialog h4 {
+.visit-record-edit-dialog h4,
+.building-visit-edit-dialog h4 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
   color: #111827;
 }
 .visit-record-application-dialog label,
-.visit-record-modify-dialog label,
-.building-visit-modify-dialog label {
+.visit-record-edit-dialog label,
+.building-visit-edit-dialog label {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1614,24 +1545,31 @@ section {
   color: #4b5563;
 }
 .visit-record-application-dialog textarea,
-.visit-record-modify-dialog textarea,
-.building-visit-modify-dialog textarea {
+.visit-record-edit-dialog textarea,
+.visit-record-edit-dialog select,
+.building-visit-edit-dialog textarea,
+.building-visit-edit-dialog select {
   padding: 6px 8px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   font: inherit;
+  background: #fff;
+}
+.visit-record-application-dialog textarea,
+.visit-record-edit-dialog textarea,
+.building-visit-edit-dialog textarea {
   resize: vertical;
 }
 .visit-record-application-actions,
-.visit-record-modify-actions,
-.building-visit-modify-actions {
+.visit-record-edit-actions,
+.building-visit-edit-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
 .visit-record-application-actions button,
-.visit-record-modify-actions button,
-.building-visit-modify-actions button {
+.visit-record-edit-actions button,
+.building-visit-edit-actions button {
   padding: 6px 16px;
   border-radius: 4px;
   border: 1px solid #d1d5db;
@@ -1640,15 +1578,15 @@ section {
   font: inherit;
 }
 .visit-record-application-actions button:last-child,
-.visit-record-modify-actions button:last-child,
-.building-visit-modify-actions button:last-child {
+.visit-record-edit-actions button:last-child,
+.building-visit-edit-actions button:last-child {
   background: #2563eb;
   color: #fff;
   border-color: #2563eb;
 }
 .visit-record-application-actions button:disabled,
-.visit-record-modify-actions button:disabled,
-.building-visit-modify-actions button:disabled {
+.visit-record-edit-actions button:disabled,
+.building-visit-edit-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

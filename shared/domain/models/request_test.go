@@ -24,24 +24,20 @@ func TestRequest_PlaceID_PlaceInfoModify(t *testing.T) {
 	}
 }
 
-func TestRequest_PlaceID_PlaceAddEmpty(t *testing.T) {
-	// place_add は PlaceID 空、Coord 必須
-	coord := &models.Coordinate{Lat: 35.7, Lng: 140.3}
+func TestRequest_PlaceID_PlaceDelete(t *testing.T) {
+	// place_delete は対象 PlaceID が必須（削除理由は任意）
 	r := models.Request{
 		ID:          "req-2",
-		Type:        models.RequestTypePlaceAdd,
+		Type:        models.RequestTypePlaceDelete,
 		Status:      models.RequestStatusPending,
 		SubmitterID: "did:key:member",
 		AreaID:      "area-1",
-		Coord:       coord,
-		Description: "新築の集合住宅",
+		PlaceID:     "place-42",
+		Description: "建物が取り壊されている",
 		CreatedAt:   time.Now(),
 	}
-	if r.PlaceID != "" {
-		t.Errorf("PlaceID = %q, want empty for place_add", r.PlaceID)
-	}
-	if r.Coord == nil {
-		t.Errorf("Coord = nil, want non-nil for place_add")
+	if r.PlaceID != "place-42" {
+		t.Errorf("PlaceID = %q, want %q for place_delete", r.PlaceID, "place-42")
 	}
 }
 
@@ -50,7 +46,8 @@ func TestRequestType_Values(t *testing.T) {
 		rt   models.RequestType
 		want string
 	}{
-		{models.RequestTypePlaceAdd, "place_add"},
+		{models.RequestTypePlaceDelete, "place_delete"},
+		{models.RequestTypePlaceMove, "place_move"},
 		{models.RequestTypePlaceInfoModify, "place_info_modify"},
 		{models.RequestTypeMapUpdate, "map_update"},
 		{models.RequestTypeDoNotVisit, "do_not_visit"},

@@ -9,6 +9,21 @@ import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
 import { buildPolygonAreaMap } from "../services/polygon-service";
+import { newId } from "../services/id";
+import type { Request, RequestType } from "../domain/models/request";
+import type { PlaceEditRequestKind } from "../components/VisitRecordDialog";
+
+/** 編集リクエストの種別 → RequestType（docs/wants/07「場所操作の権限」） */
+function editRequestType(kind: PlaceEditRequestKind): RequestType {
+  switch (kind) {
+    case "delete":
+      return "place_delete";
+    case "move":
+      return "place_move";
+    case "other":
+      return "place_info_modify";
+  }
+}
 
 /**
  * 訪問記録画面のコンテナ。
@@ -24,6 +39,7 @@ export function VisitPageContainer() {
     checkoutService,
     checkoutRepo,
     userRepo,
+    notificationRepo,
     regionBindingApi,
     mapBinding,
   } = useServices();
@@ -33,17 +49,23 @@ export function VisitPageContainer() {
     [regionBindingApi],
   );
   const { editor, ready } = usePolygonEditor(mapBinding, regionBindingApi);
-  const [polygonToArea, setPolygonToArea] = useState<Map<string, string>>(new Map());
-  const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(new Set());
+  const [polygonToArea, setPolygonToArea] = useState<Map<string, string>>(
+    new Map(),
+  );
+  const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // 現在のアクター DID を IdentityContext から取得（dev モードでは切替可能）。
   const { currentActorID: actorId } = useIdentity();
 
   // 区域レベルのアクセスモードと、他者がチェックアウト中ならその担当者名
-  const [accessMode, setAccessMode] = useState<"editable" | "read_only">("editable");
-  const [activeCheckoutOwnerName, setActiveCheckoutOwnerName] = useState<string | null>(
-    null,
+  const [accessMode, setAccessMode] = useState<"editable" | "read_only">(
+    "editable",
   );
+  const [activeCheckoutOwnerName, setActiveCheckoutOwnerName] = useState<
+    string | null
+  >(null);
   const [accessTick, setAccessTick] = useState(0);
 
   useEffect(() => {
@@ -138,13 +160,27 @@ export function VisitPageContainer() {
       polygonToArea={editorReady ? polygonToArea : undefined}
       linkedPolygonIds={editorReady ? linkedPolygonIds : undefined}
       settingsService={settingsService}
-      onPlaceCreateRequest={(args) => {
-        console.log("[VisitPage] place create request:", args);
-        // TODO: RequestService 経由で永続化する（申請永続化フェーズ）
-      }}
-      onPlaceModifyRequest={(placeId, text) => {
-        console.log("[VisitPage] place modify request:", placeId, text);
-        // TODO: RequestService 経由で永続化する（申請永続化フェーズ）
+      onPlaceEditRequest={(placeId, kind, text) => {
+        // 編集対象の placeId + areaId を保持して発行する。これにより
+        // タスク一覧（RequestsPage）から当該場所の編集画面へ遷移できる。
+        // 要削除(place_delete) / 要移動(place_move) / その他(place_info_modify)
+        // 仕様 docs/wants/07_通知と申請.md「場所操作の権限」
+        const req: Request = {
+          id: newId("req"),
+          type: editRequestType(kind),
+          status: "pending",
+          submitterId: actorId,
+          areaId,
+          placeId,
+          coord: null,
+          description: text,
+          createdAt: new Date().toISOString(),
+          resolvedAt: null,
+          resolvedBy: "",
+        };
+        void notificationRepo.saveRequest(req).catch((e) => {
+          console.error("[VisitPage] saveRequest (edit) failed", e);
+        });
       }}
       accessMode={accessMode}
       activeCheckoutOwnerName={activeCheckoutOwnerName}

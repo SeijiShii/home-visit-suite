@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../contexts/I18nContext";
 import { lastVisitColorClass } from "../lib/visit-date-color";
 import type { Place } from "../services/place-service";
+import {
+  PLACE_EDIT_REQUEST_KINDS,
+  editKindLabel,
+  type PlaceEditRequestKind,
+} from "./VisitRecordDialog";
 
 export interface BuildingVisitDialogProps {
   buildingLabel: string;
@@ -12,7 +17,11 @@ export interface BuildingVisitDialogProps {
   /** roomId → 自分の最終訪問日（任意の Result、無ければ null） */
   roomLastVisitMap: ReadonlyMap<string, Date | null>;
   onSelectRoom: (room: Place) => void;
-  onPlaceModifyRequest: (text: string) => void;
+  /**
+   * 「編集をリクエスト」送信時。種別（要削除/要移動/その他）と詳細テキスト。
+   * 仕様 docs/wants/07_通知と申請.md「場所操作の権限 / 申請種別」
+   */
+  onPlaceEditRequest: (kind: PlaceEditRequestKind, text: string) => void;
   onCancel: () => void;
 }
 
@@ -30,12 +39,13 @@ export function BuildingVisitDialog({
   rooms,
   roomLastVisitMap,
   onSelectRoom,
-  onPlaceModifyRequest,
+  onPlaceEditRequest,
   onCancel,
 }: BuildingVisitDialogProps) {
   const { t } = useI18n();
-  const [modifyOpen, setModifyOpen] = useState(false);
-  const [modifyText, setModifyText] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editKind, setEditKind] = useState<PlaceEditRequestKind>("other");
+  const [editText, setEditText] = useState("");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,11 +55,17 @@ export function BuildingVisitDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  const submitModify = () => {
-    if (modifyText.trim().length === 0) return;
-    onPlaceModifyRequest(modifyText);
-    setModifyOpen(false);
-    setModifyText("");
+  const openEdit = () => {
+    setEditKind("other");
+    setEditText("");
+    setEditOpen(true);
+  };
+
+  const submitEdit = () => {
+    if (editText.trim().length === 0) return;
+    onPlaceEditRequest(editKind, editText);
+    setEditOpen(false);
+    setEditText("");
   };
 
   return (
@@ -124,40 +140,55 @@ export function BuildingVisitDialog({
         </button>
         <button
           type="button"
-          className="building-visit-modify-request"
-          onClick={() => setModifyOpen(true)}
+          className="building-visit-edit-request"
+          onClick={openEdit}
         >
-          {t.visitRecord.placeModifyRequestButton}
+          {t.visitRecord.placeEditRequestButton}
         </button>
       </div>
 
-      {modifyOpen && (
+      {editOpen && (
         <div
           role="dialog"
-          aria-label={t.visitRecord.placeModifyDialogTitle}
-          className="building-visit-modify-dialog"
+          aria-label={t.visitRecord.placeEditDialogTitle}
+          className="building-visit-edit-dialog"
         >
-          <h4>{t.visitRecord.placeModifyDialogTitle}</h4>
-          <label>
-            <span>{t.visitRecord.placeModifyTextLabel}</span>
+          <h4>{t.visitRecord.placeEditDialogTitle}</h4>
+          <label className="building-visit-edit-field">
+            <span>{t.visitRecord.placeEditKindLabel}</span>
+            <select
+              value={editKind}
+              onChange={(e) =>
+                setEditKind(e.target.value as PlaceEditRequestKind)
+              }
+            >
+              {PLACE_EDIT_REQUEST_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {editKindLabel(k, t)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="building-visit-edit-field">
+            <span>{t.visitRecord.placeEditTextLabel}</span>
             <textarea
-              value={modifyText}
-              onChange={(e) => setModifyText(e.target.value)}
-              placeholder={t.visitRecord.placeModifyTextPlaceholder}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              placeholder={t.visitRecord.placeEditTextPlaceholder}
               rows={4}
               autoFocus
             />
           </label>
-          <div className="building-visit-modify-actions">
-            <button type="button" onClick={() => setModifyOpen(false)}>
+          <div className="building-visit-edit-actions">
+            <button type="button" onClick={() => setEditOpen(false)}>
               {t.areaDetail.cancel}
             </button>
             <button
               type="button"
-              onClick={submitModify}
-              disabled={modifyText.trim().length === 0}
+              onClick={submitEdit}
+              disabled={editText.trim().length === 0}
             >
-              {t.visitRecord.placeModifySubmit}
+              {t.visitRecord.placeEditSubmit}
             </button>
           </div>
         </div>
