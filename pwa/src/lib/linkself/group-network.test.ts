@@ -4,9 +4,11 @@
 import { generateIdentity, type JoinResponse } from "@linkself/core";
 import { describe, expect, it, vi } from "vitest";
 import { buildGroupInviteUrl } from "./group-invite";
+import type { User } from "../../domain/models/user";
 import {
   GroupNetworkError,
   GroupNetworkService,
+  upsertJoinedMember,
   type GroupClient,
   type NetworkIdStore,
 } from "./group-network";
@@ -140,5 +142,61 @@ describe("join", () => {
     });
     const svc = new GroupNetworkService(client, memStore());
     await expect(svc.join(url, "X")).rejects.toBeInstanceOf(GroupNetworkError);
+  });
+});
+
+describe("upsertJoinedMember", () => {
+  const info = {
+    networkId: "net-1",
+    memberDID: "did:key:zNewcomer",
+    displayName: "新人さん",
+    role: "member",
+  };
+
+  function memRepo(seed: User[] = []) {
+    const users = new Map(seed.map((u) => [u.id, u]));
+    return {
+      users,
+      getUser: async (id: string) => users.get(id) ?? null,
+      saveUser: async (u: User) => {
+        users.set(u.id, u);
+      },
+    };
+  }
+
+  it("records a new member with the display name and invited role", async () => {
+    const repo = memRepo();
+    await upsertJoinedMember(repo, info, "2026-07-13T00:00:00.000Z");
+    expect(repo.users.get("did:key:zNewcomer")).toEqual({
+      id: "did:key:zNewcomer",
+      name: "新人さん",
+      role: "member",
+      tagIds: [],
+      joinedAt: "2026-07-13T00:00:00.000Z",
+    });
+  });
+
+  it("keeps tags and joinedAt of an existing record (re-join)", async () => {
+    const repo = memRepo([
+      {
+        id: "did:key:zNewcomer",
+        name: "旧名",
+        role: "member",
+        tagIds: ["tag-1"],
+        joinedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    await upsertJoinedMember(repo, info, "2026-07-13T00:00:00.000Z");
+    expect(repo.users.get("did:key:zNewcomer")).toMatchObject({
+      name: "新人さん",
+      tagIds: ["tag-1"],
+      joinedAt: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
+  it("maps an unknown role to member", async () => {
+    const repo = memRepo();
+    await upsertJoinedMember(repo, { ...info, role: "superuser" });
+    expect(repo.users.get("did:key:zNewcomer")?.role).toBe("member");
   });
 });

@@ -6,7 +6,13 @@
 // ネットワーク実体は各ノードがローカル保持する（network-concept.md §1-2）。
 // 設計: link-self/docs/spec/network-invitation.md / docs/wants/04_メンバー管理と権限.md
 
-import type { Identity, Invite, JoinResponse } from "@linkself/core";
+import type {
+  Identity,
+  Invite,
+  JoinResponse,
+  MemberJoinedInfo,
+} from "@linkself/core";
+import type { Role, User } from "../../domain/models/user";
 import {
   buildGroupInviteUrl,
   HVS_SUITE_ID,
@@ -151,4 +157,33 @@ export class GroupNetworkService {
       lastErr instanceof Error ? lastErr.message : "could not reach any admin",
     );
   }
+}
+
+/** upsertJoinedMember が必要とする UserRepository の最小面。 */
+export interface JoinedMemberRepo {
+  getUser(id: string): Promise<User | null>;
+  saveUser(user: User): Promise<void>;
+}
+
+/**
+ * 参加受理（onMemberJoined）をアプリのメンバー表へ反映する。
+ * displayName は受理した管理者にしか見えないため、ここが唯一の記録点
+ * （docs/wants/04「グループ招待」）。既存レコードがあればタグ・参加日時を保持する。
+ */
+export async function upsertJoinedMember(
+  repo: JoinedMemberRepo,
+  info: MemberJoinedInfo,
+  nowIso: string = new Date().toISOString(),
+): Promise<void> {
+  const existing = await repo.getUser(info.memberDID);
+  // LinkSelf のロール名はアプリの Role と同名（HVS_ROLES）。未知値は member 扱い。
+  const role: Role =
+    info.role === "admin" || info.role === "editor" ? info.role : "member";
+  await repo.saveUser({
+    id: info.memberDID,
+    name: info.displayName.trim() || existing?.name || info.memberDID,
+    role,
+    tagIds: existing?.tagIds ?? [],
+    joinedAt: existing?.joinedAt ?? nowIso,
+  });
 }

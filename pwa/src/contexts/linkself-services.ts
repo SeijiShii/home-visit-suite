@@ -37,6 +37,7 @@ import { loadOrCreateRoster } from "../lib/linkself/device-roster";
 import {
   GroupNetworkService,
   localStorageNetworkIdStore,
+  upsertJoinedMember,
 } from "../lib/linkself/group-network";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
@@ -153,6 +154,9 @@ export async function createLinkSelfServices(
         sqlDatabase: sqlDb,
         roles: HVS_ROLES,
         allowLocalDial: opts.allowLocalDial,
+        // 参加受理（管理者側）でメンバー表へ記録する（displayName はここでしか
+        // 得られない）。一覧への他端末伝播は Phase C（ScopeNetwork 同期）待ち。
+        onMemberJoined: (info) => upsertJoinedMember(base.userRepo, info),
       });
       myDB = session.client.myDB;
       stop = session.stop;

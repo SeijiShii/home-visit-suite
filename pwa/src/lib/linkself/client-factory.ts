@@ -13,6 +13,7 @@ import {
   LinkSelfClient,
   type Identity,
   type KnownPeer,
+  type MemberJoinedInfo,
   type RoleDefs,
   type SignedRoster,
   type SqlDatabase,
@@ -55,6 +56,11 @@ export interface CreateLinkSelfClientOptions {
    * これらを拒否する。本番は公開リレー宛なので false（既定）で良い。
    */
   allowLocalDial?: boolean;
+  /**
+   * 参加受理（管理者側）のアプリ層ブリッジ。displayName は受理した管理者
+   * しか見えないため、メンバー表（UserRepository）への記録はここで行う。
+   */
+  onMemberJoined?: (info: MemberJoinedInfo) => void | Promise<void>;
 }
 
 /** 起動済み LinkSelf セッション。stop() で graceful に libp2p を停止する。 */
@@ -105,6 +111,7 @@ export async function createLinkSelfClient(
     sqlDatabase: opts.sqlDatabase,
     roles: opts.roles,
     adminRole: opts.adminRole,
+    onMemberJoined: opts.onMemberJoined,
   });
   await client.start();
   return {
