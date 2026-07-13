@@ -38,6 +38,8 @@ export default defineConfig({
       "@chainsafe/libp2p-noise",
       "@chainsafe/libp2p-yamux",
       "@libp2p/websockets",
+      "@libp2p/circuit-relay-v2",
+      "@libp2p/identify",
       "@multiformats/multiaddr",
       "multiformats",
       "@noble/hashes",

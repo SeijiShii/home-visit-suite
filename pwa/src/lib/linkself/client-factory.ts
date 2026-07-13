@@ -5,6 +5,8 @@
 
 import { noise } from "@chainsafe/libp2p-noise";
 import { yamux } from "@chainsafe/libp2p-yamux";
+import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
+import { identify } from "@libp2p/identify";
 import { webSockets } from "@libp2p/websockets";
 import { createLibp2p, type Libp2p } from "libp2p";
 import {
@@ -53,9 +55,15 @@ export async function createLinkSelfClient(
 ): Promise<LinkSelfSession> {
   const libp2p = await createLibp2p({
     privateKey: opts.identity.privateKey,
-    transports: [webSockets()],
+    // webSockets: リレー/ブートストラップへの直 dial（ブラウザは着信不可）。
+    // circuitRelayTransport: リレー接続時に自動でスロットを予約し `/p2p-circuit`
+    //   受信アドレスを得る＝ブラウザ同士が Circuit Relay v2 経由で相互到達できる
+    //   （docs/wants/11 §2「Circuit Relay v2 クライアント対応」）。
+    transports: [webSockets(), circuitRelayTransport()],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
+    // identify: circuitRelayTransport が要求（リレーの hop 対応検出・アドレス交換に必要）。
+    services: { identify: identify() },
     ...(opts.allowLocalDial
       ? { connectionGater: { denyDialMultiaddr: async () => false } }
       : {}),
