@@ -6,6 +6,10 @@
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@linkself/core": ["../../link-self/ts/linkself/src/index.ts"]
+    },
     "strict": true,
     "sourceMap": true,
     "resolveJsonModule": true,

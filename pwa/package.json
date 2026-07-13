@@ -11,18 +11,30 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.1",
+    "@libp2p/crypto": "^5.1.20",
+    "@libp2p/interface": "^3.2.4",
+    "@libp2p/peer-id": "^6.0.11",
+    "@libp2p/websockets": "^10.1.15",
+    "@multiformats/multiaddr": "^13.0.3",
     "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^1.8.0",
+    "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
     "@types/qrcode": "^1.5.6",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "leaflet.gridlayer.googlemutant": "^0.14.1",
+    "libp2p": "^3.3.4",
     "map-polygon-editor": "^0.8.0",
+    "multiformats": "^14.0.4",
     "pdfjs-dist": "^5.6.205",
     "polygon-clipping": "^0.15.7",
     "qrcode": "^1.5.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.1"
+    "react-router-dom": "^7.13.1",
+    "uint8arrays": "^6.1.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
