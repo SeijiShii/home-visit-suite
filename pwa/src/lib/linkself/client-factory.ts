@@ -13,20 +13,26 @@ import {
   LinkSelfClient,
   type Identity,
   type KnownPeer,
+  type SignedRoster,
   type SqlDatabase,
 } from "@linkself/core";
-import type { PrivateKey } from "@libp2p/interface";
 
 export interface CreateLinkSelfClientOptions {
-  /** 自身の LinkSelf アイデンティティ（Ed25519 + did:key）。auth 署名に使う。 */
+  /**
+   * この端末の device identity（Ed25519 + did:key）。libp2p host 鍵になり
+   * peerId≡device DID。node の auth 署名にも使う（2層モデルの transport 層）。
+   */
   identity: Identity;
   /**
-   * この端末の libp2p transport 秘密鍵（= peerId）。DID 鍵から分離することで、
-   * 同一 DID の複数端末が別 peerId を持ち相互に devicesync できる
-   * （link-self mutualAuth）。省略時は DID 鍵を流用（単一端末・Go interop 用の
-   * 後方互換。peerId≡DID）。マルチデバイスでは端末固有鍵を渡すこと。
+   * アカウント（ユーザー）identity。ネットワーク公開・全端末で共有・ロスター署名に
+   * 使う。省略時は identity を流用（単一端末＝アカウント＝端末が一致）。
    */
-  transportPrivateKey?: PrivateKey;
+  userIdentity?: Identity;
+  /**
+   * ユーザー署名済みデバイスロスター。devicesync は載っている兄弟 device DID
+   * のみを対象・受理する（ロスター＝信頼の起点）。
+   */
+  roster?: SignedRoster;
   /** FastStart 用の既知ピア（リレー/ブートストラップ・ペア済み端末）。 */
   knownPeers?: KnownPeer[];
   /**
@@ -62,8 +68,8 @@ export async function createLinkSelfClient(
   opts: CreateLinkSelfClientOptions,
 ): Promise<LinkSelfSession> {
   const libp2p = await createLibp2p({
-    // transport 鍵（端末固有）を DID 鍵から分離。省略時は DID 鍵（後方互換）。
-    privateKey: opts.transportPrivateKey ?? opts.identity.privateKey,
+    // libp2p host 鍵 = device identity の鍵（peerId≡device DID）。
+    privateKey: opts.identity.privateKey,
     // webSockets: リレー/ブートストラップへの直 dial（ブラウザは着信不可）。
     // circuitRelayTransport: リレー接続時に自動でスロットを予約し `/p2p-circuit`
     //   受信アドレスを得る＝ブラウザ同士が Circuit Relay v2 経由で相互到達できる
@@ -80,6 +86,8 @@ export async function createLinkSelfClient(
   const client = new LinkSelfClient({
     libp2p,
     identity: opts.identity,
+    userIdentity: opts.userIdentity,
+    roster: opts.roster,
     knownPeers: opts.knownPeers,
     sqlDatabase: opts.sqlDatabase,
   });

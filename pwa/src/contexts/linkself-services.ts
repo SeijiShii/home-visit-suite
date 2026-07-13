@@ -25,12 +25,14 @@ import {
   ReplicationEngine,
   SqlProxy,
   SqliteWasmDatabase,
+  identityFromPrivateKey,
   wireSqlSync,
   type KnownPeer,
 } from "@linkself/core";
 import { LinkSelfPersonalRepository } from "../data/linkself/linkself-personal-repository";
 import { createLinkSelfClient } from "../lib/linkself/client-factory";
 import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
+import { loadOrCreateRoster } from "../lib/linkself/device-roster";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
@@ -95,13 +97,18 @@ export async function createLinkSelfServices(
   if (useNetwork) {
     try {
       const sqlDb = await SqliteWasmDatabase.open({ filename });
-      const identity = await linkselfIdentityFromSeed(opts.seed!);
-      // 端末固有の transport 鍵（DID 鍵から分離）。同一 DID の複数端末が別 peerId を
-      // 持ち相互 devicesync できるようにする（link-self mutualAuth）。
-      const transportPrivateKey = await loadOrCreateDeviceTransportKey();
+      // 2層 identity: userIdentity=アカウント（seed 由来・全端末共有）、
+      // deviceIdentity=端末固有鍵（libp2p host 鍵, peerId≡device DID）。
+      const userIdentity = await linkselfIdentityFromSeed(opts.seed!);
+      const deviceIdentity = identityFromPrivateKey(
+        await loadOrCreateDeviceTransportKey(),
+      );
+      // 自端末を登録した署名済みロスター（兄弟端末は接続時のロスター交換で収束）。
+      const roster = await loadOrCreateRoster(userIdentity, deviceIdentity.did);
       const session = await createLinkSelfClient({
-        identity,
-        transportPrivateKey,
+        identity: deviceIdentity,
+        userIdentity,
+        roster,
         knownPeers: opts.relays,
         sqlDatabase: sqlDb,
         allowLocalDial: opts.allowLocalDial,

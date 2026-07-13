@@ -10,7 +10,7 @@
 // DID の秘密鍵シード（hvs.identity）とは別物・別保管。
 
 import { generateKeyPairFromSeed } from "@libp2p/crypto/keys";
-import type { PrivateKey } from "@libp2p/interface";
+import type { Ed25519PrivateKey } from "@libp2p/interface";
 import { seedFromBase64, seedToBase64 } from "../identity-crypto";
 
 /** 端末 transport 鍵シード（base64・32byte）の localStorage キー。 */
@@ -21,7 +21,7 @@ const DEVICE_KEY_SEED = "hvs.deviceKeySeed";
  * 生成して localStorage に永続し、以降は同じシードから決定的に復元する
  * （＝端末の peerId が固定される）。DID 鍵とは独立。
  */
-export async function loadOrCreateDeviceTransportKey(): Promise<PrivateKey> {
+export async function loadOrCreateDeviceTransportKey(): Promise<Ed25519PrivateKey> {
   return generateKeyPairFromSeed("Ed25519", loadOrCreateDeviceSeed());
 }
 
