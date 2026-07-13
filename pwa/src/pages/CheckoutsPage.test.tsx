@@ -110,6 +110,33 @@ describe("CheckoutsPage", () => {
     expect(screen.getByText("Mia Member")).toBeInTheDocument();
   });
 
+  it("ポリゴン未紐付けの区域は発行ダイアログでグレーアウトされ選択できない", async () => {
+    await renderCheckouts(EDITOR, async (s) => {
+      // ポリゴン未紐付けの区域を追加
+      await s.regionRepo.saveArea({
+        id: "a3",
+        parentAreaId: "pa1",
+        number: "03",
+        geometry: null,
+      });
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "+ チェックアウト発行" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    const option = within(dialog).getByRole("option", {
+      name: /NRT-001-03（ポリゴンなし）/,
+    }) as HTMLOptionElement;
+    expect(option.disabled).toBe(true);
+
+    // 紐付け済みの区域は選択可能
+    const okOption = within(dialog).getByRole("option", {
+      name: "NRT-001-01",
+    }) as HTMLOptionElement;
+    expect(okOption.disabled).toBe(false);
+  });
+
   it("詳細から返却でき、返却済みタブへ移動する", async () => {
     await renderCheckouts(EDITOR, async (s) => {
       await s.checkoutService.checkout(EDITOR, "a1", MEMBER);

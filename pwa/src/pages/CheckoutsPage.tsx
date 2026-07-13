@@ -33,14 +33,14 @@ interface RegionTreeMaps {
   /** areaId → "NRT-001-01" 表示名 */
   displayIndex: Map<string, string>;
   /** 全区域メタ情報（チェックアウト発行ダイアログの選択肢用） */
-  allAreas: { id: string; displayName: string }[];
+  allAreas: { id: string; displayName: string; hasPolygon: boolean }[];
 }
 
 async function buildRegionMaps(
   regionRepo: AppServices["regionRepo"],
 ): Promise<RegionTreeMaps> {
   const displayIndex = new Map<string, string>();
-  const allAreas: { id: string; displayName: string }[] = [];
+  const allAreas: RegionTreeMaps["allAreas"] = [];
   const regions = await regionRepo.listRegions();
   for (const r of regions) {
     const pas = await regionRepo.listParentAreas(r.id);
@@ -49,7 +49,11 @@ async function buildRegionMaps(
       for (const a of areas) {
         const display = `${r.symbol}-${pa.number}-${a.number}`;
         displayIndex.set(a.id, display);
-        allAreas.push({ id: a.id, displayName: display });
+        allAreas.push({
+          id: a.id,
+          displayName: display,
+          hasPolygon: Boolean(a.polygonId),
+        });
       }
     }
   }
@@ -591,7 +595,7 @@ function formatDate(iso: string): string {
 }
 
 interface IssueDialogProps {
-  allAreas: { id: string; displayName: string }[];
+  allAreas: { id: string; displayName: string; hasPolygon: boolean }[];
   users: User[];
   actorId: string;
   onClose: () => void;
@@ -646,8 +650,10 @@ function IssueCheckoutDialog({
             >
               <option value="">{c.dlgSelectArea}</option>
               {allAreas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.displayName}
+                <option key={a.id} value={a.id} disabled={!a.hasPolygon}>
+                  {a.hasPolygon
+                    ? a.displayName
+                    : `${a.displayName}${c.noPolygonSuffix}`}
                 </option>
               ))}
             </select>

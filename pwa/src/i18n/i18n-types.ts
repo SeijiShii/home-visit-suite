@@ -309,6 +309,7 @@ export interface Translations {
     dlgArea: string;
     dlgOwner: string;
     dlgSelectArea: string;
+    noPolygonSuffix: string;
     dlgSelectOwner: string;
     dlgIssue: string;
     dlgCancel: string;

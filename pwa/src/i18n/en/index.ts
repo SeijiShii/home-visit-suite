@@ -328,6 +328,7 @@ const en: Translations = {
     dlgArea: "Area",
     dlgOwner: "Owner",
     dlgSelectArea: "Select an area...",
+    noPolygonSuffix: " (no polygon)",
     dlgSelectOwner: "Select an owner...",
     dlgIssue: "Issue",
     dlgCancel: "Cancel",

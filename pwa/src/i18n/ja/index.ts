@@ -328,6 +328,7 @@ const ja: Translations = {
     dlgArea: "区域",
     dlgOwner: "担当者",
     dlgSelectArea: "区域を選択...",
+    noPolygonSuffix: "（ポリゴンなし）",
     dlgSelectOwner: "担当者を選択...",
     dlgIssue: "発行",
     dlgCancel: "キャンセル",
