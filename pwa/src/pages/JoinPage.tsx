@@ -55,6 +55,8 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
         setBusy(false);
       }
     } catch (e) {
+      // 原因調査用（unreachable は全リレー到達失敗の最後のエラーを含む）。
+      console.error("join failed:", e);
       const code = (e as { code?: string }).code;
       if (code === "invite_expired") setError(m.errorExpired);
       else if (code === "unreachable") setError(m.errorUnreachable);

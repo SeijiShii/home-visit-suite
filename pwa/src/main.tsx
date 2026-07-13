@@ -58,6 +58,24 @@ async function bootstrap() {
     const mod = await import("./contexts/linkself-services");
     const seed = loadStoredSeed() ?? undefined;
     const relays = mod.parseRelays(import.meta.env.VITE_LINKSELF_RELAYS);
+    // TODO(debug): 原因特定後に削除する一時ログ
+    console.log(
+      "[debug/bootstrap] seed:",
+      seed ? `present(len=${seed.length})` : "MISSING",
+      "relays:",
+      relays.length,
+      "identityRaw:",
+      (() => {
+        try {
+          const raw = localStorage.getItem("hvs.identity");
+          if (!raw) return "none";
+          const keys = Object.keys(JSON.parse(raw) as object).join(",");
+          return `keys=[${keys}]`;
+        } catch {
+          return "unparsable";
+        }
+      })(),
+    );
     const bundle = await mod.createLinkSelfServices({
       persist: true,
       seed,
@@ -67,11 +85,11 @@ async function bootstrap() {
     services = bundle.services;
     stopLinkSelf = bundle.stop;
     groupNetwork = bundle.groupNetwork ?? null;
-    // 前景→非表示 / アンロードで libp2p を graceful に停止する（docs/wants/11 §2）。
+    // ページ破棄（タブを閉じる/遷移）で libp2p を graceful に停止する（docs/wants/11 §2）。
+    // 注意: visibilitychange(hidden) では停止しない。デスクトップでは別ウィンドウに
+    // 隠れただけで hidden になり（Chrome のオクルージョン検出）、招待の受理待ち
+    // （管理者が裏で待つ）等が成立しなくなるため。タブが裏でも WebSocket は維持される。
     globalThis.addEventListener?.("pagehide", () => void stopLinkSelf());
-    globalThis.addEventListener?.("visibilitychange", () => {
-      if (document.visibilityState === "hidden") void stopLinkSelf();
-    });
   } else {
     services = createInMemoryServices({ persist: true });
   }

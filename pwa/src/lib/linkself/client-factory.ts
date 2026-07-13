@@ -68,8 +68,8 @@ export interface LinkSelfSession {
   client: LinkSelfClient;
   libp2p: Libp2p;
   /**
-   * graceful stop。ブラウザはバックグラウンド実行ゼロのため、前景→非表示
-   * 遷移時に libp2p を停止する（docs/wants/11 §2 ライフサイクル）。
+   * graceful stop。ページ破棄（pagehide）時に libp2p を停止する
+   * （docs/wants/11 §2 ライフサイクル。hidden では停止しない = main.tsx）。
    */
   stop(): Promise<void>;
 }
