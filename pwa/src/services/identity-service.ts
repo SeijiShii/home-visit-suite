@@ -209,11 +209,14 @@ export class LocalIdentityService implements IdentityService {
   }
 
   async getCurrentActor(): Promise<string> {
-    try {
-      const stored = localStorage.getItem(DEV_ACTOR_KEY);
-      if (stored && (await this.repo.getUser(stored))) return stored;
-    } catch {
-      // ignore
+    // dev の identity 切替が無効なときは残骸の DEV_ACTOR_KEY を参照しない。
+    if (this.devMode) {
+      try {
+        const stored = localStorage.getItem(DEV_ACTOR_KEY);
+        if (stored && (await this.repo.getUser(stored))) return stored;
+      } catch {
+        // ignore
+      }
     }
     return this.read()?.did ?? "";
   }

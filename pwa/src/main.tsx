@@ -37,6 +37,14 @@ function allowLocalDial(): boolean {
   return v === "1" || v === "true" || v === "on";
 }
 
+// 開発用のロール切替（3 種のシードユーザーを選べる identity 切替 UI）は
+// 既定で無効。VITE_DEV_IDENTITY を明示的に有効化したときのみ使う。
+// 通常の `npm run dev` では実 identity（オンボーディング）フローで動作する。
+function devIdentityEnabled(): boolean {
+  const v = String(import.meta.env.VITE_DEV_IDENTITY ?? "").toLowerCase();
+  return v === "1" || v === "true" || v === "on";
+}
+
 async function bootstrap() {
   let services: AppServices;
   // ネットワーク配線を有効化したときの graceful stop（既定は no-op）。
@@ -63,8 +71,9 @@ async function bootstrap() {
     services = createInMemoryServices({ persist: true });
   }
 
-  // dev ビルドではロール別 UI 確認用のシードユーザーを投入し、identity 切替を有効化する。
-  const devMode = import.meta.env.DEV;
+  // 開発用の identity 切替（ロール別 UI 確認用のシードユーザー + 切替 UI）は
+  // 既定で無効。VITE_DEV_IDENTITY を明示的に有効化したときのみ投入・有効化する。
+  const devMode = devIdentityEnabled();
   if (devMode) {
     for (const u of DEV_SEED_USERS) {
       await services.userRepo.saveUser(u);

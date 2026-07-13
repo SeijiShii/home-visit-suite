@@ -2,7 +2,7 @@
 // 参照: desktop/frontend/src/pages/DashboardPage.test.tsx（Wails モック版）
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HashRouter } from "react-router-dom";
 import { I18nProvider } from "../contexts/I18nContext";
@@ -162,12 +162,14 @@ describe("DashboardPage", () => {
     const row = (await screen.findByText("担当者")).closest("tr")!;
     await userEvent.click(within(row).getByRole("button", { name: "返却" }));
 
-    // アクセス可能な区域から外れ、チェックアウト可能一覧へ戻る（a1/a2 の 2 件）
+    // 返却後の再読込を待つ: チェックアウト可能一覧が a1/a2 の 2 件に戻る
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("button", { name: "チェックアウト" }),
+      ).toHaveLength(2),
+    );
+    // アクセス可能な区域から外れる（担当者行が消える）
     expect(screen.queryByText("担当者")).toBeNull();
-    const checkoutButtons = await screen.findAllByRole("button", {
-      name: "チェックアウト",
-    });
-    expect(checkoutButtons).toHaveLength(2);
     confirmSpy.mockRestore();
   });
 
