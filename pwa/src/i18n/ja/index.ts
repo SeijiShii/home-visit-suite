@@ -6,7 +6,6 @@ const ja: Translations = {
     map: "区域編集",
     users: "メンバー管理",
     checkouts: "チェックアウト管理",
-    coverage: "網羅管理",
     requests: "申請管理",
     regions: "領域管理",
     settings: "設定",
@@ -44,17 +43,7 @@ const ja: Translations = {
     progressPlaceholder: "—",
     noAreasMatch: "条件に一致する区域はありません",
     checkoutableAreas: "チェックアウト可能な区域",
-    noActivePeriod: "現在チェックアウト可能期間がありません",
     noCheckoutableAreas: "チェックアウト可能な区域はありません",
-    activePeriodNote: ({
-      name,
-      start,
-      end,
-    }: {
-      name: string;
-      start: string;
-      end: string;
-    }) => `現在の期間: ${name}（${start} - ${end}）`,
     checkoutAction: "チェックアウト",
   },
   map: {
@@ -342,45 +331,6 @@ const ja: Translations = {
     dlgCancel: "キャンセル",
     errorGeneric: "操作に失敗しました",
   },
-  coverage: {
-    title: "網羅管理",
-    activePeriod: "現在のアクティブ期間",
-    periodList: "チェックアウト可能期間一覧",
-    newPeriod: "+ 期間を作成",
-    edit: "編集",
-    save: "保存",
-    loading: "読み込み中...",
-    noPeriods: "登録された期間がありません",
-    colName: "名前",
-    colStart: "開始日",
-    colEnd: "終了日",
-    colParentAreas: "対象区域親番数",
-    colTags: "タグ",
-    delete: "削除",
-    cancel: "キャンセル",
-    create: "作成",
-    confirmDelete: ({ name }: { name: string }) => `${name} を削除しますか？`,
-    editPeriod: "期間を編集",
-    parentAreasSection: "対象区域親番",
-    selectAllInRegion: "領域内を全選択",
-    clearAllInRegion: "領域内を全解除",
-    noParentAreas: "区域親番が登録されていません",
-    tagsSection: "タグ",
-    noTags: "タグがありません",
-    addTag: "+ タグを作成",
-    tagName: "タグ名",
-    tagColor: "色",
-    confirmDeleteTag: ({ name, count }: { name: string; count: number }) =>
-      `タグ「${name}」を削除しますか？このタグを使っている期間 ${count} 件からも外れます。`,
-    phaseLabel: "状態",
-    phasePending: "開始前",
-    phaseActive: "活動中",
-    phaseClosed: "終了済み",
-    editLockNotice: {
-      active: "活動中: 終了日延長・区域親番追加・タグ編集のみ可",
-      closed: "終了済み: タグのみ編集可",
-    },
-  },
   requests: {
     title: "申請管理",
     pending: "未処理",
@@ -462,11 +412,8 @@ const ja: Translations = {
     title: "開発用",
     description: "開発用のデータ一括削除。元に戻せません。",
     deleteAllRegions: "領域データをすべて削除",
-    deleteAllSchedules: "チェックアウト可能期間をすべて削除",
     confirmRegions:
       "すべての領域・区域親番・区域を削除します。よろしいですか？",
-    confirmSchedules:
-      "すべてのチェックアウト可能期間を削除します。よろしいですか？",
     done: "削除しました",
     identityTitle: "アイデンティティ切替（開発用）",
     identityDescription:

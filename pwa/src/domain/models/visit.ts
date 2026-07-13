@@ -53,8 +53,7 @@ export type CheckoutStatus =
   | "pending" // 開始前
   | "active" // 活動中
   | "returned" // 返却済み
-  | "complete" // 完了
-  | "force_closed"; // 期間終了による強制クローズ
+  | "complete"; // 完了
 
 /**
  * 1つの区域の取得・使用記録。
@@ -68,8 +67,6 @@ export type CheckoutStatus =
 export interface Checkout {
   id: string;
   areaId: string;
-  /** 親 AvailablePeriod（NOT NULL） */
-  availablePeriodId: string;
   /** 担当者（実際に区域を使用する人） */
   personInChargeId: string;
   /** チェックアウト操作実行者（履歴として保持、担当者変更でも変えない） */
@@ -81,8 +78,6 @@ export interface Checkout {
   returnedAt: string | null;
   /** 完了日時（ISO 8601） */
   completedAt: string | null;
-  /** 期間終了による強制クローズ日時（ISO 8601） */
-  forceClosedAt: string | null;
   /** ISO 8601 */
   updatedAt: string;
 }

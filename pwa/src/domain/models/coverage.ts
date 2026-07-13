@@ -2,8 +2,9 @@
 // 仕様: docs/wants/06_網羅管理.md
 // 参照実装: shared/domain/models/coverage.go
 //
-// SchedulePeriod / Scope / AreaAvailability は 2026-05-06 仕様改訂で全廃され、
-// AvailablePeriod に統合された。詳細は available-period.ts を参照。
+// SchedulePeriod / Scope / AreaAvailability は 2026-05-06 に AvailablePeriod へ統合され、
+// その AvailablePeriod（チェックアウト可能期間）も 2026-07-13 に廃止された。
+// チェックアウトのゲートは排他制約のみ、網羅進捗は全期間集計（docs/wants/05・06 参照）。
 
 /** 網羅活動のステータス。 */
 export type CoverageStatus = "planned" | "active" | "completed";

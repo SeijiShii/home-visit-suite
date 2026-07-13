@@ -6,7 +6,6 @@ const en: Translations = {
     map: "Area Editor",
     users: "Member Management",
     checkouts: "Checkouts",
-    coverage: "Coverage",
     requests: "Requests",
     regions: "Region Management",
     settings: "Settings",
@@ -45,17 +44,7 @@ const en: Translations = {
     progressPlaceholder: "—",
     noAreasMatch: "No areas match the filter",
     checkoutableAreas: "Checkout-able areas",
-    noActivePeriod: "No active checkout period",
     noCheckoutableAreas: "No areas available for checkout",
-    activePeriodNote: ({
-      name,
-      start,
-      end,
-    }: {
-      name: string;
-      start: string;
-      end: string;
-    }) => `Active period: ${name} (${start} - ${end})`,
     checkoutAction: "Checkout",
   },
   map: {
@@ -342,46 +331,6 @@ const en: Translations = {
     dlgCancel: "Cancel",
     errorGeneric: "Operation failed",
   },
-  coverage: {
-    title: "Coverage",
-    activePeriod: "Active Period",
-    periodList: "Available Periods",
-    newPeriod: "+ New Period",
-    edit: "Edit",
-    save: "Save",
-    loading: "Loading...",
-    noPeriods: "No periods registered",
-    colName: "Name",
-    colStart: "Start Date",
-    colEnd: "End Date",
-    colParentAreas: "Parent Areas",
-    colTags: "Tags",
-    delete: "Delete",
-    cancel: "Cancel",
-    create: "Create",
-    confirmDelete: ({ name }: { name: string }) => `Delete ${name}?`,
-    editPeriod: "Edit Period",
-    parentAreasSection: "Target Parent Areas",
-    selectAllInRegion: "Select all in region",
-    clearAllInRegion: "Clear all in region",
-    noParentAreas: "No parent areas registered",
-    tagsSection: "Tags",
-    noTags: "No tags",
-    addTag: "+ New Tag",
-    tagName: "Tag Name",
-    tagColor: "Color",
-    confirmDeleteTag: ({ name, count }: { name: string; count: number }) =>
-      `Delete tag "${name}"? It will be removed from ${count} period(s).`,
-    phaseLabel: "Phase",
-    phasePending: "Pending",
-    phaseActive: "Active",
-    phaseClosed: "Closed",
-    editLockNotice: {
-      active:
-        "Active: only end-date extension, parent-area additions, and tags are editable",
-      closed: "Closed: only tags are editable",
-    },
-  },
   requests: {
     title: "Requests",
     pending: "Pending",
@@ -461,9 +410,7 @@ const en: Translations = {
     title: "Developer",
     description: "Bulk delete dev data. Cannot be undone.",
     deleteAllRegions: "Delete all regions",
-    deleteAllSchedules: "Delete all available periods",
     confirmRegions: "Delete all regions, parent areas, and areas?",
-    confirmSchedules: "Delete all available periods?",
     done: "Deleted",
     identityTitle: "Identity Switch (Dev)",
     identityDescription:

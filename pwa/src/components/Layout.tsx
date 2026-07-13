@@ -125,26 +125,6 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    // 網羅管理: 編集メンバー以上
-    // 仕様 docs/wants/06_網羅管理.md「網羅活動データは編集メンバーが予定策定時に作成する」
-    to: "/coverage",
-    labelKey: "coverage",
-    minRole: "editor",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="18"
-        height="18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
-      </svg>
-    ),
-  },
-  {
     // 申請管理: 編集メンバー以上
     // 仕様 docs/wants/07_通知と申請.md「申請は編集メンバーのタスクリストに表示される」
     to: "/requests",

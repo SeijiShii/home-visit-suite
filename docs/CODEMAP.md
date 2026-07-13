@@ -123,8 +123,7 @@
 - `data/inmemory/inmemory-user-repository.ts` — UserRepository の InMemory 実装
 
 ## 05 チェックアウト（返却回収/担当者/区域アクセス権/区域招待）
-- `services/checkout-service.ts` — チェックアウト操作・担当者/招待・区域アクセス権・訪問記録書込
-- `services/available-period-service.ts` — チェックアウト可能期間の作成/更新/重複制約 (→06)
+- `services/checkout-service.ts` — チェックアウト操作（排他制約のみ・期間ゲート廃止）・担当者/招待・区域アクセス権・訪問記録書込
 - `pages/CheckoutsPage.tsx` — チェックアウト一覧/発行/招待/状態タブ管理 (→10)
 - `components/InviteDialog.tsx` — チェックアウト招待発行（被招待者選択/TTL）(→07)
 - `domain/models/access.ts` — 訪問記録画面の編集/読取アクセスモードと親子合成
@@ -134,12 +133,10 @@
 - `data/inmemory/inmemory-checkout-repository.ts` — CheckoutRepository の InMemory/localStorage 実装
 
 ## 06 網羅管理（網羅活動/進捗/予定）
-- `services/available-period-service.ts` — チェックアウト可能期間（活動戦略の親概念）管理 (→05)
-- `pages/CoveragePage.tsx` — 網羅管理画面（AvailablePeriod 管理・進捗参照）(→10)
-- `domain/models/available-period.ts` — チェックアウト可能期間モデル・検証・重複/フェーズ判定
 - `domain/models/coverage.ts` — 区域親番単位の網羅活動（進捗率/ステータス）モデル
-- `domain/repositories/coverage-repository.ts` — 網羅活動/可能期間/専用タグの永続化 IF
+- `domain/repositories/coverage-repository.ts` — 網羅活動の永続化 IF
 - `data/inmemory/inmemory-coverage-repository.ts` — CoverageRepository の InMemory/localStorage 実装
+- 「チェックアウト可能期間（AvailablePeriod）」は 2026-07-13 廃止（旧 `available-period*` / `CoveragePage` は削除。網羅進捗参照画面は後続フェーズ）
 
 ## 07 通知と申請（通知/申請/監査ログ/データ保持）
 - `pages/RequestsPage.tsx` — 通知と申請画面（保留/解決一覧、現状プレースホルダ）(→10)

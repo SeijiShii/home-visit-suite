@@ -21,10 +21,6 @@ import type { RegionRepository } from "../domain/repositories/region-repository"
 import type { UserRepository } from "../domain/repositories/user-repository";
 import { AuthServiceImpl, type AuthService } from "../services/auth-service";
 import {
-  AvailablePeriodServiceImpl,
-  type AvailablePeriodService,
-} from "../services/available-period-service";
-import {
   CheckoutServiceImpl,
   type CheckoutService,
 } from "../services/checkout-service";
@@ -51,7 +47,6 @@ export interface AppServices {
 
   // サービス
   authService: AuthService;
-  availablePeriodService: AvailablePeriodService;
   checkoutService: CheckoutService;
   settingsService: SettingsService;
   placeService: PlaceService;
@@ -92,17 +87,11 @@ export function createInMemoryServices(
     : new InMemoryPersonalRepository();
   const placeRepo = new InMemoryPlaceRepository(undefined, sub("place"));
 
-  const availablePeriodService = new AvailablePeriodServiceImpl(
-    coverageRepo,
-    checkoutRepo,
-    userRepo,
-  );
   const checkoutService = new CheckoutServiceImpl(
     checkoutRepo,
     userRepo,
     notificationRepo,
     regionRepo,
-    availablePeriodService,
   );
   const authService = new AuthServiceImpl(userRepo);
   const settingsService = new SettingsService(
@@ -134,7 +123,6 @@ export function createInMemoryServices(
     personalRepo,
     placeRepo,
     authService,
-    availablePeriodService,
     checkoutService,
     settingsService,
     placeService,
@@ -143,22 +131,6 @@ export function createInMemoryServices(
     regionBindingApi,
     mapBinding,
   };
-}
-
-/**
- * アプリ起動時の reconcile。
- * PWA はバックグラウンド常駐がないため、期限切れ AvailablePeriod 配下の
- * チェックアウト強制クローズを起動のたびに実行する
- * （docs/wants/09_継続的検討事項.md「バックグラウンドジョブの設計転換」）。
- */
-export async function reconcileOnStartup(services: AppServices): Promise<void> {
-  try {
-    await services.availablePeriodService.forceCloseExpiredCheckouts(
-      new Date(),
-    );
-  } catch (e) {
-    console.error("startup reconcile failed", e);
-  }
 }
 
 const ServicesContext = createContext<AppServices | null>(null);

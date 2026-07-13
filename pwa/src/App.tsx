@@ -9,7 +9,6 @@ import { useServices } from "./contexts/ServicesContext";
 import { TipsProvider } from "./contexts/TipsContext";
 import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
 import { CheckoutsPage } from "./pages/CheckoutsPage";
-import { CoveragePage } from "./pages/CoveragePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
@@ -56,7 +55,6 @@ export default function App() {
             <Route path="/regions" element={<RegionManagementPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/checkouts" element={<CheckoutsPage />} />
-            <Route path="/coverage" element={<CoveragePage />} />
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

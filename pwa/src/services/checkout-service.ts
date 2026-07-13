@@ -26,7 +26,6 @@ import type { CheckoutRepository } from "../domain/repositories/checkout-reposit
 import type { NotificationRepository } from "../domain/repositories/notification-repository";
 import type { RegionRepository } from "../domain/repositories/region-repository";
 import type { UserRepository } from "../domain/repositories/user-repository";
-import type { AvailablePeriodService } from "./available-period-service";
 import { ServiceError } from "./errors";
 import { newId } from "./id";
 
@@ -50,11 +49,10 @@ export interface AccessibleArea {
 export interface CheckoutService {
   /**
    * 区域をチェックアウトする。
-   * 排他的取得: 同一区域にアクティブなチェックアウトがあればエラー。
+   * 排他的取得: 同一区域に他者を含むアクティブなチェックアウトがあればエラー。
+   * 他者のアクティブなチェックアウトが無い区域は誰でもチェックアウトできる（期間ゲートは廃止）。
    * - 活動メンバー: 自分自身を担当者にしたチェックアウトのみ発行可能（personInChargeId === actorId）
    * - 編集メンバー以上: 任意のメンバー（自分含む）を担当者にしたチェックアウトを発行可能
-   * - チェックアウトは アクティブな AvailablePeriod に必ず属する（クールダウン期間中は発行不可）
-   * - 区域は AvailablePeriod の対象区域親番配下のものに限る（編集メンバーもバイパス不可）
    * checkedOutById には actorId が記録される（操作履歴）。
    */
   checkout(
@@ -166,7 +164,6 @@ export class CheckoutServiceImpl implements CheckoutService {
     private userRepo: UserRepository,
     private notifRepo: NotificationRepository,
     private regionRepo: RegionRepository,
-    private apSvc: AvailablePeriodService,
     private nowFn: () => Date = () => new Date(),
   ) {}
 
@@ -199,28 +196,14 @@ export class CheckoutServiceImpl implements CheckoutService {
 
     const now = this.nowFn();
 
-    // AvailablePeriod 制約: アクティブな期間が存在し、対象区域の親番が含まれていること
-    // 編集メンバーもバイパス不可（仕様 docs/wants/06_網羅管理.md / 09 継続的検討事項）
-    const period = await this.apSvc.getActivePeriod(now);
-    if (!period) {
-      throw new ServiceError(
-        "invalid_state",
-        "no active AvailablePeriod (cooldown)",
-      );
-    }
-
+    // 区域の存在確認
     const area = await this.regionRepo.getArea(areaId);
     if (!area) {
       throw new ServiceError("not_found", `area not found: ${areaId}`);
     }
-    if (!period.parentAreaIds.includes(area.parentAreaId)) {
-      throw new ServiceError(
-        "permission_denied",
-        "area's parent area is not in the active period's targets",
-      );
-    }
 
-    // 排他的チェックアウト: アクティブなチェックアウトがあればエラー
+    // 排他的チェックアウト: 他者を含むアクティブなチェックアウトがあればエラー
+    // （「チェックアウト可能期間」廃止により、ゲートはこの排他制約のみ）
     const existing = await this.coRepo.getActiveCheckout(areaId);
     if (existing) {
       throw new ServiceError(
@@ -233,14 +216,12 @@ export class CheckoutServiceImpl implements CheckoutService {
     const c: Checkout = {
       id: newId("co"),
       areaId,
-      availablePeriodId: period.id,
       personInChargeId,
       checkedOutById: actorId,
       status: "active",
       createdAt: nowIso,
       returnedAt: null,
       completedAt: null,
-      forceClosedAt: null,
       updatedAt: nowIso,
     };
 

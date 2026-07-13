@@ -60,18 +60,6 @@ async function seed(services: AppServices) {
     number: "02",
     geometry: null,
   });
-
-  const now = Date.now();
-  await services.coverageRepo.saveAvailablePeriod({
-    id: "ap1",
-    name: "テスト期間",
-    startDate: new Date(now - 86400000).toISOString(),
-    endDate: new Date(now + 30 * 86400000).toISOString(),
-    parentAreaIds: ["pa1"],
-    tagIds: [],
-    createdAt: new Date(now).toISOString(),
-    updatedAt: new Date(now).toISOString(),
-  });
 }
 
 async function renderCheckouts(

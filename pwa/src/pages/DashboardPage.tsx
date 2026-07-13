@@ -7,7 +7,6 @@ import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity, isRoleAtLeast } from "../contexts/IdentityContext";
 import { type AppServices, useServices } from "../contexts/ServicesContext";
-import type { AvailablePeriod } from "../domain/models/available-period";
 
 /**
  * ダッシュボードに表示する1行分のアクセス可能区域。
@@ -31,7 +30,10 @@ interface AccessibleAreaRow {
 interface RegionTreeIndex {
   displayIndex: Map<string, string>;
   regions: { id: string; symbol: string; name: string }[];
-  parentAreasByRegion: Map<string, { id: string; number: string; name: string }[]>;
+  parentAreasByRegion: Map<
+    string,
+    { id: string; number: string; name: string }[]
+  >;
   areasByParent: Map<
     string,
     { id: string; number: string; parentAreaId: string; regionId: string }[]
@@ -146,7 +148,7 @@ interface AllAreaRow {
  * 仕様 docs/wants/10_画面設計.md「5. ダッシュボード」
  *
  * - 「アクセス可能な区域」セクション（担当 + 有効招待）
- * - 「チェックアウト可能な区域」セクション（アクティブ AvailablePeriod 内、未チェックアウト）
+ * - 「チェックアウト可能な区域」セクション（他者のアクティブなチェックアウトが無い区域）
  * - 「全ての区域一覧」セクション（editor+ のみ）。領域・区域親番フィルタ
  *   + インクリメンタル検索。進捗バーは網羅管理 API 接続まで placeholder。
  * - 通知 / 網羅進捗サマリーは別フェーズ
@@ -161,11 +163,10 @@ export function DashboardPage() {
 
   const [rows, setRows] = useState<AccessibleAreaRow[]>([]);
   const [loading, setLoading] = useState(true);
-  // チェックアウト可能な区域（アクティブ AvailablePeriod 内、未チェックアウト）
+  // チェックアウト可能な区域（他者のアクティブなチェックアウトが無い区域）
   const [checkoutableAreas, setCheckoutableAreas] = useState<
     { areaId: string; displayName: string }[]
   >([]);
-  const [activePeriod, setActivePeriod] = useState<AvailablePeriod | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   // 残り時間表示を 1 分ごとに更新する用途の現在時刻 tick
   const [now, setNow] = useState<number>(() => Date.now());
@@ -173,10 +174,11 @@ export function DashboardPage() {
   // 全ての区域一覧（editor+ のみ）
   const [allAreas, setAllAreas] = useState<AllAreaRow[]>([]);
   const [allAreasLoading, setAllAreasLoading] = useState(false);
-  const [regionsForFilter, setRegionsForFilter] = useState<RegionTreeIndex["regions"]>([]);
-  const [parentAreasByRegionForFilter, setParentAreasByRegionForFilter] = useState<
-    RegionTreeIndex["parentAreasByRegion"]
-  >(new Map());
+  const [regionsForFilter, setRegionsForFilter] = useState<
+    RegionTreeIndex["regions"]
+  >([]);
+  const [parentAreasByRegionForFilter, setParentAreasByRegionForFilter] =
+    useState<RegionTreeIndex["parentAreasByRegion"]>(new Map());
   const [regionFilter, setRegionFilter] = useState<string>("");
   const [parentAreaFilter, setParentAreaFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -289,31 +291,21 @@ export function DashboardPage() {
     };
   }, [currentActorID, isEditorPlus, reloadTick, services]);
 
-  // チェックアウト可能な区域: アクティブ AvailablePeriod の対象区域親番配下で、
-  // 他者を含めて誰もアクティブにチェックアウトしていない区域
+  // チェックアウト可能な区域: 他者を含めて誰もアクティブにチェックアウトしていない全区域
+  // （「チェックアウト可能期間」廃止により、期間・対象区域親番による絞り込みは持たない）
   useEffect(() => {
     if (!currentActorID) {
       setCheckoutableAreas([]);
-      setActivePeriod(null);
       return;
     }
     let cancelled = false;
     async function fetchCheckoutable() {
       try {
-        const period = await services.availablePeriodService.getActivePeriod(new Date());
-        if (cancelled) return;
-        setActivePeriod(period);
-        if (!period || period.parentAreaIds.length === 0) {
-          setCheckoutableAreas([]);
-          return;
-        }
-
-        // 対象区域親番配下の全区域を収集
+        // 全領域配下の全区域を収集
         const tree = await buildRegionTreeIndex(services.regionRepo);
         if (cancelled) return;
         const candidateAreas: { areaId: string; displayName: string }[] = [];
-        for (const paId of period.parentAreaIds) {
-          const areas = tree.areasByParent.get(paId) ?? [];
+        for (const [, areas] of tree.areasByParent) {
           for (const a of areas) {
             candidateAreas.push({
               areaId: a.id,
@@ -344,7 +336,11 @@ export function DashboardPage() {
 
   const handleCheckout = async (areaId: string) => {
     try {
-      await services.checkoutService.checkout(currentActorID, areaId, currentActorID);
+      await services.checkoutService.checkout(
+        currentActorID,
+        areaId,
+        currentActorID,
+      );
       setReloadTick((t) => t + 1);
     } catch (e) {
       window.alert(String(e));
@@ -367,9 +363,8 @@ export function DashboardPage() {
     });
   }, [allAreas, regionFilter, parentAreaFilter, searchQuery]);
 
-  const visibleParentAreas: { id: string; number: string; name: string }[] = regionFilter
-    ? (parentAreasByRegionForFilter.get(regionFilter) ?? [])
-    : [];
+  const visibleParentAreas: { id: string; number: string; name: string }[] =
+    regionFilter ? (parentAreasByRegionForFilter.get(regionFilter) ?? []) : [];
 
   const formatRoleCell = useMemo(() => {
     return (row: AccessibleAreaRow): React.ReactNode => {
@@ -399,7 +394,10 @@ export function DashboardPage() {
           </span>
         );
       }
-      const remainingHours = Math.max(1, Math.floor(remainingMs / (1000 * 60 * 60)));
+      const remainingHours = Math.max(
+        1,
+        Math.floor(remainingMs / (1000 * 60 * 60)),
+      );
       return (
         <span>
           <PersonClockIcon />
@@ -426,7 +424,9 @@ export function DashboardPage() {
 
       <section>
         <h2>{t.dashboard.accessibleAreas}</h2>
-        <p className="dashboard-section-note">{t.dashboard.accessibleAreasNote}</p>
+        <p className="dashboard-section-note">
+          {t.dashboard.accessibleAreasNote}
+        </p>
         {loading ? (
           <p className="dashboard-empty">{t.dashboard.loading}</p>
         ) : rows.length === 0 ? (
@@ -472,19 +472,10 @@ export function DashboardPage() {
 
       <section>
         <h2>{t.dashboard.checkoutableAreas}</h2>
-        {!activePeriod ? (
-          <p className="dashboard-empty">{t.dashboard.noActivePeriod}</p>
-        ) : checkoutableAreas.length === 0 ? (
+        {checkoutableAreas.length === 0 ? (
           <p className="dashboard-empty">{t.dashboard.noCheckoutableAreas}</p>
         ) : (
           <>
-            <p className="dashboard-section-note">
-              {t.dashboard.activePeriodNote({
-                name: activePeriod.name,
-                start: activePeriod.startDate.slice(0, 10),
-                end: activePeriod.endDate.slice(0, 10),
-              })}
-            </p>
             <table className="dashboard-table">
               <thead>
                 <tr>

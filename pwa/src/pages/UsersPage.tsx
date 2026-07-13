@@ -3,7 +3,7 @@
 //
 // メンバーグループ（OrgGroup）廃止に伴い、Group / addGroup / editGroup /
 // deleteGroup / assignGroup / confirmRemove のバリアントは削除済み。
-// 旧グループ機能の代替は AvailablePeriod タグ・メンバータグで運用する。
+// 旧グループ機能の代替はメンバータグで運用する。
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useI18n } from "../contexts/I18nContext";
@@ -98,11 +98,14 @@ export function UsersPage() {
     }
   };
 
-  const sortByRole = (a: User, b: User) => roleOrder(a.role) - roleOrder(b.role);
+  const sortByRole = (a: User, b: User) =>
+    roleOrder(a.role) - roleOrder(b.role);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      !search || user.name.includes(search) || roleLabel(user.role).includes(search);
+      !search ||
+      user.name.includes(search) ||
+      roleLabel(user.role).includes(search);
     const matchesTag = !filterTagId || user.tagIds.includes(filterTagId);
     return matchesSearch && matchesTag;
   });
@@ -128,7 +131,9 @@ export function UsersPage() {
   const handleDeleteTag = async () => {
     if (modal.type !== "deleteTag") return;
     // Remove tag from all users who have it
-    const affectedUsers = users.filter((user) => user.tagIds.includes(modal.tag.id));
+    const affectedUsers = users.filter((user) =>
+      user.tagIds.includes(modal.tag.id),
+    );
     for (const user of affectedUsers) {
       await userRepo.saveUser({
         ...user,
@@ -371,7 +376,10 @@ export function UsersPage() {
 
       {/* Add/Edit Tag Modal */}
       {(modal.type === "addTag" || modal.type === "editTag") && (
-        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">
               {modal.type === "addTag" ? u.addTag : u.editTag}
@@ -418,7 +426,10 @@ export function UsersPage() {
 
       {/* Delete Tag Modal */}
       {modal.type === "deleteTag" && (
-        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">{u.deleteTag}</div>
             <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 8 }}>
@@ -435,7 +446,10 @@ export function UsersPage() {
               </span>
             </p>
             <p style={{ color: "#64748b", fontSize: 14, marginBottom: 16 }}>
-              {u.confirmDeleteTag.replace("{count}", String(tagUsageCount(modal.tag.id)))}
+              {u.confirmDeleteTag.replace(
+                "{count}",
+                String(tagUsageCount(modal.tag.id)),
+              )}
             </p>
             <div className="modal-actions">
               <button
@@ -454,12 +468,17 @@ export function UsersPage() {
 
       {/* Assign Tags Modal */}
       {modal.type === "assignTags" && (
-        <div className="modal-overlay" onClick={() => setModal({ type: "none" })}>
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">{u.assignTags}</div>
             <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 16 }}>
               {modal.user.name}
-              <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 8 }}>
+              <span
+                style={{ fontWeight: 400, color: "#64748b", marginLeft: 8 }}
+              >
                 {roleLabel(modal.user.role)}
               </span>
             </p>
@@ -510,7 +529,9 @@ export function UsersPage() {
                 maxLength={16}
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateTagInAssign()}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && handleCreateTagInAssign()
+                }
               />
               <button
                 className="btn btn-primary btn-sm"
@@ -528,7 +549,10 @@ export function UsersPage() {
               >
                 {c.cancel}
               </button>
-              <button className="btn btn-primary" onClick={handleSaveAssignTags}>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveAssignTags}
+              >
                 {c.save}
               </button>
             </div>

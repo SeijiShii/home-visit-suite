@@ -1,6 +1,6 @@
 // desktop/frontend/src/pages/SettingsPage.tsx からの移植。
-// ヘルプ表示リセット（TipsContext）と開発用データ削除（RegionBinding /
-// AvailablePeriodBinding）のセクションは、対応するサービス層の移植時に追加する。
+// ヘルプ表示リセット（TipsContext）と開発用データ削除（RegionBinding）の
+// セクションは、対応するサービス層の移植時に追加する。
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCode } from "../components/QrCode";

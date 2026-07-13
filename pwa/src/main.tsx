@@ -7,7 +7,6 @@ import { IdentityProvider } from "./contexts/IdentityContext";
 import {
   ServicesProvider,
   createInMemoryServices,
-  reconcileOnStartup,
 } from "./contexts/ServicesContext";
 import {
   LocalIdentityService,
@@ -73,9 +72,6 @@ async function bootstrap() {
   }
   // 実 identity は IdentityProvider 初期化時に loadIdentity() で復元される。
   const identityService = new LocalIdentityService(services.userRepo, devMode);
-
-  // PWA はバックグラウンド常駐がないため、期限系の後始末は起動時に実行する
-  await reconcileOnStartup(services);
 
   const container = document.getElementById("app")!;
 

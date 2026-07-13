@@ -63,18 +63,6 @@ async function seed(services: AppServices) {
     number: "02",
     geometry: null,
   });
-
-  const now = Date.now();
-  await services.coverageRepo.saveAvailablePeriod({
-    id: "ap1",
-    name: "テスト期間",
-    startDate: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    parentAreaIds: ["pa1"],
-    tagIds: [],
-    createdAt: new Date(now).toISOString(),
-    updatedAt: new Date(now).toISOString(),
-  });
 }
 
 async function renderDashboard(actor: string) {
@@ -103,11 +91,10 @@ describe("DashboardPage", () => {
     setLocale("ja");
   });
 
-  it("チェックアウト可能な区域が期間の対象親番配下から列挙される", async () => {
+  it("チェックアウト可能な区域が全区域から列挙される（他者チェックアウトなし）", async () => {
     await renderDashboard(MEMBER);
     expect(await screen.findByText("NRT-001-01")).toBeInTheDocument();
     expect(screen.getByText("NRT-001-02")).toBeInTheDocument();
-    expect(screen.getByText(/現在の期間: テスト期間/)).toBeInTheDocument();
   });
 
   it("チェックアウトするとアクセス可能な区域に担当者として現れる", async () => {

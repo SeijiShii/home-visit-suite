@@ -24,11 +24,9 @@ interface CheckoutRow {
   checkedOutById: string;
   checkedOutByName: string;
   status: string;
-  availablePeriodId: string;
   createdAt: string;
   returnedAt: string | null;
   completedAt: string | null;
-  forceClosedAt: string | null;
 }
 
 interface RegionTreeMaps {
@@ -106,7 +104,9 @@ export function CheckoutsPage() {
       for (const u of allUsers) userById.set(u.id, u);
       const composed: CheckoutRow[] = all.map((co) => {
         const pic = userById.get(co.personInChargeId);
-        const checkedBy = co.checkedOutById ? userById.get(co.checkedOutById) : undefined;
+        const checkedBy = co.checkedOutById
+          ? userById.get(co.checkedOutById)
+          : undefined;
         return {
           id: co.id,
           areaId: co.areaId,
@@ -116,11 +116,9 @@ export function CheckoutsPage() {
           checkedOutById: co.checkedOutById,
           checkedOutByName: checkedBy?.name ?? co.checkedOutById,
           status: co.status,
-          availablePeriodId: co.availablePeriodId,
           createdAt: co.createdAt ?? "",
           returnedAt: co.returnedAt,
           completedAt: co.completedAt,
-          forceClosedAt: co.forceClosedAt,
         };
       });
       composed.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -207,12 +205,22 @@ export function CheckoutsPage() {
     } catch (e) {
       setError(`${c.actionForceReturn}: ${String(e)}`);
     }
-  }, [selected, currentActorID, reload, c.confirmForceReturn, c.actionForceReturn, services]);
+  }, [
+    selected,
+    currentActorID,
+    reload,
+    c.confirmForceReturn,
+    c.actionForceReturn,
+    services,
+  ]);
 
   /** 担当者変更（editor+） — 簡易プロンプトで DID を入力 */
   const handleReassign = useCallback(async () => {
     if (!selected) return;
-    const newPiCID = window.prompt(c.confirmReassignPrompt, selected.personInChargeId);
+    const newPiCID = window.prompt(
+      c.confirmReassignPrompt,
+      selected.personInChargeId,
+    );
     if (!newPiCID || newPiCID === selected.personInChargeId) return;
     try {
       await services.checkoutService.reassignPersonInCharge(
@@ -224,7 +232,14 @@ export function CheckoutsPage() {
     } catch (e) {
       setError(`${c.actionReassign}: ${String(e)}`);
     }
-  }, [selected, currentActorID, reload, c.confirmReassignPrompt, c.actionReassign, services]);
+  }, [
+    selected,
+    currentActorID,
+    reload,
+    c.confirmReassignPrompt,
+    c.actionReassign,
+    services,
+  ]);
 
   const handleInvite = useCallback(() => {
     if (!selected) return;
@@ -250,7 +265,8 @@ export function CheckoutsPage() {
         await services.checkoutService.revokeInvite(currentActorID, inv.id);
         // selectedId 経由で再ロード
         if (selectedId) {
-          const invs = await services.checkoutService.listInvitations(selectedId);
+          const invs =
+            await services.checkoutService.listInvitations(selectedId);
           setInvitations(invs);
         }
       } catch (e) {
@@ -325,7 +341,9 @@ export function CheckoutsPage() {
                 }`}
                 onClick={() => setSelectedId(row.id)}
               >
-                <div className="checkouts-list-item-area">{row.areaDisplay}</div>
+                <div className="checkouts-list-item-area">
+                  {row.areaDisplay}
+                </div>
                 <div className="checkouts-list-item-meta">
                   <span className="checkouts-list-item-owner">
                     {row.personInChargeName}
@@ -333,7 +351,8 @@ export function CheckoutsPage() {
                   <span
                     className={`checkouts-list-item-status checkouts-status-${row.status}`}
                   >
-                    {(c.status as Record<string, string>)[row.status] ?? row.status}
+                    {(c.status as Record<string, string>)[row.status] ??
+                      row.status}
                   </span>
                 </div>
               </button>
@@ -417,7 +436,8 @@ function CheckoutDetail({
   const isActive = row.status === "active" || row.status === "pending";
   const showIssuer =
     row.checkedOutById !== "" && row.checkedOutById !== row.personInChargeId;
-  const statusLabel = (c.status as Record<string, string>)[row.status] ?? row.status;
+  const statusLabel =
+    (c.status as Record<string, string>)[row.status] ?? row.status;
 
   const formatRemaining = (expiresAtIso: string): string => {
     const remainingMs = new Date(expiresAtIso).getTime() - Date.now();
@@ -447,39 +467,53 @@ function CheckoutDetail({
       <div className="checkouts-detail-row">
         <div className="checkouts-detail-label">{c.detailStatus}</div>
         <div className="checkouts-detail-value">
-          <span className={`checkouts-list-item-status checkouts-status-${row.status}`}>
+          <span
+            className={`checkouts-list-item-status checkouts-status-${row.status}`}
+          >
             {statusLabel}
           </span>
         </div>
       </div>
       <div className="checkouts-detail-row">
         <div className="checkouts-detail-label">{c.detailStartedAt}</div>
-        <div className="checkouts-detail-value">{formatDate(row.createdAt)}</div>
+        <div className="checkouts-detail-value">
+          {formatDate(row.createdAt)}
+        </div>
       </div>
       {row.returnedAt && (
         <div className="checkouts-detail-row">
           <div className="checkouts-detail-label">{c.detailReturnedAt}</div>
-          <div className="checkouts-detail-value">{formatDate(row.returnedAt)}</div>
+          <div className="checkouts-detail-value">
+            {formatDate(row.returnedAt)}
+          </div>
         </div>
       )}
       {row.completedAt && (
         <div className="checkouts-detail-row">
           <div className="checkouts-detail-label">{c.detailCompletedAt}</div>
-          <div className="checkouts-detail-value">{formatDate(row.completedAt)}</div>
+          <div className="checkouts-detail-value">
+            {formatDate(row.completedAt)}
+          </div>
         </div>
       )}
 
       <div className="checkouts-detail-section">
-        <div className="checkouts-detail-section-title">{c.visitRecordsHeader}</div>
+        <div className="checkouts-detail-section-title">
+          {c.visitRecordsHeader}
+        </div>
         <div className="checkouts-detail-row">
           <div className="checkouts-detail-value">
-            {visitRecordCount === null ? "…" : c.visitRecordsCount(visitRecordCount)}
+            {visitRecordCount === null
+              ? "…"
+              : c.visitRecordsCount(visitRecordCount)}
           </div>
         </div>
       </div>
 
       <div className="checkouts-detail-section">
-        <div className="checkouts-detail-section-title">{c.invitationsHeader}</div>
+        <div className="checkouts-detail-section-title">
+          {c.invitationsHeader}
+        </div>
         {invitations.length === 0 ? (
           <div className="checkouts-detail-empty" style={{ padding: "8px 0" }}>
             {c.invitationsEmpty}
@@ -489,8 +523,14 @@ function CheckoutDetail({
             const revoked = inv.revokedAt != null;
             return (
               <div className="checkouts-invitation-row" key={inv.id}>
-                <div className={revoked ? "checkouts-invitation-revoked" : undefined}>
-                  <span className="checkouts-invitation-label">{inv.inviteeId}</span>
+                <div
+                  className={
+                    revoked ? "checkouts-invitation-revoked" : undefined
+                  }
+                >
+                  <span className="checkouts-invitation-label">
+                    {inv.inviteeId}
+                  </span>
                   {!revoked && (
                     <span className="checkouts-invitation-meta">
                       {formatRemaining(inv.expiresAt)}

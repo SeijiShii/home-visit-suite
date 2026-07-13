@@ -6,7 +6,6 @@ export interface Translations {
     map: string;
     users: string;
     checkouts: string;
-    coverage: string;
     requests: string;
     regions: string;
     settings: string;
@@ -42,13 +41,7 @@ export interface Translations {
     progressPlaceholder: string;
     noAreasMatch: string;
     checkoutableAreas: string;
-    noActivePeriod: string;
     noCheckoutableAreas: string;
-    activePeriodNote: (args: {
-      name: string;
-      start: string;
-      end: string;
-    }) => string;
     checkoutAction: string;
   };
   map: {
@@ -319,51 +312,11 @@ export interface Translations {
     dlgCancel: string;
     errorGeneric: string;
   };
-  coverage: {
-    title: string;
-    activePeriod: string;
-    periodList: string;
-    newPeriod: string;
-    edit: string;
-    save: string;
-    loading: string;
-    noPeriods: string;
-    colName: string;
-    colStart: string;
-    colEnd: string;
-    colParentAreas: string;
-    colTags: string;
-    delete: string;
-    cancel: string;
-    create: string;
-    confirmDelete: (args: { name: string }) => string;
-    editPeriod: string;
-    parentAreasSection: string;
-    selectAllInRegion: string;
-    clearAllInRegion: string;
-    noParentAreas: string;
-    tagsSection: string;
-    noTags: string;
-    addTag: string;
-    tagName: string;
-    tagColor: string;
-    confirmDeleteTag: (args: { name: string; count: number }) => string;
-    phaseLabel: string;
-    phasePending: string;
-    phaseActive: string;
-    phaseClosed: string;
-    editLockNotice: {
-      active: string;
-      closed: string;
-    };
-  };
   settingsDev: {
     title: string;
     description: string;
     deleteAllRegions: string;
-    deleteAllSchedules: string;
     confirmRegions: string;
-    confirmSchedules: string;
     done: string;
     identityTitle: string;
     identityDescription: string;

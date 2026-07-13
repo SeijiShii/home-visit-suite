@@ -25,7 +25,6 @@ describe("checkout", () => {
     expect(c.status).toBe("active");
     expect(c.personInChargeId).toBe(MEMBER1);
     expect(c.checkedOutById).toBe(MEMBER1);
-    expect(c.availablePeriodId).toBe("ap-active");
   });
 
   it("personInChargeId 省略（空文字）は自分が担当者になる", async () => {
@@ -34,8 +33,8 @@ describe("checkout", () => {
   });
 
   it("活動メンバーは他人を担当者にできない", async () => {
-    await expect(fx.coSvc.checkout(MEMBER1, "a1", MEMBER2)).rejects.toSatisfy((e) =>
-      isCode(e, "permission_denied"),
+    await expect(fx.coSvc.checkout(MEMBER1, "a1", MEMBER2)).rejects.toSatisfy(
+      (e) => isCode(e, "permission_denied"),
     );
   });
 
@@ -45,30 +44,23 @@ describe("checkout", () => {
     expect(c.checkedOutById).toBe(EDITOR);
   });
 
-  it("アクティブな期間がなければ発行不可（クールダウン）", async () => {
-    await fx.covRepo.deleteAvailablePeriod("ap-active");
-    await expect(fx.coSvc.checkout(EDITOR, "a1", EDITOR)).rejects.toSatisfy((e) =>
-      isCode(e, "invalid_state"),
-    );
-  });
-
-  it("期間の対象外親番の区域は編集メンバーもバイパス不可", async () => {
-    // a3 は pa2 配下で、期間の対象は pa1 のみ
-    await expect(fx.coSvc.checkout(EDITOR, "a3", EDITOR)).rejects.toSatisfy((e) =>
-      isCode(e, "permission_denied"),
-    );
+  it("任意の親番配下の区域をチェックアウトできる（期間・対象親番の制約は廃止）", async () => {
+    // a3 は pa2 配下。旧仕様では期間対象外だったが、現在は排他制約のみ
+    const c = await fx.coSvc.checkout(EDITOR, "a3", EDITOR);
+    expect(c.status).toBe("active");
+    expect(c.areaId).toBe("a3");
   });
 
   it("同一区域の排他的チェックアウト", async () => {
     await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
-    await expect(fx.coSvc.checkout(MEMBER2, "a1", MEMBER2)).rejects.toSatisfy((e) =>
-      isCode(e, "exclusive_checkout"),
+    await expect(fx.coSvc.checkout(MEMBER2, "a1", MEMBER2)).rejects.toSatisfy(
+      (e) => isCode(e, "exclusive_checkout"),
     );
   });
 
   it("存在しない区域はエラー", async () => {
-    await expect(fx.coSvc.checkout(MEMBER1, "nope", MEMBER1)).rejects.toSatisfy((e) =>
-      isCode(e, "not_found"),
+    await expect(fx.coSvc.checkout(MEMBER1, "nope", MEMBER1)).rejects.toSatisfy(
+      (e) => isCode(e, "not_found"),
     );
   });
 });
@@ -163,7 +155,14 @@ describe("recordVisit", () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
 
     await expect(
-      fx.coSvc.recordVisit(MEMBER1, c.id, "place-1", "vacant_abandoned", NOW.toISOString(), ""),
+      fx.coSvc.recordVisit(
+        MEMBER1,
+        c.id,
+        "place-1",
+        "vacant_abandoned",
+        NOW.toISOString(),
+        "",
+      ),
     ).rejects.toSatisfy((e) => isCode(e, "invalid_input"));
 
     const vr = await fx.coSvc.recordVisit(
@@ -185,13 +184,27 @@ describe("recordVisit", () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
     await fx.coSvc.return(MEMBER1, c.id);
     await expect(
-      fx.coSvc.recordVisit(MEMBER1, c.id, "place-1", "met", NOW.toISOString(), ""),
+      fx.coSvc.recordVisit(
+        MEMBER1,
+        c.id,
+        "place-1",
+        "met",
+        NOW.toISOString(),
+        "",
+      ),
     ).rejects.toSatisfy((e) => isCode(e, "invalid_state"));
   });
 
   it("recordVisitAdHoc は areaID 必須・チェックアウト不要（Phase 1 暫定）", async () => {
     await expect(
-      fx.coSvc.recordVisitAdHoc(MEMBER1, "", "place-1", "met", NOW.toISOString(), ""),
+      fx.coSvc.recordVisitAdHoc(
+        MEMBER1,
+        "",
+        "place-1",
+        "met",
+        NOW.toISOString(),
+        "",
+      ),
     ).rejects.toSatisfy((e) => isCode(e, "invalid_input"));
 
     const vr = await fx.coSvc.recordVisitAdHoc(
@@ -213,7 +226,9 @@ describe("invite / revokeInvite", () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
     const inv = await fx.coSvc.invite(MEMBER1, c.id, MEMBER2, 0);
 
-    expect(new Date(inv.expiresAt).getTime()).toBe(NOW.getTime() + 24 * 60 * 60 * 1000);
+    expect(new Date(inv.expiresAt).getTime()).toBe(
+      NOW.getTime() + 24 * 60 * 60 * 1000,
+    );
 
     const notifs = await fx.notifRepo.listNotifications(MEMBER2);
     expect(notifs).toHaveLength(1);
@@ -223,32 +238,37 @@ describe("invite / revokeInvite", () => {
 
   it("担当者でも editor+ でもない者は招待不可", async () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
-    await expect(fx.coSvc.invite(MEMBER2, c.id, MEMBER2, 0)).rejects.toSatisfy((e) =>
-      isCode(e, "permission_denied"),
+    await expect(fx.coSvc.invite(MEMBER2, c.id, MEMBER2, 0)).rejects.toSatisfy(
+      (e) => isCode(e, "permission_denied"),
     );
   });
 
   it("担当者本人・editor は招待対象にできない", async () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
-    await expect(fx.coSvc.invite(MEMBER1, c.id, MEMBER1, 0)).rejects.toSatisfy((e) =>
-      isCode(e, "invalid_input"),
+    await expect(fx.coSvc.invite(MEMBER1, c.id, MEMBER1, 0)).rejects.toSatisfy(
+      (e) => isCode(e, "invalid_input"),
     );
-    await expect(fx.coSvc.invite(MEMBER1, c.id, EDITOR, 0)).rejects.toSatisfy((e) =>
-      isCode(e, "invalid_input"),
+    await expect(fx.coSvc.invite(MEMBER1, c.id, EDITOR, 0)).rejects.toSatisfy(
+      (e) => isCode(e, "invalid_input"),
     );
   });
 
   it("負の TTL はエラー", async () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
-    await expect(fx.coSvc.invite(MEMBER1, c.id, MEMBER2, -1)).rejects.toSatisfy((e) =>
-      isCode(e, "invalid_input"),
+    await expect(fx.coSvc.invite(MEMBER1, c.id, MEMBER2, -1)).rejects.toSatisfy(
+      (e) => isCode(e, "invalid_input"),
     );
   });
 
   it("既存の有効招待は期限を上書き延長し重複レコードを作らない", async () => {
     const c = await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
     const first = await fx.coSvc.invite(MEMBER1, c.id, MEMBER2, 60 * 60 * 1000);
-    const second = await fx.coSvc.invite(MEMBER1, c.id, MEMBER2, 48 * 60 * 60 * 1000);
+    const second = await fx.coSvc.invite(
+      MEMBER1,
+      c.id,
+      MEMBER2,
+      48 * 60 * 60 * 1000,
+    );
 
     expect(second.id).toBe(first.id);
     expect(new Date(second.expiresAt).getTime()).toBe(
@@ -262,8 +282,8 @@ describe("invite / revokeInvite", () => {
     const inv = await fx.coSvc.invite(MEMBER1, c.id, MEMBER2, 0);
 
     // 被招待者本人（member2）は取消権限を持たない
-    await expect(fx.coSvc.revokeInvite(MEMBER2, inv.id)).rejects.toSatisfy((e) =>
-      isCode(e, "permission_denied"),
+    await expect(fx.coSvc.revokeInvite(MEMBER2, inv.id)).rejects.toSatisfy(
+      (e) => isCode(e, "permission_denied"),
     );
 
     await fx.coSvc.revokeInvite(EDITOR, inv.id);
