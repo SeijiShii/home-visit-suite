@@ -36,7 +36,13 @@ interface RegionTreeIndex {
   >;
   areasByParent: Map<
     string,
-    { id: string; number: string; parentAreaId: string; regionId: string }[]
+    {
+      id: string;
+      number: string;
+      parentAreaId: string;
+      regionId: string;
+      polygonId?: string;
+    }[]
   >;
   /** id → { regionId, parentAreaId } の逆引き（フィルタ判定用） */
   areaMeta: Map<string, { regionId: string; parentAreaId: string }>;
@@ -68,6 +74,7 @@ async function buildRegionTreeIndex(
           number: a.number,
           parentAreaId: pa.id,
           regionId: r.id,
+          polygonId: a.polygonId,
         })),
       );
       for (const a of areas) {
@@ -301,12 +308,13 @@ export function DashboardPage() {
     let cancelled = false;
     async function fetchCheckoutable() {
       try {
-        // 全領域配下の全区域を収集
+        // 全領域配下の全区域を収集（ポリゴン未紐付けの区域はチェックアウト不可のため除外）
         const tree = await buildRegionTreeIndex(services.regionRepo);
         if (cancelled) return;
         const candidateAreas: { areaId: string; displayName: string }[] = [];
         for (const [, areas] of tree.areasByParent) {
           for (const a of areas) {
+            if (!a.polygonId) continue;
             candidateAreas.push({
               areaId: a.id,
               displayName: tree.displayIndex.get(a.id) ?? a.id,

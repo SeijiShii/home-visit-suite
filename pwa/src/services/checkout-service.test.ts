@@ -51,6 +51,13 @@ describe("checkout", () => {
     expect(c.areaId).toBe("a3");
   });
 
+  it("ポリゴン未紐付けの区域はチェックアウト不可", async () => {
+    // a4 は区域データはあるがポリゴン未紐付け
+    await expect(fx.coSvc.checkout(EDITOR, "a4", EDITOR)).rejects.toSatisfy(
+      (e) => isCode(e, "invalid_state"),
+    );
+  });
+
   it("同一区域の排他的チェックアウト", async () => {
     await fx.coSvc.checkout(MEMBER1, "a1", MEMBER1);
     await expect(fx.coSvc.checkout(MEMBER2, "a1", MEMBER2)).rejects.toSatisfy(

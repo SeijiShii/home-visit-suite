@@ -52,12 +52,14 @@ async function seed(services: AppServices) {
     id: "a1",
     parentAreaId: "pa1",
     number: "01",
+    polygonId: "poly-a1",
     geometry: null,
   });
   await services.regionRepo.saveArea({
     id: "a2",
     parentAreaId: "pa1",
     number: "02",
+    polygonId: "poly-a2",
     geometry: null,
   });
 }

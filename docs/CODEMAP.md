@@ -123,7 +123,7 @@
 - `data/inmemory/inmemory-user-repository.ts` — UserRepository の InMemory 実装
 
 ## 05 チェックアウト（返却回収/担当者/区域アクセス権/区域招待）
-- `services/checkout-service.ts` — チェックアウト操作（排他制約のみ・期間ゲート廃止）・担当者/招待・区域アクセス権・訪問記録書込
+- `services/checkout-service.ts` — チェックアウト操作（排他制約 + ポリゴン紐付け必須・期間ゲート廃止）・担当者/招待・区域アクセス権・訪問記録書込
 - `pages/CheckoutsPage.tsx` — チェックアウト一覧/発行/招待/状態タブ管理 (→10)
 - `components/InviteDialog.tsx` — チェックアウト招待発行（被招待者選択/TTL）(→07)
 - `domain/models/access.ts` — 訪問記録画面の編集/読取アクセスモードと親子合成

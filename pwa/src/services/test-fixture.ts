@@ -33,8 +33,9 @@ function user(id: string, role: User["role"]): User {
 /**
  * 標準フィクスチャ:
  * - ユーザー: admin / editor / member1 / member2
- * - 領域ツリー: region r1(NRT) > 親番 pa1(区域 a1, a2), pa2(区域 a3)
- * - チェックアウトのゲートは排他制約のみ（「チェックアウト可能期間」は廃止済み）
+ * - 領域ツリー: region r1(NRT) > 親番 pa1(区域 a1, a2), pa2(区域 a3, a4)
+ *   a1/a2/a3 はポリゴン紐付け済み、a4 は未紐付け（チェックアウト不可）
+ * - チェックアウトのゲートは排他制約 + ポリゴン紐付けのみ（「チェックアウト可能期間」は廃止済み）
  */
 export async function makeFixture(
   nowFn: () => Date = () => NOW,
@@ -76,22 +77,33 @@ export async function makeFixture(
     name: "加良部2丁目",
     geometry: null,
   });
+  // a1/a2/a3 はポリゴン紐付け済み（チェックアウト可能）
   await regionRepo.saveArea({
     id: "a1",
     parentAreaId: "pa1",
     number: "01",
+    polygonId: "poly-a1",
     geometry: null,
   });
   await regionRepo.saveArea({
     id: "a2",
     parentAreaId: "pa1",
     number: "02",
+    polygonId: "poly-a2",
     geometry: null,
   });
   await regionRepo.saveArea({
     id: "a3",
     parentAreaId: "pa2",
     number: "01",
+    polygonId: "poly-a3",
+    geometry: null,
+  });
+  // a4 はポリゴン未紐付け（チェックアウト不可のテスト用）
+  await regionRepo.saveArea({
+    id: "a4",
+    parentAreaId: "pa2",
+    number: "02",
     geometry: null,
   });
 

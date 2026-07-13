@@ -55,12 +55,14 @@ async function seed(services: AppServices) {
     id: "a1",
     parentAreaId: "pa1",
     number: "01",
+    polygonId: "poly-a1",
     geometry: null,
   });
   await services.regionRepo.saveArea({
     id: "a2",
     parentAreaId: "pa1",
     number: "02",
+    polygonId: "poly-a2",
     geometry: null,
   });
 }
@@ -95,6 +97,36 @@ describe("DashboardPage", () => {
     await renderDashboard(MEMBER);
     expect(await screen.findByText("NRT-001-01")).toBeInTheDocument();
     expect(screen.getByText("NRT-001-02")).toBeInTheDocument();
+  });
+
+  it("ポリゴン未紐付けの区域はチェックアウト可能な区域に出ない", async () => {
+    const services = createInMemoryServices();
+    await seed(services);
+    // a3 はポリゴン未紐付けで追加（チェックアウト可能一覧に出ないことの検証）
+    await services.regionRepo.saveArea({
+      id: "a3",
+      parentAreaId: "pa1",
+      number: "03",
+      geometry: null,
+    });
+    localStorage.setItem("dev.identity.actor", MEMBER);
+    const identityService = new DevIdentityService(services.userRepo, MEMBER);
+    render(
+      <I18nProvider>
+        <ServicesProvider services={services}>
+          <IdentityProvider service={identityService}>
+            <HashRouter>
+              <DashboardPage />
+            </HashRouter>
+          </IdentityProvider>
+        </ServicesProvider>
+      </I18nProvider>,
+    );
+
+    // a1/a2（紐付け済み）は出るが、a3（未紐付け）の NRT-001-03 は出ない
+    await screen.findByText("NRT-001-01");
+    expect(screen.getByText("NRT-001-02")).toBeInTheDocument();
+    expect(screen.queryByText("NRT-001-03")).not.toBeInTheDocument();
   });
 
   it("チェックアウトするとアクセス可能な区域に担当者として現れる", async () => {
