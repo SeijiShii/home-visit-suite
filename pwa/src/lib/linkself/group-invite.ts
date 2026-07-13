@@ -10,6 +10,7 @@ import {
   decodeInvite,
   extractInviteParam,
   verifyInvite,
+  type Identity,
   type Invite,
 } from "@linkself/core";
 import { linkselfIdentityFromSeed } from "./identity-bridge";
@@ -46,11 +47,22 @@ export interface IssuedGroupInvite {
   invite: Invite;
 }
 
-/** グループ招待 URL（QR にも載せる）と失効時刻を生成する。 */
+/** グループ招待 URL（QR にも載せる）と失効時刻を生成する（シード指定）。 */
 export async function issueGroupInvite(
   params: IssueGroupInviteParams,
 ): Promise<IssuedGroupInvite> {
   const identity = await linkselfIdentityFromSeed(params.adminSeed);
+  return buildGroupInviteUrl(identity, params);
+}
+
+/**
+ * グループ招待 URL を生成する（Identity 指定）。起動中の LinkSelfClient は
+ * `userIdentity` で署名できるため、生シードを扱わずに済む。
+ */
+export async function buildGroupInviteUrl(
+  identity: Identity,
+  params: Omit<IssueGroupInviteParams, "adminSeed">,
+): Promise<IssuedGroupInvite> {
   const invite = await createInvite(
     identity,
     {
