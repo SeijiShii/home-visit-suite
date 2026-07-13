@@ -118,7 +118,7 @@
 - `pages/OnboardingPage.tsx` — 初回オンボーディング（ID 作成 / 既存端末から URL・コード引き継ぎ）(→10)
 - `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。未登録は登録・登録済みは冪等スルー、フラグメント除去）(→10)
 - `pages/JoinPage.tsx` — グループ招待取り込み（`#/join?i=…`。別 DID が招待を受けて参加。ID 未作成なら作成へ誘導・参加は GroupNetwork.join）(→10,11)
-- `components/GroupInviteSection.tsx` — グループ招待の発行 UI（管理者専用。3 日期限の URL/QR 発行・コピー。設定画面に配置）(→11)
+- `components/GroupInviteSection.tsx` — グループ招待の発行 UI（管理者専用・admin 以外は非表示。3 日期限の URL/QR 発行・コピー。メンバー管理画面 `/users` に配置）(→11)
 - `contexts/GroupNetworkContext.tsx` — グループ招待/参加ファサード（GroupNetworkService）の DI。ネットワーク未配線時は null (→01,11)
 - `components/QrCode.tsx` — テキスト（ペアリング URL 等）を QR canvas 描画
 - `pages/UsersPage.tsx` — メンバー一覧とタグ CRUD・検索/フィルタ画面 (→10)

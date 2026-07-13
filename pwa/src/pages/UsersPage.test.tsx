@@ -8,8 +8,11 @@ import {
   ServicesProvider,
   createInMemoryServices,
 } from "../contexts/ServicesContext";
+import { GroupNetworkProvider } from "../contexts/GroupNetworkContext";
 import { I18nProvider } from "../contexts/I18nContext";
+import { IdentityProvider } from "../contexts/IdentityContext";
 import { setLocale } from "../i18n/i18n-util";
+import { LocalIdentityService } from "../services/identity-service";
 import { UsersPage } from "./UsersPage";
 
 async function renderUsers(
@@ -31,10 +34,17 @@ async function renderUsers(
     joinedAt: "2026-01-01T00:00:00Z",
   });
   await seed?.(services);
+  // UsersPage は GroupInviteSection（管理者専用の招待発行 UI）を含むため
+  // IdentityProvider / GroupNetworkProvider が要る。ここでは identity 未作成
+  // ＝ currentRole "" となり招待セクションは非表示（既存アサーションに影響しない）。
   render(
     <I18nProvider>
       <ServicesProvider services={services}>
-        <UsersPage />
+        <IdentityProvider service={new LocalIdentityService(services.userRepo)}>
+          <GroupNetworkProvider service={null}>
+            <UsersPage />
+          </GroupNetworkProvider>
+        </IdentityProvider>
       </ServicesProvider>
     </I18nProvider>,
   );

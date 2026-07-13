@@ -3,7 +3,6 @@
 // セクションは、対応するサービス層の移植時に追加する。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GroupInviteSection } from "../components/GroupInviteSection";
 import { QrCode } from "../components/QrCode";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
@@ -373,8 +372,6 @@ export function SettingsPage() {
           </p>
         )}
       </section>
-
-      {hasIdentity && <GroupInviteSection />}
 
       {hasIdentity && (
         <section className="settings-section">
