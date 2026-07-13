@@ -42,7 +42,11 @@ export default defineConfig({
       "@libp2p/identify",
       "@multiformats/multiaddr",
       "multiformats",
-      "@noble/hashes",
+      // 注意: "@noble/hashes" を dedupe に入れてはならない。直依存は v1 系・
+      // @noble/curves@2 内部は v2 系を要求し、メジャー 2 系統の併存が正しい状態。
+      // dedupe で root の v1 に強制すると curves 内の sha512 が壊れ、ed25519 の
+      // 鍵導出が "Cannot read properties of undefined (reading 'slice')" で落ちる
+      // （リレー設定時の実 identity 起動で顕在化）。
       "uint8arrays",
     ],
   },
