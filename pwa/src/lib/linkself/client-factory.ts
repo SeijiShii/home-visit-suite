@@ -7,13 +7,24 @@ import { noise } from "@chainsafe/libp2p-noise";
 import { yamux } from "@chainsafe/libp2p-yamux";
 import { webSockets } from "@libp2p/websockets";
 import { createLibp2p, type Libp2p } from "libp2p";
-import { LinkSelfClient, type Identity, type KnownPeer } from "@linkself/core";
+import {
+  LinkSelfClient,
+  type Identity,
+  type KnownPeer,
+  type SqlDatabase,
+} from "@linkself/core";
 
 export interface CreateLinkSelfClientOptions {
   /** 自身の LinkSelf アイデンティティ（Ed25519 + did:key）。 */
   identity: Identity;
   /** FastStart 用の既知ピア（リレー/ブートストラップ・ペア済み端末）。 */
   knownPeers?: KnownPeer[];
+  /**
+   * MyDB の SQL 面のバックエンド（ブラウザは OPFS-backed SqliteWasmDatabase）。
+   * 渡すと start() 後 `client.myDB` の SQL/KV が使える。SQL 書き込みは
+   * devicesync にミラーされ端末間同期に乗る。省略時は KV のみ（永続なし）。
+   */
+  sqlDatabase?: SqlDatabase;
   /**
    * loopback/private アドレスへの dial を許可する（ローカル Go ノード相手の
    * 開発時のみ true）。ブラウザは既定でローカルネットワーク保護により
@@ -53,6 +64,7 @@ export async function createLinkSelfClient(
     libp2p,
     identity: opts.identity,
     knownPeers: opts.knownPeers,
+    sqlDatabase: opts.sqlDatabase,
   });
   await client.start();
   return {

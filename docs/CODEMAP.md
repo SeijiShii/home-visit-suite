@@ -108,7 +108,7 @@
 
 ## 04 メンバー管理と権限（ロール/招待/承認）
 - `services/auth-service.ts` — ロール権限判定・招待/受理・降格/メンバー削除のロジック
-- `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング・デバイス登録簿）と DevIdentityService（dev 切替）(→01,11)
+- `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング・デバイス登録簿）と DevIdentityService（dev 切替）。`loadStoredSeed()` は保存済みシードを返し LinkSelfClient のネットワーク配線に供給(→01,11)
 - `contexts/IdentityContext.tsx` — actorID/ロール/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice=自分以外）(→10)
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
 - `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）
@@ -169,10 +169,10 @@
 ## 11 LinkSelf 拡張要望（データインフラ）
 - `services/identity-service.ts` — アクター DID 解決の抽象（04節に掲載、LinkSelf 移行点）
 - 各 `*-binding-adapter.ts`（01/02/03/08節）— ドメイン↔BindingAPI 境界。LinkSelf 実装差し替えの接続点。
-- `lib/linkself/client-factory.ts` — ブラウザ用 LinkSelf クライアント（@linkself/core）の組み立て。WebSocket/Noise/yamux で libp2p を構成し `createLinkSelfClient()` が起動済み `LinkSelfSession`（client + libp2p + graceful stop）を返す。M5 統合の実利用エントリ
+- `lib/linkself/client-factory.ts` — ブラウザ用 LinkSelf クライアント（@linkself/core）の組み立て。WebSocket/Noise/yamux で libp2p を構成し `createLinkSelfClient()` が起動済み `LinkSelfSession`（client + libp2p + graceful stop）を返す。`sqlDatabase`（OPFS SqliteWasmDatabase）を渡すと `client.myDB` の SQL/KV が使える。M5 統合の実利用エントリ
 - `lib/linkself/identity-bridge.ts` — アプリの identity（32byte Ed25519 シード, `identity-crypto.ts`）から @linkself/core の `Identity` を導出（`linkselfIdentityFromSeed`）。同一シード→同一 did:key で既存ユーザーの DID を保ったまま LinkSelf 統合へ移行（04節 identity-service と対）
 - `data/linkself/linkself-personal-repository.ts` — PersonalRepository の LinkSelf(MyDB SQL) 実装。アプリ設定(`my_settings`)・非表示tip(`hidden_tips`)を MyDB の SQL テーブル（ブラウザは OPFS SAHPool VFS の SQLite=リロード永続）に保存。書き込みは wireSqlSync が devicesync へミラー（ScopeDevice=将来の端末間同期に接続）。ノート/タグは当面 InMemory 委譲。※KV 面は MemDeviceStorage=インメモリで永続しないため設定は SQL 面に載せる（ScopeDevice フェーズ Slice-1）
-- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`。個人設定のみ OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` を流用。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 資産を含むため遅延ロード）。ネットワーク層(libp2p/リレー)は接続先ノードが要る Slice-2 まで未配線
+- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定のみ OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
 - `lib/linkself/linkself-wiring.test.ts` — @linkself/core が alias 経由で pwa のツールチェーン下に解決・トランスパイルできる配線確認（CP-A）
 - `lib/linkself/linkself-interop.test.ts` — client-factory から Go ノード（link-self/core `poc-wsnode`）へ実 WebSocket 接続・LinkSelf auth・echo 往復の自動 interop 検証（CP-B、`go` 無ければ skip）
 - 依存リンク: `@linkself/core` は姉妹リポジトリ `../../link-self/ts/linkself/src` の TS ソースを Vite `resolve.alias` + tsconfig `paths` で直接参照（build 不要）。libp2p 実行時依存は pwa 側に固定バージョンで導入し `resolve.dedupe` で単一化（`pwa/vite.config.ts` / `pwa/tsconfig.json`）

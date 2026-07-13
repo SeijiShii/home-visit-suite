@@ -12,7 +12,9 @@ import {
 import {
   LocalIdentityService,
   DEV_SEED_USERS,
+  loadStoredSeed,
 } from "./services/identity-service";
+import type { AppServices } from "./contexts/ServicesContext";
 import "leaflet/dist/leaflet.css";
 import "./style.css";
 
@@ -21,18 +23,46 @@ import "./style.css";
 // - VITE_LINKSELF 有効時（ScopeDevice 先行スライス）: 個人設定を LinkSelf MyDB の
 //   SQL 面（ブラウザは OPFS SQLite）に永続する。残りは暫定実装のまま。
 //   sqlite-wasm 資産を含むため、有効時のみ動的 import して読み込む。
+//   さらに VITE_LINKSELF_RELAYS（既知ピア）と実 identity がそろえば LinkSelfClient を
+//   起動し devicesync に乗せる。リレー未設定ならローカル永続のみ（libp2p 起動なし）。
 // 自分の identity は LocalIdentityService が localStorage(`hvs.identity`) に永続する。
 function linkSelfEnabled(): boolean {
   const v = String(import.meta.env.VITE_LINKSELF ?? "").toLowerCase();
   return v === "1" || v === "true" || v === "on";
 }
 
+function allowLocalDial(): boolean {
+  const v = String(
+    import.meta.env.VITE_LINKSELF_ALLOW_LOCAL_DIAL ?? "",
+  ).toLowerCase();
+  return v === "1" || v === "true" || v === "on";
+}
+
 async function bootstrap() {
-  const services = linkSelfEnabled()
-    ? await (
-        await import("./contexts/linkself-services")
-      ).createLinkSelfServices({ persist: true })
-    : createInMemoryServices({ persist: true });
+  let services: AppServices;
+  // ネットワーク配線を有効化したときの graceful stop（既定は no-op）。
+  let stopLinkSelf = async (): Promise<void> => {};
+
+  if (linkSelfEnabled()) {
+    const mod = await import("./contexts/linkself-services");
+    const seed = loadStoredSeed() ?? undefined;
+    const relays = mod.parseRelays(import.meta.env.VITE_LINKSELF_RELAYS);
+    const bundle = await mod.createLinkSelfServices({
+      persist: true,
+      seed,
+      relays,
+      allowLocalDial: allowLocalDial(),
+    });
+    services = bundle.services;
+    stopLinkSelf = bundle.stop;
+    // 前景→非表示 / アンロードで libp2p を graceful に停止する（docs/wants/11 §2）。
+    globalThis.addEventListener?.("pagehide", () => void stopLinkSelf());
+    globalThis.addEventListener?.("visibilitychange", () => {
+      if (document.visibilityState === "hidden") void stopLinkSelf();
+    });
+  } else {
+    services = createInMemoryServices({ persist: true });
+  }
 
   // dev ビルドではロール別 UI 確認用のシードユーザーを投入し、identity 切替を有効化する。
   const devMode = import.meta.env.DEV;

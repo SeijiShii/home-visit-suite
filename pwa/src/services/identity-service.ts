@@ -81,6 +81,23 @@ interface StoredIdentity {
 }
 
 /**
+ * 保存済み実 identity の 32byte Ed25519 シードを返す（未作成なら null）。
+ * LinkSelf クライアントを実 identity で起動する配線（M5 ネットワーク）で使う。
+ * localStorage(`hvs.identity`) を直接読むのは、サービス束が identityService より
+ * 先に構築されるため（main.tsx bootstrap）。
+ */
+export function loadStoredSeed(): Uint8Array | null {
+  try {
+    const raw = localStorage.getItem(IDENTITY_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as StoredIdentity;
+    return s.seedB64 ? seedFromBase64(s.seedB64) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 実 identity を localStorage（`hvs.identity`）に保管する PWA 向け IdentityService。
  * 実鍵の生成・ペアリングは identity-crypto / pairing（LinkSelf 形式互換）に委譲する。
  * LinkSelf 本統合（M5）で @linkself/core の実クライアント + 安全ストレージへ差し替える。
