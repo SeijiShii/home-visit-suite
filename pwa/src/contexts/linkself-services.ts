@@ -86,9 +86,12 @@ export interface CreateLinkSelfServicesOptions extends CreateServicesOptions {
 /**
  * スタンドアロンの OPFS-backed MyDB（KV=devicesync + SQL）を組む。libp2p は起動しない。
  * SQL 書き込みは wireSqlSync 経由で devicesync にミラーされる（本番配線と同じ）。
+ * sqlDb は開場済みインスタンスを受け取る（OPFS SAHPool の Access Handle は排他の
+ * ため、同一ファイルを二重に open してはならない）。
  */
-async function openStandalonePersonalMyDB(filename: string): Promise<MyDB> {
-  const sqlDb = await SqliteWasmDatabase.open({ filename });
+async function openStandalonePersonalMyDB(
+  sqlDb: SqliteWasmDatabase,
+): Promise<MyDB> {
   const engine = new ReplicationEngine({
     storage: new MemDeviceStorage(),
     selfDID: "did:key:zlocal", // スタンドアロンは同期相手なし
@@ -111,13 +114,29 @@ export async function createLinkSelfServices(
   const filename = opts.personalDbFilename ?? PERSONAL_DB_FILENAME;
   const useNetwork = opts.seed != null && (opts.relays?.length ?? 0) > 0;
 
+  // OPFS SQLite は一度だけ開き、以降の全経路（ネットワーク/スタンドアロン/
+  // 配線失敗フォールバック）で同一インスタンスを共有する。SAHPool の
+  // Access Handle は排他のため、同一ファイルの二重 open は必ず失敗する。
+  // 開けない場合（別タブが保持中など。多タブ直列化は未実装 = docs/wants/01）は
+  // このタブに限り in-memory で起動し、アプリを起動不能にしない。
+  let sqlDb: SqliteWasmDatabase;
+  try {
+    sqlDb = await SqliteWasmDatabase.open({ filename });
+  } catch (e) {
+    console.warn(
+      "linkself: OPFS DB open failed (another tab holding the Access Handle?). " +
+        "Falling back to in-memory for this tab — settings will not persist here.",
+      e,
+    );
+    sqlDb = await SqliteWasmDatabase.open({ filename: ":memory:" });
+  }
+
   let myDB: MyDB;
   let stop = async (): Promise<void> => {};
   let groupNetwork: GroupNetworkService | undefined;
 
   if (useNetwork) {
     try {
-      const sqlDb = await SqliteWasmDatabase.open({ filename });
       // 2層 identity: userIdentity=アカウント（seed 由来・全端末共有）、
       // deviceIdentity=端末固有鍵（libp2p host 鍵, peerId≡device DID）。
       const userIdentity = await linkselfIdentityFromSeed(opts.seed!);
@@ -144,14 +163,15 @@ export async function createLinkSelfServices(
       );
     } catch (e) {
       // ネットワーク配線失敗でアプリを起動不能にしない。ローカル永続へフォールバック。
+      // sqlDb は開場済みのものを再利用する（再 open は Access Handle 排他で失敗する）。
       console.error(
         "linkself: network wiring failed, falling back to standalone",
         e,
       );
-      myDB = await openStandalonePersonalMyDB(filename);
+      myDB = await openStandalonePersonalMyDB(sqlDb);
     }
   } else {
-    myDB = await openStandalonePersonalMyDB(filename);
+    myDB = await openStandalonePersonalMyDB(sqlDb);
   }
 
   const personalRepo = new LinkSelfPersonalRepository(myDB);
