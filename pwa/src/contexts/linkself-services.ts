@@ -30,6 +30,7 @@ import {
 } from "@linkself/core";
 import { LinkSelfPersonalRepository } from "../data/linkself/linkself-personal-repository";
 import { createLinkSelfClient } from "../lib/linkself/client-factory";
+import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
@@ -95,8 +96,12 @@ export async function createLinkSelfServices(
     try {
       const sqlDb = await SqliteWasmDatabase.open({ filename });
       const identity = await linkselfIdentityFromSeed(opts.seed!);
+      // 端末固有の transport 鍵（DID 鍵から分離）。同一 DID の複数端末が別 peerId を
+      // 持ち相互 devicesync できるようにする（link-self mutualAuth）。
+      const transportPrivateKey = await loadOrCreateDeviceTransportKey();
       const session = await createLinkSelfClient({
         identity,
+        transportPrivateKey,
         knownPeers: opts.relays,
         sqlDatabase: sqlDb,
         allowLocalDial: opts.allowLocalDial,
