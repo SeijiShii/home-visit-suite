@@ -112,6 +112,7 @@
 - `contexts/IdentityContext.tsx` — actorID/ロール/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice=自分以外）(→10)
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
 - `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）
+- `lib/linkself/group-invite.ts` — グループ招待（別 DID 参加）の発行/解析ラッパ。@linkself/core の invitation を束ね、3 日期限の `#/join?i=...` URL 生成（issueGroupInvite）と検証付き解析（parseGroupInvite）。デバイスペアリングと異なり鍵は運ばない (→11)
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label、暫定 localStorage・M5 で同期リポジトリへ）
 - `pages/OnboardingPage.tsx` — 初回オンボーディング（ID 作成 / 既存端末から URL・コード引き継ぎ）(→10)
 - `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。未登録は登録・登録済みは冪等スルー、フラグメント除去）(→10)
