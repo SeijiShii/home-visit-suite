@@ -78,8 +78,13 @@ export async function createLinkSelfClient(
   const libp2p = await createLibp2p({
     // libp2p host 鍵 = device identity の鍵（peerId≡device DID）。
     privateKey: opts.identity.privateKey,
+    // listen '/p2p-circuit': これが無いと circuitRelayTransport は予約を
+    // 要求せず、リレーに接続しても /p2p-circuit 受信アドレスを得られない
+    // （= selfAddrs() が空のままでグループ招待の発行が常に失敗する）。
+    // 本番リレーへの live テストで確認（link-self ts/linkself/test/live-relay.e2e.test.ts）。
+    addresses: { listen: ["/p2p-circuit"] },
     // webSockets: リレー/ブートストラップへの直 dial（ブラウザは着信不可）。
-    // circuitRelayTransport: リレー接続時に自動でスロットを予約し `/p2p-circuit`
+    // circuitRelayTransport: リレー接続時にスロットを予約し `/p2p-circuit`
     //   受信アドレスを得る＝ブラウザ同士が Circuit Relay v2 経由で相互到達できる
     //   （docs/wants/11 §2「Circuit Relay v2 クライアント対応」）。
     transports: [webSockets(), circuitRelayTransport()],
