@@ -28,6 +28,8 @@ const ja: Translations = {
     inviteRoleExpired: "招待 (期限切れ)",
     gotoVisit: "訪問記録 →",
     invite: "招待",
+    returnAction: "返却",
+    confirmReturn: ({ area }: { area: string }) => `${area} を返却しますか？`,
     loading: "読み込み中...",
     allAreas: "全ての区域一覧",
     allAreasNote:

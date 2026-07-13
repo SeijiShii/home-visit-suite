@@ -426,6 +426,18 @@ export function DashboardPage() {
     });
   };
 
+  const handleReturn = async (row: AccessibleAreaRow) => {
+    if (!window.confirm(t.dashboard.confirmReturn({ area: row.displayName }))) {
+      return;
+    }
+    try {
+      await services.checkoutService.return(currentActorID, row.checkoutId);
+      setReloadTick((tick) => tick + 1);
+    } catch (e) {
+      window.alert(String(e));
+    }
+  };
+
   return (
     <>
       <h1>{t.dashboard.title}</h1>
@@ -462,13 +474,22 @@ export function DashboardPage() {
                       {t.dashboard.gotoVisit}
                     </button>
                     {row.role === "owner" && (
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        onClick={() => handleInvite(row)}
-                      >
-                        {t.dashboard.invite}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => handleInvite(row)}
+                        >
+                          {t.dashboard.invite}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => void handleReturn(row)}
+                        >
+                          {t.dashboard.returnAction}
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>

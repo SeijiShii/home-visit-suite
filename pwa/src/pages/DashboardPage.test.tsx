@@ -1,7 +1,7 @@
 // DashboardPage の移植テスト（サービス層をインメモリ実装で駆動）。
 // 参照: desktop/frontend/src/pages/DashboardPage.test.tsx（Wails モック版）
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HashRouter } from "react-router-dom";
@@ -149,6 +149,40 @@ describe("DashboardPage", () => {
     // チェックアウト可能一覧からは消える
     const remaining = screen.getAllByRole("button", { name: "チェックアウト" });
     expect(remaining).toHaveLength(1);
+  });
+
+  it("担当者は行内の返却ボタンで区域を返却でき、チェックアウト可能一覧へ戻る", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await renderDashboard(MEMBER);
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: "チェックアウト" }))[0],
+    );
+
+    // 担当者行の返却ボタンを押す
+    const row = (await screen.findByText("担当者")).closest("tr")!;
+    await userEvent.click(within(row).getByRole("button", { name: "返却" }));
+
+    // アクセス可能な区域から外れ、チェックアウト可能一覧へ戻る（a1/a2 の 2 件）
+    expect(screen.queryByText("担当者")).toBeNull();
+    const checkoutButtons = await screen.findAllByRole("button", {
+      name: "チェックアウト",
+    });
+    expect(checkoutButtons).toHaveLength(2);
+    confirmSpy.mockRestore();
+  });
+
+  it("返却の確認ダイアログでキャンセルすると返却されない", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await renderDashboard(MEMBER);
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: "チェックアウト" }))[0],
+    );
+    const row = (await screen.findByText("担当者")).closest("tr")!;
+    await userEvent.click(within(row).getByRole("button", { name: "返却" }));
+
+    // 担当者行は残ったまま
+    expect(screen.getByText("担当者")).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   it("member には全ての区域一覧セクションが表示されない", async () => {

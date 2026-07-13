@@ -152,7 +152,7 @@
 - `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
 - `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加・編集リクエスト。移動/削除は直接不可）(→10)
 - `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ (→01)
-- `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・招待導線）(→10)
+- `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・チェックアウト/返却/招待導線）(→10)
 - `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択
 - `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定
 - `domain/models/personal.ts` — 端末内個人スコープの個人メモ/個人タグ/割当モデル

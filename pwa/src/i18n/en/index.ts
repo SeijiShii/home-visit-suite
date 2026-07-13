@@ -29,6 +29,8 @@ const en: Translations = {
     inviteRoleExpired: "Invitee (expired)",
     gotoVisit: "Visits →",
     invite: "Invite",
+    returnAction: "Return",
+    confirmReturn: ({ area }: { area: string }) => `Return ${area}?`,
     loading: "Loading...",
     allAreas: "All Areas",
     allAreasNote:

@@ -27,6 +27,8 @@ export interface Translations {
     inviteRoleExpired: string;
     gotoVisit: string;
     invite: string;
+    returnAction: string;
+    confirmReturn: (args: { area: string }) => string;
     loading: string;
     allAreas: string;
     allAreasNote: string;
