@@ -1,12 +1,17 @@
-// PersonalRepository の LinkSelf(MyDB) 実装。
-// アプリ設定（my_settings）と非表示 tip（hidden_tips）を MyDB の KV に保存する。
-// KV は devicesync 経由で同一ユーザーの端末間に複製される（ScopeDevice。
-// docs/wants/01_共通基盤.md「同期スコープ」）。localStorage 実装の置き換え。
+// PersonalRepository の LinkSelf(MyDB SQL) 実装。
+// アプリ設定（my_settings）と非表示 tip（hidden_tips）を MyDB の SQL テーブルに保存する。
+// SQL 面は SqliteWasmDatabase（ブラウザでは OPFS SAHPool VFS）を裏に持つため、
+// リロードをまたいで永続する。書き込みは wireSqlSync が devicesync へミラーするので、
+// 将来 Phase C 相当の端末間同期（ScopeDevice）にもそのまま乗る
+// （docs/wants/01_共通基盤.md「同期スコープ」）。
+//
+// ※ KV 面（MyDB.put/get）は MemDeviceStorage backed = インメモリで永続しないため、
+//   設定は SQL 面に載せる（link-self には永続 DeviceStorage が未実装）。
 //
 // ノート/タグ/割り当てのドメインデータは当面 InMemory へ委譲する
-// （localStorage 実装と同構造。MyDB SQL 化は後続ステップ）。
+// （localStorage 実装と同構造。ドメインデータの MyDB SQL 化は後続ステップ）。
 //
-// 注意: API キーは MyDB に平文で入る（利用者自身のキー・端末間共有は本人の端末のみ）。
+// 注意: API キーは SQLite に平文で入る（利用者自身のキー・端末間共有は本人の端末のみ）。
 // 秘匿情報の暗号化ストレージ化は後続で対応（docs/wants/01「秘密鍵の保管」と同様）。
 
 import type { MyDB } from "@linkself/core";
@@ -18,10 +23,7 @@ import type {
 import type { PersonalRepository } from "../../domain/repositories/personal-repository";
 import { InMemoryPersonalRepository } from "../inmemory/inmemory-personal-repository";
 
-const SETTINGS_TABLE = "my_settings";
-const HIDDEN_TIPS_TABLE = "hidden_tips";
-
-// 設定キー（my_settings テーブル内の recordId）。
+// 設定キー（my_settings.key）。
 const K_LOCALE = "locale";
 const K_AREA_RADIUS = "areaDetailRadiusKm";
 const K_AI_PROVIDER = "aiProvider";
@@ -29,22 +31,46 @@ const K_AI_MODEL = "aiModel";
 const K_AI_CONSENT = "aiMapImportConsent";
 const K_AI_APIKEY_PREFIX = "aiApiKey/"; // aiApiKey/<provider>
 
-const enc = new TextEncoder();
-const dec = new TextDecoder();
+// スキーマ。各テーブルの先頭列を主キーにする（wireSqlSync が devicesync へ
+// ミラーする際、先頭列値をレコード ID として読み戻す規約に合わせる）。
+const MIGRATIONS = [
+  {
+    version: 1,
+    sql: `
+      CREATE TABLE IF NOT EXISTS my_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS hidden_tips (key TEXT PRIMARY KEY);
+    `,
+  },
+];
 
 export class LinkSelfPersonalRepository implements PersonalRepository {
-  // ノート/タグ/割り当ては当面インメモリに委譲（MyDB SQL 化は後続ステップ）。
+  // ノート/タグ/割り当ては当面インメモリに委譲（ドメインデータの SQL 化は後続ステップ）。
   private readonly inner = new InMemoryPersonalRepository();
+  // マイグレーションは初回アクセス時に一度だけ実行する（コンストラクタは同期のため）。
+  private migrated: Promise<void> | null = null;
 
   constructor(private readonly db: MyDB) {}
 
-  // ── 設定 KV ヘルパ ───────────────────────────────────────
+  private ensureMigrated(): Promise<void> {
+    return (this.migrated ??= this.db.migrate(MIGRATIONS));
+  }
+
+  // ── 設定 KV ヘルパ（my_settings テーブル） ───────────────────
   private async getStr(key: string): Promise<string> {
-    const rec = await this.db.get(SETTINGS_TABLE, key);
-    return rec?.body ? dec.decode(rec.body) : "";
+    await this.ensureMigrated();
+    const rows = await this.db.query(
+      "SELECT value FROM my_settings WHERE key = ?",
+      [key],
+    );
+    const v = rows[0]?.value;
+    return v == null ? "" : String(v);
   }
   private async setStr(key: string, value: string): Promise<void> {
-    await this.db.put(SETTINGS_TABLE, key, enc.encode(value));
+    await this.ensureMigrated();
+    await this.db.exec(
+      "INSERT OR REPLACE INTO my_settings (key, value) VALUES (?, ?)",
+      [key, value],
+    );
   }
 
   // ── ドメインデータ（委譲） ────────────────────────────────
@@ -78,22 +104,24 @@ export class LinkSelfPersonalRepository implements PersonalRepository {
     return this.inner.deletePersonalTagAssignment(id);
   }
 
-  // ── 非表示 tip（hidden_tips テーブル: キー1つ=1レコード） ──
+  // ── 非表示 tip（hidden_tips テーブル: キー1つ=1行） ──────────
   async getHiddenTipKeys(): Promise<string[]> {
-    const recs = await this.db.list(HIDDEN_TIPS_TABLE);
-    return recs.map((r) => r.id);
+    await this.ensureMigrated();
+    const rows = await this.db.query("SELECT key FROM hidden_tips");
+    return rows.map((r) => String(r.key));
   }
 
   async addHiddenTipKey(key: string): Promise<void> {
-    // 既存でも put は冪等（同一 recordId 上書き）。マーカーとして空バイト列を置く。
-    await this.db.put(HIDDEN_TIPS_TABLE, key, new Uint8Array(0));
+    await this.ensureMigrated();
+    // 既存でも冪等（同一主キーは無視）。
+    await this.db.exec("INSERT OR IGNORE INTO hidden_tips (key) VALUES (?)", [
+      key,
+    ]);
   }
 
   async clearHiddenTipKeys(): Promise<void> {
-    const recs = await this.db.list(HIDDEN_TIPS_TABLE);
-    for (const r of recs) {
-      await this.db.delete(HIDDEN_TIPS_TABLE, r.id);
-    }
+    await this.ensureMigrated();
+    await this.db.exec("DELETE FROM hidden_tips");
   }
 
   // ── アプリ設定 ───────────────────────────────────────────
