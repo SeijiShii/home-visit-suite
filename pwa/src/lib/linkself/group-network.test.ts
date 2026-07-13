@@ -30,6 +30,9 @@ async function makeClient(
   return {
     userIdentity: identity,
     network: { create: vi.fn(async () => "net-created") },
+    // 既定は「保存済み ID の実体あり」= 再利用パス（実体なしのケースは
+    // 個別テストで上書きする）。
+    networkStore: { getNetwork: vi.fn(async () => ({ id: "net-x" })) },
     requestJoin: vi.fn(
       async () => ({ ok: false, code: "invite_invalid" }) as JoinResponse,
     ),
@@ -57,6 +60,17 @@ describe("ensureFoundingNetwork", () => {
     const svc = new GroupNetworkService(client, memStore("net-existing"));
     expect(await svc.ensureFoundingNetwork()).toBe("net-existing");
     expect(client.network.create).not.toHaveBeenCalled();
+  });
+
+  it("recreates when the stored id has no backing network (stale id recovery)", async () => {
+    const client = await makeClient({
+      networkStore: { getNetwork: vi.fn(async () => null) },
+    });
+    const store = memStore("net-stale");
+    const svc = new GroupNetworkService(client, store);
+    expect(await svc.ensureFoundingNetwork()).toBe("net-created");
+    expect(store.get()).toBe("net-created");
+    expect(client.network.create).toHaveBeenCalledTimes(1);
   });
 });
 

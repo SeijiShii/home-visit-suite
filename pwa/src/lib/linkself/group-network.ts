@@ -26,6 +26,9 @@ export interface GroupClient {
   readonly network: {
     create(suiteId: string, creatorDID: string): Promise<string>;
   };
+  readonly networkStore: {
+    getNetwork(id: string): Promise<unknown | null>;
+  };
   requestJoin(
     addr: string,
     invite: Invite,
@@ -101,11 +104,15 @@ export class GroupNetworkService {
 
   /**
    * 創設: 未作成ならこのユーザーを管理者とするネットワークを作成し ID を永続化する。
-   * 既存があればそれを返す（冪等）。
+   * 既存があればそれを返す（冪等）。保存済み ID の実体がストアに無い場合
+   * （in-memory ストア時代の迷子 ID 等）は再利用せず作り直す——実体の無い
+   * networkId で招待を発行すると参加が network_not_found で拒否されるため。
    */
   async ensureFoundingNetwork(): Promise<string> {
     const existing = this.store.get();
-    if (existing) return existing;
+    if (existing && (await this.client.networkStore.getNetwork(existing))) {
+      return existing;
+    }
     const id = await this.client.network.create(
       this.suiteId,
       this.client.userIdentity.did,

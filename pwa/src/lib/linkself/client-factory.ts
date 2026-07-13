@@ -11,9 +11,11 @@ import { webSockets } from "@libp2p/websockets";
 import { createLibp2p, type Libp2p } from "libp2p";
 import {
   LinkSelfClient,
+  type ConsumedNonceStore,
   type Identity,
   type KnownPeer,
   type MemberJoinedInfo,
+  type NetworkStore,
   type RoleDefs,
   type SignedRoster,
   type SqlDatabase,
@@ -61,6 +63,13 @@ export interface CreateLinkSelfClientOptions {
    * しか見えないため、メンバー表（UserRepository）への記録はここで行う。
    */
   onMemberJoined?: (info: MemberJoinedInfo) => void | Promise<void>;
+  /**
+   * ネットワーク実体（メンバー・ロール表）のストア。省略時は in-memory で
+   * リロードごとに消えるため、本番配線では永続実装を渡すこと。
+   */
+  networkStore?: NetworkStore;
+  /** 使用済み招待ノンス表（単回使用の担保）。省略時は in-memory。 */
+  consumedNonces?: ConsumedNonceStore;
 }
 
 /** 起動済み LinkSelf セッション。stop() で graceful に libp2p を停止する。 */
@@ -112,6 +121,8 @@ export async function createLinkSelfClient(
     roles: opts.roles,
     adminRole: opts.adminRole,
     onMemberJoined: opts.onMemberJoined,
+    networkStore: opts.networkStore,
+    consumedNonces: opts.consumedNonces,
   });
   await client.start();
   return {

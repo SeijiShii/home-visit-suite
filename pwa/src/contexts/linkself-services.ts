@@ -39,6 +39,10 @@ import {
   localStorageNetworkIdStore,
   upsertJoinedMember,
 } from "../lib/linkself/group-network";
+import {
+  LocalStorageConsumedNonceStore,
+  LocalStorageNetworkStore,
+} from "../lib/linkself/network-store";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
@@ -157,6 +161,10 @@ export async function createLinkSelfServices(
         // 参加受理（管理者側）でメンバー表へ記録する（displayName はここでしか
         // 得られない）。一覧への他端末伝播は Phase C（ScopeNetwork 同期）待ち。
         onMemberJoined: (info) => upsertJoinedMember(base.userRepo, info),
+        // ネットワーク実体と使用済みノンスはリロードをまたいで保持する
+        // （in-memory だと発行済み招待が network_not_found で拒否される）。
+        networkStore: new LocalStorageNetworkStore(),
+        consumedNonces: new LocalStorageConsumedNonceStore(),
       });
       myDB = session.client.myDB;
       stop = session.stop;
