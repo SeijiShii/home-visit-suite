@@ -13,6 +13,7 @@ import {
   LinkSelfClient,
   type Identity,
   type KnownPeer,
+  type RoleDefs,
   type SignedRoster,
   type SqlDatabase,
 } from "@linkself/core";
@@ -41,6 +42,13 @@ export interface CreateLinkSelfClientOptions {
    * devicesync にミラーされ端末間同期に乗る。省略時は KV のみ（永続なし）。
    */
   sqlDatabase?: SqlDatabase;
+  /**
+   * ロール階層（admin/editor/member 等）。ネットワーク管理・グループ招待の
+   * 権限判定（RoleDAG）に使う。省略時は空 DAG（"members" のみ有効）。
+   */
+  roles?: RoleDefs;
+  /** ネットワーク管理に必要なロール（既定 "admin"）。 */
+  adminRole?: string;
   /**
    * loopback/private アドレスへの dial を許可する（ローカル Go ノード相手の
    * 開発時のみ true）。ブラウザは既定でローカルネットワーク保護により
@@ -90,6 +98,8 @@ export async function createLinkSelfClient(
     roster: opts.roster,
     knownPeers: opts.knownPeers,
     sqlDatabase: opts.sqlDatabase,
+    roles: opts.roles,
+    adminRole: opts.adminRole,
   });
   await client.start();
   return {

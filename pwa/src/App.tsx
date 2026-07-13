@@ -11,6 +11,7 @@ import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer
 import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
+import { JoinPage } from "./pages/JoinPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { PairPage } from "./pages/PairPage";
 import { RegionManagementPage } from "./pages/RegionManagementPage";
@@ -36,6 +37,18 @@ export default function App() {
   // 未登録端末は登録、登録済み端末は冪等スルーして通常起動へ。
   if (hash.startsWith("#/pair")) {
     return <PairPage onConsumed={() => setHash("#/")} />;
+  }
+  // グループ招待 URL（`#/join?i=...`）。別ユーザーが招待を受けて参加する。
+  // ID 未作成なら JoinPage 内で「まず ID を作成」へ誘導する。
+  if (hash.startsWith("#/join")) {
+    return (
+      <JoinPage
+        onConsumed={() => {
+          window.location.hash = "#/";
+          setHash("#/");
+        }}
+      />
+    );
   }
   // 自分の ID が未保存なら全ルートに優先してオンボーディングへ誘導する。
   if (!hasIdentity) return <OnboardingPage />;

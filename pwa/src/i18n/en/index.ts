@@ -453,6 +453,43 @@ const en: Translations = {
     error: "Carry-over failed. The URL/code is invalid or expired",
     toOnboarding: "Go to onboarding",
   },
+  join: {
+    title: "Join the group",
+    subtitle: "Accept an invitation to join the group",
+    pending: "Joining…",
+    needIdentity:
+      "To join, first create your own ID. After that, open this invite URL again",
+    toOnboarding: "Create an ID",
+    displayNameLabel: "Display name",
+    displayNamePlaceholder: "e.g. Jane Doe",
+    submit: "Join",
+    joining: "Joining…",
+    success: "You have joined the group",
+    toApp: "Open the app",
+    errorExpired: "This invitation has expired. Ask the sender to reissue it",
+    errorUnreachable: "Could not reach an admin. Please try again later",
+    errorRejected: "The join was not accepted (the invite is invalid or used)",
+    errorGeneric: "Failed to join",
+  },
+  groupInvite: {
+    section: "Group invitation",
+    description:
+      "Invite another user to this group. Send the URL or hand over the QR code; they open it in a browser to join (as an activity member)",
+    issue: "Create invitation",
+    issuing: "Creating…",
+    dialogTitle: "Invitation to the group",
+    dialogHint:
+      "Have them scan this QR with their camera app, or send the URL to open in a browser. Valid for 3 days",
+    expiresIn: (time: string) => `Expires in ${time}`,
+    copyUrl: "Copy URL",
+    copied: "Copied",
+    close: "Close",
+    unavailable:
+      "Invitations require network (relay) configuration. Ask an admin to set it up",
+    errorNoRelay:
+      "Not connected to the network yet, so an invite cannot be issued. Try again after connecting",
+    errorGeneric: "Failed to create the invitation",
+  },
   devicePairing: {
     section: "Devices",
     description:

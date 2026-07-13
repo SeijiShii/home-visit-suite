@@ -2,8 +2,10 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
+import { GroupNetworkProvider } from "./contexts/GroupNetworkContext";
 import { I18nProvider } from "./contexts/I18nContext";
 import { IdentityProvider } from "./contexts/IdentityContext";
+import type { GroupNetworkService } from "./lib/linkself/group-network";
 import {
   ServicesProvider,
   createInMemoryServices,
@@ -49,6 +51,8 @@ async function bootstrap() {
   let services: AppServices;
   // ネットワーク配線を有効化したときの graceful stop（既定は no-op）。
   let stopLinkSelf = async (): Promise<void> => {};
+  // グループ招待/参加ファサード（ネットワーク配線時のみ）。
+  let groupNetwork: GroupNetworkService | null = null;
 
   if (linkSelfEnabled()) {
     const mod = await import("./contexts/linkself-services");
@@ -62,6 +66,7 @@ async function bootstrap() {
     });
     services = bundle.services;
     stopLinkSelf = bundle.stop;
+    groupNetwork = bundle.groupNetwork ?? null;
     // 前景→非表示 / アンロードで libp2p を graceful に停止する（docs/wants/11 §2）。
     globalThis.addEventListener?.("pagehide", () => void stopLinkSelf());
     globalThis.addEventListener?.("visibilitychange", () => {
@@ -90,7 +95,9 @@ async function bootstrap() {
         <I18nProvider>
           <ServicesProvider services={services}>
             <IdentityProvider service={identityService}>
-              <App />
+              <GroupNetworkProvider service={groupNetwork}>
+                <App />
+              </GroupNetworkProvider>
             </IdentityProvider>
           </ServicesProvider>
         </I18nProvider>

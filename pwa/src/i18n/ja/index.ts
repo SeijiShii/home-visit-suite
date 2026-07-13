@@ -457,6 +457,45 @@ const ja: Translations = {
     error: "引き継ぎに失敗しました。URL/コードが正しくないか期限切れです",
     toOnboarding: "オンボーディングへ",
   },
+  join: {
+    title: "グループへの参加",
+    subtitle: "招待を受けてグループに参加します",
+    pending: "参加処理中です…",
+    needIdentity:
+      "参加するにはまず自分の ID を作成してください。作成後、もう一度この招待 URL を開いてください",
+    toOnboarding: "ID を作成する",
+    displayNameLabel: "表示名",
+    displayNamePlaceholder: "例: 山田太郎",
+    submit: "参加する",
+    joining: "参加中…",
+    success: "グループに参加しました",
+    toApp: "アプリを開く",
+    errorExpired:
+      "招待の有効期限が切れています。発行者に再発行を依頼してください",
+    errorUnreachable:
+      "管理者に接続できませんでした。時間をおいて再度お試しください",
+    errorRejected: "参加が承認されませんでした（招待が無効か使用済みです）",
+    errorGeneric: "参加に失敗しました",
+  },
+  groupInvite: {
+    section: "グループ招待",
+    description:
+      "他のユーザーをこのグループに招待します。URL を送るか QR コードを渡すと、相手はブラウザで開いて参加できます（活動メンバーとして参加）",
+    issue: "招待を発行",
+    issuing: "発行中…",
+    dialogTitle: "グループへの招待",
+    dialogHint:
+      "この QR を相手のカメラアプリで撮影するか、URL を送ってブラウザで開いてもらってください。有効期限は 3 日です",
+    expiresIn: (time: string) => `有効期限まで ${time}`,
+    copyUrl: "URL をコピー",
+    copied: "コピーしました",
+    close: "閉じる",
+    unavailable:
+      "招待機能を使うにはネットワーク（リレー）設定が必要です。管理者に設定を依頼してください",
+    errorNoRelay:
+      "まだネットワークに接続できていないため招待を発行できません。接続後に再度お試しください",
+    errorGeneric: "招待の発行に失敗しました",
+  },
   devicePairing: {
     section: "デバイス",
     description:

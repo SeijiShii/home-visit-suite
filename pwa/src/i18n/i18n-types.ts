@@ -426,6 +426,38 @@ export interface Translations {
     error: string;
     toOnboarding: string;
   };
+  join: {
+    title: string;
+    subtitle: string;
+    pending: string;
+    needIdentity: string;
+    toOnboarding: string;
+    displayNameLabel: string;
+    displayNamePlaceholder: string;
+    submit: string;
+    joining: string;
+    success: string;
+    toApp: string;
+    errorExpired: string;
+    errorUnreachable: string;
+    errorRejected: string;
+    errorGeneric: string;
+  };
+  groupInvite: {
+    section: string;
+    description: string;
+    issue: string;
+    issuing: string;
+    dialogTitle: string;
+    dialogHint: string;
+    expiresIn: (time: string) => string;
+    copyUrl: string;
+    copied: string;
+    close: string;
+    unavailable: string;
+    errorNoRelay: string;
+    errorGeneric: string;
+  };
   devicePairing: {
     section: string;
     description: string;

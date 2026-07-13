@@ -29,10 +29,15 @@ import {
   wireSqlSync,
   type KnownPeer,
 } from "@linkself/core";
+import type { RoleDefs } from "@linkself/core";
 import { LinkSelfPersonalRepository } from "../data/linkself/linkself-personal-repository";
 import { createLinkSelfClient } from "../lib/linkself/client-factory";
 import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
 import { loadOrCreateRoster } from "../lib/linkself/device-roster";
+import {
+  GroupNetworkService,
+  localStorageNetworkIdStore,
+} from "../lib/linkself/group-network";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
@@ -45,11 +50,26 @@ import {
 /** 個人データ用 OPFS SQLite ファイル名（ブラウザは OPFS、テスト/node は in-memory）。 */
 const PERSONAL_DB_FILENAME = "hvs-personal.db";
 
+/**
+ * home-visit-suite のロール階層（上位が下位を包含）。ネットワーク管理・グループ招待の
+ * 権限判定（RoleDAG）に使う。docs/wants/04「メンバー権限は上位互換」。
+ */
+export const HVS_ROLES: RoleDefs = {
+  admin: { includes: ["editor"] },
+  editor: { includes: ["member"] },
+  member: { includes: [] },
+};
+
 /** LinkSelf-backed サービス束。stop() で libp2p を graceful に停止する（非ネットワーク時は no-op）。 */
 export interface LinkSelfServicesBundle {
   services: AppServices;
   /** 前景→非表示遷移やアンロード時に呼ぶ graceful stop（docs/wants/11 §2）。 */
   stop(): Promise<void>;
+  /**
+   * グループ招待/参加のファサード。ネットワーク配線が有効なときのみ提供される
+   * （リレー未設定/スタンドアロンでは undefined）。
+   */
+  groupNetwork?: GroupNetworkService;
 }
 
 export interface CreateLinkSelfServicesOptions extends CreateServicesOptions {
@@ -93,6 +113,7 @@ export async function createLinkSelfServices(
 
   let myDB: MyDB;
   let stop = async (): Promise<void> => {};
+  let groupNetwork: GroupNetworkService | undefined;
 
   if (useNetwork) {
     try {
@@ -111,10 +132,16 @@ export async function createLinkSelfServices(
         roster,
         knownPeers: opts.relays,
         sqlDatabase: sqlDb,
+        roles: HVS_ROLES,
         allowLocalDial: opts.allowLocalDial,
       });
       myDB = session.client.myDB;
       stop = session.stop;
+      // グループ招待/参加ファサード（起動中の実 client で署名・参加できる）。
+      groupNetwork = new GroupNetworkService(
+        session.client,
+        localStorageNetworkIdStore(),
+      );
     } catch (e) {
       // ネットワーク配線失敗でアプリを起動不能にしない。ローカル永続へフォールバック。
       console.error(
@@ -132,7 +159,11 @@ export async function createLinkSelfServices(
   const settingsService = new SettingsService(
     new PersonalRepositorySettingsAdapter(personalRepo),
   );
-  return { services: { ...base, personalRepo, settingsService }, stop };
+  return {
+    services: { ...base, personalRepo, settingsService },
+    stop,
+    groupNetwork,
+  };
 }
 
 /**

@@ -1,8 +1,8 @@
 // @vitest-environment node
 // 招待の署名/検証（@linkself/core Ed25519）は jsdom の WebCrypto シムと相性が
 // 悪いため node 環境で実行する（group-invite.test.ts と同様）。
-import { generateIdentity, type Invite, type JoinResponse } from "@linkself/core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { generateIdentity, type JoinResponse } from "@linkself/core";
+import { describe, expect, it, vi } from "vitest";
 import { buildGroupInviteUrl } from "./group-invite";
 import {
   GroupNetworkError,
@@ -21,13 +21,19 @@ function memStore(initial: string | null = null): NetworkIdStore {
   };
 }
 
-async function makeClient(overrides: Partial<GroupClient> = {}): Promise<GroupClient> {
+async function makeClient(
+  overrides: Partial<GroupClient> = {},
+): Promise<GroupClient> {
   const identity = await generateIdentity();
   return {
     userIdentity: identity,
     network: { create: vi.fn(async () => "net-created") },
-    requestJoin: vi.fn(async () => ({ ok: false, code: "invite_invalid" }) as JoinResponse),
-    selfAddrs: () => ["/dns4/relay/tcp/443/wss/p2p/12D3KooWR/p2p-circuit/p2p/12D3KooWAdmin"],
+    requestJoin: vi.fn(
+      async () => ({ ok: false, code: "invite_invalid" }) as JoinResponse,
+    ),
+    selfAddrs: () => [
+      "/dns4/relay/tcp/443/wss/p2p/12D3KooWR/p2p-circuit/p2p/12D3KooWAdmin",
+    ],
     ...overrides,
   };
 }
@@ -66,7 +72,9 @@ describe("issueInvite", () => {
   it("fails when the node has no reachable relay address", async () => {
     const client = await makeClient({ selfAddrs: () => [] });
     const svc = new GroupNetworkService(client, memStore());
-    await expect(svc.issueInvite()).rejects.toMatchObject({ code: "no_relay_address" });
+    await expect(svc.issueInvite()).rejects.toMatchObject({
+      code: "no_relay_address",
+    });
   });
 });
 
@@ -75,7 +83,9 @@ describe("join", () => {
     const admin = await generateIdentity();
     const { url } = await buildGroupInviteUrl(admin, {
       networkId: "net-99",
-      relays: ["/dns4/relay/tcp/443/wss/p2p/12D3KooWR/p2p-circuit/p2p/12D3KooWAdmin"],
+      relays: [
+        "/dns4/relay/tcp/443/wss/p2p/12D3KooWR/p2p-circuit/p2p/12D3KooWAdmin",
+      ],
       baseUrl: "https://hvs.example/",
     });
     return url;
@@ -84,12 +94,15 @@ describe("join", () => {
   it("persists the network id on a successful join", async () => {
     const url = await validInviteUrl();
     const store = memStore();
-    const requestJoin = vi.fn(
-      async (): Promise<JoinResponse> => ({
-        ok: true,
-        network: { networkId: "net-99", suiteId: "home-visit-suite", members: ["a"], memberRoles: { a: "admin" } },
-      }),
-    );
+    const requestJoin = vi.fn(async (): Promise<JoinResponse> => ({
+      ok: true,
+      network: {
+        networkId: "net-99",
+        suiteId: "home-visit-suite",
+        members: ["a"],
+        memberRoles: { a: "admin" },
+      },
+    }));
     const client = await makeClient({ requestJoin });
     const svc = new GroupNetworkService(client, store);
 
@@ -110,7 +123,9 @@ describe("join", () => {
     });
     const client = await makeClient();
     const svc = new GroupNetworkService(client, memStore());
-    await expect(svc.join(url, "X", () => 1_000 + 60_001)).rejects.toMatchObject({
+    await expect(
+      svc.join(url, "X", () => 1_000 + 60_001),
+    ).rejects.toMatchObject({
       code: "invite_expired",
     });
     expect(client.requestJoin).not.toHaveBeenCalled();
