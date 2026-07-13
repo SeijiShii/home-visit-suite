@@ -58,24 +58,6 @@ async function bootstrap() {
     const mod = await import("./contexts/linkself-services");
     const seed = loadStoredSeed() ?? undefined;
     const relays = mod.parseRelays(import.meta.env.VITE_LINKSELF_RELAYS);
-    // TODO(debug): 原因特定後に削除する一時ログ
-    console.log(
-      "[debug/bootstrap] seed:",
-      seed ? `present(len=${seed.length})` : "MISSING",
-      "relays:",
-      relays.length,
-      "identityRaw:",
-      (() => {
-        try {
-          const raw = localStorage.getItem("hvs.identity");
-          if (!raw) return "none";
-          const keys = Object.keys(JSON.parse(raw) as object).join(",");
-          return `keys=[${keys}]`;
-        } catch {
-          return "unparsable";
-        }
-      })(),
-    );
     const bundle = await mod.createLinkSelfServices({
       persist: true,
       seed,
