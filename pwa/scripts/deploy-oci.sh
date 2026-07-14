@@ -16,10 +16,14 @@ VM="${VM:-ubuntu@161.33.151.237}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/seijishii}"
 DEST="/var/www/app"
 
-# .env.local は開発値を含むため、本番で異なるべき値だけシェル環境変数で
-# 上書きする（Vite は process.env を .env.* より優先する）。
-# VITE_PAIRING_BASE_URL: 空 = 実行時オリジンを使用（本番の正しい挙動）
-VITE_PAIRING_BASE_URL= npm run build
+# 本番値は .env.production.local に固定してある（Vite の production モードで
+# .env.local の開発値を上書きする。gitignore 対象）。無いままビルドすると
+# 開発値が焼き込まれるため、先に存在を確認する。
+[ -f .env.production.local ] || {
+  echo "ERROR: pwa/.env.production.local がありません（本番値の定義。docs/wants/01 参照）" >&2
+  exit 1
+}
+npm run build
 
 rsync -az --delete -e "ssh -i $SSH_KEY" dist/ "$VM:$DEST/"
 

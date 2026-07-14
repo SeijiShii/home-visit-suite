@@ -33,7 +33,10 @@ export function OnboardingPage() {
       // 創設者はグループ名も設定する（docs/wants/04「グループ名」）。
       setGroupName(groupName);
       await createIdentity(name);
-      // 成功時は App ゲートが hasIdentity=true を検知し通常画面へ遷移する。
+      // 実 identity での LinkSelf ネットワーク配線は bootstrap（main.tsx）でのみ
+      // 行われるため再読込する（JoinPage と同じパターン）。再読込後は App ゲートが
+      // hasIdentity=true を検知し通常画面へ遷移する。
+      window.location.reload();
     } catch (e) {
       console.error("createIdentity failed", e);
       setError(m.createError);
@@ -48,6 +51,9 @@ export function OnboardingPage() {
       setError(null);
       try {
         await completePairing(text);
+        // createIdentity 同様、引き継いだ identity でのネットワーク配線には
+        // bootstrap の再実行が必要なため再読込する。
+        window.location.reload();
       } catch (e) {
         console.error("completePairing failed", e);
         setError(m.invalidCode);
