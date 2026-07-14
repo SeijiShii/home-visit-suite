@@ -116,6 +116,18 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
+  // renderer が作り直されても失われないよう、外部から渡された editor と
+  // ハンドラを保持し、mount 時に再適用する。React StrictMode の再マウントで
+  // renderer が再生成されると、旧 renderer に対する setEditor 等が消失し
+  // renderAll が editor 不在で何も描画しなくなるため（開発時のみの再現だが、
+  // 将来の remount 一般に対する防御でもある）。
+  const appliedEditorRef = useRef<NetworkPolygonEditor | null>(null);
+  const placeContextMenuHandlerRef = useRef<
+    ((placeId: string, type: PlaceType, x: number, y: number) => void) | null
+  >(null);
+  const placeClickHandlerRef = useRef<
+    ((placeId: string, type: PlaceType) => void) | null
+  >(null);
   const callbacksRef = useRef({
     onMapClick,
     onPolygonClick,
@@ -143,6 +155,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       rendererRef.current?.renderAll(linkedPolygonIds);
     },
     setEditor(editor) {
+      appliedEditorRef.current = editor;
       rendererRef.current?.setEditor(editor);
     },
     setCursor(cursor) {
@@ -203,9 +216,11 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       rendererRef.current?.clearMinZoom();
     },
     setPlaceContextMenuHandler(cb) {
+      placeContextMenuHandlerRef.current = cb;
       rendererRef.current?.setPlaceContextMenuHandler(cb);
     },
     setPlaceClickHandler(cb) {
+      placeClickHandlerRef.current = cb;
       rendererRef.current?.setPlaceClickHandler(cb);
     },
     startPlaceMove(placeId, onConfirm, onCancel) {
@@ -261,6 +276,17 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       { ...resolveBaseMapConfig(), googleTypeLabels: baseMapLabelsRef.current },
     );
     rendererRef.current = renderer;
+    // 再マウントで renderer が作り直された場合に備え、保持済みの editor と
+    // ハンドラを新しい renderer へ再適用する（前回 renderer への設定は消えている）。
+    if (appliedEditorRef.current) {
+      renderer.setEditor(appliedEditorRef.current);
+    }
+    if (placeContextMenuHandlerRef.current) {
+      renderer.setPlaceContextMenuHandler(placeContextMenuHandlerRef.current);
+    }
+    if (placeClickHandlerRef.current) {
+      renderer.setPlaceClickHandler(placeClickHandlerRef.current);
+    }
     return () => {
       renderer.unmount();
       rendererRef.current = null;
