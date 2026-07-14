@@ -150,6 +150,9 @@ export async function createLinkSelfServices(
       );
       // 自端末を登録した署名済みロスター（兄弟端末は接続時のロスター交換で収束）。
       const roster = await loadOrCreateRoster(userIdentity, deviceIdentity.did);
+      // onAsyncJoinDecision はファサード構築前に client へ渡す必要があるため
+      // 可変参照で後結びする。
+      let gn: GroupNetworkService | undefined;
       const session = await createLinkSelfClient({
         identity: deviceIdentity,
         userIdentity,
@@ -165,14 +168,34 @@ export async function createLinkSelfServices(
         // （in-memory だと発行済み招待が network_not_found で拒否される）。
         networkStore: new LocalStorageNetworkStore(),
         consumedNonces: new LocalStorageConsumedNonceStore(),
+        // 非同期参加: メールボックスは常時稼働ノード＝リレーと同一。
+        mailboxes: opts.relays,
+        // 受理結果（被招待者側）を pending と突き合わせて確定・UI 通知する。
+        onAsyncJoinDecision: (nonce, res) => {
+          gn?.resolveAsyncDecision(nonce, res);
+        },
       });
       myDB = session.client.myDB;
-      stop = session.stop;
       // グループ招待/参加ファサード（起動中の実 client で署名・参加できる）。
-      groupNetwork = new GroupNetworkService(
+      gn = new GroupNetworkService(
         session.client,
         localStorageNetworkIdStore(),
       );
+      groupNetwork = gn;
+      // 非同期参加の成立待ちを復元し、メールボックスを起動時 + 定期（60 秒）で
+      // 確認する（管理者側の無人受理・被招待者側の結果受領の両方を担う）。
+      gn.restorePendingJoin();
+      const poll = () => {
+        void session.client.checkMailbox().catch((err) => {
+          console.warn("linkself: checkMailbox failed", err);
+        });
+      };
+      poll();
+      const pollTimer = setInterval(poll, 60_000);
+      stop = async () => {
+        clearInterval(pollTimer);
+        await session.stop();
+      };
     } catch (e) {
       // ネットワーク配線失敗でアプリを起動不能にしない。ローカル永続へフォールバック。
       // sqlDb は開場済みのものを再利用する（再 open は Access Handle 排他で失敗する）。

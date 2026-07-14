@@ -11,6 +11,8 @@ import {
   upsertJoinedMember,
   type GroupClient,
   type NetworkIdStore,
+  type PendingJoin,
+  type PendingJoinStore,
 } from "./group-network";
 
 function memStore(initial: string | null = null): NetworkIdStore {
@@ -19,6 +21,19 @@ function memStore(initial: string | null = null): NetworkIdStore {
     get: () => id,
     set: (v: string) => {
       id = v;
+    },
+  };
+}
+
+function memPendingStore(): PendingJoinStore {
+  let p: PendingJoin | null = null;
+  return {
+    get: () => p,
+    set: (v: PendingJoin) => {
+      p = v;
+    },
+    clear: () => {
+      p = null;
     },
   };
 }
@@ -39,6 +54,8 @@ async function makeClient(
     selfAddrs: () => [
       "/dns4/relay/tcp/443/wss/p2p/12D3KooWR/p2p-circuit/p2p/12D3KooWAdmin",
     ],
+    depositJoinRequest: vi.fn(async () => {}),
+    registerPendingJoin: vi.fn(),
     ...overrides,
   };
 }
@@ -212,5 +229,139 @@ describe("upsertJoinedMember", () => {
     const repo = memRepo();
     await upsertJoinedMember(repo, { ...info, role: "superuser" });
     expect(repo.users.get("did:key:zNewcomer")?.role).toBe("member");
+  });
+});
+
+describe("非同期参加（joinAsync / restorePendingJoin / resolveAsyncDecision）", () => {
+  async function inviteUrlFrom(client: GroupClient): Promise<string> {
+    const issued = await buildGroupInviteUrl(client.userIdentity, {
+      networkId: "net-x",
+      relays: ["/dns4/relay/tcp/443/wss/p2p/12D3KooWAdmin"],
+      baseUrl: "https://app.example",
+    });
+    return issued.url;
+  }
+
+  it("joinAsync は deposit して pending を永続する", async () => {
+    const client = await makeClient();
+    const pendingStore = memPendingStore();
+    const svc = new GroupNetworkService(
+      client,
+      memStore(),
+      undefined,
+      pendingStore,
+    );
+    const url = await inviteUrlFrom(client);
+
+    const pending = await svc.joinAsync(url, "新人さん");
+    expect(client.depositJoinRequest).toHaveBeenCalledTimes(1);
+    expect(pending.displayName).toBe("新人さん");
+    expect(pendingStore.get()?.invite.nonce).toBe(pending.invite.nonce);
+  });
+
+  it("restorePendingJoin は有効な pending をクライアントに再登録する", async () => {
+    const client = await makeClient();
+    const pendingStore = memPendingStore();
+    const svc = new GroupNetworkService(
+      client,
+      memStore(),
+      undefined,
+      pendingStore,
+    );
+    await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+
+    expect(svc.restorePendingJoin()).toBeNull();
+    expect(client.registerPendingJoin).toHaveBeenCalledTimes(1);
+  });
+
+  it("restorePendingJoin は失効した pending を破棄して失効結果を返す", async () => {
+    const client = await makeClient();
+    const pendingStore = memPendingStore();
+    const svc = new GroupNetworkService(
+      client,
+      memStore(),
+      undefined,
+      pendingStore,
+    );
+    const pending = await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+
+    // 招待期限（3 日）を過ぎた時刻で復元する。
+    const after = pending.invite.expiresAt + 1;
+    const result = svc.restorePendingJoin(() => after);
+    expect(result).toEqual({
+      nonce: pending.invite.nonce,
+      ok: false,
+      code: "invite_expired",
+    });
+    expect(pendingStore.get()).toBeNull();
+    expect(client.registerPendingJoin).not.toHaveBeenCalled();
+  });
+
+  it("resolveAsyncDecision(ok) は networkId 永続・ロール解決・pending 解消を行う", async () => {
+    const client = await makeClient();
+    const store = memStore();
+    const pendingStore = memPendingStore();
+    const svc = new GroupNetworkService(client, store, undefined, pendingStore);
+    const pending = await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+
+    const selfDID = client.userIdentity.did;
+    const result = svc.resolveAsyncDecision(pending.invite.nonce, {
+      ok: true,
+      network: {
+        networkId: "net-joined",
+        suiteId: "jp.hvs",
+        members: [selfDID],
+        memberRoles: { [selfDID]: "editor" },
+      },
+    });
+    expect(result).toEqual({
+      nonce: pending.invite.nonce,
+      ok: true,
+      role: "editor",
+    });
+    expect(store.get()).toBe("net-joined");
+    expect(pendingStore.get()).toBeNull();
+  });
+
+  it("resolveAsyncDecision は知らない nonce を無視する", async () => {
+    const client = await makeClient();
+    const pendingStore = memPendingStore();
+    const svc = new GroupNetworkService(
+      client,
+      memStore(),
+      undefined,
+      pendingStore,
+    );
+    await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+
+    const result = svc.resolveAsyncDecision("unknown-nonce", {
+      ok: false,
+      code: "invite_expired",
+    });
+    expect(result).toBeNull();
+    expect(pendingStore.get()).not.toBeNull(); // pending は維持
+  });
+
+  it("resolveAsyncDecision(ok:false) は拒否コードを結果に載せて pending を解消する", async () => {
+    const client = await makeClient();
+    const pendingStore = memPendingStore();
+    const svc = new GroupNetworkService(
+      client,
+      memStore(),
+      undefined,
+      pendingStore,
+    );
+    const pending = await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+
+    const result = svc.resolveAsyncDecision(pending.invite.nonce, {
+      ok: false,
+      code: "invite_expired",
+    });
+    expect(result).toEqual({
+      nonce: pending.invite.nonce,
+      ok: false,
+      code: "invite_expired",
+    });
+    expect(pendingStore.get()).toBeNull();
   });
 });

@@ -437,6 +437,8 @@ export interface Translations {
     submit: string;
     joining: string;
     success: string;
+    waitingTitle: string;
+    waitingHint: string;
     toApp: string;
     errorExpired: string;
     errorUnreachable: string;

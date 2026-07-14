@@ -6,6 +6,11 @@ import { HashRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { useIdentity } from "./contexts/IdentityContext";
 import { useServices } from "./contexts/ServicesContext";
+import {
+  ASYNC_JOIN_EVENT,
+  consumeAsyncJoinResult,
+  type AsyncJoinResult,
+} from "./lib/linkself/group-network";
 import { TipsProvider } from "./contexts/TipsContext";
 import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
 import { CheckoutsPage } from "./pages/CheckoutsPage";
@@ -22,7 +27,7 @@ import { VisitPageContainer } from "./pages/VisitPageContainer";
 
 export default function App() {
   const { settingsService } = useServices();
-  const { identityReady, hasIdentity } = useIdentity();
+  const { identityReady, hasIdentity, adoptRole } = useIdentity();
   const [hash, setHash] = useState<string>(() => window.location.hash);
 
   useEffect(() => {
@@ -30,6 +35,21 @@ export default function App() {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  // 非同期参加の成立時に招待ロールを自ロールへ採用する（docs/wants/04）。
+  // 結果が届いた瞬間（イベント）と、届いたとき JoinPage/タブが閉じていた場合の
+  // 持ち越し（起動時の未消費結果）の両方を拾う。JoinPage は表示遷移のみ担う。
+  useEffect(() => {
+    const apply = (result: AsyncJoinResult | null) => {
+      if (result?.ok && result.role) {
+        void adoptRole(result.role);
+      }
+    };
+    apply(consumeAsyncJoinResult());
+    const onDecision = () => apply(consumeAsyncJoinResult());
+    window.addEventListener(ASYNC_JOIN_EVENT, onDecision);
+    return () => window.removeEventListener(ASYNC_JOIN_EVENT, onDecision);
+  }, [adoptRole]);
 
   // 起動時の identity 判定が済むまでは何も描画しない（オンボーディングのちらつき防止）。
   if (!identityReady) return null;

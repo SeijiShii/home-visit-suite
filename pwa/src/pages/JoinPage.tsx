@@ -5,6 +5,10 @@
 // 表示名で ID を作成（role=member）→ 参加名を sessionStorage に控えて再読込
 // （招待ハッシュは URL に残る）→ 実 identity で LinkSelf が配線された後、自動で
 // 参加を続行する。参加成立時は招待ロールを adoptRole で採用する。
+// 管理者に到達できないときは非同期参加（メールボックスに預ける）へフォールバック
+// する。承認は招待発行時に済んでおり、管理者側アプリがオンラインになれば自動で
+// 成立する（追加承認なし）。待機中はタブを閉じてよく、結果は次回起動時
+// （または待機中の定期確認）に反映される。成立時のロール採用は App が担う。
 // 仕様: docs/wants/04_メンバー管理と権限.md「グループ招待（URL / QR による参加）」
 
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +16,10 @@ import type { Role } from "../domain/models/user";
 import { useGroupNetwork } from "../contexts/GroupNetworkContext";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
+import {
+  ASYNC_JOIN_EVENT,
+  type AsyncJoinResult,
+} from "../lib/linkself/group-network";
 
 /** ID 作成→再読込をまたいで参加を自動継続するための表示名の一時置き場。 */
 const PENDING_JOIN_KEY = "hvs.pendingJoinName";
@@ -31,7 +39,48 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // 非同期参加の成立待ち（deposit 済み。管理者側アプリのオンライン化で自動成立）。
+  const [waiting, setWaiting] = useState(false);
   const autoJoinTried = useRef(false);
+
+  // 確認待ちの復元: deposit 済みのままこの画面に戻ってきたら待機表示にする。
+  useEffect(() => {
+    if (groupNetwork?.getPendingJoin() != null) {
+      setWaiting(true);
+    }
+  }, [groupNetwork]);
+
+  // 待機中に受理結果が届いたら表示を確定する（ロール採用は App が担う）。
+  useEffect(() => {
+    const onDecision = (e: Event) => {
+      const result = (e as CustomEvent<AsyncJoinResult>).detail;
+      setWaiting(false);
+      setBusy(false);
+      if (result.ok) {
+        setDone(true);
+      } else {
+        setError(
+          result.code === "invite_expired" ? m.errorExpired : m.errorRejected,
+        );
+      }
+    };
+    window.addEventListener(ASYNC_JOIN_EVENT, onDecision);
+    return () => window.removeEventListener(ASYNC_JOIN_EVENT, onDecision);
+  }, [m]);
+
+  /** 管理者に直接届かないとき: メールボックスに預けて成立待ちへ。 */
+  const fallbackToAsync = async (name: string) => {
+    if (!groupNetwork) return false;
+    try {
+      await groupNetwork.joinAsync(window.location.hash, name);
+      setWaiting(true);
+      setBusy(false);
+      return true;
+    } catch (e) {
+      console.error("async join deposit failed:", e);
+      return false;
+    }
+  };
 
   const handleJoin = async (name: string) => {
     if (!groupNetwork || !name.trim() || busy) return;
@@ -58,8 +107,11 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
       // 原因調査用（unreachable は全リレー到達失敗の最後のエラーを含む）。
       console.error("join failed:", e);
       const code = (e as { code?: string }).code;
-      if (code === "invite_expired") setError(m.errorExpired);
-      else if (code === "unreachable") setError(m.errorUnreachable);
+      if (code === "unreachable") {
+        // 管理者オフライン: 非同期参加（確認待ち）へフォールバック。
+        if (await fallbackToAsync(name.trim())) return;
+        setError(m.errorUnreachable);
+      } else if (code === "invite_expired") setError(m.errorExpired);
       else if (code === "invite_invalid") setError(m.errorRejected);
       else setError(m.errorGeneric);
       setBusy(false);
@@ -111,6 +163,16 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
                 className="btn btn-primary"
                 onClick={onConsumed}
               >
+                {m.toApp}
+              </button>
+            </div>
+          </>
+        ) : waiting ? (
+          <>
+            <p className="onboarding-hint">{m.waitingTitle}</p>
+            <p className="onboarding-hint">{m.waitingHint}</p>
+            <div className="onboarding-actions">
+              <button type="button" className="btn" onClick={onConsumed}>
                 {m.toApp}
               </button>
             </div>

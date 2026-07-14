@@ -13,6 +13,7 @@ import {
   LinkSelfClient,
   type ConsumedNonceStore,
   type Identity,
+  type JoinResponse,
   type KnownPeer,
   type MemberJoinedInfo,
   type NetworkStore,
@@ -70,6 +71,19 @@ export interface CreateLinkSelfClientOptions {
   networkStore?: NetworkStore;
   /** 使用済み招待ノンス表（単回使用の担保）。省略時は in-memory。 */
   consumedNonces?: ConsumedNonceStore;
+  /**
+   * 非同期参加用のメールボックス（常時稼働ノード。通常はリレーと同一）。
+   * depositJoinRequest / checkMailbox が使う（docs/wants/04「非同期参加」）。
+   */
+  mailboxes?: KnownPeer[];
+  /**
+   * 被招待者側: 成立待ち（registerPendingJoin 済み）の参加への受理結果が
+   * checkMailbox で検証・適用されたときに呼ばれる。ok:false もあり得る。
+   */
+  onAsyncJoinDecision?: (
+    nonce: string,
+    response: JoinResponse,
+  ) => void | Promise<void>;
 }
 
 /** 起動済み LinkSelf セッション。stop() で graceful に libp2p を停止する。 */
@@ -123,6 +137,8 @@ export async function createLinkSelfClient(
     onMemberJoined: opts.onMemberJoined,
     networkStore: opts.networkStore,
     consumedNonces: opts.consumedNonces,
+    mailboxes: opts.mailboxes,
+    onAsyncJoinDecision: opts.onAsyncJoinDecision,
   });
   await client.start();
   return {

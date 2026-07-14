@@ -465,6 +465,9 @@ const en: Translations = {
     submit: "Join",
     joining: "Joining…",
     success: "You have joined the group",
+    waitingTitle: "Your join has been accepted",
+    waitingHint:
+      "The invitation is valid. Joining completes automatically as soon as the admin's app comes online — no action is needed from the admin. You can close this page or tab; the result is applied the next time you open the app",
     toApp: "Open the app",
     errorExpired: "This invitation has expired. Ask the sender to reissue it",
     errorUnreachable: "Could not reach an admin. Please try again later",
