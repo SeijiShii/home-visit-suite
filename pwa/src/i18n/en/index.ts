@@ -213,7 +213,7 @@ const en: Translations = {
     buildingRoomsEmpty: "No rooms",
     close: "Close",
     pageTitle: "Visit Records",
-    areaLabel: "Area: {areaId}",
+    areaLabel: "Area: {area}",
     placesEmpty: "No places registered in this area",
     placeReadOnlyHint: "This place is read-only.",
     backToMapEditor: "← Back to area editor",

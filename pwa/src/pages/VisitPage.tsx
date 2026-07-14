@@ -77,8 +77,10 @@ export type VisitPageVisitServiceLike = Pick<
 >;
 
 export interface VisitPageProps {
-  /** Phase 1 暫定: 固定の区域 ID（NRT-001-01） */
+  /** 対象区域 ID（ルート /visits/:areaId 由来） */
   areaId: string;
+  /** ヘッダー表示用「{区域ID} {区域親番名}」。未解決時は areaId を表示する。 */
+  areaLabel?: string;
   /** 訪問記録の actor（自分の DID） */
   actorId: string;
   placeService: VisitPagePlaceServiceLike;
@@ -128,6 +130,7 @@ const initialAddFlow: AddPlaceFlowState = { kind: "idle" };
 
 export function VisitPage({
   areaId,
+  areaLabel,
   actorId,
   placeService,
   visitService,
@@ -815,10 +818,9 @@ export function VisitPage({
   return (
     <div className="visit-page">
       <header className="visit-page-header">
-        <h2>{t.visitRecord.pageTitle}</h2>
-        <p className="visit-page-banner">
-          {t.visitRecord.areaLabel.replace("{areaId}", areaId)}
-        </p>
+        <h2>
+          {t.visitRecord.areaLabel.replace("{area}", areaLabel ?? areaId)}
+        </h2>
       </header>
 
       <div className="visit-page-body">

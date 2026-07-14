@@ -82,9 +82,11 @@ describe("VisitPageContainer", () => {
     setLocale("ja");
   });
 
-  it("例外なくレンダリングされ、訪問記録の見出しが表示される", async () => {
+  it("例外なくレンダリングされ、区域 ID と区域親番名の見出しが表示される", async () => {
     await renderVisit();
-    expect(await screen.findByText("訪問記録")).toBeInTheDocument();
+    expect(
+      await screen.findByText("区域: NRT-001-01 加良部1丁目"),
+    ).toBeInTheDocument();
   });
 
   // 区域編集からの遷移時のみ「区域編集に戻る」ボタンを表示する
@@ -96,7 +98,7 @@ describe("VisitPageContainer", () => {
 
   it("ダッシュボード起点（state なし）では戻るボタンを表示しない", async () => {
     await renderVisit();
-    await screen.findByText("訪問記録");
+    await screen.findByText("区域: NRT-001-01 加良部1丁目");
     expect(screen.queryByText("← 区域編集に戻る")).toBeNull();
   });
 });

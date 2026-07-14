@@ -66,6 +66,8 @@ export function VisitPageContainer() {
   const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(
     new Set(),
   );
+  // ヘッダー表示用「{区域ID} {区域親番名}」（名前が空なら ID のみ）
+  const [areaLabel, setAreaLabel] = useState<string | null>(null);
 
   // 現在のアクター DID とロールを IdentityContext から取得（dev モードでは切替可能）。
   const { currentActorID: actorId, currentRole } = useIdentity();
@@ -91,11 +93,21 @@ export function VisitPageContainer() {
       for (const [polyId, info] of areaMap) m.set(polyId, info.areaId);
       setPolygonToArea(m);
       setLinkedPolygonIds(new Set(m.keys()));
+      // 対象区域の表示名（区域親番の名前）を解決する
+      for (const region of tree) {
+        for (const pa of region.parentAreas) {
+          for (const area of pa.areas) {
+            if (area.id === areaId) {
+              setAreaLabel(pa.name ? `${area.id} ${pa.name}` : area.id);
+            }
+          }
+        }
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [regionService]);
+  }, [regionService, areaId]);
 
   // 活動メンバーのみアクセス判定を取得する（編集メンバー以上は常時アクセス可）
   useEffect(() => {
@@ -126,6 +138,7 @@ export function VisitPageContainer() {
   return (
     <VisitPage
       areaId={areaId}
+      areaLabel={areaLabel ?? undefined}
       actorId={actorId}
       placeService={placeService}
       visitService={visitService}

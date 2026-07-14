@@ -211,7 +211,7 @@ const ja: Translations = {
     buildingRoomsEmpty: "部屋情報なし",
     close: "閉じる",
     pageTitle: "訪問記録",
-    areaLabel: "対象区域: {areaId}",
+    areaLabel: "区域: {area}",
     placesEmpty: "この区域には場所が登録されていません",
     placeReadOnlyHint: "この場所は読み取り専用です。",
     backToMapEditor: "← 区域編集に戻る",
