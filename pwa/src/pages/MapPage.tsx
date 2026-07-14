@@ -70,6 +70,7 @@ export function MapPage() {
   const { showTips } = useTips();
   const { snapshot, actions } = useMapState();
   const mapRef = useRef<MapViewHandle>(null);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
   const treeRef = useRef<AreaTreeHandle>(null);
   const editorRef = useRef<NetworkPolygonEditor | null>(null);
   const reloadPolygonsRef = useRef<() => Promise<void>>(async () => {});
@@ -684,6 +685,19 @@ export function MapPage() {
 
   // --- リサイズ ---
 
+  // 地図パネルのサイズ変化を監視して Leaflet のレイアウトを再計算する。
+  // サイドバーの開閉・ドラッグリサイズ・ウィンドウリサイズのいずれでも
+  // invalidateSize を確実に呼び、タイルやポリゴンの未描画領域が残らないようにする。
+  useEffect(() => {
+    const el = mapPanelRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -717,7 +731,7 @@ export function MapPage() {
     <div className="map-page">
       {/* 地図パネル: ツールチップ(TipStack)は地図上（左）に重ね、右サイドバーの
           区域リスト操作を塞がないようこのパネル内にアンカーする。 */}
-      <div className="map-panel">
+      <div className="map-panel" ref={mapPanelRef}>
         <MapView
           ref={mapRef}
           onMapClick={handleMapClick}
