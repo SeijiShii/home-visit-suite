@@ -867,6 +867,13 @@ export class MapRenderer {
     for (const p of this.editor.getPolygons()) {
       this.addPolygonLayer(p.id);
     }
+
+    // 詳細モードでは当該（対象）区域を最前面に描画する。共有境界で後から
+    // 描画された隣接区域の線が対象のオレンジ線を上書きしないようにするため
+    // （docs/wants/03「場所の直接編集」描画ルール）。
+    if (this.detailMode) {
+      this.polygonLayers.get(this.detailMode.targetId)?.bringToFront();
+    }
   }
 
   // --- ChangeSet 差分適用 ---
