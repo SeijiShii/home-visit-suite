@@ -213,8 +213,7 @@ const en: Translations = {
     buildingRoomsEmpty: "No rooms",
     close: "Close",
     pageTitle: "Visit Records",
-    phase1Banner:
-      "Phase 1 stub: hard-coded redirect to area {areaId} (checkout flow comes later)",
+    areaLabel: "Area: {areaId}",
     placesEmpty: "No places registered in this area",
     placeReadOnlyHint: "This place is read-only.",
     backToMapEditor: "← Back to area editor",

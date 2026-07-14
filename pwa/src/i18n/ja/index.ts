@@ -211,8 +211,7 @@ const ja: Translations = {
     buildingRoomsEmpty: "部屋情報なし",
     close: "閉じる",
     pageTitle: "訪問記録",
-    phase1Banner:
-      "Phase 1 暫定: 区域 {areaId} に固定遷移しています（チェックアウト連携は次期スコープ）",
+    areaLabel: "対象区域: {areaId}",
     placesEmpty: "この区域には場所が登録されていません",
     placeReadOnlyHint: "この場所は読み取り専用です。",
     backToMapEditor: "← 区域編集に戻る",

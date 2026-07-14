@@ -817,7 +817,7 @@ export function VisitPage({
       <header className="visit-page-header">
         <h2>{t.visitRecord.pageTitle}</h2>
         <p className="visit-page-banner">
-          {t.visitRecord.phase1Banner.replace("{areaId}", areaId)}
+          {t.visitRecord.areaLabel.replace("{areaId}", areaId)}
         </p>
       </header>
 

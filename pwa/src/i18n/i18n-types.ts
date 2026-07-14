@@ -201,7 +201,7 @@ export interface Translations {
     buildingRoomsEmpty: string;
     close: string;
     pageTitle: string;
-    phase1Banner: string;
+    areaLabel: string;
     placesEmpty: string;
     placeReadOnlyHint: string;
     backToMapEditor: string;
