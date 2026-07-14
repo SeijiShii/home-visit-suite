@@ -7,6 +7,7 @@ import type {
   NetworkPolygonEditor,
 } from "map-polygon-editor";
 import { polygonCenter } from "./area-detail-geo";
+import { computeParentBoundaryEdges } from "./parent-boundary";
 
 const GSI_TILE_URL = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png";
 const GSI_ATTRIBUTION =
@@ -92,6 +93,18 @@ export function getPolygonStyle(
   return isSelected
     ? { color: "#1e40af", weight: 3, fillOpacity: 0.35 }
     : { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
+}
+
+/**
+ * 区域親番境界（親番グループの境目）の強調帯スタイル。ポリゴン輪郭の下層に
+ * 半透明の太線を敷く（docs/wants/03「区域親番境界の強調表示」）。
+ */
+export function getParentBoundaryStyle(): {
+  color: string;
+  weight: number;
+  opacity: number;
+} {
+  return { color: "#334155", weight: 6, opacity: 0.6 };
 }
 
 export type AreaDetailPolygonRole = "target" | "neighbor";
@@ -207,6 +220,9 @@ export class MapRenderer {
     string,
     { marker: L.Marker; text: string }
   >();
+
+  // 区域親番境界の強調帯（edgeId → 太線ポリライン）
+  private parentBoundaryLayers = new Map<string, L.Polyline>();
 
   // ポリゴンメタデータ（区域紐付け、選択状態）
   private linkedPolygonIds: Set<string> = new Set();
@@ -843,6 +859,7 @@ export class MapRenderer {
     this.edgeLayers.clear();
     this.polygonLayers.clear();
     this.areaIdLabelMarkers.clear();
+    this.parentBoundaryLayers.clear();
     this.editor = null;
   }
 
@@ -888,6 +905,7 @@ export class MapRenderer {
     }
 
     this.refreshAreaIdLabels();
+    this.refreshParentBoundaries();
   }
 
   // --- ChangeSet 差分適用 ---
@@ -971,6 +989,13 @@ export class MapRenderer {
     // ポリゴンの増減・形状変化（頂点移動含む）に区域IDラベルを追従させる
     if (polygonsChanged || cs.vertices.moved.length > 0) {
       this.refreshAreaIdLabels();
+    }
+
+    // 親番境界の強調帯は辺単位のため、辺の増減にも追従させる
+    const edgesChanged =
+      cs.edges.added.length > 0 || cs.edges.removed.length > 0;
+    if (polygonsChanged || edgesChanged || cs.vertices.moved.length > 0) {
+      this.refreshParentBoundaries();
     }
   }
 
@@ -1447,10 +1472,11 @@ export class MapRenderer {
 
   // --- 区域IDラベル ---
 
-  /** ポリゴンID→区域ID の対応を設定し、区域IDラベルを描画し直す。 */
+  /** ポリゴンID→区域ID の対応を設定し、区域IDラベルと親番境界を描画し直す。 */
   setPolygonAreaIds(ids: ReadonlyMap<string, string>): void {
     this.polygonAreaIds = new Map(ids);
     this.refreshAreaIdLabels();
+    this.refreshParentBoundaries();
   }
 
   /**
@@ -1505,6 +1531,75 @@ export class MapRenderer {
         keyboard: false,
       }).addTo(this.map);
       this.areaIdLabelMarkers.set(id, { marker, text });
+    }
+  }
+
+  // --- 区域親番境界の強調帯 ---
+
+  /**
+   * 区域親番の境目にあたる辺へ、ポリゴン輪郭の下層に半透明の太線を敷く
+   * （docs/wants/03「区域親番境界の強調表示」）。
+   * 境目判定は全活性ポリゴンの紐付けで行い、描画は表示中ポリゴン
+   * （polygonLayers。詳細モードでは対象＋隣接のみ）の辺に絞る。
+   * 頂点ドラッグ中に毎フレーム呼ばれるため、既存ポリラインは位置更新で使い回す。
+   */
+  private refreshParentBoundaries(): void {
+    if (!this.map) return;
+    const wanted = new Map<string, [L.LatLngTuple, L.LatLngTuple]>();
+    if (this.editor && this.polygonAreaIds.size > 0) {
+      const editor = this.editor;
+      const polygons = editor
+        .getPolygons()
+        .filter((p) => editor.isPolygonActive(p.id));
+      const boundaryEdges = computeParentBoundaryEdges(
+        polygons.map((p) => ({
+          id: p.id as string,
+          // 穴の辺も境目判定に含める（穴の内側に別親番の区域が入り得るため）
+          edgeIds: [...p.edgeIds, ...p.holes.flat()] as string[],
+        })),
+        this.polygonAreaIds,
+      );
+      const visibleEdges = new Set<string>();
+      for (const p of polygons) {
+        if (!this.polygonLayers.has(p.id as string)) continue;
+        for (const eid of p.edgeIds) visibleEdges.add(eid as string);
+        for (const hole of p.holes) {
+          for (const eid of hole) visibleEdges.add(eid as string);
+        }
+      }
+      for (const eid of boundaryEdges) {
+        if (!visibleEdges.has(eid)) continue;
+        const edge = editor.getEdge(eid as EdgeID);
+        if (!edge) continue;
+        const v1 = editor.getVertex(edge.v1);
+        const v2 = editor.getVertex(edge.v2);
+        if (!v1 || !v2) continue;
+        wanted.set(eid, [
+          [v1.lat, v1.lng],
+          [v2.lat, v2.lng],
+        ]);
+      }
+    }
+    for (const [id, line] of this.parentBoundaryLayers) {
+      if (!wanted.has(id)) {
+        line.remove();
+        this.parentBoundaryLayers.delete(id);
+      }
+    }
+    const style = getParentBoundaryStyle();
+    for (const [id, latlngs] of wanted) {
+      const existing = this.parentBoundaryLayers.get(id);
+      if (existing) {
+        existing.setLatLngs(latlngs);
+        continue;
+      }
+      const line = L.polyline(latlngs, {
+        ...style,
+        interactive: false,
+      }).addTo(this.map);
+      // ポリゴン輪郭・グレー辺より下層の帯として敷く
+      line.bringToBack();
+      this.parentBoundaryLayers.set(id, line);
     }
   }
 
