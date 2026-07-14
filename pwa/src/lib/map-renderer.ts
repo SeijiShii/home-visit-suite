@@ -1117,6 +1117,9 @@ export class MapRenderer {
 
     if (this.polygonClickCallback) {
       layer.on("click", (e: L.LeafletMouseEvent) => {
+        // 描画モード中は選択で塞がず、クリックを map まで伝播させて
+        // スナップ判定（頂点/線分）に委ねる（docs/wants/03「ポリゴン描画のスナップ」）。
+        if (this.editor?.getMode() === "drawing") return;
         L.DomEvent.stopPropagation(e);
         this.polygonClickCallback!(id);
       });
@@ -1429,34 +1432,43 @@ export class MapRenderer {
     if (!this.map || this.mouseMoveHandler) return;
 
     this.mouseMoveHandler = (e: L.LeafletMouseEvent) => {
-      if (!this.editor || !this.lastPlacedVertexId) {
+      if (!this.editor) {
         this.removeRubberBand();
         this.hideSnapIndicator();
         return;
       }
 
-      const lastVertex = this.editor.getVertex(this.lastPlacedVertexId);
-      if (!lastVertex) {
-        this.removeRubberBand();
-        return;
-      }
-
-      // スナップインジケーター
+      // スナップインジケーター（頂点優先、次に線分上の最近点）。
+      // 1 点目を置く前（ラバーバンド無し）でも表示する。
       const thresholdDeg = this.pixelsToDegrees(SNAP_THRESHOLD_PX);
       const nearVertex = this.editor.findNearestVertex(
         e.latlng.lat,
         e.latlng.lng,
         thresholdDeg,
       );
+      const nearEdge = nearVertex
+        ? null
+        : this.editor.findNearestEdge(e.latlng.lat, e.latlng.lng, thresholdDeg);
+      const snapPoint = nearVertex ?? nearEdge?.point ?? null;
 
-      if (nearVertex) {
-        this.showSnapIndicator(nearVertex.lat, nearVertex.lng);
+      if (snapPoint) {
+        this.showSnapIndicator(snapPoint.lat, snapPoint.lng);
       } else {
         this.hideSnapIndicator();
       }
 
-      const endLat = nearVertex ? nearVertex.lat : e.latlng.lat;
-      const endLng = nearVertex ? nearVertex.lng : e.latlng.lng;
+      if (!this.lastPlacedVertexId) {
+        this.removeRubberBand();
+        return;
+      }
+      const lastVertex = this.editor.getVertex(this.lastPlacedVertexId);
+      if (!lastVertex) {
+        this.removeRubberBand();
+        return;
+      }
+
+      const endLat = snapPoint ? snapPoint.lat : e.latlng.lat;
+      const endLng = snapPoint ? snapPoint.lng : e.latlng.lng;
 
       const latlngs: L.LatLngTuple[] = [
         [lastVertex.lat, lastVertex.lng],

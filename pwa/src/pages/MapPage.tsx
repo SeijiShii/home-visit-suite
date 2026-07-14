@@ -464,6 +464,15 @@ export function MapPage() {
         mapRef.current?.setRubberBandOrigin(nearVertex.id);
       }
 
+      // 線分スナップで描画開始（線分分割）→ 分割で追加された頂点が起点。
+      // 交差解決で複数頂点が増えるケースがあるため末尾（分割点）を採用する。
+      if (nearEdge && !nearVertex && ed.getMode() === "drawing") {
+        const splitVertex = cs.vertices.added[cs.vertices.added.length - 1];
+        if (splitVertex) {
+          mapRef.current?.setRubberBandOrigin(splitVertex.id);
+        }
+      }
+
       // snapToVertex / snapToEdge で描画モードが終了した場合
       if (ed.getMode() === "idle") {
         actions.endDrawing();
