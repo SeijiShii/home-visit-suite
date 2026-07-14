@@ -31,7 +31,7 @@
 - `components/AppBrand.tsx` — ロゴ+アプリ名の共通ブランド表示（初回系画面: オンボーディング/参加/ペアリングのカード先頭）(→04,10)
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
 - `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
-- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧・ラベル・自分以外の削除)/AIプロバイダ・キー/地図メンテナンス）(→01,04,10)
+- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧・ラベル・自分以外の削除)/AIプロバイダ・キー=編集メンバー以上のみ表示/地図メンテナンス）(→01,04,10)
 - `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ (→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)

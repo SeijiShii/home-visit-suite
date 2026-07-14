@@ -16,42 +16,54 @@ import { setLocale } from "../i18n/i18n-util";
 import { SettingsPage } from "./SettingsPage";
 
 // 本番相当（非 dev）の最小 IdentityService。dev セクションは非表示になる。
-const fakeIdentityService: IdentityService = {
-  getRealDID: async () => "did:test:self",
-  getCurrentActor: async () => "did:test:self",
-  setCurrentActor: async () => {},
-  isDevMode: async () => false,
-  listAvailableIdentities: async () => [],
-  getUser: async () => null,
-  hasIdentity: async () => true,
-  loadIdentity: async () => null,
-  createIdentity: async () => {
-    throw new Error("not supported");
-  },
-  createPairingToken: async () => ({ url: "", expiresAt: 0 }),
-  completePairing: async () => {
-    throw new Error("not supported");
-  },
-  getCurrentDeviceId: async () => "dev-test",
-  listDevices: async () => [],
-  renameDevice: async () => {},
-  removeDevice: async () => {},
-  setRole: async () => {
-    throw new Error("not used in this test");
-  },
-  setName: async () => {
-    throw new Error("not used in this test");
-  },
-};
+// role は AI 地図取込セクションの表示ゲート（編集メンバー以上）の検証に使う。
+function fakeIdentityService(
+  role: "admin" | "editor" | "member",
+): IdentityService {
+  return {
+    getRealDID: async () => "did:test:self",
+    getCurrentActor: async () => "did:test:self",
+    setCurrentActor: async () => {},
+    isDevMode: async () => false,
+    listAvailableIdentities: async () => [],
+    getUser: async () => ({
+      id: "did:test:self",
+      name: "テスト太郎",
+      role,
+      tagIds: [],
+      joinedAt: "2026-01-01T00:00:00Z",
+    }),
+    hasIdentity: async () => true,
+    loadIdentity: async () => null,
+    createIdentity: async () => {
+      throw new Error("not supported");
+    },
+    createPairingToken: async () => ({ url: "", expiresAt: 0 }),
+    completePairing: async () => {
+      throw new Error("not supported");
+    },
+    getCurrentDeviceId: async () => "dev-test",
+    listDevices: async () => [],
+    renameDevice: async () => {},
+    removeDevice: async () => {},
+    setRole: async () => {
+      throw new Error("not used in this test");
+    },
+    setName: async () => {
+      throw new Error("not used in this test");
+    },
+  };
+}
 
 async function renderSettings(
   seed?: (services: AppServices) => Promise<void>,
+  role: "admin" | "editor" | "member" = "editor",
 ): Promise<AppServices> {
   const services = createInMemoryServices();
   await seed?.(services);
   render(
     <I18nProvider>
-      <IdentityProvider service={fakeIdentityService}>
+      <IdentityProvider service={fakeIdentityService(role)}>
         <ServicesProvider services={services}>
           <SettingsPage />
         </ServicesProvider>
@@ -71,6 +83,18 @@ describe("SettingsPage AI 地図取込", () => {
     await renderSettings();
     expect(await screen.findByText("AI 地図取込")).toBeInTheDocument();
     expect(screen.getByText("未登録")).toBeInTheDocument();
+  });
+
+  it("活動メンバーには AI 地図取込セクションを表示しない（編集メンバー以上）", async () => {
+    await renderSettings(undefined, "member");
+    // 他セクション（言語）が描画されるのを待ってから不在を確認する。
+    expect(await screen.findByText("言語")).toBeInTheDocument();
+    expect(screen.queryByText("AI 地図取込")).not.toBeInTheDocument();
+  });
+
+  it("管理者には AI 地図取込セクションを表示する", async () => {
+    await renderSettings(undefined, "admin");
+    expect(await screen.findByText("AI 地図取込")).toBeInTheDocument();
   });
 
   it("API キーを入力して保存すると個人設定に永続化され、マスク表示される", async () => {

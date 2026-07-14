@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCode } from "../components/QrCode";
 import { useI18n } from "../contexts/I18nContext";
-import { useIdentity } from "../contexts/IdentityContext";
+import { isRoleAtLeast, useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import type { Device } from "../domain/models/device";
 import {
@@ -34,6 +34,7 @@ export function SettingsPage() {
   const {
     currentActorID,
     currentName,
+    currentRole,
     renameSelf,
     realDID,
     isDevMode,
@@ -354,99 +355,103 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="settings-section">
-        <h2>{t.settings.aiSection}</h2>
-        <p className="settings-section-description">
-          {t.settings.aiDescription}
-        </p>
-        <div className="settings-field">
-          <label className="settings-field-label" htmlFor="ai-provider">
-            {t.settings.aiProvider}
-          </label>
-          <select
-            id="ai-provider"
-            className="settings-select"
-            value={aiProvider}
-            onChange={(e) => void handleProviderChange(e.target.value)}
-          >
-            {AI_PROVIDERS.map((p) => (
-              <option key={p} value={p}>
-                {providerLabels[p] ?? p}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="settings-field">
-          <label className="settings-field-label" htmlFor="ai-model">
-            {t.settings.aiModel}
-          </label>
-          <select
-            id="ai-model"
-            className="settings-select"
-            value={aiModel}
-            onChange={(e) => setAiModel(e.target.value)}
-          >
-            {(AI_MODEL_OPTIONS[aiProvider] ?? []).map((m) => (
-              <option key={m} value={m}>
-                {modelLabels[m] ?? m}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="settings-field">
-          <label className="settings-field-label" htmlFor="ai-api-key">
-            {t.settings.aiApiKey}
-          </label>
-          <span className="settings-ai-key-status">
-            {aiSavedKey
-              ? `${t.settings.aiApiKeyRegistered}（${maskApiKey(aiSavedKey)}）`
-              : t.settings.aiApiKeyNotSet}
-          </span>
-          <input
-            id="ai-api-key"
-            className="settings-input"
-            type="password"
-            autoComplete="off"
-            placeholder={t.settings.aiApiKeyPlaceholder}
-            value={aiKeyInput}
-            onChange={(e) => setAiKeyInput(e.target.value)}
-          />
-          {apiKeyGuideUrls[aiProvider] && (
-            <a
-              className="settings-ai-key-guide"
-              href={apiKeyGuideUrls[aiProvider]}
-              target="_blank"
-              rel="noreferrer"
+      {/* AI 地図取込は区域地図の作成＝編集メンバー以上の作業のため、
+          活動メンバーには表示しない（docs/wants/01「アプリ設定画面」）。 */}
+      {isRoleAtLeast(currentRole, "editor") && (
+        <section className="settings-section">
+          <h2>{t.settings.aiSection}</h2>
+          <p className="settings-section-description">
+            {t.settings.aiDescription}
+          </p>
+          <div className="settings-field">
+            <label className="settings-field-label" htmlFor="ai-provider">
+              {t.settings.aiProvider}
+            </label>
+            <select
+              id="ai-provider"
+              className="settings-select"
+              value={aiProvider}
+              onChange={(e) => void handleProviderChange(e.target.value)}
             >
-              {t.settings.aiApiKeyGuide}
-            </a>
-          )}
-        </div>
-        <div className="settings-field-actions">
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => void handleAiSave()}
-          >
-            {t.settings.aiSave}
-          </button>
-          {aiSavedKey && (
+              {AI_PROVIDERS.map((p) => (
+                <option key={p} value={p}>
+                  {providerLabels[p] ?? p}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-field">
+            <label className="settings-field-label" htmlFor="ai-model">
+              {t.settings.aiModel}
+            </label>
+            <select
+              id="ai-model"
+              className="settings-select"
+              value={aiModel}
+              onChange={(e) => setAiModel(e.target.value)}
+            >
+              {(AI_MODEL_OPTIONS[aiProvider] ?? []).map((m) => (
+                <option key={m} value={m}>
+                  {modelLabels[m] ?? m}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-field">
+            <label className="settings-field-label" htmlFor="ai-api-key">
+              {t.settings.aiApiKey}
+            </label>
+            <span className="settings-ai-key-status">
+              {aiSavedKey
+                ? `${t.settings.aiApiKeyRegistered}（${maskApiKey(aiSavedKey)}）`
+                : t.settings.aiApiKeyNotSet}
+            </span>
+            <input
+              id="ai-api-key"
+              className="settings-input"
+              type="password"
+              autoComplete="off"
+              placeholder={t.settings.aiApiKeyPlaceholder}
+              value={aiKeyInput}
+              onChange={(e) => setAiKeyInput(e.target.value)}
+            />
+            {apiKeyGuideUrls[aiProvider] && (
+              <a
+                className="settings-ai-key-guide"
+                href={apiKeyGuideUrls[aiProvider]}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t.settings.aiApiKeyGuide}
+              </a>
+            )}
+          </div>
+          <div className="settings-field-actions">
             <button
               type="button"
-              className="btn btn-sm"
-              onClick={() => void handleAiClear()}
+              className="btn btn-primary btn-sm"
+              onClick={() => void handleAiSave()}
             >
-              {t.settings.aiClear}
+              {t.settings.aiSave}
             </button>
+            {aiSavedKey && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => void handleAiClear()}
+              >
+                {t.settings.aiClear}
+              </button>
+            )}
+          </div>
+          <p className="settings-section-note">{t.settings.aiApiKeyNote}</p>
+          {aiMsg && (
+            <p className="settings-msg" role="status">
+              {aiMsg}
+            </p>
           )}
-        </div>
-        <p className="settings-section-note">{t.settings.aiApiKeyNote}</p>
-        {aiMsg && (
-          <p className="settings-msg" role="status">
-            {aiMsg}
-          </p>
-        )}
-      </section>
+        </section>
+      )}
 
       {hasIdentity && (
         <section className="settings-section">
