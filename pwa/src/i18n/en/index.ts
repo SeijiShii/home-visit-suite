@@ -217,6 +217,7 @@ const en: Translations = {
       "Phase 1 stub: hard-coded redirect to area {areaId} (checkout flow comes later)",
     placesEmpty: "No places registered in this area",
     placeReadOnlyHint: "This place is read-only.",
+    backToMapEditor: "← Back to area editor",
   },
   areaTree: {
     title: "Area Editor",

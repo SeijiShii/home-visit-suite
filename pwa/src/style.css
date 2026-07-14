@@ -1197,6 +1197,17 @@ section {
   right: 10px;
   z-index: 1000;
 }
+/* 区域編集からの遷移時のみ表示する戻るボタン（地図左上に重ねる） */
+.visit-page-back-button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+}
+/* 戻るボタンと Leaflet ズームコントロールが重ならないよう下にずらす */
+.visit-page-map.with-back .leaflet-top.leaflet-left {
+  padding-top: 44px;
+}
 /* 狭幅時の場所一覧オーバーレイ（全面） */
 .place-list-overlay {
   position: fixed;

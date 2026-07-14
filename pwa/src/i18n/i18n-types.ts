@@ -204,6 +204,7 @@ export interface Translations {
     phase1Banner: string;
     placesEmpty: string;
     placeReadOnlyHint: string;
+    backToMapEditor: string;
   };
   areaTree: {
     title: string;

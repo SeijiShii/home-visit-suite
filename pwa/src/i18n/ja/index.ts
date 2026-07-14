@@ -215,6 +215,7 @@ const ja: Translations = {
       "Phase 1 暫定: 区域 {areaId} に固定遷移しています（チェックアウト連携は次期スコープ）",
     placesEmpty: "この区域には場所が登録されていません",
     placeReadOnlyHint: "この場所は読み取り専用です。",
+    backToMapEditor: "← 区域編集に戻る",
   },
   areaTree: {
     title: "区域編集",

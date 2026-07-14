@@ -1,8 +1,13 @@
 // desktop/frontend/src/pages/VisitPageContainer.tsx からの移植。
 // Wails バインディングを useServices() のアダプタ・サービスに置き換えた。
 
-import { useEffect, useMemo, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { VisitPage } from "./VisitPage";
 import { RegionService } from "../services/region-service";
 import { isRoleAtLeast, useIdentity } from "../contexts/IdentityContext";
@@ -33,6 +38,13 @@ function editRequestType(kind: PlaceEditRequestKind): RequestType {
  */
 export function VisitPageContainer() {
   const { areaId = "" } = useParams<{ areaId: string }>();
+  // 区域編集画面から遷移してきた場合のみ「区域編集に戻る」ボタンを出す
+  // （docs/wants/03「場所の直接編集」。ダッシュボード起点では出さない）。
+  const location = useLocation();
+  const navigate = useNavigate();
+  const fromMapEditor =
+    (location.state as { from?: string } | null)?.from === "map-editor";
+  const handleBackToMap = useCallback(() => navigate("/map"), [navigate]);
   const {
     placeService,
     visitService,
@@ -144,6 +156,7 @@ export function VisitPageContainer() {
         });
       }}
       canDirectEdit={canDirectEdit}
+      onBackToMap={fromMapEditor ? handleBackToMap : undefined}
     />
   );
 }

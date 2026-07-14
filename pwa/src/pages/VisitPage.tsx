@@ -106,6 +106,11 @@ export interface VisitPageProps {
    * 仕様 docs/wants/07_通知と申請.md「場所操作の権限」
    */
   canDirectEdit?: boolean;
+  /**
+   * 区域編集画面から遷移してきた場合のみ指定される「区域編集に戻る」。
+   * 指定時は地図上に戻るボタンを表示する（docs/wants/03「場所の直接編集」）。
+   */
+  onBackToMap?: () => void;
 }
 
 type DialogState =
@@ -132,6 +137,7 @@ export function VisitPage({
   settingsService,
   onPlaceEditRequest,
   canDirectEdit = false,
+  onBackToMap,
 }: VisitPageProps) {
   const { t } = useI18n();
   const mapRef = useRef<MapViewHandle | null>(null);
@@ -818,11 +824,20 @@ export function VisitPage({
       <div className="visit-page-body">
         <div
           ref={containerRef}
-          className="visit-page-map"
+          className={`visit-page-map${onBackToMap ? " with-back" : ""}`}
           data-testid="visit-page-map"
         >
           {editor && polygonToArea && (
             <MapView ref={mapRef} onContextMenu={handleMapContextMenu} />
+          )}
+          {onBackToMap && (
+            <button
+              type="button"
+              className="btn btn-sm visit-page-back-button"
+              onClick={onBackToMap}
+            >
+              {t.visitRecord.backToMapEditor}
+            </button>
           )}
           {narrow && (
             <button

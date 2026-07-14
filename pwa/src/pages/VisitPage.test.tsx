@@ -14,7 +14,10 @@ import {
   createInMemoryServices,
 } from "../contexts/ServicesContext";
 import { setLocale } from "../i18n/i18n-util";
-import { DevIdentityService, DEV_SEED_USERS } from "../services/identity-service";
+import {
+  DevIdentityService,
+  DEV_SEED_USERS,
+} from "../services/identity-service";
 import { VisitPageContainer } from "./VisitPageContainer";
 
 async function seed(services: AppServices) {
@@ -42,18 +45,28 @@ async function seed(services: AppServices) {
   });
 }
 
-async function renderVisit() {
+async function renderVisit(entryState?: Record<string, unknown>) {
   const services = createInMemoryServices();
   await seed(services);
-  const identityService = new DevIdentityService(services.userRepo, DEV_SEED_USERS[0].id);
+  const identityService = new DevIdentityService(
+    services.userRepo,
+    DEV_SEED_USERS[0].id,
+  );
   return render(
     <I18nProvider>
       <ServicesProvider services={services}>
         <IdentityProvider service={identityService}>
           <TipsProvider service={services.settingsService}>
-            <MemoryRouter initialEntries={["/visits/NRT-001-01"]}>
+            <MemoryRouter
+              initialEntries={[
+                { pathname: "/visits/NRT-001-01", state: entryState ?? null },
+              ]}
+            >
               <Routes>
-                <Route path="/visits/:areaId" element={<VisitPageContainer />} />
+                <Route
+                  path="/visits/:areaId"
+                  element={<VisitPageContainer />}
+                />
               </Routes>
             </MemoryRouter>
           </TipsProvider>
@@ -72,5 +85,18 @@ describe("VisitPageContainer", () => {
   it("例外なくレンダリングされ、訪問記録の見出しが表示される", async () => {
     await renderVisit();
     expect(await screen.findByText("訪問記録")).toBeInTheDocument();
+  });
+
+  // 区域編集からの遷移時のみ「区域編集に戻る」ボタンを表示する
+  // （docs/wants/03「場所の直接編集」）
+  it("区域編集から遷移すると戻るボタンが表示される", async () => {
+    await renderVisit({ from: "map-editor" });
+    expect(await screen.findByText("← 区域編集に戻る")).toBeInTheDocument();
+  });
+
+  it("ダッシュボード起点（state なし）では戻るボタンを表示しない", async () => {
+    await renderVisit();
+    await screen.findByText("訪問記録");
+    expect(screen.queryByText("← 区域編集に戻る")).toBeNull();
   });
 });

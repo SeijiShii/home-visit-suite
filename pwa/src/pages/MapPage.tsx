@@ -740,7 +740,12 @@ export function MapPage() {
             const info = polygonAreaMap.get(id as string);
             // ポリゴンダブルクリック → 当該区域の訪問記録画面（場所編集を兼ねる）へ
             // 遷移する（docs/wants/03「ポリゴンクリック操作」2026-07-14 改訂）。
-            if (info) navigate(`/visits/${info.areaId}`);
+            // 区域編集からの遷移であることを伝え、訪問記録画面に
+            // 「区域編集に戻る」ボタンを出す（docs/wants/03「場所の直接編集」）。
+            if (info)
+              navigate(`/visits/${info.areaId}`, {
+                state: { from: "map-editor" },
+              });
           }}
           onContextMenu={handleContextMenu}
           onVertexHover={handleVertexHover}
@@ -902,7 +907,11 @@ export function MapPage() {
                     snapshot.selectedPolygonId as string | null
                   }
                   onTreeChanged={handleTreeChanged}
-                  onOpenAreaDetail={(areaId) => navigate(`/visits/${areaId}`)}
+                  onOpenAreaDetail={(areaId) =>
+                    navigate(`/visits/${areaId}`, {
+                      state: { from: "map-editor" },
+                    })
+                  }
                 />
               </div>
               <div
