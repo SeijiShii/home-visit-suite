@@ -9,6 +9,7 @@ import {
 import {
   PolygonService,
   buildPolygonAreaMap,
+  toPolygonAreaIds,
   type PolygonBindingAPI,
 } from "./polygon-service";
 import type { AreaTreeNode } from "./region-service";
@@ -124,5 +125,11 @@ describe("buildPolygonAreaMap のラベル生成", () => {
   it("区域親番名が空なら ID のみを表示する", () => {
     const info = buildPolygonAreaMap(tree("")).get("poly-1");
     expect(info?.areaLabel).toBe("NRT-001-05");
+  });
+
+  it("toPolygonAreaIds は区域IDラベル用にポリゴンID→区域IDを取り出す", () => {
+    const ids = toPolygonAreaIds(buildPolygonAreaMap(tree("加良部1丁目")));
+    expect(ids.get("poly-1")).toBe("NRT-001-05");
+    expect(ids.size).toBe(1);
   });
 });

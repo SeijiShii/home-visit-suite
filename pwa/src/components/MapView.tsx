@@ -22,6 +22,7 @@ export interface MapViewHandle {
   highlightPolygon(id: PolygonID | null): void;
   focusPolygon(id: PolygonID): void;
   setLinkedPolygonIds(ids: Set<string>): void;
+  setPolygonAreaIds(ids: ReadonlyMap<string, string>): void;
   enableRubberBand(): void;
   disableRubberBand(): void;
   setRubberBandOrigin(vertexId: VertexID): void;
@@ -128,6 +129,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const placeClickHandlerRef = useRef<
     ((placeId: string, type: PlaceType) => void) | null
   >(null);
+  const polygonAreaIdsRef = useRef<ReadonlyMap<string, string> | null>(null);
   const callbacksRef = useRef({
     onMapClick,
     onPolygonClick,
@@ -169,6 +171,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     setLinkedPolygonIds(ids) {
       rendererRef.current?.setLinkedPolygonIds(ids);
+    },
+    setPolygonAreaIds(ids) {
+      polygonAreaIdsRef.current = ids;
+      rendererRef.current?.setPolygonAreaIds(ids);
     },
     enableRubberBand() {
       rendererRef.current?.enableRubberBand();
@@ -286,6 +292,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
     if (placeClickHandlerRef.current) {
       renderer.setPlaceClickHandler(placeClickHandlerRef.current);
+    }
+    if (polygonAreaIdsRef.current) {
+      renderer.setPolygonAreaIds(polygonAreaIdsRef.current);
     }
     return () => {
       renderer.unmount();

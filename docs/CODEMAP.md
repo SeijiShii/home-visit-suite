@@ -74,7 +74,7 @@
 - `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
 ### lib（純ロジック/幾何/画像処理）
-- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー描画・ベース地図切替・描画モードのスナップ表示（頂点/線分）
+- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル描画・ベース地図切替・描画モードのスナップ表示（頂点/線分）
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
 - `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）

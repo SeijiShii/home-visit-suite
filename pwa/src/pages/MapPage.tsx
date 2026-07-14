@@ -30,7 +30,10 @@ import { AiMapImportDialog } from "../components/AiMapImportDialog";
 import { TipStack } from "../components/TipStack";
 import { useServices } from "../contexts/ServicesContext";
 import { RegionService } from "../services/region-service";
-import { buildPolygonAreaMap } from "../services/polygon-service";
+import {
+  buildPolygonAreaMap,
+  toPolygonAreaIds,
+} from "../services/polygon-service";
 import { buildAiMapImportService } from "../services/ai-map-import-factory";
 import type {
   AiMapImportService,
@@ -263,6 +266,7 @@ export function MapPage() {
     const areaMap = buildPolygonAreaMap(tree);
     setPolygonAreaMap(areaMap);
     setAreaTree(tree);
+    mapRef.current?.setPolygonAreaIds(toPolygonAreaIds(areaMap));
   }, []);
 
   // --- ポリゴンリロード ---
@@ -277,6 +281,7 @@ export function MapPage() {
     setPolygonAreaMap(areaMap);
     setAreaTree(tree);
     mapRef.current?.setLinkedPolygonIds(linkedIds);
+    mapRef.current?.setPolygonAreaIds(toPolygonAreaIds(areaMap));
     mapRef.current?.renderAll(linkedIds);
   }, [polygonService, editor, regionService]);
   reloadPolygonsRef.current = reloadPolygons;

@@ -6,6 +6,7 @@ import type {
   EdgeID,
   NetworkPolygonEditor,
 } from "map-polygon-editor";
+import { polygonCenter } from "./area-detail-geo";
 
 const GSI_TILE_URL = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png";
 const GSI_ATTRIBUTION =
@@ -199,6 +200,13 @@ export class MapRenderer {
   private mouseMoveHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
   private mouseOutHandler: (() => void) | null = null;
   private snapIndicator: L.CircleMarker | null = null;
+
+  // 区域IDラベル（紐付け済みポリゴンの中心にテキスト表示）
+  private polygonAreaIds = new Map<string, string>();
+  private areaIdLabelMarkers = new Map<
+    string,
+    { marker: L.Marker; text: string }
+  >();
 
   // ポリゴンメタデータ（区域紐付け、選択状態）
   private linkedPolygonIds: Set<string> = new Set();
@@ -833,6 +841,7 @@ export class MapRenderer {
     this.vertexLayers.clear();
     this.edgeLayers.clear();
     this.polygonLayers.clear();
+    this.areaIdLabelMarkers.clear();
     this.editor = null;
   }
 
@@ -874,6 +883,8 @@ export class MapRenderer {
     if (this.detailMode) {
       this.polygonLayers.get(this.detailMode.targetId)?.bringToFront();
     }
+
+    this.refreshAreaIdLabels();
   }
 
   // --- ChangeSet 差分適用 ---
@@ -952,6 +963,11 @@ export class MapRenderer {
     // 交差解決で生じた頂点がその後に来る。始点は最初の頂点。
     if (cs.vertices.added.length > 0) {
       this.lastPlacedVertexId = cs.vertices.added[0].id;
+    }
+
+    // ポリゴンの増減・形状変化（頂点移動含む）に区域IDラベルを追従させる
+    if (polygonsChanged || cs.vertices.moved.length > 0) {
+      this.refreshAreaIdLabels();
     }
   }
 
@@ -1410,6 +1426,68 @@ export class MapRenderer {
 
   setLinkedPolygonIds(ids: Set<string>): void {
     this.linkedPolygonIds = ids;
+  }
+
+  // --- 区域IDラベル ---
+
+  /** ポリゴンID→区域ID の対応を設定し、区域IDラベルを描画し直す。 */
+  setPolygonAreaIds(ids: ReadonlyMap<string, string>): void {
+    this.polygonAreaIds = new Map(ids);
+    this.refreshAreaIdLabels();
+  }
+
+  /**
+   * 区域IDラベルを現状のポリゴンに同期する。表示中ポリゴンのうち区域紐付け済みの
+   * ものへ、ポリゴン中心（頂点平均）に非インタラクティブな divIcon を置く。
+   * 頂点ドラッグ中に毎フレーム呼ばれるため、既存マーカーは位置更新で使い回す。
+   * 詳細モードでは場所マーカーと干渉するため表示しない
+   * （docs/wants/03「区域IDラベル表示」）。
+   */
+  private refreshAreaIdLabels(): void {
+    if (!this.map) return;
+    const wanted = new Map<
+      string,
+      { lat: number; lng: number; text: string }
+    >();
+    if (this.editor && !this.detailMode) {
+      for (const idStr of this.polygonLayers.keys()) {
+        const text = this.polygonAreaIds.get(idStr);
+        if (!text) continue;
+        const ring = this.editor.getPolygonGeoJSON(idStr as PolygonID)
+          ?.coordinates[0];
+        if (!ring || ring.length === 0) continue;
+        const center = polygonCenter(ring.map(([lng, lat]) => ({ lat, lng })));
+        wanted.set(idStr, { ...center, text });
+      }
+    }
+    for (const [id, entry] of this.areaIdLabelMarkers) {
+      const next = wanted.get(id);
+      if (!next || next.text !== entry.text) {
+        entry.marker.remove();
+        this.areaIdLabelMarkers.delete(id);
+      }
+    }
+    for (const [id, { lat, lng, text }] of wanted) {
+      const existing = this.areaIdLabelMarkers.get(id);
+      if (existing) {
+        existing.marker.setLatLng([lat, lng]);
+        continue;
+      }
+      const el = document.createElement("span");
+      el.className = "area-id-label-text";
+      el.textContent = text;
+      const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: "area-id-label",
+          html: el,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        }),
+        interactive: false,
+        keyboard: false,
+      }).addTo(this.map);
+      this.areaIdLabelMarkers.set(id, { marker, text });
+    }
   }
 
   // --- 頂点ドラッグモード ---

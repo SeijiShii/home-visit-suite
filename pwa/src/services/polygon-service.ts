@@ -34,6 +34,13 @@ export function buildPolygonAreaMap(
   return map;
 }
 
+/** buildPolygonAreaMap の結果から、地図の区域IDラベル用に ポリゴンID→区域ID を取り出す。 */
+export function toPolygonAreaIds(
+  areaMap: ReadonlyMap<string, PolygonAreaInfo>,
+): Map<string, string> {
+  return new Map([...areaMap].map(([pid, info]) => [pid, info.areaId]));
+}
+
 export interface PolygonBindingAPI {
   BindPolygonToArea(areaId: string, polygonId: string): Promise<void>;
   UnbindPolygonFromArea(areaId: string): Promise<void>;
