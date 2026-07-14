@@ -5,6 +5,7 @@
 // 仕様: docs/wants/01_共通基盤.md「端末ペアリング」（URL 方式・冪等性）
 
 import { useEffect, useState } from "react";
+import { AppBrand } from "../components/AppBrand";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 
@@ -60,6 +61,7 @@ export function PairPage({ onConsumed }: PairPageProps) {
   return (
     <div className="onboarding">
       <div className="onboarding-card">
+        <AppBrand />
         <h1 className="onboarding-title">{m.title}</h1>
         {error ? (
           <>

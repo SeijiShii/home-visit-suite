@@ -410,6 +410,9 @@ export interface Translations {
     linkOptionDesc: string;
     nameLabel: string;
     namePlaceholder: string;
+    groupNameLabel: string;
+    groupNamePlaceholder: string;
+    groupNameHint: string;
     start: string;
     creating: string;
     createError: string;
@@ -429,6 +432,8 @@ export interface Translations {
   join: {
     title: string;
     subtitle: string;
+    invitedTo: (group: string) => string;
+    joinRole: (role: string) => string;
     pending: string;
     createHint: string;
     createAndJoin: string;
@@ -448,10 +453,12 @@ export interface Translations {
   groupInvite: {
     section: string;
     description: string;
+    roleLabel: string;
     issue: string;
     issuing: string;
     dialogTitle: string;
     dialogHint: string;
+    dialogRole: (role: string) => string;
     expiresIn: (time: string) => string;
     copyUrl: string;
     copied: string;
@@ -459,6 +466,14 @@ export interface Translations {
     unavailable: string;
     errorNoRelay: string;
     errorGeneric: string;
+  };
+  groupName: {
+    section: string;
+    description: string;
+    label: string;
+    placeholder: string;
+    save: string;
+    saved: string;
   };
   devicePairing: {
     section: string;

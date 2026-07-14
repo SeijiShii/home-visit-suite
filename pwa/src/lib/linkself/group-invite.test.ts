@@ -4,6 +4,7 @@
 // 問題なし）。この招待ロジックは純粋な暗号処理のため node 環境でテストする。
 import { describe, expect, it } from "vitest";
 import {
+  extractGroupNameParam,
   GROUP_INVITE_TTL_MS,
   HVS_SUITE_ID,
   issueGroupInvite,
@@ -50,6 +51,41 @@ describe("issueGroupInvite", () => {
     });
     expect(invite.role).toBe("editor");
     expect(expiresAt).toBe(now + 60_000);
+  });
+});
+
+describe("group name URL param", () => {
+  it("carries the group name as a display-only &g= param and round-trips it", async () => {
+    const now = 1_000_000;
+    const { url } = await issueGroupInvite({
+      adminSeed: SEED,
+      networkId: "net-1",
+      relays: RELAYS,
+      baseUrl: BASE,
+      groupName: "成田 第1グループ",
+      now: () => now,
+    });
+    expect(url).toContain("&g=");
+    expect(extractGroupNameParam(url)).toBe("成田 第1グループ");
+    // 表示用パラメータが付いても署名付き招待の抽出・検証は壊れない。
+    const parsed = await parseGroupInvite(url, () => now);
+    expect(parsed.networkId).toBe("net-1");
+  });
+
+  it("returns null when the URL carries no group name", async () => {
+    const { url } = await issueGroupInvite({
+      adminSeed: SEED,
+      networkId: "net-1",
+      relays: RELAYS,
+      baseUrl: BASE,
+      now: () => 1_000_000,
+    });
+    expect(url).not.toContain("&g=");
+    expect(extractGroupNameParam(url)).toBeNull();
+  });
+
+  it("returns null for junk input", () => {
+    expect(extractGroupNameParam("not a url")).toBeNull();
   });
 });
 

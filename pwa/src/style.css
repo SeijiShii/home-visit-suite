@@ -4190,6 +4190,26 @@ section {
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.app-brand-logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.app-brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 0.02em;
+}
+
 .onboarding-title {
   margin: 0 0 4px;
   font-size: 22px;

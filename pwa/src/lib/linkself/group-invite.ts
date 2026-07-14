@@ -32,6 +32,11 @@ export interface IssueGroupInviteParams {
   baseUrl?: string;
   /** 割り当てるロール。既定は活動メンバー（member）。 */
   role?: string;
+  /**
+   * 招待 URL に同梱する表示用グループ名（`&g=`）。署名対象外の表示専用値で、
+   * 被招待者は参加前にグループのデータを持たないため参加画面表示の唯一の経路。
+   */
+  groupName?: string;
   /** TTL 上書き（テスト用、既定 3 日）。 */
   ttlMs?: number;
   /** 現在時刻の注入（テスト用）。 */
@@ -75,11 +80,29 @@ export async function buildGroupInviteUrl(
     params.now,
   );
   const baseUrl = params.baseUrl ?? defaultBaseUrl();
+  let url = buildInviteUrl(baseUrl, invite);
+  if (params.groupName) {
+    url += `&g=${encodeURIComponent(params.groupName)}`;
+  }
   return {
-    url: buildInviteUrl(baseUrl, invite),
+    url,
     expiresAt: invite.expiresAt,
     invite,
   };
+}
+
+/**
+ * 招待 URL / フラグメントから表示用グループ名（`&g=`）を取り出す。無ければ null。
+ * 署名検証を伴わない表示専用の値（改竄されても参加先・ロールには影響しない）。
+ */
+export function extractGroupNameParam(input: string): string | null {
+  const m = input.match(/[?&]g=([^&\s]+)/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return null;
+  }
 }
 
 /**

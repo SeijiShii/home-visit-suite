@@ -1,12 +1,15 @@
 // 初回オンボーディング画面。
 // 自分の ID がローカルに無いとき（App ゲート）に全ルートへ優先して表示する。
-// 新規に ID を作成するか、既存の自分の端末から QR で引き継ぐ。
+// 新規に ID を作成する（=グループ創設。グループ名も設定する）か、既存の自分の
+// 端末から QR で引き継ぐ。
 // 仕様: docs/wants/01_共通基盤.md「自分の ID の作成と保管」「端末ペアリング」
-//       docs/wants/04_メンバー管理と権限.md「初回オンボーディングと創設メンバー」
+//       docs/wants/04_メンバー管理と権限.md「初回オンボーディングと創設メンバー」「グループ名」
 
 import { useCallback, useState } from "react";
+import { AppBrand } from "../components/AppBrand";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
+import { setGroupName } from "../lib/group-name";
 
 type Mode = "choose" | "create" | "link";
 
@@ -17,15 +20,18 @@ export function OnboardingPage() {
 
   const [mode, setMode] = useState<Mode>("choose");
   const [name, setName] = useState("");
+  const [groupName, setGroupNameInput] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!name.trim() || busy) return;
+    if (!name.trim() || !groupName.trim() || busy) return;
     setBusy(true);
     setError(null);
     try {
+      // 創設者はグループ名も設定する（docs/wants/04「グループ名」）。
+      setGroupName(groupName);
       await createIdentity(name);
       // 成功時は App ゲートが hasIdentity=true を検知し通常画面へ遷移する。
     } catch (e) {
@@ -54,6 +60,7 @@ export function OnboardingPage() {
   return (
     <div className="onboarding">
       <div className="onboarding-card">
+        <AppBrand />
         <h1 className="onboarding-title">{m.title}</h1>
         <p className="onboarding-subtitle">{m.subtitle}</p>
 
@@ -102,6 +109,20 @@ export function OnboardingPage() {
                 if (e.key === "Enter") void handleCreate();
               }}
             />
+            <label className="onboarding-label" htmlFor="onboarding-group-name">
+              {m.groupNameLabel}
+            </label>
+            <input
+              id="onboarding-group-name"
+              className="onboarding-input"
+              value={groupName}
+              placeholder={m.groupNamePlaceholder}
+              onChange={(e) => setGroupNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleCreate();
+              }}
+            />
+            <p className="onboarding-hint">{m.groupNameHint}</p>
             {error && <p className="onboarding-error">{error}</p>}
             <div className="onboarding-actions">
               <button
@@ -116,7 +137,7 @@ export function OnboardingPage() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => void handleCreate()}
-                disabled={!name.trim() || busy}
+                disabled={!name.trim() || !groupName.trim() || busy}
               >
                 {busy ? m.creating : m.start}
               </button>

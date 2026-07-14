@@ -11,11 +11,15 @@
 // （または待機中の定期確認）に反映される。成立時のロール採用は App が担う。
 // 仕様: docs/wants/04_メンバー管理と権限.md「グループ招待（URL / QR による参加）」
 
+import { decodeInvite, extractInviteParam } from "@linkself/core";
 import { useEffect, useRef, useState } from "react";
 import type { Role } from "../domain/models/user";
+import { AppBrand } from "../components/AppBrand";
 import { useGroupNetwork } from "../contexts/GroupNetworkContext";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
+import { setGroupName } from "../lib/group-name";
+import { extractGroupNameParam } from "../lib/linkself/group-invite";
 import {
   ASYNC_JOIN_EVENT,
   type AsyncJoinResult,
@@ -42,6 +46,24 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
   // 非同期参加の成立待ち（deposit 済み。管理者側アプリのオンライン化で自動成立）。
   const [waiting, setWaiting] = useState(false);
   const autoJoinTried = useRef(false);
+
+  // 招待 URL の表示用グループ名（&g=、署名対象外）。無ければ null（旧招待）。
+  const [inviteGroupName] = useState<string | null>(() =>
+    extractGroupNameParam(window.location.hash),
+  );
+  // 招待に含まれるロール（表示用。署名検証は参加時に行う）。
+  const [inviteRole] = useState<string | null>(() => {
+    try {
+      return decodeInvite(extractInviteParam(window.location.hash)).role;
+    } catch {
+      return null;
+    }
+  });
+
+  /** 参加が成立した（または預けた）グループの表示名をこの端末に保存する。 */
+  const persistGroupName = () => {
+    if (inviteGroupName) setGroupName(inviteGroupName);
+  };
 
   // 確認待ちの復元: deposit 済みのままこの画面に戻ってきたら待機表示にする。
   useEffect(() => {
@@ -73,6 +95,8 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
     if (!groupNetwork) return false;
     try {
       await groupNetwork.joinAsync(window.location.hash, name);
+      // 成立結果を JoinPage 外（App）で受ける場合に備え、預けた時点で保存する。
+      persistGroupName();
       setWaiting(true);
       setBusy(false);
       return true;
@@ -94,8 +118,10 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
         const role: Role =
           joined === "admin" || joined === "editor" ? joined : "member";
         await adoptRole(role);
+        persistGroupName();
         setDone(true);
       } else if (res.code === "already_member") {
+        persistGroupName();
         setDone(true);
       } else {
         setError(
@@ -151,8 +177,22 @@ export function JoinPage({ onConsumed }: JoinPageProps) {
   return (
     <div className="onboarding">
       <div className="onboarding-card">
+        <AppBrand />
         <h1 className="onboarding-title">{m.title}</h1>
-        <p className="onboarding-subtitle">{m.subtitle}</p>
+        <p className="onboarding-subtitle">
+          {inviteGroupName ? m.invitedTo(inviteGroupName) : m.subtitle}
+        </p>
+        {inviteRole && !done && !waiting && (
+          <p className="onboarding-hint">
+            {m.joinRole(
+              inviteRole === "admin" ||
+                inviteRole === "editor" ||
+                inviteRole === "member"
+                ? t.users.roles[inviteRole]
+                : inviteRole,
+            )}
+          </p>
+        )}
 
         {done ? (
           <>

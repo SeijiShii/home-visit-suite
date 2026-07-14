@@ -142,6 +142,8 @@ export interface IssueInviteOptions {
   role?: string;
   /** 招待 URL のベース（省略時は実行時オリジン）。 */
   baseUrl?: string;
+  /** 招待 URL に同梱する表示用グループ名（docs/wants/04「グループ名」）。 */
+  groupName?: string;
 }
 
 export class GroupNetworkError extends Error {
@@ -206,6 +208,7 @@ export class GroupNetworkService {
       relays,
       role: opts.role,
       baseUrl: opts.baseUrl,
+      groupName: opts.groupName,
     });
   }
 

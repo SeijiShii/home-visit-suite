@@ -1,13 +1,19 @@
 // グループ招待の発行 UI（管理者専用）。
 // 他ユーザーを招待する 3 日期限の URL / QR を発行する。デバイスペアリング（同一 DID）
-// とは別物で、別ユーザー（別 DID）を活動メンバーとしてグループへ迎える。
+// とは別物で、別ユーザー（別 DID）を選択したロール（既定: 活動メンバー）でグループへ
+// 迎える。URL には表示用グループ名を同梱する（docs/wants/04「グループ名」）。
 // 仕様: docs/wants/04_メンバー管理と権限.md「グループ招待（URL / QR による参加）」
 
 import { useRef, useState } from "react";
 import { useGroupNetwork } from "../contexts/GroupNetworkContext";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
+import type { Role } from "../domain/models/user";
+import { getGroupName } from "../lib/group-name";
 import { QrCode } from "./QrCode";
+
+/** 招待で指定できるロール（docs/wants/04「グループ招待」。既定は活動メンバー）。 */
+const INVITE_ROLES: Role[] = ["member", "editor", "admin"];
 
 /** 残り時間を「N日 Nh」程度の粗い表記にする（3 日トークン向け・秒刻み不要）。 */
 function formatRemaining(ms: number): string {
@@ -31,6 +37,7 @@ export function GroupInviteSection() {
   const [issuing, setIssuing] = useState(false);
   const [err, setErr] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [role, setRole] = useState<Role>("member");
   const urlRef = useRef<HTMLInputElement>(null);
 
   // グループ招待は管理者専用（docs/wants/04）。
@@ -41,7 +48,10 @@ export function GroupInviteSection() {
     setIssuing(true);
     setErr("");
     try {
-      const issued = await groupNetwork.issueInvite();
+      const issued = await groupNetwork.issueInvite({
+        role,
+        groupName: getGroupName() ?? undefined,
+      });
       setUrl(issued.url);
       setExpiresAt(issued.expiresAt);
     } catch (e) {
@@ -80,6 +90,23 @@ export function GroupInviteSection() {
         <p className="settings-section-note">{m.unavailable}</p>
       ) : (
         <>
+          <div className="settings-field">
+            <label className="settings-field-label" htmlFor="group-invite-role">
+              {m.roleLabel}
+            </label>
+            <select
+              id="group-invite-role"
+              className="settings-select"
+              value={role}
+              onChange={(e) => setRole(e.target.value as Role)}
+            >
+              {INVITE_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {t.users.roles[r]}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             type="button"
             className="btn btn-primary"
@@ -97,6 +124,9 @@ export function GroupInviteSection() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-title">{m.dialogTitle}</h3>
             <p className="settings-section-description">{m.dialogHint}</p>
+            <p className="settings-section-note">
+              {m.dialogRole(t.users.roles[role])}
+            </p>
             <div className="device-pairing-qr">
               <QrCode text={url} />
             </div>

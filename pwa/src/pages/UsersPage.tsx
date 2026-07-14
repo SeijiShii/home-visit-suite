@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { GroupInviteSection } from "../components/GroupInviteSection";
+import { GroupNameSection } from "../components/GroupNameSection";
 import { useI18n } from "../contexts/I18nContext";
 import { useServices } from "../contexts/ServicesContext";
 import { TAG_COLOR_PALETTE, type Tag, type User } from "../domain/models/user";
@@ -197,6 +198,10 @@ export function UsersPage() {
 
       {/* メンバーグループ廃止済み（2026-05-06 仕様改訂）。
           チーム単位の分類はメンバータグで運用する。 */}
+
+      {/* グループ名（管理者専用・招待 URL に同梱される表示名）。
+          コンポーネント内で admin 以外は非表示（docs/wants/04「グループ名」）。 */}
+      <GroupNameSection />
 
       {/* グループ招待（管理者専用・URL/QR で別ユーザーを招く）。
           コンポーネント内で admin 以外は非表示（docs/wants/04）。 */}

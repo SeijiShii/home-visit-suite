@@ -436,6 +436,9 @@ const en: Translations = {
       "Photograph the existing device's QR with your camera app, or open the URL, to carry over automatically. Manual paste also works",
     nameLabel: "Display name",
     namePlaceholder: "e.g. Taro Yamada",
+    groupNameLabel: "Group name",
+    groupNamePlaceholder: "e.g. Narita Group 1",
+    groupNameHint: "You will create a new group and become its admin",
     start: "Get started",
     creating: "Creating…",
     createError: "Failed to create ID",
@@ -456,9 +459,11 @@ const en: Translations = {
   join: {
     title: "Join the group",
     subtitle: "Accept an invitation to join the group",
+    invitedTo: (group: string) => `You are invited to the "${group}" group`,
+    joinRole: (role: string) => `Role after joining: ${role}`,
     pending: "Joining…",
     createHint:
-      "This device has no ID yet. Enter a display name to create one and join right away (as an activity member)",
+      "This device has no ID yet. Enter a display name to create one and join right away",
     createAndJoin: "Create ID and join",
     displayNameLabel: "Display name",
     displayNamePlaceholder: "e.g. Jane Doe",
@@ -477,12 +482,14 @@ const en: Translations = {
   groupInvite: {
     section: "Group invitation",
     description:
-      "Invite another user to this group. Send the URL or hand over the QR code; they open it in a browser to join (as an activity member)",
+      "Invite another user to this group. Send the URL or hand over the QR code; they open it in a browser to join with the selected role",
+    roleLabel: "Role to join as",
     issue: "Create invitation",
     issuing: "Creating…",
     dialogTitle: "Invitation to the group",
     dialogHint:
       "Have them scan this QR with their camera app, or send the URL to open in a browser. Valid for 3 days",
+    dialogRole: (role: string) => `Role to join as: ${role}`,
     expiresIn: (time: string) => `Expires in ${time}`,
     copyUrl: "Copy URL",
     copied: "Copied",
@@ -492,6 +499,15 @@ const en: Translations = {
     errorNoRelay:
       "Not connected to the network yet, so an invite cannot be issued. Try again after connecting",
     errorGeneric: "Failed to create the invitation",
+  },
+  groupName: {
+    section: "Group name",
+    description:
+      "The name of this group. It is included in invitation URLs and shown on the invitee's join screen",
+    label: "Group name",
+    placeholder: "e.g. Narita Group 1",
+    save: "Save",
+    saved: "Saved",
   },
   devicePairing: {
     section: "Devices",

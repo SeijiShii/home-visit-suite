@@ -440,6 +440,9 @@ const ja: Translations = {
       "既存端末の QR をカメラアプリで撮影するか URL を開くと自動で引き継げます。手動貼付もできます",
     nameLabel: "表示名",
     namePlaceholder: "例: 山田太郎",
+    groupNameLabel: "グループ名",
+    groupNamePlaceholder: "例: 成田第1グループ",
+    groupNameHint: "あなたが管理者となる新しいグループを作成します",
     start: "はじめる",
     creating: "作成中…",
     createError: "ID の作成に失敗しました",
@@ -460,9 +463,11 @@ const ja: Translations = {
   join: {
     title: "グループへの参加",
     subtitle: "招待を受けてグループに参加します",
+    invitedTo: (group: string) => `「${group}」グループに招待されています`,
+    joinRole: (role: string) => `参加後のロール: ${role}`,
     pending: "参加処理中です…",
     createHint:
-      "この端末にはまだ ID がありません。表示名を入力すると、ID を作成してそのまま参加します（活動メンバーとして参加）",
+      "この端末にはまだ ID がありません。表示名を入力すると、ID を作成してそのまま参加します",
     createAndJoin: "ID を作成して参加",
     displayNameLabel: "表示名",
     displayNamePlaceholder: "例: 山田太郎",
@@ -483,12 +488,14 @@ const ja: Translations = {
   groupInvite: {
     section: "グループ招待",
     description:
-      "他のユーザーをこのグループに招待します。URL を送るか QR コードを渡すと、相手はブラウザで開いて参加できます（活動メンバーとして参加）",
+      "他のユーザーをこのグループに招待します。URL を送るか QR コードを渡すと、相手はブラウザで開いて選んだロールで参加できます",
+    roleLabel: "参加ロール",
     issue: "招待を発行",
     issuing: "発行中…",
     dialogTitle: "グループへの招待",
     dialogHint:
       "この QR を相手のカメラアプリで撮影するか、URL を送ってブラウザで開いてもらってください。有効期限は 3 日です",
+    dialogRole: (role: string) => `参加ロール: ${role}`,
     expiresIn: (time: string) => `有効期限まで ${time}`,
     copyUrl: "URL をコピー",
     copied: "コピーしました",
@@ -498,6 +505,15 @@ const ja: Translations = {
     errorNoRelay:
       "まだネットワークに接続できていないため招待を発行できません。接続後に再度お試しください",
     errorGeneric: "招待の発行に失敗しました",
+  },
+  groupName: {
+    section: "グループ名",
+    description:
+      "このグループの名前です。招待 URL に含まれ、招待された相手の参加画面に表示されます",
+    label: "グループ名",
+    placeholder: "例: 成田第1グループ",
+    save: "保存",
+    saved: "保存しました",
   },
   devicePairing: {
     section: "デバイス",
