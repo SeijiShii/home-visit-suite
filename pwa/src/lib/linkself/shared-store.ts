@@ -61,8 +61,16 @@ type SharedMap = Record<string, Record<string, StoredShared>>; // channel → id
  */
 export class LocalStorageSharedStorage implements SharedStorage {
   private cache: SharedMap | null = null;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private readonly key: string = SHARED_KEY) {}
+  constructor(private readonly key: string = SHARED_KEY) {
+    // タブ破棄時に未書き込み分を確実に落とす（デバウンス書き込みの取りこぼし防止）。
+    try {
+      globalThis.addEventListener?.("pagehide", () => this.flush());
+    } catch {
+      // 非ブラウザ環境は都度 flush のみ
+    }
+  }
 
   private map(): SharedMap {
     if (this.cache == null) {
@@ -76,9 +84,25 @@ export class LocalStorageSharedStorage implements SharedStorage {
     return this.cache;
   }
 
+  /**
+   * 書き込みは 200ms で合流する。SQL ミラーは 1 回の書き込みで全行を put
+   * するため、行ごとの全量 stringify がメインスレッドを圧迫していた。
+   * 最悪クラッシュ時に直近分を失っても catch-up 同期が回復する（表示・
+   * 同期用キャッシュであり一次データではない）。
+   */
   private save(): void {
+    if (this.saveTimer != null) return;
+    this.saveTimer = setTimeout(() => this.flush(), 200);
+  }
+
+  private flush(): void {
+    if (this.saveTimer != null) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    if (this.cache == null) return;
     try {
-      localStorage.setItem(this.key, JSON.stringify(this.map()));
+      localStorage.setItem(this.key, JSON.stringify(this.cache));
     } catch {
       // 容量超過等。users/member_tags 規模では実質発生しない。
     }

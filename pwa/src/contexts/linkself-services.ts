@@ -73,6 +73,33 @@ import {
 const PERSONAL_DB_FILENAME = "hvs-personal.db";
 
 /**
+ * ScopeNetwork テーブル変更の UI 通知（`hvs:shared-applied`）。テーブルごとに
+ * 100ms で合流（デバウンス）する — catch-up 等で受信レコードが連続適用される
+ * とき、購読側（UsersPage の一覧再読込・IdentityContext の自己再取得）が
+ * レコード件数分だけ走ってタブを重くするのを防ぐ。
+ */
+const notifyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+function notifySharedApplied(table: string): void {
+  const prev = notifyTimers.get(table);
+  if (prev != null) clearTimeout(prev);
+  notifyTimers.set(
+    table,
+    setTimeout(() => {
+      notifyTimers.delete(table);
+      try {
+        globalThis.dispatchEvent?.(
+          new CustomEvent<SharedAppliedDetail>(SHARED_APPLIED_EVENT, {
+            detail: { table },
+          }),
+        );
+      } catch {
+        // 非ブラウザ環境では通知なしでよい
+      }
+    }, 100),
+  );
+}
+
+/**
  * home-visit-suite のロール階層（上位が下位を包含）。ネットワーク管理・グループ招待の
  * 権限判定（RoleDAG）に使う。docs/wants/04「メンバー権限は上位互換」。
  */
@@ -188,8 +215,11 @@ export async function createLinkSelfServices(
         allowLocalDial: opts.allowLocalDial,
         // 参加受理（管理者側）でメンバー表へ記録する（displayName はここでしか
         // 得られない）。users は ScopeNetwork 化により全メンバーへ伝播する。
-        onMemberJoined: (info) =>
-          upsertJoinedMember(networkUserRepo ?? base.userRepo, info),
+        // 記録後に UI 通知 → 開いている /users が再読み込みなしで反映される。
+        onMemberJoined: async (info) => {
+          await upsertJoinedMember(networkUserRepo ?? base.userRepo, info);
+          notifySharedApplied("users");
+        },
         // ネットワーク実体・使用済みノンス・共有レコード・epoch は
         // リロードをまたいで保持する（in-memory だと招待拒否・catch-up 全量
         // 再送・membership 巻き戻りが起きる）。
@@ -203,18 +233,9 @@ export async function createLinkSelfServices(
         onAsyncJoinDecision: (nonce, res) => {
           gn?.resolveAsyncDecision(nonce, res);
         },
-        // ScopeNetwork テーブルへの受信適用を UI へ通知する（UsersPage 等が購読）。
-        onSharedApplied: (table) => {
-          try {
-            globalThis.dispatchEvent?.(
-              new CustomEvent<SharedAppliedDetail>(SHARED_APPLIED_EVENT, {
-                detail: { table },
-              }),
-            );
-          } catch {
-            // 非ブラウザ環境では通知なしでよい
-          }
-        },
+        // ScopeNetwork テーブルへの受信適用を UI へ通知する（UsersPage 等が
+        // 購読。テーブル単位で合流＝バースト時の再読込連発を防ぐ）。
+        onSharedApplied: (table) => notifySharedApplied(table),
       });
       myDB = session.client.myDB;
       networkUserRepo = new LinkSelfUserRepository(myDB);
