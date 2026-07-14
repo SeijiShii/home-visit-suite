@@ -203,14 +203,6 @@ export interface Translations {
     pageTitle: string;
     phase1Banner: string;
     placesEmpty: string;
-    readOnlyBanner: string;
-    checkoutSelfCta: string;
-    checkoutForceCta: string;
-    checkoutRequestInviteCta: string;
-    checkoutOthersActive: (ownerName: string) => string;
-    checkoutForceConfirm: string;
-    checkoutInviteRequestPending: string;
-    dialogReadOnlyHint: string;
     placeReadOnlyHint: string;
   };
   areaTree: {

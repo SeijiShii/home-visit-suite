@@ -1,7 +1,7 @@
 // desktop/frontend/src/pages/VisitPageContainer.tsx からの移植。
 // Wails バインディングを useServices() のアダプタ・サービスに置き換えた。
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { VisitPage } from "./VisitPage";
 import { RegionService } from "../services/region-service";
@@ -38,8 +38,6 @@ export function VisitPageContainer() {
     visitService,
     settingsService,
     checkoutService,
-    checkoutRepo,
-    userRepo,
     notificationRepo,
     regionBindingApi,
     mapBinding,
@@ -66,15 +64,11 @@ export function VisitPageContainer() {
   const isEditorOrAbove = isRoleAtLeast(currentRole, "editor");
   const canDirectEdit = isEditorOrAbove && !touchPrimary;
 
-  // 区域レベルのアクセスモードと、他者がチェックアウト中ならその担当者名
-  const [accessMode, setAccessMode] = useState<"editable" | "read_only">(
-    "editable",
-  );
-  const [accessResolved, setAccessResolved] = useState(false);
-  const [activeCheckoutOwnerName, setActiveCheckoutOwnerName] = useState<
-    string | null
-  >(null);
-  const [accessTick, setAccessTick] = useState(0);
+  // 活動メンバーのアクセス可否（自分の active チェックアウト or 有効な区域招待）。
+  // 区域レベル read-only の画面内 UI は 2026-07-14 廃止のため、判定はルート
+  // ブロック（ダッシュボードへのリダイレクト）にのみ使う。
+  // 仕様 docs/wants/05_チェックアウト.md「アクセスモード」/ 08「アクセス条件」
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,79 +85,29 @@ export function VisitPageContainer() {
     };
   }, [regionService]);
 
-  // 区域アクセスモード + アクティブチェックアウトの担当者名を取得
+  // 活動メンバーのみアクセス判定を取得する（編集メンバー以上は常時アクセス可）
   useEffect(() => {
-    if (!actorId || !areaId) return;
+    if (isEditorOrAbove || !actorId || !areaId) return;
     let cancelled = false;
-    async function fetchAccess() {
-      try {
-        const mode = await checkoutService.areaAccessMode(actorId, areaId);
-        if (cancelled) return;
-        setAccessMode(mode === "read_only" ? "read_only" : "editable");
-        setAccessResolved(true);
-
-        // read-only のとき、他者が active チェックアウト中なら担当者名を取得
-        if (mode === "read_only") {
-          const co = await checkoutRepo.getActiveCheckout(areaId);
-          if (cancelled) return;
-          if (co && co.personInChargeId && co.personInChargeId !== actorId) {
-            try {
-              const u = await userRepo.getUser(co.personInChargeId);
-              if (!cancelled) {
-                setActiveCheckoutOwnerName(u?.name ?? co.personInChargeId);
-              }
-            } catch {
-              if (!cancelled) setActiveCheckoutOwnerName(co.personInChargeId);
-            }
-          } else if (!cancelled) {
-            setActiveCheckoutOwnerName(null);
-          }
-        } else if (!cancelled) {
-          setActiveCheckoutOwnerName(null);
-        }
-      } catch (e) {
+    checkoutService
+      .areaAccessMode(actorId, areaId)
+      .then((mode) => {
+        if (!cancelled) setAccessDenied(mode === "read_only");
+      })
+      .catch((e) => {
         console.error("VisitPageContainer access fetch failed", e);
-      }
-    }
-    void fetchAccess();
+      });
     return () => {
       cancelled = true;
     };
-  }, [actorId, areaId, accessTick, checkoutService, checkoutRepo, userRepo]);
-
-  /** [この区域をチェックアウトして記録する] CTA: 自分自身を担当者にチェックアウト発行 */
-  const handleSelfCheckout = useCallback(async () => {
-    try {
-      await checkoutService.checkout(actorId, areaId, actorId);
-      setAccessTick((t) => t + 1);
-    } catch (e) {
-      console.error("self checkout failed", e);
-      window.alert(String(e));
-    }
-  }, [actorId, areaId, checkoutService]);
-
-  /** [強制回収して自分でチェックアウト] CTA: 強制回収 → 自分にチェックアウト */
-  const handleForceReclaimAndSelfCheckout = useCallback(async () => {
-    try {
-      const co = await checkoutRepo.getActiveCheckout(areaId);
-      if (co?.id) {
-        await checkoutService.forceReturn(actorId, co.id);
-      }
-      await checkoutService.checkout(actorId, areaId, actorId);
-      setAccessTick((t) => t + 1);
-    } catch (e) {
-      console.error("force reclaim failed", e);
-      window.alert(String(e));
-    }
-  }, [actorId, areaId, checkoutService, checkoutRepo]);
+  }, [isEditorOrAbove, actorId, areaId, checkoutService]);
 
   const editorReady = ready && editor;
 
   // 活動メンバーは「自分の active チェックアウト or 有効な区域招待」がある区域のみ
-  // アクセス可（areaAccessMode が editable を返す条件と同一）。満たさない場合は
-  // ダッシュボードへ戻す。編集メンバー以上は常時アクセス可。
+  // アクセス可。満たさない場合はルートをブロックしダッシュボードへ戻す。
   // 仕様 docs/wants/08_活動メンバー向けアプリ.md「アクセス条件」
-  if (!isEditorOrAbove && accessResolved && accessMode === "read_only") {
+  if (!isEditorOrAbove && accessDenied) {
     return <Navigate to="/" replace />;
   }
 
@@ -199,11 +143,7 @@ export function VisitPageContainer() {
           console.error("[VisitPage] saveRequest (edit) failed", e);
         });
       }}
-      accessMode={accessMode}
       canDirectEdit={canDirectEdit}
-      activeCheckoutOwnerName={activeCheckoutOwnerName}
-      onSelfCheckout={handleSelfCheckout}
-      onForceReclaimAndSelfCheckout={handleForceReclaimAndSelfCheckout}
     />
   );
 }

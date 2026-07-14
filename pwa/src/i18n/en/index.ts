@@ -34,7 +34,7 @@ const en: Translations = {
     loading: "Loading...",
     allAreas: "All Areas",
     allAreasNote:
-      "Editors and above can access any area. Viewing requires no checkout; input requires a checkout.",
+      "Editors and above can access any area. Viewing, recording, and place editing require no checkout.",
     filterAllRegions: "All regions",
     filterAllParentAreas: "All parent areas",
     searchPlaceholder: "Search by area ID or owner name",
@@ -216,18 +216,6 @@ const en: Translations = {
     phase1Banner:
       "Phase 1 stub: hard-coded redirect to area {areaId} (checkout flow comes later)",
     placesEmpty: "No places registered in this area",
-    readOnlyBanner:
-      "This area is read-only. Check out the area to enter visit records.",
-    checkoutSelfCta: "Check out this area to record",
-    checkoutForceCta: "Force-return and check out",
-    checkoutRequestInviteCta: "Request invite",
-    checkoutOthersActive: (ownerName: string) =>
-      `Currently checked out by ${ownerName}`,
-    checkoutForceConfirm:
-      "Force-returning interrupts the current owner's activity. Continue?",
-    checkoutInviteRequestPending:
-      "Invite-request workflow is not implemented yet (will be designed with notifications).",
-    dialogReadOnlyHint: "This area is read-only. Check out to enter records.",
     placeReadOnlyHint: "This place is read-only.",
   },
   areaTree: {
