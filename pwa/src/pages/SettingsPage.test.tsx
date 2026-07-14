@@ -2,7 +2,7 @@
 // docs/wants/01_共通基盤.md「アプリ設定画面」参照。
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nProvider } from "../contexts/I18nContext";
 import { IdentityProvider } from "../contexts/IdentityContext";
@@ -37,6 +37,9 @@ const fakeIdentityService: IdentityService = {
   renameDevice: async () => {},
   removeDevice: async () => {},
   setRole: async () => {
+    throw new Error("not used in this test");
+  },
+  setName: async () => {
     throw new Error("not used in this test");
   },
 };
@@ -76,7 +79,11 @@ describe("SettingsPage AI 地図取込", () => {
 
     const input = screen.getByLabelText("API キー");
     await userEvent.type(input, "sk-ant-secret9999");
-    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    // プロフィール節にも「保存」があるため AI セクション内に限定する。
+    const aiSection = screen.getByText("AI 地図取込").closest("section")!;
+    await userEvent.click(
+      within(aiSection as HTMLElement).getByRole("button", { name: "保存" }),
+    );
 
     // 永続化を検証
     expect(await services.settingsService.getAiApiKey("anthropic")).toBe(
@@ -97,7 +104,10 @@ describe("SettingsPage AI 地図取込", () => {
       screen.getByLabelText("モデル"),
       "claude-haiku-4-5-20251001",
     );
-    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    const aiSection = screen.getByText("AI 地図取込").closest("section")!;
+    await userEvent.click(
+      within(aiSection as HTMLElement).getByRole("button", { name: "保存" }),
+    );
 
     expect(await services.settingsService.getAiModel()).toBe(
       "claude-haiku-4-5-20251001",

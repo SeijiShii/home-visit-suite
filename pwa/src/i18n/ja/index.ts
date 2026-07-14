@@ -257,6 +257,7 @@ const ja: Translations = {
     deleteMemberNote:
       "LinkSelf グループからの削除です。担当中のタスクは担当者なしになります",
     errorNameRequired: "表示名を入力してください",
+    errorNameTaken: "この名前はグループ内で既に使われています",
     errorLastAdmin: "最後の管理者は降格できません",
     errorMemberGeneric: "メンバーの変更に失敗しました",
     roles: {
@@ -392,6 +393,14 @@ const ja: Translations = {
   },
   settings: {
     title: "設定",
+    profileSection: "プロフィール",
+    profileDescription:
+      "このグループ内で表示される自分の名前です。サイドバーとメンバー一覧に反映されます",
+    displayNameLabel: "表示名",
+    displayNameSaved: "保存しました",
+    displayNameUnsaved: "未保存の変更があります",
+    displayNameTaken: "この名前はグループ内で既に使われています",
+    displayNameError: "表示名の変更に失敗しました",
     helpSection: "ヘルプ表示",
     resetHelp: "ヘルプ表示をリセット",
     resetHelpDone: "ヘルプ表示をリセットしました",

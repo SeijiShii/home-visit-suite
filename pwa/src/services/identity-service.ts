@@ -20,6 +20,23 @@ import {
   validatePairing,
   type PairingPayload,
 } from "../lib/pairing";
+import { ServiceError } from "./errors";
+
+/**
+ * 表示名がメンバー表内で他ユーザーと衝突しないか検証する（衝突時 already_exists）。
+ * サーバーレス P2P のため検証はローカルのメンバー表に対するもの
+ * （docs/wants/01「表示名の変更」）。
+ */
+async function assertNameAvailable(
+  repo: UserRepository,
+  selfId: string,
+  name: string,
+): Promise<void> {
+  const users = await repo.listUsers();
+  if (users.some((u) => u.id !== selfId && u.name === name)) {
+    throw new ServiceError("already_exists", `display name taken: ${name}`);
+  }
+}
 
 export interface IdentityService {
   /** LinkSelf 起動時の実 DID を返す。 */
@@ -49,6 +66,11 @@ export interface IdentityService {
    * identity 未作成なら例外。
    */
   setRole(role: Role): Promise<User>;
+  /**
+   * 自分の表示名を変更して保存する（設定画面のプロフィール）。identity と
+   * 自分の User レコードの両方を更新する（タグ・参加日時は保持）。
+   */
+  setName(name: string): Promise<User>;
   /** この ID に別端末を追加するためのペアリング用 URL（QR 内容）を作る。 */
   createPairingToken(): Promise<{ url: string; expiresAt: number }>;
   /** ペアリング URL / コードを取り込み、同一 identity を復元してユーザーを返す。 */
@@ -288,6 +310,25 @@ export class LocalIdentityService implements IdentityService {
     return user;
   }
 
+  async setName(name: string): Promise<User> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error("name is required");
+    const s = this.read();
+    if (!s) throw new Error("no identity");
+    await assertNameAvailable(this.repo, s.did, trimmed);
+    const stored: StoredIdentity = { ...s, name: trimmed };
+    this.write(stored);
+    // 既存レコードのタグ・参加日時を保持して upsert する。
+    const existing = await this.repo.getUser(s.did);
+    const user: User = {
+      ...this.toUser(stored),
+      tagIds: existing?.tagIds ?? [],
+      joinedAt: existing?.joinedAt ?? new Date().toISOString(),
+    };
+    await this.repo.saveUser(user);
+    return user;
+  }
+
   async createPairingToken(): Promise<{ url: string; expiresAt: number }> {
     const s = this.read();
     if (!s) throw new Error("no identity to pair");
@@ -429,6 +470,19 @@ export class DevIdentityService implements IdentityService {
 
   async setRole(): Promise<User> {
     throw new Error("setRole is not supported in DevIdentityService");
+  }
+
+  /** dev では現アクターの User レコード名を更新する（シードユーザーの改名確認用）。 */
+  async setName(name: string): Promise<User> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error("name is required");
+    const did = await this.getCurrentActor();
+    const user = await this.repo.getUser(did);
+    if (!user) throw new Error(`user not found: ${did}`);
+    await assertNameAvailable(this.repo, did, trimmed);
+    const renamed = { ...user, name: trimmed };
+    await this.repo.saveUser(renamed);
+    return renamed;
   }
 
   async createPairingToken(): Promise<{ url: string; expiresAt: number }> {

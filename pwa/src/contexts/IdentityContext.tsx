@@ -35,6 +35,10 @@ export interface IdentityContextValue {
   currentActorID: string;
   /** 現在のアクターのロール（ロール別 UI ガードに使う、未取得時は空文字） */
   currentRole: Role;
+  /** 現在のアクターの表示名（サイドバーの自己情報表示に使う、未取得時は空文字） */
+  currentName: string;
+  /** 自分の表示名を変更する（設定画面のプロフィール。identity と User レコードを更新） */
+  renameSelf: (name: string) => Promise<void>;
   /** LinkSelf 起動時の実 DID（`[自分]` 表示用、本番では currentActorID と一致） */
   realDID: string;
   /** 開発モードフラグ（dev 限定 UI の表示判定に使う） */
@@ -77,6 +81,7 @@ interface IdentityProviderProps {
 export function IdentityProvider({ children, service }: IdentityProviderProps) {
   const [currentActorID, setCurrentActorID] = useState<string>("");
   const [currentRole, setCurrentRole] = useState<Role>("");
+  const [currentName, setCurrentName] = useState<string>("");
   const [realDID, setRealDID] = useState<string>("");
   const [isDevMode, setIsDevMode] = useState<boolean>(false);
   const [availableIdentities, setAvailableIdentities] = useState<User[]>([]);
@@ -87,6 +92,7 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
   const applyIdentity = useCallback((user: User) => {
     setRealDID(user.id);
     setCurrentActorID(user.id);
+    setCurrentName(user.name);
     setCurrentRole(
       user.role === "admin" || user.role === "editor" || user.role === "member"
         ? user.role
@@ -95,22 +101,22 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     setHasIdentity(true);
   }, []);
 
-  // currentActorID 変化時にロールを取得する
-  const fetchCurrentRole = useCallback(
-    async (did: string): Promise<Role> => {
-      if (!did) return "";
+  // currentActorID 変化時にロール・表示名を取得する
+  const fetchCurrentSelf = useCallback(
+    async (did: string): Promise<{ role: Role; name: string }> => {
+      if (!did) return { role: "", name: "" };
       try {
         const u = await service.getUser(did);
         if (
           u &&
           (u.role === "admin" || u.role === "editor" || u.role === "member")
         ) {
-          return u.role;
+          return { role: u.role, name: u.name };
         }
       } catch (e) {
         console.error("getUser failed", e);
       }
-      return "";
+      return { role: "", name: "" };
     },
     [service],
   );
@@ -144,8 +150,11 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
         setCurrentActorID(current);
         setIsDevMode(dev);
         setHasIdentity(exists);
-        const role = await fetchCurrentRole(current);
-        if (!cancelled) setCurrentRole(role);
+        const self = await fetchCurrentSelf(current);
+        if (!cancelled) {
+          setCurrentRole(self.role);
+          setCurrentName(self.name);
+        }
         if (dev) {
           const list = await service.listAvailableIdentities();
           if (!cancelled) {
@@ -162,7 +171,7 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [fetchCurrentRole, service]);
+  }, [fetchCurrentSelf, service]);
 
   const createIdentity = useCallback(
     async (name: string, role?: DomainRole) => {
@@ -214,16 +223,27 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     async (did: string) => {
       await service.setCurrentActor(did);
       setCurrentActorID(did);
-      const role = await fetchCurrentRole(did);
-      setCurrentRole(role);
+      const self = await fetchCurrentSelf(did);
+      setCurrentRole(self.role);
+      setCurrentName(self.name);
     },
-    [fetchCurrentRole, service],
+    [fetchCurrentSelf, service],
+  );
+
+  const renameSelf = useCallback(
+    async (name: string) => {
+      const user = await service.setName(name);
+      setCurrentName(user.name);
+    },
+    [service],
   );
 
   const value = useMemo<IdentityContextValue>(
     () => ({
       currentActorID,
       currentRole,
+      currentName,
+      renameSelf,
       realDID,
       isDevMode,
       availableIdentities,
@@ -243,6 +263,8 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     [
       currentActorID,
       currentRole,
+      currentName,
+      renameSelf,
       realDID,
       isDevMode,
       availableIdentities,

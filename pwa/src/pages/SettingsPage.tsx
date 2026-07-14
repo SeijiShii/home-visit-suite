@@ -18,6 +18,7 @@ import {
   resolveModel,
 } from "../services/settings-service";
 import { removeOrphanVertices } from "../lib/map-maintenance";
+import { isCode } from "../services/errors";
 import type { Locales } from "../i18n/i18n-types";
 
 /** ミリ秒を M:SS 形式に整形する（負値は 0:00）。 */
@@ -32,6 +33,8 @@ export function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
   const {
     currentActorID,
+    currentName,
+    renameSelf,
     realDID,
     isDevMode,
     availableIdentities,
@@ -45,6 +48,10 @@ export function SettingsPage() {
   } = useIdentity();
   const { settingsService, mapBinding } = useServices();
   const [identityMsg, setIdentityMsg] = useState<string>("");
+  // プロフィール（表示名変更。docs/wants/01「表示名の変更」）
+  const [profileName, setProfileName] = useState<string>(currentName);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileErr, setProfileErr] = useState<string>("");
   const [orphanMsg, setOrphanMsg] = useState<string>("");
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
   const [pairingExpiresAt, setPairingExpiresAt] = useState<number>(0);
@@ -249,9 +256,77 @@ export function SettingsPage() {
     setTimeout(() => setOrphanMsg(""), 3000);
   };
 
+  // 表示名の非同期取得（起動直後・dev アクター切替）に追従する。
+  useEffect(() => {
+    setProfileName(currentName);
+  }, [currentName]);
+
+  const profileDirty = profileName.trim() !== currentName;
+
+  const handleSaveProfile = async () => {
+    if (!profileDirty || !profileName.trim()) return;
+    setProfileErr("");
+    try {
+      await renameSelf(profileName);
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2500);
+    } catch (e) {
+      console.error("renameSelf failed", e);
+      setProfileErr(
+        isCode(e, "already_exists")
+          ? t.settings.displayNameTaken
+          : t.settings.displayNameError,
+      );
+    }
+  };
+
   return (
     <div className="settings-page">
       <h1>{t.settings.title}</h1>
+
+      <section className="settings-section">
+        <h2>{t.settings.profileSection}</h2>
+        <p className="settings-section-description">
+          {t.settings.profileDescription}
+        </p>
+        <div className="settings-field">
+          <label className="settings-field-label" htmlFor="profile-name">
+            {t.settings.displayNameLabel}
+          </label>
+          <input
+            id="profile-name"
+            className="settings-input"
+            value={profileName}
+            onChange={(e) => {
+              setProfileName(e.target.value);
+              setProfileErr("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleSaveProfile();
+            }}
+          />
+        </div>
+        <div className="settings-save-row">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => void handleSaveProfile()}
+            disabled={!profileDirty || !profileName.trim()}
+          >
+            {t.common.save}
+          </button>
+          {profileSaved ? (
+            <span className="settings-status settings-status-saved">
+              {t.settings.displayNameSaved}
+            </span>
+          ) : profileDirty ? (
+            <span className="settings-status settings-status-dirty">
+              {t.settings.displayNameUnsaved}
+            </span>
+          ) : null}
+        </div>
+        {profileErr && <p className="onboarding-error">{profileErr}</p>}
+      </section>
 
       <section className="settings-section">
         <h2>{t.settings.language}</h2>

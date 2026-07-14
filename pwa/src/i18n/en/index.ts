@@ -258,6 +258,7 @@ const en: Translations = {
     deleteMemberNote:
       "This removes them from the LinkSelf group. Their tasks in progress become unassigned",
     errorNameRequired: "Enter a display name",
+    errorNameTaken: "This name is already used in the group",
     errorLastAdmin: "The last admin cannot be demoted",
     errorMemberGeneric: "Failed to update the member",
     roles: {
@@ -391,6 +392,14 @@ const en: Translations = {
   },
   settings: {
     title: "Settings",
+    profileSection: "Profile",
+    profileDescription:
+      "Your name as shown in this group. It appears in the sidebar and the member list",
+    displayNameLabel: "Display name",
+    displayNameSaved: "Saved",
+    displayNameUnsaved: "Unsaved changes",
+    displayNameTaken: "This name is already used in the group",
+    displayNameError: "Failed to change the display name",
     helpSection: "Help display",
     resetHelp: "Reset hidden help tips",
     resetHelpDone: "Hidden help tips have been reset",

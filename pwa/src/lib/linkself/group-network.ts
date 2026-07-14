@@ -423,12 +423,33 @@ export function consumeAsyncJoinResult(): AsyncJoinResult | null {
 export interface JoinedMemberRepo {
   getUser(id: string): Promise<User | null>;
   saveUser(user: User): Promise<void>;
+  listUsers(): Promise<User[]>;
+}
+
+/**
+ * 既存メンバーと衝突しない表示名を返す。衝突時は「名前(2)」から連番を付与する
+ * （docs/wants/04「グループ招待」参加受理時の同名解決）。自分（selfId）の
+ * 既存レコードは衝突対象から除く。
+ */
+async function uniqueMemberName(
+  repo: JoinedMemberRepo,
+  selfId: string,
+  base: string,
+): Promise<string> {
+  const taken = new Set(
+    (await repo.listUsers()).filter((u) => u.id !== selfId).map((u) => u.name),
+  );
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}(${n})`)) n++;
+  return `${base}(${n})`;
 }
 
 /**
  * 参加受理（onMemberJoined）をアプリのメンバー表へ反映する。
  * displayName は受理した管理者にしか見えないため、ここが唯一の記録点
  * （docs/wants/04「グループ招待」）。既存レコードがあればタグ・参加日時を保持する。
+ * 表示名が既存メンバーと衝突する場合は「(2)」からの連番を付けて記録する。
  */
 export async function upsertJoinedMember(
   repo: JoinedMemberRepo,
@@ -439,9 +460,10 @@ export async function upsertJoinedMember(
   // LinkSelf のロール名はアプリの Role と同名（HVS_ROLES）。未知値は member 扱い。
   const role: Role =
     info.role === "admin" || info.role === "editor" ? info.role : "member";
+  const base = info.displayName.trim() || existing?.name || info.memberDID;
   await repo.saveUser({
     id: info.memberDID,
-    name: info.displayName.trim() || existing?.name || info.memberDID,
+    name: await uniqueMemberName(repo, info.memberDID, base),
     role,
     tagIds: existing?.tagIds ?? [],
     joinedAt: existing?.joinedAt ?? nowIso,

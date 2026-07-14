@@ -221,6 +221,7 @@ export function UsersPage() {
 
   const memberErrorMessage = (e: unknown): string => {
     if (isCode(e, "invalid_input")) return u.errorNameRequired;
+    if (isCode(e, "already_exists")) return u.errorNameTaken;
     if (isCode(e, "self_dismissal")) return u.selfRoleNote;
     if (isCode(e, "last_admin")) return u.errorLastAdmin;
     return u.errorMemberGeneric;

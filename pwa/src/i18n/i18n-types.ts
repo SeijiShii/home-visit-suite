@@ -240,6 +240,7 @@ export interface Translations {
     confirmDeleteMember: string;
     deleteMemberNote: string;
     errorNameRequired: string;
+    errorNameTaken: string;
     errorLastAdmin: string;
     errorMemberGeneric: string;
     roles: {
@@ -384,6 +385,13 @@ export interface Translations {
   };
   settings: {
     title: string;
+    profileSection: string;
+    profileDescription: string;
+    displayNameLabel: string;
+    displayNameSaved: string;
+    displayNameUnsaved: string;
+    displayNameTaken: string;
+    displayNameError: string;
     helpSection: string;
     resetHelp: string;
     resetHelpDone: string;

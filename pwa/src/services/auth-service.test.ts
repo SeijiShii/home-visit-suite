@@ -86,6 +86,17 @@ describe("updateMember", () => {
     ).rejects.toSatisfy((e) => isCode(e, "invalid_input"));
   });
 
+  it("既存メンバーと同名への変更は拒否する（already_exists）", async () => {
+    await repo.saveUser({ ...(await repo.getUser(MEMBER2))!, name: "同名" });
+    await expect(
+      svc.updateMember(ADMIN, MEMBER1, { name: "同名" }),
+    ).rejects.toSatisfy((e) => isCode(e, "already_exists"));
+    // 自分の現在名のままの保存（ロールのみ変更等）は衝突扱いにしない。
+    const self = (await repo.getUser(MEMBER1))!;
+    await svc.updateMember(ADMIN, MEMBER1, { name: self.name, role: "editor" });
+    expect((await repo.getUser(MEMBER1))?.role).toBe("editor");
+  });
+
   it("admin が 2 名いれば一方を降格できる", async () => {
     await repo.saveUser(user("did:test:admin2", "admin"));
     await svc.updateMember(ADMIN, "did:test:admin2", { role: "member" });

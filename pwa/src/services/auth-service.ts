@@ -83,6 +83,16 @@ export class AuthServiceImpl implements AuthService {
           "display name must not be empty",
         );
       }
+      // グループ内（ローカルのメンバー表）で同名の別メンバーがいれば拒否する。
+      if (name !== target.name) {
+        const users = await this.userRepo.listUsers();
+        if (users.some((u) => u.id !== targetId && u.name === name)) {
+          throw new ServiceError(
+            "already_exists",
+            `display name taken: ${name}`,
+          );
+        }
+      }
       next.name = name;
     }
 

@@ -263,6 +263,17 @@ describe("upsertJoinedMember", () => {
       saveUser: async (u: User) => {
         users.set(u.id, u);
       },
+      listUsers: async () => [...users.values()],
+    };
+  }
+
+  function seedUser(id: string, name: string): User {
+    return {
+      id,
+      name,
+      role: "member",
+      tagIds: [],
+      joinedAt: "2026-01-01T00:00:00.000Z",
     };
   }
 
@@ -300,6 +311,27 @@ describe("upsertJoinedMember", () => {
     const repo = memRepo();
     await upsertJoinedMember(repo, { ...info, role: "superuser" });
     expect(repo.users.get("did:key:zNewcomer")?.role).toBe("member");
+  });
+
+  it("suffixes (2) when the display name collides with an existing member", async () => {
+    const repo = memRepo([seedUser("did:key:zSenior", "新人さん")]);
+    await upsertJoinedMember(repo, info);
+    expect(repo.users.get("did:key:zNewcomer")?.name).toBe("新人さん(2)");
+  });
+
+  it("picks the next free number when (2) is also taken", async () => {
+    const repo = memRepo([
+      seedUser("did:key:zSenior", "新人さん"),
+      seedUser("did:key:zSenior2", "新人さん(2)"),
+    ]);
+    await upsertJoinedMember(repo, info);
+    expect(repo.users.get("did:key:zNewcomer")?.name).toBe("新人さん(3)");
+  });
+
+  it("does not suffix on re-join when only the member itself holds the name", async () => {
+    const repo = memRepo([seedUser("did:key:zNewcomer", "新人さん")]);
+    await upsertJoinedMember(repo, info);
+    expect(repo.users.get("did:key:zNewcomer")?.name).toBe("新人さん");
   });
 });
 

@@ -167,7 +167,7 @@ const navItems: NavItem[] = [
 
 export function Layout() {
   const { t } = useI18n();
-  const { currentRole } = useIdentity();
+  const { currentRole, currentName } = useIdentity();
   const [collapsed, setCollapsed] = useState(false);
 
   // ロール別フィルタ: minRole 指定があれば currentRole >= minRole の項目だけ表示
@@ -202,6 +202,19 @@ export function Layout() {
               <span className="nav-label">{t.nav[item.labelKey]}</span>
             </NavLink>
           ))}
+        </div>
+        {/* 自己情報（サイドバー下部固定・折りたたみ時は非表示）。
+            自分が誰として・どの権限で操作しているかを常時示す
+            （docs/wants/01「サイドバーの自己情報表示」）。 */}
+        <div className="sidebar-user">
+          <span className="sidebar-user-name" title={currentName}>
+            {currentName}
+          </span>
+          {currentRole && (
+            <span className={`role-badge role-badge-${currentRole}`}>
+              {t.users.roles[currentRole]}
+            </span>
+          )}
         </div>
       </nav>
       <main className="content">
