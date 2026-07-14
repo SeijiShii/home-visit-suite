@@ -96,16 +96,17 @@ export function getPolygonStyle(
 export type AreaDetailPolygonRole = "target" | "neighbor";
 
 /**
- * 区域詳細編集モード用ポリゴンスタイル。塗りつぶしなし、対象=濃色太線/隣接=薄色細線。
- * 仕様: docs/wants/03_地図機能.md「区域詳細編集モード」描画ルール。
+ * 訪問記録画面（詳細モード）用ポリゴンスタイル。塗りつぶしなし、
+ * 対象=オレンジ太線/その他=水色細線（緑系はベース地図と紛れるため不採用）。
+ * 仕様: docs/wants/03_地図機能.md「場所の直接編集」描画ルール。
  */
 export function getAreaDetailPolygonStyle(
   role: AreaDetailPolygonRole,
 ): PolygonStyle {
   if (role === "target") {
-    return { color: "#166534", weight: 4, fillOpacity: 0 };
+    return { color: "#f97316", weight: 4, fillOpacity: 0 };
   }
-  return { color: "#86efac", weight: 2, fillOpacity: 0 };
+  return { color: "#38bdf8", weight: 2, fillOpacity: 0 };
 }
 
 export type PlaceType = "house" | "building" | "room";
