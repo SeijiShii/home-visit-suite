@@ -91,6 +91,9 @@ export function useAreaDetailMap({
 
     const run = async () => {
       handle.setEditor(editor as NetworkPolygonEditor);
+      // 区域IDラベル: 対象＋隣接区域のポリゴン中心に区域IDを表示する
+      // （docs/wants/03「区域IDラベル表示」）
+      handle.setPolygonAreaIds(polygonToArea);
       const centers = polygonCentersFromEditor(editor);
       const radiusKm =
         (await settingsService?.getAreaDetailRadiusKm().catch(() => 2.5)) ??

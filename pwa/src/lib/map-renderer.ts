@@ -1440,7 +1440,8 @@ export class MapRenderer {
    * 区域IDラベルを現状のポリゴンに同期する。表示中ポリゴンのうち区域紐付け済みの
    * ものへ、ポリゴン中心（頂点平均）に非インタラクティブな divIcon を置く。
    * 頂点ドラッグ中に毎フレーム呼ばれるため、既存マーカーは位置更新で使い回す。
-   * 詳細モードでは場所マーカーと干渉するため表示しない
+   * 詳細モード（訪問記録画面）でも表示する。表示中レイヤー＝対象＋隣接区域
+   * のみなので、対象範囲は polygonLayers への追従で自然に絞られる
    * （docs/wants/03「区域IDラベル表示」）。
    */
   private refreshAreaIdLabels(): void {
@@ -1449,7 +1450,7 @@ export class MapRenderer {
       string,
       { lat: number; lng: number; text: string }
     >();
-    if (this.editor && !this.detailMode) {
+    if (this.editor) {
       for (const idStr of this.polygonLayers.keys()) {
         const text = this.polygonAreaIds.get(idStr);
         if (!text) continue;
