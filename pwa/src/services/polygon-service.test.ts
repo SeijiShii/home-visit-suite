@@ -58,6 +58,47 @@ describe("PolygonService.deletePolygonEdges の孤立頂点掃除", () => {
   });
 });
 
+describe("PolygonService.deletePolygonEdges の共有辺保護", () => {
+  it("辺を共有する隣接ポリゴンは削除後も形を保つ", async () => {
+    const ed = new NetworkPolygonEditor(memAdapter());
+    await ed.init();
+    // ポリゴン A: 四角形
+    await drawSquare(ed, [
+      [35.767, 140.318],
+      [35.769, 140.318],
+      [35.769, 140.321],
+      [35.767, 140.321],
+    ]);
+    const polyA = ed.getPolygons()[0];
+    // A の右辺 (35.769,140.321)-(35.767,140.321) を共有する隣接ポリゴン B を描画:
+    // 既存頂点にスナップして開始し、右側へ 2 頂点置き、もう一方の既存頂点で閉じる。
+    const vTop = ed
+      .getVertices()
+      .find((v) => v.lat === 35.769 && v.lng === 140.321)!;
+    const vBottom = ed
+      .getVertices()
+      .find((v) => v.lat === 35.767 && v.lng === 140.321)!;
+    ed.startDrawing();
+    ed.snapToVertex(vTop.id);
+    ed.placeVertex(35.769, 140.324);
+    ed.placeVertex(35.767, 140.324);
+    ed.snapToVertex(vBottom.id);
+    expect(ed.getPolygons()).toHaveLength(2);
+    const polyB = ed.getPolygons().find((p) => p.id !== polyA.id)!;
+
+    const svc = new PolygonService(ed, stubRegionAPI);
+    svc.deletePolygonEdges(polyA);
+
+    // B は共有辺ごと形を保って生存し、A の専有辺・頂点だけが消える
+    const remaining = ed.getPolygons();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe(polyB.id);
+    expect(remaining[0].edgeIds).toHaveLength(4);
+    expect(ed.getVertices()).toHaveLength(4); // B の頂点のみ（共有 2 + 専有 2）
+    expect(ed.getEdges()).toHaveLength(4); // 宙に浮いた線分を残さない
+  });
+});
+
 describe("buildPolygonAreaMap のラベル生成", () => {
   const tree = (parentName: string): AreaTreeNode[] => [
     {

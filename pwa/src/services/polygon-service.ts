@@ -1,8 +1,9 @@
-import type {
-  NetworkPolygonEditor,
-  PolygonSnapshot,
-  PolygonID,
-  ChangeSet,
+import {
+  emptyChangeSet,
+  type NetworkPolygonEditor,
+  type PolygonSnapshot,
+  type PolygonID,
+  type ChangeSet,
 } from "map-polygon-editor";
 import type { Polygon } from "geojson";
 import type { AreaTreeNode } from "./region-service";
@@ -52,17 +53,29 @@ export class PolygonService {
     await this.regionAPI.UnbindPolygonFromArea(areaId);
   }
 
-  /** ポリゴンの構成エッジを全削除（穴含む）→ ポリゴン消滅。孤立頂点も掃除する。 */
+  /** ポリゴンの構成エッジを削除（穴含む）→ ポリゴン消滅。孤立頂点も掃除する。
+   * 隣接ポリゴンと共有している辺は削除せず残す（消すと隣の面が破綻するため）。 */
   deletePolygonEdges(snapshot: PolygonSnapshot): ChangeSet {
+    // 他ポリゴン（外周・穴）が使っている辺は共有辺 → 削除対象から除外
+    const sharedEdges = new Set<string>();
+    for (const p of this.editor.getPolygons()) {
+      if (p.id === snapshot.id) continue;
+      for (const eid of p.edgeIds) sharedEdges.add(eid as string);
+      for (const hole of p.holes) {
+        for (const eid of hole) sharedEdges.add(eid as string);
+      }
+    }
     let lastCs: ChangeSet | null = null;
     // 穴のエッジを先に削除
     for (const holeEdges of snapshot.holes) {
       for (const edgeId of holeEdges) {
+        if (sharedEdges.has(edgeId as string)) continue;
         lastCs = this.editor.removeEdge(edgeId);
       }
     }
     // 外周エッジを削除
     for (const edgeId of snapshot.edgeIds) {
+      if (sharedEdges.has(edgeId as string)) continue;
       lastCs = this.editor.removeEdge(edgeId);
     }
     // エッジ削除では頂点が残る（ネットワークモデル）。他のエッジで使われて
@@ -81,7 +94,7 @@ export class PolygonService {
         }
       }
     }
-    return lastCs!;
+    return lastCs ?? emptyChangeSet();
   }
 
   async deletePolygonForArea(
