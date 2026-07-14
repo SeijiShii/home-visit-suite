@@ -205,6 +205,7 @@ export interface Translations {
     placesEmpty: string;
     placeReadOnlyHint: string;
     backToMapEditor: string;
+    recenterToArea: string;
   };
   areaTree: {
     title: string;

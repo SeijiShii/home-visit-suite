@@ -217,6 +217,7 @@ const en: Translations = {
     placesEmpty: "No places registered in this area",
     placeReadOnlyHint: "This place is read-only.",
     backToMapEditor: "← Back to area editor",
+    recenterToArea: "Recenter on area",
   },
   areaTree: {
     title: "Area Editor",

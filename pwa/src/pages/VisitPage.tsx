@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { NetworkPolygonEditor } from "map-polygon-editor";
+import type { NetworkPolygonEditor, PolygonID } from "map-polygon-editor";
 import { useI18n } from "../contexts/I18nContext";
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { BuildingVisitDialog } from "../components/BuildingVisitDialog";
@@ -320,6 +320,22 @@ export function VisitPage({
       handle.setPlaceContextMenuHandler(null);
     };
   }, [canDirectEdit, editor, polygonToArea]);
+
+  // 対象区域のポリゴンID（地図を区域へ戻すボタンで使用）
+  const targetPolygonId = useMemo(() => {
+    if (!polygonToArea) return null;
+    for (const [polygonId, mappedAreaId] of polygonToArea) {
+      if (mappedAreaId === areaId) return polygonId;
+    }
+    return null;
+  }, [polygonToArea, areaId]);
+
+  // 地図を無関係な場所までパン/ズームしても、ワンタップで対象区域が
+  // 収まるビューへ戻せる（docs/wants/08「地図 UI」）
+  const handleRecenterToArea = useCallback(() => {
+    if (!targetPolygonId) return;
+    mapRef.current?.focusPolygon(targetPolygonId as PolygonID);
+  }, [targetPolygonId]);
 
   const handleSaveVisit = useCallback(
     async (place: Place, args: VisitRecordSaveArgs) => {
@@ -821,6 +837,15 @@ export function VisitPage({
         <h2>
           {t.visitRecord.areaLabel.replace("{area}", areaLabel ?? areaId)}
         </h2>
+        {targetPolygonId && (
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary visit-page-recenter-button"
+            onClick={handleRecenterToArea}
+          >
+            {t.visitRecord.recenterToArea}
+          </button>
+        )}
       </header>
 
       <div className="visit-page-body">

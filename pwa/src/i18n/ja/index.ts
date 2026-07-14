@@ -215,6 +215,7 @@ const ja: Translations = {
     placesEmpty: "この区域には場所が登録されていません",
     placeReadOnlyHint: "この場所は読み取り専用です。",
     backToMapEditor: "← 区域編集に戻る",
+    recenterToArea: "地図を区域へ戻す",
   },
   areaTree: {
     title: "区域編集",
