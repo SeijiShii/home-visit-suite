@@ -35,7 +35,7 @@
 - `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ (→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
-- `scripts/deploy-oci.sh` — 本番デプロイ（OCI VM + Caddy, app.givers.work へビルド→rsync）
+- `scripts/deploy-oci.sh` — 本番デプロイ（OCI VM + Caddy, home-visit.givers.work へビルド→rsync）
 
 ## 02 領域と区域（領域/区域親番/区域）
 - `services/region-service.ts` — 領域/区域親番/区域のツリー管理・RegionBindingAPI 抽象・AreaTreeNode

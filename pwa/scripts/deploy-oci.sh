@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PWA を本番（OCI VM + Caddy, https://app.givers.work/）へデプロイする。
+# PWA を本番（OCI VM + Caddy, https://home-visit.givers.work/）へデプロイする。
 # 構成・決定経緯: docs/wants/01_共通基盤.md「PWA 配信（本番ホスティング）」
 #
 # 前提:
@@ -23,4 +23,4 @@ VITE_PAIRING_BASE_URL= npm run build
 
 rsync -az --delete -e "ssh -i $SSH_KEY" dist/ "$VM:$DEST/"
 
-echo "deployed: https://app.givers.work/"
+echo "deployed: https://home-visit.givers.work/"
