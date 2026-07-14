@@ -748,51 +748,6 @@ section {
   color: #f1f5f9;
 }
 
-/* 区域詳細編集モード */
-.area-detail-edit-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-.area-detail-topbar {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 14px 6px 10px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  font: inherit;
-  color: #374151;
-}
-.area-detail-topbar:hover {
-  background: rgba(255, 255, 255, 1);
-  color: #111827;
-}
-.area-detail-back-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-.area-detail-label {
-  font-weight: 600;
-}
-.area-detail-map {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  display: flex;
-}
-.area-detail-map > .map-container {
-  flex: 1;
-}
-
 /* 場所マーカー中央に重ねる通し番号バッジ */
 /* iconSize=[0,0] の divIcon。lat/lng 位置に左上が来るので
    内部の span を transform で -50% ずらして中央に配置する。 */
@@ -820,12 +775,6 @@ section {
 }
 
 /* 場所一覧サイドパネル */
-.area-detail-body {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  display: flex;
-}
 .place-list-panel {
   width: 320px;
   display: flex;
@@ -943,10 +892,6 @@ section {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-/* トップバーと Leaflet ズームコントロールが重ならないよう下にずらす */
-.area-detail-map .leaflet-top.leaflet-left {
-  padding-top: 44px;
 }
 .area-detail-error-banner {
   position: absolute;
@@ -1230,6 +1175,12 @@ section {
   font-size: 0.85rem;
   color: #cbd5e1;
 }
+.visit-page-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
 .visit-page-map {
   flex: 1;
   min-height: 0;
@@ -1238,6 +1189,58 @@ section {
 }
 .visit-page-map > .map-container {
   flex: 1;
+}
+/* 狭幅時の場所一覧オープンボタン（地図右上に重ねる） */
+.visit-page-list-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+/* 狭幅時の場所一覧オーバーレイ（全面） */
+.place-list-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.place-list-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+/* 場所行の直近訪問記録と展開一覧 */
+.place-latest-visit {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.place-visit-records {
+  list-style: none;
+  margin: 6px 0 2px;
+  padding: 6px 0 0 2px;
+  border-top: 1px dashed #e2e8f0;
+}
+.place-visit-record,
+.place-visit-record-empty {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+  padding: 2px 0;
+}
+.place-visit-record-room {
+  font-weight: 600;
+  color: #334155;
+}
+.place-visit-record-date {
+  color: #94a3b8;
 }
 
 /* ===== 訪問記録ダイアログ群 (戸建て / 集合住宅) ===== */

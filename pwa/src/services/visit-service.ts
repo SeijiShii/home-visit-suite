@@ -117,6 +117,11 @@ export class VisitService {
     );
   }
 
+  /** 区域内の全訪問記録（共有分: 日時・結果）を返す。場所一覧の記録併記に使う。 */
+  async listVisitRecords(areaID: string): Promise<VisitRecord[]> {
+    return (await this.api.ListVisitRecords(areaID)) ?? [];
+  }
+
   async listMyVisitHistory(
     placeID: string,
     userID: string,

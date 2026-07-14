@@ -171,6 +171,9 @@ const ja: Translations = {
     buildingConfirmRemoveExistingRoom: "この部屋を削除しますか？",
     buildingRoomCountSuffix: "部屋",
     buildingConfirmDeleteCascade: "この集合住宅と {count} 部屋を削除しますか？",
+    placeListShowButton: "一覧",
+    placeListVisitNone: "記録なし",
+    placeListOverlayClose: "閉じる",
   },
   visitRecord: {
     dialogTitle: "訪問記録",

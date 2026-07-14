@@ -162,6 +162,9 @@ export interface Translations {
     buildingConfirmRemoveExistingRoom: string;
     buildingRoomCountSuffix: string;
     buildingConfirmDeleteCascade: string;
+    placeListShowButton: string;
+    placeListVisitNone: string;
+    placeListOverlayClose: string;
   };
   visitRecord: {
     dialogTitle: string;

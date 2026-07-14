@@ -47,7 +47,7 @@ export interface UseAreaDetailMapOptions {
   noNameLabel: string;
   /**
    * area-level 場所の sortOrder が全て 0 のとき CreatedAt 昇順で採番して
-   * placeService.savePlace で書き戻す。AreaDetailEditPage 互換のため。
+   * placeService.savePlace で書き戻す（docs/wants/03「初期 SortOrder の確定」）。
    */
   enableInitialSortAssignment?: boolean;
 }

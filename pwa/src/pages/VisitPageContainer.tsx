@@ -2,12 +2,13 @@
 // Wails バインディングを useServices() のアダプタ・サービスに置き換えた。
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { VisitPage } from "./VisitPage";
 import { RegionService } from "../services/region-service";
-import { useIdentity } from "../contexts/IdentityContext";
+import { isRoleAtLeast, useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
+import { useTouchPrimary } from "../hooks/useMediaQuery";
 import { buildPolygonAreaMap } from "../services/polygon-service";
 import { newId } from "../services/id";
 import type { Request, RequestType } from "../domain/models/request";
@@ -56,13 +57,20 @@ export function VisitPageContainer() {
     new Set(),
   );
 
-  // 現在のアクター DID を IdentityContext から取得（dev モードでは切替可能）。
-  const { currentActorID: actorId } = useIdentity();
+  // 現在のアクター DID とロールを IdentityContext から取得（dev モードでは切替可能）。
+  const { currentActorID: actorId, currentRole } = useIdentity();
+
+  // 場所の直接編集権限 = 編集メンバー以上 × 非タッチ端末
+  // （docs/wants/07_通知と申請.md「場所操作の権限」）
+  const touchPrimary = useTouchPrimary();
+  const isEditorOrAbove = isRoleAtLeast(currentRole, "editor");
+  const canDirectEdit = isEditorOrAbove && !touchPrimary;
 
   // 区域レベルのアクセスモードと、他者がチェックアウト中ならその担当者名
   const [accessMode, setAccessMode] = useState<"editable" | "read_only">(
     "editable",
   );
+  const [accessResolved, setAccessResolved] = useState(false);
   const [activeCheckoutOwnerName, setActiveCheckoutOwnerName] = useState<
     string | null
   >(null);
@@ -92,6 +100,7 @@ export function VisitPageContainer() {
         const mode = await checkoutService.areaAccessMode(actorId, areaId);
         if (cancelled) return;
         setAccessMode(mode === "read_only" ? "read_only" : "editable");
+        setAccessResolved(true);
 
         // read-only のとき、他者が active チェックアウト中なら担当者名を取得
         if (mode === "read_only") {
@@ -150,6 +159,14 @@ export function VisitPageContainer() {
 
   const editorReady = ready && editor;
 
+  // 活動メンバーは「自分の active チェックアウト or 有効な区域招待」がある区域のみ
+  // アクセス可（areaAccessMode が editable を返す条件と同一）。満たさない場合は
+  // ダッシュボードへ戻す。編集メンバー以上は常時アクセス可。
+  // 仕様 docs/wants/08_活動メンバー向けアプリ.md「アクセス条件」
+  if (!isEditorOrAbove && accessResolved && accessMode === "read_only") {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <VisitPage
       areaId={areaId}
@@ -183,6 +200,7 @@ export function VisitPageContainer() {
         });
       }}
       accessMode={accessMode}
+      canDirectEdit={canDirectEdit}
       activeCheckoutOwnerName={activeCheckoutOwnerName}
       onSelfCheckout={handleSelfCheckout}
       onForceReclaimAndSelfCheckout={handleForceReclaimAndSelfCheckout}

@@ -63,14 +63,12 @@
 - `services/gsi-geocoder.ts` — 国土地理院住所検索 API による Geocoder（住所→座標接地）
 ### 画面/コンポーネント
 - `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/AI取込の統合）(→10)
-- `pages/AreaDetailEditPage.tsx` — 区域詳細編集（家/集合住宅/場所の追加・移動・削除＋地図編集）(→10)
-- `pages/AreaDetailEditPageContainer.tsx` — 区域詳細編集の DI 組立ラッパ (→01)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント
 - `components/AiMapImportDialog.tsx` — AI地図取込ダイアログ（同意→画像→解析→下書きレビュー→取込）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（部屋行の追加・並替・削除）
-- `components/PlaceListPanel.tsx` — 区域内の場所一覧パネル（D&D並替・部屋数表示）
-- `components/AreaDetailContextMenu.tsx` — 区域詳細編集の右クリックメニュー
+- `components/PlaceListPanel.tsx` — 場所一覧と訪問記録の一覧（直近記録併記/展開・D&D並替は権限ゲート・右ペイン/オーバーレイ両対応）(→08)
+- `components/AreaDetailContextMenu.tsx` — 場所直接編集/追加の右クリックメニュー（訪問記録画面で使用）
 - `components/EdgeContextMenu.tsx` — ポリゴン辺の右クリック（頂点追加）
 - `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
@@ -94,7 +92,8 @@
 - `lib/overlay-georeference.ts` — 手動オーバーレイ整列の相対座標→緯度経度線形写像
 - `lib/pdf-raster.ts` — AI取込の PDF 入力を1ページ目 PNG にラスタ化
 ### hooks
-- `hooks/useAreaDetailMap.ts` — 区域詳細編集の地図/場所描画とビューモデル適用を束ねる
+- `hooks/useAreaDetailMap.ts` — 訪問記録画面の地図/場所描画とビューモデル適用を束ねる (→08)
+- `hooks/useMediaQuery.ts` — matchMedia 購読（タッチ主体判定=直接編集ゲート/狭幅判定=一覧レイアウト）(→07,08)
 - `hooks/useCommandHistory.ts` — Undo/Redo コマンドヒストリを React へ購読
 - `hooks/useMapState.ts` — MapState ストアを useSyncExternalStore で購読
 - `hooks/usePolygonEditor.ts` — NetworkPolygonEditor/PolygonService の初期化・配線
@@ -161,10 +160,10 @@
 - `data/inmemory/inmemory-notification-repository.ts` — NotificationRepository の InMemory/localStorage 実装
 
 ## 08 活動メンバー向けアプリ（訪問記録/最新状況/場所データ）
-- `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定
+- `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定・区域内記録一覧
 - `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
-- `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加・編集リクエスト。移動/削除は直接不可）(→10)
-- `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ (→01)
+- `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加/一覧＋直接編集〔編集メンバー×非タッチのみ〕・編集リクエスト）(→03,10)
+- `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ（直接編集権限判定・活動メンバーのアクセス制御）(→01)
 - `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・チェックアウト/返却/招待導線）(→10)
 - `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択
 - `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定

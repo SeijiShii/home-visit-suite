@@ -268,7 +268,7 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                                                 onOpenAreaDetail(area.id);
                                               }}
                                             >
-                                              {t.areaDetail.title}
+                                              {t.visitRecord.pageTitle}
                                             </button>
                                           )}
                                           {onUnlinkPolygon && (

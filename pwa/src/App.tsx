@@ -2,7 +2,13 @@
 // ルート構成とロール別ナビゲーションガードは docs/wants/10_画面設計.md に従う。
 
 import { useEffect, useState } from "react";
-import { HashRouter, Route, Routes } from "react-router-dom";
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useParams,
+} from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { useIdentity } from "./contexts/IdentityContext";
 import { useServices } from "./contexts/ServicesContext";
@@ -12,7 +18,6 @@ import {
   type AsyncJoinResult,
 } from "./lib/linkself/group-network";
 import { TipsProvider } from "./contexts/TipsContext";
-import { AreaDetailEditPageContainer } from "./pages/AreaDetailEditPageContainer";
 import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
@@ -24,6 +29,12 @@ import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { VisitPageContainer } from "./pages/VisitPageContainer";
+
+/** 旧・区域詳細編集 URL を訪問記録画面へリダイレクトする（ブックマーク救済）。 */
+function RedirectAreaDetailToVisits() {
+  const { areaId = "" } = useParams<{ areaId: string }>();
+  return <Navigate to={`/visits/${areaId}`} replace />;
+}
 
 export default function App() {
   const { settingsService } = useServices();
@@ -81,10 +92,13 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="/visits/:areaId" element={<VisitPageContainer />} />
             <Route path="/map" element={<MapPage />} />
+            {/* 旧 /map/area/:areaId/detail（区域詳細編集）は 2026-07-14 廃止。
+                場所編集は訪問記録画面 /visits/:areaId が兼ねる（docs/wants/03）。 */}
             <Route
               path="/map/area/:areaId/detail"
-              element={<AreaDetailEditPageContainer />}
+              element={<RedirectAreaDetailToVisits />}
             />
+
             <Route path="/regions" element={<RegionManagementPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/checkouts" element={<CheckoutsPage />} />

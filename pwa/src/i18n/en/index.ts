@@ -173,6 +173,9 @@ const en: Translations = {
     buildingConfirmRemoveExistingRoom: "Delete this room?",
     buildingRoomCountSuffix: "rooms",
     buildingConfirmDeleteCascade: "Delete this building and {count} rooms?",
+    placeListShowButton: "List",
+    placeListVisitNone: "No records",
+    placeListOverlayClose: "Close",
   },
   visitRecord: {
     dialogTitle: "Visit record",
