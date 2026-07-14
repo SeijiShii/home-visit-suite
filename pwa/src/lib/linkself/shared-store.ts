@@ -53,57 +53,67 @@ function base64ToBytes(b64: string): Uint8Array {
 
 type SharedMap = Record<string, Record<string, StoredShared>>; // channel → id → record
 
-/** localStorage 永続の SharedStorage（墓石含む共有レコード + タイムスタンプ）。 */
+/**
+ * localStorage 永続の SharedStorage（墓石含む共有レコード + タイムスタンプ）。
+ * 全体をメモリにキャッシュし、読みはキャッシュ・書きは write-through にする
+ * （SQL ミラーは書き込みごとに全行を put するため、毎操作の全量 JSON parse は
+ * メインスレッドを圧迫する = 管理者タブが重くなる）。
+ */
 export class LocalStorageSharedStorage implements SharedStorage {
+  private cache: SharedMap | null = null;
+
   constructor(private readonly key: string = SHARED_KEY) {}
 
-  private load(): SharedMap {
-    try {
-      const raw = localStorage.getItem(this.key);
-      return raw ? (JSON.parse(raw) as SharedMap) : {};
-    } catch {
-      return {};
+  private map(): SharedMap {
+    if (this.cache == null) {
+      try {
+        const raw = localStorage.getItem(this.key);
+        this.cache = raw ? (JSON.parse(raw) as SharedMap) : {};
+      } catch {
+        this.cache = {};
+      }
     }
+    return this.cache;
   }
 
-  private save(map: SharedMap): void {
+  private save(): void {
     try {
-      localStorage.setItem(this.key, JSON.stringify(map));
+      localStorage.setItem(this.key, JSON.stringify(this.map()));
     } catch {
       // 容量超過等。users/member_tags 規模では実質発生しない。
     }
   }
 
   async putShared(record: SharedRecord): Promise<void> {
-    const map = this.load();
+    const map = this.map();
     (map[record.channel] ??= {})[record.id] = toStored(record);
-    this.save(map);
+    this.save();
   }
 
   async getShared(channel: string, id: string): Promise<SharedRecord | null> {
-    const s = this.load()[channel]?.[id];
+    const s = this.map()[channel]?.[id];
     return s == null ? null : fromStored(s);
   }
 
   async getTimestamp(channel: string, id: string): Promise<number> {
-    return this.load()[channel]?.[id]?.timestamp ?? 0;
+    return this.map()[channel]?.[id]?.timestamp ?? 0;
   }
 
   async deleteShared(channel: string, id: string): Promise<void> {
-    const map = this.load();
+    const map = this.map();
     if (map[channel]) {
       delete map[channel]![id];
-      this.save(map);
+      this.save();
     }
   }
 
   async listByChannel(channel: string): Promise<SharedRecord[]> {
-    return Object.values(this.load()[channel] ?? {}).map(fromStored);
+    return Object.values(this.map()[channel] ?? {}).map(fromStored);
   }
 
   async listByGroup(groupId: string): Promise<SharedRecord[]> {
     const out: SharedRecord[] = [];
-    for (const recs of Object.values(this.load())) {
+    for (const recs of Object.values(this.map())) {
       for (const s of Object.values(recs)) {
         if (s.groupId === groupId) out.push(fromStored(s));
       }
@@ -115,14 +125,11 @@ export class LocalStorageSharedStorage implements SharedStorage {
     channel: string,
     topic: string,
   ): Promise<SharedRecord[]> {
-    return (await this.listByChannel(channel)).filter(
-      (r) => r.topic === topic,
-    );
+    return (await this.listByChannel(channel)).filter((r) => r.topic === topic);
   }
 
   async deleteExpired(channel: string, before: number): Promise<number> {
-    const map = this.load();
-    const recs = map[channel];
+    const recs = this.map()[channel];
     if (!recs) return 0;
     let n = 0;
     for (const [id, s] of Object.entries(recs)) {
@@ -131,7 +138,7 @@ export class LocalStorageSharedStorage implements SharedStorage {
         n++;
       }
     }
-    if (n > 0) this.save(map);
+    if (n > 0) this.save();
     return n;
   }
 }

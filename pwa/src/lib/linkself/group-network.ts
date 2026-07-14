@@ -294,12 +294,16 @@ export class GroupNetworkService {
     for (const addr of invite.relays) {
       try {
         const res = await this.client.requestJoin(addr, invite, displayName);
-        if (res.ok) {
-          this.store.set(res.network.networkId);
+        if (res.ok || res.code === "already_member") {
           // 招待発行者（管理者）の到達アドレスを保存 → 次回起動の FastStart で
           // 再接続し catch-up 同期を成立させる（presence 未実装のための
           // ハブ型トポロジ。lib/linkself/known-members.ts）。
+          // already_member でも保存する: 過去に参加済みのメンバーが新しい
+          // 招待 URL を開き直すことで再接続経路を復旧できる。
           saveKnownMember(invite.inviterDID, invite.relays);
+        }
+        if (res.ok) {
+          this.store.set(res.network.networkId);
         }
         return res;
       } catch (e) {
