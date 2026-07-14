@@ -108,24 +108,24 @@
 - `data/inmemory/inmemory-pending-import-place-repository.ts` — PendingImportPlaceRepository の InMemory 実装
 
 ## 04 メンバー管理と権限（ロール/招待/承認）
-- `services/auth-service.ts` — ロール権限判定・招待/受理・降格/メンバー削除のロジック
+- `services/auth-service.ts` — ロール権限判定・メンバー編集（updateMember=表示名/ロール直接変更。自己ロール変更不可・最後の管理者降格ガード）・メンバー削除（removeMember=自己削除不可）。任命招待フローは 2026-07-14 廃止
 - `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング・デバイス登録簿）と DevIdentityService（dev 切替）。`loadStoredSeed()` は保存済みシードを返し LinkSelfClient のネットワーク配線に供給(→01,11)
 - `contexts/IdentityContext.tsx` — actorID/ロール/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice=自分以外）(→10)
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
 - `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）
 - `lib/linkself/group-invite.ts` — グループ招待（別 DID 参加）の発行/解析ラッパ。@linkself/core の invitation を束ね、3 日期限の `#/join?i=...` URL 生成（issueGroupInvite=シード / buildGroupInviteUrl=Identity。表示用グループ名 `&g=` 同梱）と検証付き解析（parseGroupInvite / extractGroupNameParam）。デバイスペアリングと異なり鍵は運ばない (→11)
 - `lib/group-name.ts` — グループ名（アプリレベルデータ・LinkSelf に名前概念なし）の localStorage 永続（`hvs.groupName`）。創設時設定・管理者変更・参加時保存の共有ヘルパ
-- `lib/linkself/group-network.ts` — グループ参加のアプリ向けファサード（GroupNetworkService）。起動中 LinkSelfClient を薄くラップし ensureFoundingNetwork（創設ネットワーク作成/永続。実体なし迷子 ID は作り直し回復）・issueInvite（管理者として3日招待発行）・join（招待URL受理→requestJoin→networkId永続）・**非同期参加**（joinAsync=メールボックスへ封緘 deposit + pending 永続 `hvs.pendingJoin` / restorePendingJoin=起動時復元・失効判定 / resolveAsyncDecision=受理結果の確定・networkId 永続・`hvs:async-join-decision` イベント通知・持ち越し `hvs.asyncJoinResult` は App が consumeAsyncJoinResult でロール採用）を提供。networkId は localStorage `hvs.networkId`。upsertJoinedMember（onMemberJoined→UserRepository 記録。表示名は受理管理者のみ可視）(→04,11)
+- `lib/linkself/group-network.ts` — グループ参加のアプリ向けファサード（GroupNetworkService）。起動中 LinkSelfClient を薄くラップし ensureFoundingNetwork（創設ネットワーク作成/永続。実体なし迷子 ID は作り直し回復）・issueInvite（管理者として3日招待発行）・setMemberRole/kickMember（ロール変更/除名の LinkSelf ネットワーク反映 + membership snapshot 配信。実体に無い対象は best-effort で素通り）・join（招待URL受理→requestJoin→networkId永続）・**非同期参加**（joinAsync=メールボックスへ封緘 deposit + pending 永続 `hvs.pendingJoin` / restorePendingJoin=起動時復元・失効判定 / resolveAsyncDecision=受理結果の確定・networkId 永続・`hvs:async-join-decision` イベント通知・持ち越し `hvs.asyncJoinResult` は App が consumeAsyncJoinResult でロール採用）を提供。networkId は localStorage `hvs.networkId`。upsertJoinedMember（onMemberJoined→UserRepository 記録。表示名は受理管理者のみ可視）(→04,11)
 - `lib/linkself/network-store.ts` — ネットワーク実体（メンバー・ロール表）と使用済み招待ノンスの localStorage 永続ストア（LocalStorageNetworkStore / LocalStorageConsumedNonceStore）。in-memory だとリロードで消え招待が network_not_found 拒否になるのを防ぐ。Phase C / M5 で MyDB-backed へ移行する暫定ブリッジ (→01,04)
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label、暫定 localStorage・M5 で同期リポジトリへ）
 - `pages/OnboardingPage.tsx` — 初回オンボーディング（ID 作成=創設グループ名の設定込み / 既存端末から URL・コード引き継ぎ。AppBrand 表示）(→10)
 - `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。未登録は登録・登録済みは冪等スルー、フラグメント除去）(→10)
 - `pages/JoinPage.tsx` — グループ招待取り込み（`#/join?i=…`。別 DID が招待を受けて参加。AppBrand+「○○グループに招待されています」（`&g=`）+招待ロール表示。ID 未作成なら作成へ誘導・参加は GroupNetwork.join。管理者不達時は joinAsync で非同期参加へフォールバックし成立待ち表示、受理結果イベントで完了/失効へ遷移。成立/預け時にグループ名をローカル保存）(→10,11)
 - `components/GroupInviteSection.tsx` — グループ招待の発行 UI（管理者専用・admin 以外は非表示。参加ロール選択=既定活動メンバー・3 日期限の URL/QR 発行・コピー・グループ名同梱。メンバー管理画面 `/users` に配置）(→11)
-- `components/GroupNameSection.tsx` — グループ名の表示・変更 UI（管理者専用。`/users` に配置。招待 URL に同梱される表示名を編集）
+- `components/GroupNameSection.tsx` — グループ名の表示・変更 UI（管理者専用。`/users` に配置。見出し横に現在値プレビュー・未保存/保存済みの状態表示付きで、招待 URL に同梱される表示名を編集）
 - `contexts/GroupNetworkContext.tsx` — グループ招待/参加ファサード（GroupNetworkService）の DI。ネットワーク未配線時は null (→01,11)
 - `components/QrCode.tsx` — テキスト（ペアリング URL 等）を QR canvas 描画
-- `pages/UsersPage.tsx` — メンバー一覧とタグ CRUD・検索/フィルタ画面 (→10)
+- `pages/UsersPage.tsx` — メンバー一覧（編集=表示名/ロール直接変更・削除=LinkSelf グループからの削除、自分の行はロール変更/削除不可）とタグ CRUD・検索/フィルタ画面 (→10)
 - `domain/models/user.ts` — メンバー/ロール(admin/editor/member)権限判定・メンバータグ
 - `domain/models/invitation.ts` — グループ参加・ロール任命の招待モデル
 - `domain/repositories/user-repository.ts` — メンバー/メンバータグ/招待の永続化 IF

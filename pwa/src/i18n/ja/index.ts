@@ -248,6 +248,17 @@ const ja: Translations = {
     members: "メンバー",
     noMembers: "メンバーはいません",
     role: "ロール",
+    actions: "操作",
+    editMember: "メンバー編集",
+    deleteMember: "メンバー削除",
+    memberNameLabel: "表示名",
+    selfRoleNote: "自分自身のロールは変更できません",
+    confirmDeleteMember: "このメンバーをグループから削除しますか？",
+    deleteMemberNote:
+      "LinkSelf グループからの削除です。担当中のタスクは担当者なしになります",
+    errorNameRequired: "表示名を入力してください",
+    errorLastAdmin: "最後の管理者は降格できません",
+    errorMemberGeneric: "メンバーの変更に失敗しました",
     roles: {
       admin: "管理者",
       editor: "編集メンバー",
@@ -514,6 +525,7 @@ const ja: Translations = {
     placeholder: "例: 成田第1グループ",
     save: "保存",
     saved: "保存しました",
+    unsavedChanges: "未保存の変更があります",
   },
   devicePairing: {
     section: "デバイス",

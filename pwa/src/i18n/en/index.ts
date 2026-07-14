@@ -249,6 +249,17 @@ const en: Translations = {
     members: "Members",
     noMembers: "No members",
     role: "Role",
+    actions: "Actions",
+    editMember: "Edit member",
+    deleteMember: "Delete member",
+    memberNameLabel: "Display name",
+    selfRoleNote: "You cannot change your own role",
+    confirmDeleteMember: "Remove this member from the group?",
+    deleteMemberNote:
+      "This removes them from the LinkSelf group. Their tasks in progress become unassigned",
+    errorNameRequired: "Enter a display name",
+    errorLastAdmin: "The last admin cannot be demoted",
+    errorMemberGeneric: "Failed to update the member",
     roles: {
       admin: "Admin",
       editor: "Editor",
@@ -508,6 +519,7 @@ const en: Translations = {
     placeholder: "e.g. Narita Group 1",
     save: "Save",
     saved: "Saved",
+    unsavedChanges: "Unsaved changes",
   },
   devicePairing: {
     section: "Devices",

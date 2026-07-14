@@ -44,10 +44,15 @@ async function makeClient(
   const identity = await generateIdentity();
   return {
     userIdentity: identity,
-    network: { create: vi.fn(async () => "net-created") },
+    network: {
+      create: vi.fn(async () => "net-created"),
+      setMemberRole: vi.fn(async () => {}),
+      kick: vi.fn(async () => {}),
+    },
     // 既定は「保存済み ID の実体あり」= 再利用パス（実体なしのケースは
     // 個別テストで上書きする）。
     networkStore: { getNetwork: vi.fn(async () => ({ id: "net-x" })) },
+    publishMembership: vi.fn(async () => {}),
     requestJoin: vi.fn(
       async () => ({ ok: false, code: "invite_invalid" }) as JoinResponse,
     ),
@@ -108,6 +113,72 @@ describe("issueInvite", () => {
     await expect(svc.issueInvite()).rejects.toMatchObject({
       code: "no_relay_address",
     });
+  });
+});
+
+describe("setMemberRole / kickMember", () => {
+  it("forwards the role change to the network and publishes membership", async () => {
+    const client = await makeClient();
+    const svc = new GroupNetworkService(client, memStore("net-1"));
+
+    expect(await svc.setMemberRole("did:key:target", "editor")).toBe(true);
+    expect(client.network.setMemberRole).toHaveBeenCalledWith(
+      "net-1",
+      client.userIdentity.did,
+      "did:key:target",
+      "editor",
+    );
+    expect(client.publishMembership).toHaveBeenCalledWith("net-1");
+  });
+
+  it("kicks the member and publishes membership", async () => {
+    const client = await makeClient();
+    const svc = new GroupNetworkService(client, memStore("net-1"));
+
+    expect(await svc.kickMember("did:key:target")).toBe(true);
+    expect(client.network.kick).toHaveBeenCalledWith(
+      "net-1",
+      client.userIdentity.did,
+      "did:key:target",
+    );
+    expect(client.publishMembership).toHaveBeenCalledWith("net-1");
+  });
+
+  it("returns false without publishing when no network id is persisted", async () => {
+    const client = await makeClient();
+    const svc = new GroupNetworkService(client, memStore());
+
+    expect(await svc.setMemberRole("did:key:target", "editor")).toBe(false);
+    expect(client.network.setMemberRole).not.toHaveBeenCalled();
+    expect(client.publishMembership).not.toHaveBeenCalled();
+  });
+
+  it("tolerates app-only records (target_not_member) as best-effort", async () => {
+    const client = await makeClient();
+    (client.network.kick as ReturnType<typeof vi.fn>).mockRejectedValue(
+      Object.assign(new Error("target is not a member"), {
+        code: "target_not_member",
+      }),
+    );
+    const svc = new GroupNetworkService(client, memStore("net-1"));
+
+    expect(await svc.kickMember("did:key:seed-user")).toBe(false);
+    expect(client.publishMembership).not.toHaveBeenCalled();
+  });
+
+  it("rethrows real violations (no_permission)", async () => {
+    const client = await makeClient();
+    (
+      client.network.setMemberRole as ReturnType<typeof vi.fn>
+    ).mockRejectedValue(
+      Object.assign(new Error("insufficient role"), { code: "no_permission" }),
+    );
+    const svc = new GroupNetworkService(client, memStore("net-1"));
+
+    await expect(
+      svc.setMemberRole("did:key:target", "editor"),
+    ).rejects.toMatchObject({ code: "no_permission" });
+    expect(client.publishMembership).not.toHaveBeenCalled();
   });
 });
 
@@ -283,7 +354,10 @@ describe("非同期参加（joinAsync / restorePendingJoin / resolveAsyncDecisio
       undefined,
       pendingStore,
     );
-    const pending = await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+    const pending = await svc.joinAsync(
+      await inviteUrlFrom(client),
+      "新人さん",
+    );
 
     // 招待期限（3 日）を過ぎた時刻で復元する。
     const after = pending.invite.expiresAt + 1;
@@ -302,7 +376,10 @@ describe("非同期参加（joinAsync / restorePendingJoin / resolveAsyncDecisio
     const store = memStore();
     const pendingStore = memPendingStore();
     const svc = new GroupNetworkService(client, store, undefined, pendingStore);
-    const pending = await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+    const pending = await svc.joinAsync(
+      await inviteUrlFrom(client),
+      "新人さん",
+    );
 
     const selfDID = client.userIdentity.did;
     const result = svc.resolveAsyncDecision(pending.invite.nonce, {
@@ -351,7 +428,10 @@ describe("非同期参加（joinAsync / restorePendingJoin / resolveAsyncDecisio
       undefined,
       pendingStore,
     );
-    const pending = await svc.joinAsync(await inviteUrlFrom(client), "新人さん");
+    const pending = await svc.joinAsync(
+      await inviteUrlFrom(client),
+      "新人さん",
+    );
 
     const result = svc.resolveAsyncDecision(pending.invite.nonce, {
       ok: false,

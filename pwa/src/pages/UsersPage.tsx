@@ -8,9 +8,17 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { GroupInviteSection } from "../components/GroupInviteSection";
 import { GroupNameSection } from "../components/GroupNameSection";
+import { useGroupNetwork } from "../contexts/GroupNetworkContext";
 import { useI18n } from "../contexts/I18nContext";
+import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
-import { TAG_COLOR_PALETTE, type Tag, type User } from "../domain/models/user";
+import {
+  TAG_COLOR_PALETTE,
+  type Role,
+  type Tag,
+  type User,
+} from "../domain/models/user";
+import { isCode } from "../services/errors";
 import { newId } from "../services/id";
 
 type ModalState =
@@ -18,7 +26,12 @@ type ModalState =
   | { type: "addTag" }
   | { type: "editTag"; tag: Tag }
   | { type: "deleteTag"; tag: Tag }
-  | { type: "assignTags"; user: User };
+  | { type: "assignTags"; user: User }
+  | { type: "editMember"; user: User }
+  | { type: "deleteMember"; user: User };
+
+/** 編集モーダルのロール選択肢（docs/wants/04「任免」）。 */
+const MEMBER_ROLES: Role[] = ["admin", "editor", "member"];
 
 function tagBgColor(hex: string): string {
   // Convert hex color to light background variant
@@ -30,7 +43,9 @@ function tagBgColor(hex: string): string {
 
 export function UsersPage() {
   const { t } = useI18n();
-  const { userRepo } = useServices();
+  const { userRepo, authService } = useServices();
+  const { currentActorID } = useIdentity();
+  const groupNetwork = useGroupNetwork();
   const u = t.users;
   const c = t.common;
 
@@ -47,6 +62,11 @@ export function UsersPage() {
   // assignTags modal state
   const [assignTagIds, setAssignTagIds] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState("");
+
+  // editMember / deleteMember modal state
+  const [editMemberName, setEditMemberName] = useState("");
+  const [editMemberRole, setEditMemberRole] = useState<Role>("member");
+  const [memberErr, setMemberErr] = useState("");
 
   const reload = useCallback(async () => {
     try {
@@ -188,6 +208,66 @@ export function UsersPage() {
     } catch (e) {
       console.error("create tag in assign failed:", e);
     }
+  };
+
+  // --- Member edit/delete handlers（docs/wants/04「任免（メンバーの編集と削除）」）---
+
+  const handleOpenEditMember = (user: User) => {
+    setEditMemberName(user.name);
+    setEditMemberRole(user.role);
+    setMemberErr("");
+    setModal({ type: "editMember", user });
+  };
+
+  const memberErrorMessage = (e: unknown): string => {
+    if (isCode(e, "invalid_input")) return u.errorNameRequired;
+    if (isCode(e, "self_dismissal")) return u.selfRoleNote;
+    if (isCode(e, "last_admin")) return u.errorLastAdmin;
+    return u.errorMemberGeneric;
+  };
+
+  const handleSaveMember = async () => {
+    if (modal.type !== "editMember") return;
+    const target = modal.user;
+    try {
+      await authService.updateMember(currentActorID, target.id, {
+        name: editMemberName,
+        role: editMemberRole,
+      });
+    } catch (e) {
+      setMemberErr(memberErrorMessage(e));
+      return;
+    }
+    // LinkSelf ネットワーク実体への反映は best-effort（開発シード等は false で素通り）。
+    if (editMemberRole !== target.role && groupNetwork) {
+      try {
+        await groupNetwork.setMemberRole(target.id, editMemberRole);
+      } catch (e) {
+        console.error("linkself role sync failed:", e);
+      }
+    }
+    setModal({ type: "none" });
+    void reload();
+  };
+
+  const handleDeleteMember = async () => {
+    if (modal.type !== "deleteMember") return;
+    const target = modal.user;
+    try {
+      await authService.removeMember(currentActorID, target.id);
+    } catch (e) {
+      setMemberErr(memberErrorMessage(e));
+      return;
+    }
+    if (groupNetwork) {
+      try {
+        await groupNetwork.kickMember(target.id);
+      } catch (e) {
+        console.error("linkself kick sync failed:", e);
+      }
+    }
+    setModal({ type: "none" });
+    void reload();
   };
 
   return (
@@ -333,6 +413,7 @@ export function UsersPage() {
                 <th>{u.members}</th>
                 <th>{u.role}</th>
                 <th>{u.tags}</th>
+                <th>{u.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -375,6 +456,27 @@ export function UsersPage() {
                       >
                         +
                       </span>
+                    )}
+                  </td>
+                  <td className="member-table-actions">
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => handleOpenEditMember(user)}
+                    >
+                      {c.edit}
+                    </button>
+                    {user.id !== currentActorID && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => {
+                          setMemberErr("");
+                          setModal({ type: "deleteMember", user });
+                        }}
+                      >
+                        {c.delete}
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -469,6 +571,104 @@ export function UsersPage() {
                 {c.cancel}
               </button>
               <button className="btn btn-danger" onClick={handleDeleteTag}>
+                {c.delete}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal（表示名・ロールの直接変更。docs/wants/04「任免」） */}
+      {modal.type === "editMember" && (
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">{u.editMember}</div>
+            <div className="modal-field">
+              <label className="modal-label" htmlFor="edit-member-name">
+                {u.memberNameLabel}
+              </label>
+              <input
+                id="edit-member-name"
+                type="text"
+                className="modal-input"
+                value={editMemberName}
+                autoFocus
+                onChange={(e) => setEditMemberName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void handleSaveMember()}
+              />
+            </div>
+            <div className="modal-field">
+              <label className="modal-label" htmlFor="edit-member-role">
+                {u.role}
+              </label>
+              <select
+                id="edit-member-role"
+                className="settings-select"
+                value={editMemberRole}
+                disabled={modal.user.id === currentActorID}
+                onChange={(e) => setEditMemberRole(e.target.value as Role)}
+              >
+                {MEMBER_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {u.roles[r]}
+                  </option>
+                ))}
+              </select>
+              {modal.user.id === currentActorID && (
+                <p className="settings-section-note">{u.selfRoleNote}</p>
+              )}
+            </div>
+            {memberErr && <p className="onboarding-error">{memberErr}</p>}
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModal({ type: "none" })}
+              >
+                {c.cancel}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => void handleSaveMember()}
+                disabled={!editMemberName.trim()}
+              >
+                {c.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Member Modal（LinkSelf グループからの削除） */}
+      {modal.type === "deleteMember" && (
+        <div
+          className="modal-overlay"
+          onClick={() => setModal({ type: "none" })}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">{u.deleteMember}</div>
+            <p className="member-delete-target">
+              {modal.user.name}
+              <span className={roleBadgeClass(modal.user.role)}>
+                {roleLabel(modal.user.role)}
+              </span>
+            </p>
+            <p className="member-delete-note">{u.confirmDeleteMember}</p>
+            <p className="member-delete-note">{u.deleteMemberNote}</p>
+            {memberErr && <p className="onboarding-error">{memberErr}</p>}
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModal({ type: "none" })}
+              >
+                {c.cancel}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => void handleDeleteMember()}
+              >
                 {c.delete}
               </button>
             </div>

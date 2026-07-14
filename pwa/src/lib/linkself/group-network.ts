@@ -30,10 +30,23 @@ export interface GroupClient {
   readonly userIdentity: Identity;
   readonly network: {
     create(suiteId: string, creatorDID: string): Promise<string>;
+    setMemberRole(
+      networkId: string,
+      requesterDID: string,
+      targetDID: string,
+      newRole: string,
+    ): Promise<void>;
+    kick(
+      networkId: string,
+      requesterDID: string,
+      targetDID: string,
+    ): Promise<void>;
   };
   readonly networkStore: {
     getNetwork(id: string): Promise<unknown | null>;
   };
+  /** 管理者としてネットワークの membership snapshot をメンバーへ配信する。 */
+  publishMembership(networkId: string): Promise<void>;
   requestJoin(
     addr: string,
     invite: Invite,
@@ -210,6 +223,57 @@ export class GroupNetworkService {
       baseUrl: opts.baseUrl,
       groupName: opts.groupName,
     });
+  }
+
+  /**
+   * メンバーのロール変更を LinkSelf ネットワーク実体へ反映し、membership snapshot
+   * を配信する（docs/wants/04「任免」）。ネットワーク未配線・対象が実体に居ない
+   * （開発シード等）場合は false を返し、アプリ側のみの更新とする（best-effort）。
+   * 権限違反（no_permission）は投げ直す。
+   */
+  async setMemberRole(targetDID: string, role: string): Promise<boolean> {
+    return this.syncMembership((networkId) =>
+      this.client.network.setMemberRole(
+        networkId,
+        this.selfDID,
+        targetDID,
+        role,
+      ),
+    );
+  }
+
+  /**
+   * メンバーの除名（グループからの削除）を LinkSelf ネットワーク実体へ反映し、
+   * membership snapshot を配信する。許容エラー時は false（setMemberRole と同様）。
+   * 除名された本人の端末には snapshot は届かない（配信先は除名後のメンバー一覧）。
+   */
+  async kickMember(targetDID: string): Promise<boolean> {
+    return this.syncMembership((networkId) =>
+      this.client.network.kick(networkId, this.selfDID, targetDID),
+    );
+  }
+
+  private async syncMembership(
+    mutate: (networkId: string) => Promise<void>,
+  ): Promise<boolean> {
+    const networkId = this.store.get();
+    if (!networkId) return false;
+    try {
+      await mutate(networkId);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      // アプリのメンバー表と LinkSelf 実体の不一致（開発シード・迷子 ID 等）は許容。
+      if (
+        code === "network_not_found" ||
+        code === "target_not_member" ||
+        code === "not_member"
+      ) {
+        return false;
+      }
+      throw e;
+    }
+    await this.client.publishMembership(networkId);
+    return true;
   }
 
   /**

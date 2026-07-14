@@ -232,6 +232,16 @@ export interface Translations {
     members: string;
     noMembers: string;
     role: string;
+    actions: string;
+    editMember: string;
+    deleteMember: string;
+    memberNameLabel: string;
+    selfRoleNote: string;
+    confirmDeleteMember: string;
+    deleteMemberNote: string;
+    errorNameRequired: string;
+    errorLastAdmin: string;
+    errorMemberGeneric: string;
     roles: {
       admin: string;
       editor: string;
@@ -474,6 +484,7 @@ export interface Translations {
     placeholder: string;
     save: string;
     saved: string;
+    unsavedChanges: string;
   };
   devicePairing: {
     section: string;

@@ -6,7 +6,7 @@ import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repositor
 import type { User } from "../domain/models/user";
 import { AuthServiceImpl } from "./auth-service";
 import { isCode } from "./errors";
-import { ADMIN, EDITOR, MEMBER1, MEMBER2, NOW } from "./test-fixture";
+import { ADMIN, EDITOR, MEMBER1, MEMBER2 } from "./test-fixture";
 
 function user(id: string, role: User["role"]): User {
   return { id, name: id, role, tagIds: [], joinedAt: "2026-01-01T00:00:00Z" };
@@ -17,7 +17,7 @@ let svc: AuthServiceImpl;
 
 beforeEach(async () => {
   repo = new InMemoryUserRepository();
-  svc = new AuthServiceImpl(repo, () => NOW);
+  svc = new AuthServiceImpl(repo);
   for (const u of [
     user(ADMIN, "admin"),
     user(EDITOR, "editor"),
@@ -43,68 +43,64 @@ describe("canPerform", () => {
   });
 });
 
-describe("inviteToRole / acceptInvitation", () => {
-  it("editor+ が招待し、被招待者が受理するとロールが変わる", async () => {
-    const inv = await svc.inviteToRole(EDITOR, MEMBER1, "editor");
-    expect(inv.status).toBe("pending");
-    expect(inv.type).toBe("role_promote");
+describe("updateMember", () => {
+  it("admin は他メンバーの表示名とロールを直接変更できる（昇格・降格とも即時）", async () => {
+    await svc.updateMember(ADMIN, MEMBER1, {
+      name: "新しい名前",
+      role: "editor",
+    });
+    const after = await repo.getUser(MEMBER1);
+    expect(after?.name).toBe("新しい名前");
+    expect(after?.role).toBe("editor");
 
-    await svc.acceptInvitation(MEMBER1, inv.id);
-
-    expect((await repo.getUser(MEMBER1))?.role).toBe("editor");
-    const after = await repo.getInvitation(inv.id);
-    expect(after?.status).toBe("accepted");
-    expect(after?.resolvedAt).toBe(NOW.toISOString());
+    // 降格も即時（受理フローなし）。
+    await svc.updateMember(ADMIN, EDITOR, { role: "member" });
+    expect((await repo.getUser(EDITOR))?.role).toBe("member");
   });
 
-  it("member は招待を発行できない", async () => {
+  it("admin 以外は変更できない", async () => {
     await expect(
-      svc.inviteToRole(MEMBER1, MEMBER2, "editor"),
+      svc.updateMember(EDITOR, MEMBER1, { name: "x" }),
     ).rejects.toSatisfy((e) => isCode(e, "permission_denied"));
   });
 
-  it("被招待者以外は受理できない", async () => {
-    const inv = await svc.inviteToRole(ADMIN, MEMBER1, "editor");
-    await expect(svc.acceptInvitation(MEMBER2, inv.id)).rejects.toSatisfy((e) =>
-      isCode(e, "permission_denied"),
-    );
+  it("自分自身のロールは変更できない（管理者0人防止）", async () => {
+    await expect(
+      svc.updateMember(ADMIN, ADMIN, { role: "member" }),
+    ).rejects.toSatisfy((e) => isCode(e, "self_dismissal"));
   });
 
-  it("pending でない招待は受理できない", async () => {
-    const inv = await svc.inviteToRole(ADMIN, MEMBER1, "editor");
-    await svc.acceptInvitation(MEMBER1, inv.id);
-    await expect(svc.acceptInvitation(MEMBER1, inv.id)).rejects.toSatisfy((e) =>
-      isCode(e, "invalid_state"),
-    );
-  });
-});
-
-describe("dismissRole", () => {
-  it("admin は降格でき、自己罷免は不可", async () => {
-    await svc.dismissRole(ADMIN, EDITOR, "member");
-    expect((await repo.getUser(EDITOR))?.role).toBe("member");
-
-    await expect(svc.dismissRole(ADMIN, ADMIN, "member")).rejects.toSatisfy(
-      (e) => isCode(e, "self_dismissal"),
-    );
+  it("自分自身の表示名は変更できる", async () => {
+    await svc.updateMember(ADMIN, ADMIN, { name: "改名した管理者" });
+    expect((await repo.getUser(ADMIN))?.name).toBe("改名した管理者");
   });
 
-  it("admin 以外は降格不可", async () => {
-    await expect(svc.dismissRole(EDITOR, MEMBER1, "member")).rejects.toSatisfy(
-      (e) => isCode(e, "permission_denied"),
-    );
+  it("同値ロールの指定は自分に対しても許容する（no-op）", async () => {
+    await svc.updateMember(ADMIN, ADMIN, { name: "n", role: "admin" });
+    expect((await repo.getUser(ADMIN))?.role).toBe("admin");
   });
 
-  it("admin が 2 名いれば一方を罷免できる", async () => {
+  it("空の表示名は拒否する", async () => {
+    await expect(
+      svc.updateMember(ADMIN, MEMBER1, { name: "   " }),
+    ).rejects.toSatisfy((e) => isCode(e, "invalid_input"));
+  });
+
+  it("admin が 2 名いれば一方を降格できる", async () => {
     await repo.saveUser(user("did:test:admin2", "admin"));
-    await svc.dismissRole(ADMIN, "did:test:admin2", "member");
+    await svc.updateMember(ADMIN, "did:test:admin2", { role: "member" });
     expect((await repo.getUser("did:test:admin2"))?.role).toBe("member");
   });
 
-  // 最後の管理者の罷免ガード（last_admin）は、通常フローでは
-  // 自己罷免チェックが先に働くため到達しない防御的ガード（Go 参照実装と同様）。
-  // 到達可能な唯一の異常系（actor がユーザー一覧に存在しない admin）は
-  // getUser の not_found が先に発生するため、直接のユニットテストは置かない。
+  it("存在しない対象は not_found", async () => {
+    await expect(
+      svc.updateMember(ADMIN, "did:test:nobody", { name: "x" }),
+    ).rejects.toSatisfy((e) => isCode(e, "not_found"));
+  });
+
+  // 最後の管理者の降格ガード（last_admin）は、通常フローでは自己ロール変更
+  // チェックが先に働くため到達しない防御的ガード（actor が admin である以上、
+  // 別の admin を降格しても管理者は 1 名以上残る）。Go 参照実装と同様に残置。
 });
 
 describe("removeMember", () => {
@@ -114,5 +110,12 @@ describe("removeMember", () => {
     );
     await svc.removeMember(ADMIN, MEMBER1);
     expect(await repo.getUser(MEMBER1)).toBeNull();
+  });
+
+  it("自分自身は削除できない（自己罷免不可）", async () => {
+    await expect(svc.removeMember(ADMIN, ADMIN)).rejects.toSatisfy((e) =>
+      isCode(e, "self_dismissal"),
+    );
+    expect(await repo.getUser(ADMIN)).not.toBeNull();
   });
 });

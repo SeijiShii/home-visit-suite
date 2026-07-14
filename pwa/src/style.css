@@ -4190,6 +4190,63 @@ section {
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
+.member-table-actions {
+  white-space: nowrap;
+}
+
+.member-table-actions .btn + .btn {
+  margin-left: 6px;
+}
+
+.member-delete-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 8px;
+}
+
+.member-delete-note {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.settings-section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.group-name-preview {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 10px;
+}
+
+.settings-save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-status {
+  font-size: 13px;
+}
+
+.settings-status-saved {
+  color: #16a34a;
+}
+
+.settings-status-dirty {
+  color: #b45309;
+}
+
 .app-brand {
   display: flex;
   align-items: center;
