@@ -12,12 +12,15 @@ import { createLibp2p, type Libp2p } from "libp2p";
 import {
   LinkSelfClient,
   type ConsumedNonceStore,
+  type EpochStore,
   type Identity,
   type JoinResponse,
   type KnownPeer,
   type MemberJoinedInfo,
   type NetworkStore,
   type RoleDefs,
+  type SharedRecord,
+  type SharedStorage,
   type SignedRoster,
   type SqlDatabase,
 } from "@linkself/core";
@@ -84,6 +87,18 @@ export interface CreateLinkSelfClientOptions {
     nonce: string,
     response: JoinResponse,
   ) => void | Promise<void>;
+  /**
+   * groupshare 共有レコードのストア。省略時は in-memory でリロードごとに消え、
+   * catch-up の高水位・LWW 判定材料を失うため、本番配線では永続実装を渡すこと。
+   */
+  sharedStorage?: SharedStorage;
+  /** membership epoch の永続ストア（巻き戻り防止）。省略時は in-memory。 */
+  epochStore?: EpochStore;
+  /**
+   * ScopeNetwork テーブルへの受信レコード適用後に呼ばれる（Phase C）。
+   * アプリの UI 更新フック。
+   */
+  onSharedApplied?: (table: string, rec: SharedRecord) => void | Promise<void>;
 }
 
 /** 起動済み LinkSelf セッション。stop() で graceful に libp2p を停止する。 */
@@ -139,6 +154,9 @@ export async function createLinkSelfClient(
     consumedNonces: opts.consumedNonces,
     mailboxes: opts.mailboxes,
     onAsyncJoinDecision: opts.onAsyncJoinDecision,
+    sharedStorage: opts.sharedStorage,
+    epochStore: opts.epochStore,
+    onSharedApplied: opts.onSharedApplied,
   });
   await client.start();
   return {

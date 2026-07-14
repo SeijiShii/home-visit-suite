@@ -32,8 +32,9 @@ async function newMyDB(
     send: async () => {},
   });
   const proxy = await SqlProxy.open(sqlDb);
-  wireSqlSync(proxy, engine);
-  return new MyDB(engine, proxy);
+  const myDB = new MyDB(engine, proxy);
+  wireSqlSync(proxy, myDB);
+  return myDB;
 }
 
 describe("LinkSelfPersonalRepository (settings via MyDB SQL)", () => {

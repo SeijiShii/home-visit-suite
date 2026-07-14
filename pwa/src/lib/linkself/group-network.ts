@@ -24,6 +24,7 @@ import {
   parseGroupInvite,
   type IssuedGroupInvite,
 } from "./group-invite";
+import { saveKnownMember } from "./known-members";
 
 /** ファサードが必要とする LinkSelfClient の最小面（テストでモック可能）。 */
 export interface GroupClient {
@@ -295,6 +296,10 @@ export class GroupNetworkService {
         const res = await this.client.requestJoin(addr, invite, displayName);
         if (res.ok) {
           this.store.set(res.network.networkId);
+          // 招待発行者（管理者）の到達アドレスを保存 → 次回起動の FastStart で
+          // 再接続し catch-up 同期を成立させる（presence 未実装のための
+          // ハブ型トポロジ。lib/linkself/known-members.ts）。
+          saveKnownMember(invite.inviterDID, invite.relays);
         }
         return res;
       } catch (e) {
@@ -374,6 +379,8 @@ export class GroupNetworkService {
     let result: AsyncJoinResult;
     if (response.ok) {
       this.store.set(response.network.networkId);
+      // 招待発行者（管理者）の到達アドレスを保存（同期参加と同じ理由）。
+      saveKnownMember(pending.invite.inviterDID, pending.invite.relays);
       const joined = response.network.memberRoles[this.selfDID];
       const role: Role =
         joined === "admin" || joined === "editor" ? joined : "member";

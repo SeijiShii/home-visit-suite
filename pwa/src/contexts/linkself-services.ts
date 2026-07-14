@@ -31,7 +31,20 @@ import {
 } from "@linkself/core";
 import type { RoleDefs } from "@linkself/core";
 import { LinkSelfPersonalRepository } from "../data/linkself/linkself-personal-repository";
+import {
+  LinkSelfUserRepository,
+  USER_SYNC_TABLES,
+} from "../data/linkself/linkself-user-repository";
 import { createLinkSelfClient } from "../lib/linkself/client-factory";
+import { loadKnownMembers } from "../lib/linkself/known-members";
+import {
+  SHARED_APPLIED_EVENT,
+  type SharedAppliedDetail,
+} from "../lib/linkself/shared-events";
+import {
+  LocalStorageEpochStore,
+  LocalStorageSharedStorage,
+} from "../lib/linkself/shared-store";
 import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
 import { loadOrCreateRoster } from "../lib/linkself/device-roster";
 import {
@@ -44,8 +57,12 @@ import {
   LocalStorageNetworkStore,
 } from "../lib/linkself/network-store";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
+import { AuthServiceImpl } from "../services/auth-service";
+import { CheckoutServiceImpl } from "../services/checkout-service";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
+import { VisitService } from "../services/visit-service";
+import { VisitBindingAdapter } from "../services/visit-binding-adapter";
 import {
   createInMemoryServices,
   type AppServices,
@@ -104,8 +121,9 @@ async function openStandalonePersonalMyDB(
     send: async () => {},
   });
   const proxy = await SqlProxy.open(sqlDb);
-  wireSqlSync(proxy, engine);
-  return new MyDB(engine, proxy);
+  const myDB = new MyDB(engine, proxy);
+  wireSqlSync(proxy, myDB);
+  return myDB;
 }
 
 /**
@@ -139,6 +157,10 @@ export async function createLinkSelfServices(
   let myDB: MyDB;
   let stop = async (): Promise<void> => {};
   let groupNetwork: GroupNetworkService | undefined;
+  let networkUserRepoOuter: LinkSelfUserRepository | undefined;
+  // 起動時に networkId が既にある場合の ScopeNetwork 配線（スキーマ適用・
+  // 旧データ移行の後に呼ぶため遅延させる）。
+  let initialScopeWiring: (() => Promise<void>) | null = null;
 
   if (useNetwork) {
     try {
@@ -150,37 +172,109 @@ export async function createLinkSelfServices(
       );
       // 自端末を登録した署名済みロスター（兄弟端末は接続時のロスター交換で収束）。
       const roster = await loadOrCreateRoster(userIdentity, deviceIdentity.did);
-      // onAsyncJoinDecision はファサード構築前に client へ渡す必要があるため
-      // 可変参照で後結びする。
+      // onAsyncJoinDecision / onMemberJoined はファサード・リポジトリ構築前に
+      // client へ渡す必要があるため可変参照で後結びする。
       let gn: GroupNetworkService | undefined;
+      let networkUserRepo: LinkSelfUserRepository | undefined;
       const session = await createLinkSelfClient({
         identity: deviceIdentity,
         userIdentity,
         roster,
-        knownPeers: opts.relays,
+        // presence 未実装のため、参加時に保存した既知メンバー（管理者）へも
+        // FastStart で毎起動ダイヤルする（ハブ型トポロジで catch-up を成立させる）。
+        knownPeers: [...(opts.relays ?? []), ...loadKnownMembers()],
         sqlDatabase: sqlDb,
         roles: HVS_ROLES,
         allowLocalDial: opts.allowLocalDial,
         // 参加受理（管理者側）でメンバー表へ記録する（displayName はここでしか
-        // 得られない）。一覧への他端末伝播は Phase C（ScopeNetwork 同期）待ち。
-        onMemberJoined: (info) => upsertJoinedMember(base.userRepo, info),
-        // ネットワーク実体と使用済みノンスはリロードをまたいで保持する
-        // （in-memory だと発行済み招待が network_not_found で拒否される）。
+        // 得られない）。users は ScopeNetwork 化により全メンバーへ伝播する。
+        onMemberJoined: (info) =>
+          upsertJoinedMember(networkUserRepo ?? base.userRepo, info),
+        // ネットワーク実体・使用済みノンス・共有レコード・epoch は
+        // リロードをまたいで保持する（in-memory だと招待拒否・catch-up 全量
+        // 再送・membership 巻き戻りが起きる）。
         networkStore: new LocalStorageNetworkStore(),
         consumedNonces: new LocalStorageConsumedNonceStore(),
+        sharedStorage: new LocalStorageSharedStorage(),
+        epochStore: new LocalStorageEpochStore(),
         // 非同期参加: メールボックスは常時稼働ノード＝リレーと同一。
         mailboxes: opts.relays,
         // 受理結果（被招待者側）を pending と突き合わせて確定・UI 通知する。
         onAsyncJoinDecision: (nonce, res) => {
           gn?.resolveAsyncDecision(nonce, res);
         },
+        // ScopeNetwork テーブルへの受信適用を UI へ通知する（UsersPage 等が購読）。
+        onSharedApplied: (table) => {
+          try {
+            globalThis.dispatchEvent?.(
+              new CustomEvent<SharedAppliedDetail>(SHARED_APPLIED_EVENT, {
+                detail: { table },
+              }),
+            );
+          } catch {
+            // 非ブラウザ環境では通知なしでよい
+          }
+        },
       });
       myDB = session.client.myDB;
+      networkUserRepo = new LinkSelfUserRepository(myDB);
+
+      // ScopeNetwork 配線: networkId が確定しているテーブルを network スコープに
+      // する。includeExisting（既存データの一括配送）は初回昇格時のみ
+      // （毎起動で行うと新タイムスタンプの再配送で他端末の新しい状態を
+      // 上書きし得るため）。配線後に catch-up を要求する。
+      const client = session.client;
+      const wireNetworkScopes = async (networkId: string) => {
+        const flagKey = "hvs.scopedTables";
+        let scoped: string[] = [];
+        try {
+          scoped = JSON.parse(
+            localStorage.getItem(flagKey) ?? "[]",
+          ) as string[];
+        } catch {
+          scoped = [];
+        }
+        for (const table of USER_SYNC_TABLES) {
+          const first = !scoped.includes(table);
+          await client.myDB.setSyncScope(table, "network", {
+            networkId,
+            includeExisting: first,
+          });
+          if (first) scoped.push(table);
+        }
+        try {
+          localStorage.setItem(flagKey, JSON.stringify(scoped));
+        } catch {
+          // ignore
+        }
+        await client.requestGroupSync(networkId);
+      };
+
+      // networkId は (a) 既に永続済み（起動時） (b) 創設/参加で新規確定、の
+      // 両方で配線する。(b) は NetworkIdStore.set をフックして拾う。
+      // (a) はスキーマ適用・旧データ移行の後に実行する（initialScopeWiring）。
+      const idStore = localStorageNetworkIdStore();
+      const hookedIdStore = {
+        get: () => idStore.get(),
+        set: (id: string) => {
+          idStore.set(id);
+          void wireNetworkScopes(id).catch((e) =>
+            console.warn("linkself: network scope wiring failed", e),
+          );
+        },
+      };
+      initialScopeWiring = async () => {
+        const existingNetworkId = idStore.get();
+        if (existingNetworkId) {
+          await wireNetworkScopes(existingNetworkId).catch((e) =>
+            console.warn("linkself: network scope wiring failed", e),
+          );
+        }
+      };
+      networkUserRepoOuter = networkUserRepo;
+
       // グループ招待/参加ファサード（起動中の実 client で署名・参加できる）。
-      gn = new GroupNetworkService(
-        session.client,
-        localStorageNetworkIdStore(),
-      );
+      gn = new GroupNetworkService(session.client, hookedIdStore);
       groupNetwork = gn;
       // 非同期参加の成立待ちを復元し、メールボックスを起動時 + 定期（60 秒）で
       // 確認する（管理者側の無人受理・被招待者側の結果受領の両方を担う）。
@@ -214,8 +308,50 @@ export async function createLinkSelfServices(
   const settingsService = new SettingsService(
     new PersonalRepositorySettingsAdapter(personalRepo),
   );
+
+  // users/member_tags は MyDB(SQL) リポジトリへ（両モード共通・OPFS 永続。
+  // ネットワーク配線時は ScopeNetwork で全メンバーへ伝播する）。
+  const userRepo = networkUserRepoOuter ?? new LinkSelfUserRepository(myDB);
+  await userRepo.ensureSchema();
+  // 旧 localStorage 実装（InMemory persist）からの一度きり移行。SQL 側が
+  // 空のときだけコピーする（自己ユーザー復元後は常に非空になる）。
+  try {
+    if ((await userRepo.listUsers()).length === 0) {
+      for (const u of await base.userRepo.listUsers()) {
+        await userRepo.saveUser(u);
+      }
+      for (const t of await base.userRepo.listTags()) {
+        await userRepo.saveTag(t);
+      }
+    }
+  } catch (e) {
+    console.warn("linkself: legacy user data migration failed", e);
+  }
+  // ScopeNetwork 初回配線（スキーマ・移行の後）。
+  await initialScopeWiring?.();
+
+  // userRepo に依存するサービスを新リポジトリで作り直す。
+  const authService = new AuthServiceImpl(userRepo);
+  const checkoutService = new CheckoutServiceImpl(
+    base.checkoutRepo,
+    userRepo,
+    base.notificationRepo,
+    base.regionRepo,
+  );
+  const visitService = new VisitService(
+    new VisitBindingAdapter(checkoutService, base.checkoutRepo),
+  );
+
   return {
-    services: { ...base, personalRepo, settingsService },
+    services: {
+      ...base,
+      personalRepo,
+      settingsService,
+      userRepo,
+      authService,
+      checkoutService,
+      visitService,
+    },
     stop,
     groupNetwork,
   };

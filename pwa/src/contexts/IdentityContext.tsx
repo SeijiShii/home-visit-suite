@@ -12,6 +12,10 @@ import {
 } from "react";
 import type { Device } from "../domain/models/device";
 import type { Role as DomainRole, User } from "../domain/models/user";
+import {
+  SHARED_APPLIED_EVENT,
+  type SharedAppliedDetail,
+} from "../lib/linkself/shared-events";
 import type { IdentityService } from "../services/identity-service";
 
 /** ロール文字列の型エイリアス（domain の Role + 未取得状態の空文字） */
@@ -237,6 +241,21 @@ export function IdentityProvider({ children, service }: IdentityProviderProps) {
     },
     [service],
   );
+
+  // ScopeNetwork 同期で users が更新されたら自分のロール・表示名を追従させる
+  // （他端末の管理者による任免・改名がこの端末のゲート/サイドバーに反映される）。
+  useEffect(() => {
+    const onApplied = (e: Event) => {
+      const { table } = (e as CustomEvent<SharedAppliedDetail>).detail;
+      if (table !== "users" || !currentActorID) return;
+      void fetchCurrentSelf(currentActorID).then((self) => {
+        setCurrentRole(self.role);
+        setCurrentName(self.name);
+      });
+    };
+    window.addEventListener(SHARED_APPLIED_EVENT, onApplied);
+    return () => window.removeEventListener(SHARED_APPLIED_EVENT, onApplied);
+  }, [currentActorID, fetchCurrentSelf]);
 
   const value = useMemo<IdentityContextValue>(
     () => ({

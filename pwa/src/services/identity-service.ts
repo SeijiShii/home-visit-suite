@@ -275,8 +275,14 @@ export class LocalIdentityService implements IdentityService {
   async loadIdentity(): Promise<User | null> {
     const s = this.read();
     if (!s) return null;
-    const user = this.toUser(s);
-    await this.repo.saveUser(user); // 毎起動シードの repo へ自己ユーザーを復元
+    // リポジトリに自己レコードが既にあれば、それが正（ScopeNetwork 同期で
+    // 他端末から更新された表示名・ロールを、hvs.identity の古いキャッシュで
+    // 上書きしない）。無いときだけ identity から復元する。
+    const existing = await this.repo.getUser(s.did);
+    const user = existing ?? this.toUser(s);
+    if (!existing) {
+      await this.repo.saveUser(user);
+    }
     this.ensureThisDeviceListed(s.did);
     return user;
   }

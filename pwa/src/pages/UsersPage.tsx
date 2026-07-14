@@ -20,6 +20,10 @@ import {
 } from "../domain/models/user";
 import { isCode } from "../services/errors";
 import { newId } from "../services/id";
+import {
+  SHARED_APPLIED_EVENT,
+  type SharedAppliedDetail,
+} from "../lib/linkself/shared-events";
 
 type ModalState =
   | { type: "none" }
@@ -83,6 +87,17 @@ export function UsersPage() {
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  // ScopeNetwork 同期で users/member_tags が更新されたら一覧を再読込する
+  // （他メンバーの参加・改名・任免が開いている画面に反映される）。
+  useEffect(() => {
+    const onApplied = (e: Event) => {
+      const { table } = (e as CustomEvent<SharedAppliedDetail>).detail;
+      if (table === "users" || table === "member_tags") void reload();
+    };
+    window.addEventListener(SHARED_APPLIED_EVENT, onApplied);
+    return () => window.removeEventListener(SHARED_APPLIED_EVENT, onApplied);
   }, [reload]);
 
   const tagMap = new Map(tags.map((t) => [t.id, t]));
