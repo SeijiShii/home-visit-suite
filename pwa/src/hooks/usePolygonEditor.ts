@@ -8,7 +8,10 @@ import { NetworkStorageAdapter } from "../lib/map-storage";
 import { PolygonService } from "../services/polygon-service";
 import type { PolygonBindingAPI } from "../services/polygon-service";
 
-export function usePolygonEditor(mapBinding: MapBindingAPI, regionAPI: PolygonBindingAPI) {
+export function usePolygonEditor(
+  mapBinding: MapBindingAPI,
+  regionAPI: PolygonBindingAPI,
+) {
   const editorRef = useRef<NetworkPolygonEditor | null>(null);
   const serviceRef = useRef<PolygonService | null>(null);
   const [ready, setReady] = useState(false);

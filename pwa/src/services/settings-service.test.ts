@@ -19,6 +19,22 @@ beforeEach(() => {
   svc = new SettingsService(new PersonalRepositorySettingsAdapter(repo));
 });
 
+describe("区域詳細編集の隣接半径", () => {
+  it("未設定時（リポジトリが 0 を返す）は既定の 2.5 km を返す", async () => {
+    expect(await svc.getAreaDetailRadiusKm()).toBe(2.5);
+  });
+
+  it("保存した値を取り出せる", async () => {
+    await svc.setAreaDetailRadiusKm(4);
+    expect(await svc.getAreaDetailRadiusKm()).toBe(4);
+  });
+
+  it("不正値（負数）が保存されていても既定値へフォールバックする", async () => {
+    await svc.setAreaDetailRadiusKm(-1);
+    expect(await svc.getAreaDetailRadiusKm()).toBe(2.5);
+  });
+});
+
 describe("AI プロバイダ", () => {
   it("未設定時は既定の 'anthropic' を返す", async () => {
     expect(await svc.getAiProvider()).toBe("anthropic");
@@ -78,7 +94,9 @@ describe("モデル解決", () => {
 
   it("プロバイダ不整合なモデルは既定へフォールバックする", () => {
     // gemini に claude モデルが残っていても既定へ寄せる
-    expect(resolveModel("gemini", "claude-opus-4-8")).toBe("gemini-3.1-flash-lite");
+    expect(resolveModel("gemini", "claude-opus-4-8")).toBe(
+      "gemini-3.1-flash-lite",
+    );
     // 整合していればそのまま
     expect(resolveModel("anthropic", "claude-opus-4-8")).toBe(
       "claude-opus-4-8",

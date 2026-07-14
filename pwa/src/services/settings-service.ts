@@ -25,6 +25,9 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
 /** AI 地図取込の既定プロバイダ識別子。 */
 export const DEFAULT_AI_PROVIDER: AiProvider = "anthropic";
 
+/** 区域詳細編集の隣接半径の既定値 (km)。docs/wants/01_共通基盤.md「アプリ設定画面」参照。 */
+export const DEFAULT_AREA_DETAIL_RADIUS_KM = 2.5;
+
 /**
  * プロバイダ別の vision 対応モデル一覧（各先頭が既定＝低コスト側）。
  * Anthropic の既定は Haiku、Gemini の既定は無料枠のある Flash。
@@ -93,8 +96,10 @@ export class SettingsService {
     await this.api.SetLocale(locale);
   }
 
+  /** 隣接半径 (km) を返す。未設定・不正値 (0 以下/非有限) は既定 2.5 へフォールバックする。 */
   async getAreaDetailRadiusKm(): Promise<number> {
-    return await this.api.GetAreaDetailRadiusKm();
+    const km = await this.api.GetAreaDetailRadiusKm();
+    return Number.isFinite(km) && km > 0 ? km : DEFAULT_AREA_DETAIL_RADIUS_KM;
   }
 
   async setAreaDetailRadiusKm(km: number): Promise<void> {

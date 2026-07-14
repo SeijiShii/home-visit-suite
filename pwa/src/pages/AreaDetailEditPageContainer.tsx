@@ -13,14 +13,19 @@ import { buildPolygonAreaMap } from "../services/polygon-service";
  * AreaDetailEditPage に渡すラッパ。
  */
 export function AreaDetailEditPageContainer() {
-  const { regionBindingApi, mapBinding, placeService, settingsService } = useServices();
+  const { regionBindingApi, mapBinding, placeService, settingsService } =
+    useServices();
   const regionService = useMemo(
     () => new RegionService(regionBindingApi),
     [regionBindingApi],
   );
   const { editor, ready } = usePolygonEditor(mapBinding, regionBindingApi);
-  const [polygonToArea, setPolygonToArea] = useState<Map<string, string>>(new Map());
-  const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(new Set());
+  const [polygonToArea, setPolygonToArea] = useState<Map<string, string>>(
+    new Map(),
+  );
+  const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     let cancelled = false;
