@@ -80,9 +80,12 @@ const ja: Translations = {
     linkToArea: "区域と紐づけ",
     unlinkFromArea: "紐づけ解除",
     confirmUnlink: "区域{area}との紐づけを解除しますか？",
+    confirmUnlinkAll:
+      "区域{area}との紐づけ（ポリゴン{count}件）をすべて解除しますか？",
     linkedToArea: "区域{area}と紐づけました",
     selectArea: "紐づける区域を選択",
     areaAlreadyLinked: "この区域は他のポリゴンに紐づけ済み",
+    addExclavePolygon: "飛地ポリゴンを追加",
     unlinkPolygon: "ポリゴン紐づけ解除",
     baseMapRoadmap: "地図",
     baseMapAerial: "航空写真",

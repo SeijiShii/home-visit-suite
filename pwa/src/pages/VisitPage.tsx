@@ -321,21 +321,22 @@ export function VisitPage({
     };
   }, [canDirectEdit, editor, polygonToArea]);
 
-  // 対象区域のポリゴンID（地図を区域へ戻すボタンで使用）
-  const targetPolygonId = useMemo(() => {
-    if (!polygonToArea) return null;
+  // 対象区域のポリゴンID群（飛地含む。地図を区域へ戻すボタンで使用）
+  const targetPolygonIds = useMemo(() => {
+    if (!polygonToArea) return [];
+    const ids: string[] = [];
     for (const [polygonId, mappedAreaId] of polygonToArea) {
-      if (mappedAreaId === areaId) return polygonId;
+      if (mappedAreaId === areaId) ids.push(polygonId);
     }
-    return null;
+    return ids;
   }, [polygonToArea, areaId]);
 
-  // 地図を無関係な場所までパン/ズームしても、ワンタップで対象区域が
-  // 収まるビューへ戻せる（docs/wants/08「地図 UI」）
+  // 地図を無関係な場所までパン/ズームしても、ワンタップで対象区域（飛地含む
+  // 全ポリゴン）が収まるビューへ戻せる（docs/wants/08「地図 UI」）
   const handleRecenterToArea = useCallback(() => {
-    if (!targetPolygonId) return;
-    mapRef.current?.focusPolygon(targetPolygonId as PolygonID);
-  }, [targetPolygonId]);
+    if (targetPolygonIds.length === 0) return;
+    mapRef.current?.focusPolygons(targetPolygonIds as PolygonID[]);
+  }, [targetPolygonIds]);
 
   const handleSaveVisit = useCallback(
     async (place: Place, args: VisitRecordSaveArgs) => {
@@ -837,7 +838,7 @@ export function VisitPage({
         <h2>
           {t.visitRecord.areaLabel.replace("{area}", areaLabel ?? areaId)}
         </h2>
-        {targetPolygonId && (
+        {targetPolygonIds.length > 0 && (
           <button
             type="button"
             className="btn btn-sm btn-secondary visit-page-recenter-button"

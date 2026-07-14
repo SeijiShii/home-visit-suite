@@ -11,6 +11,7 @@ import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { type AppServices, useServices } from "../contexts/ServicesContext";
 import type { CheckoutInvitation } from "../domain/models/checkout-invitation";
+import { areaPolygonIds } from "../domain/models/region";
 import type { User } from "../domain/models/user";
 
 type StatusTab = "active" | "returned" | "complete";
@@ -52,7 +53,7 @@ async function buildRegionMaps(
         allAreas.push({
           id: a.id,
           displayName: display,
-          hasPolygon: Boolean(a.polygonId),
+          hasPolygon: areaPolygonIds(a).length > 0,
         });
       }
     }

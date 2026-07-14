@@ -79,7 +79,8 @@ export function useAreaDetailMap({
 }: UseAreaDetailMapOptions): UseAreaDetailMapResult {
   const [places, setPlaces] = useState<Place[]>([]);
   const [rooms, setRooms] = useState<Place[]>([]);
-  const targetRingRef = useRef<[number, number][] | null>(null);
+  // 対象区域の全ポリゴン（飛地含む）の外周リング。区域内判定に使う。
+  const targetRingsRef = useRef<[number, number][][] | null>(null);
   const viewportInitializedRef = useRef(false);
   const initialSortAssignedRef = useRef(false);
 
@@ -146,14 +147,18 @@ export function useAreaDetailMap({
       });
       if (!vm || cancelled) return;
 
-      const targetGeo =
-        "getPolygonGeoJSON" in editor
-          ? editor.getPolygonGeoJSON(vm.targetPolygonId as PolygonID)
-          : null;
-      targetRingRef.current =
-        targetGeo && targetGeo.coordinates[0]
-          ? (targetGeo.coordinates[0] as [number, number][])
-          : null;
+      if ("getPolygonGeoJSON" in editor) {
+        const rings: [number, number][][] = [];
+        for (const pid of vm.targetPolygonIds) {
+          const geo = editor.getPolygonGeoJSON(pid as PolygonID);
+          if (geo && geo.coordinates[0]) {
+            rings.push(geo.coordinates[0] as [number, number][]);
+          }
+        }
+        targetRingsRef.current = rings.length > 0 ? rings : null;
+      } else {
+        targetRingsRef.current = null;
+      }
 
       const linked = linkedPolygonIds ?? new Set<string>();
       const sortedForMap = [...areaPlaces].sort(
@@ -202,10 +207,12 @@ export function useAreaDetailMap({
     enableInitialSortAssignment,
   ]);
 
+  // いずれかの対象ポリゴン（飛地含む）内なら区域内とみなす
+  // （docs/wants/03「場所の直接編集」2026-07-15）。
   const isInsideTarget = useCallback((lat: number, lng: number): boolean => {
-    const ring = targetRingRef.current;
-    if (!ring) return true;
-    return pointInRing({ lat, lng }, ring);
+    const rings = targetRingsRef.current;
+    if (!rings) return true;
+    return rings.some((ring) => pointInRing({ lat, lng }, ring));
   }, []);
 
   return { places, rooms, setPlaces, setRooms, isInsideTarget };

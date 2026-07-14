@@ -20,10 +20,11 @@ export function buildPolygonAreaMap(
   for (const region of tree) {
     for (const pa of region.parentAreas) {
       for (const area of pa.areas) {
-        if (area.polygonId) {
-          // 区域親番に名前があれば「ID 名前」で併記する（空名は ID のみ）。
-          const areaLabel = pa.name ? `${area.id} ${pa.name}` : area.id;
-          map.set(area.polygonId, {
+        // 区域親番に名前があれば「ID 名前」で併記する（空名は ID のみ）。
+        // 飛地対応: 同一区域の全ポリゴンが同じ区域情報へマップされる。
+        const areaLabel = pa.name ? `${area.id} ${pa.name}` : area.id;
+        for (const polygonId of area.polygonIds ?? []) {
+          map.set(polygonId, {
             areaId: area.id,
             areaLabel,
           });
@@ -43,7 +44,8 @@ export function toPolygonAreaIds(
 
 export interface PolygonBindingAPI {
   BindPolygonToArea(areaId: string, polygonId: string): Promise<void>;
-  UnbindPolygonFromArea(areaId: string): Promise<void>;
+  /** polygonId 指定時は当該ポリゴンのみ、省略時は全ポリゴンを解除する。 */
+  UnbindPolygonFromArea(areaId: string, polygonId?: string): Promise<void>;
 }
 
 export class PolygonService {
@@ -56,8 +58,15 @@ export class PolygonService {
     await this.regionAPI.BindPolygonToArea(areaId, polygonId as string);
   }
 
-  async unbindPolygonFromArea(areaId: string): Promise<void> {
-    await this.regionAPI.UnbindPolygonFromArea(areaId);
+  /** polygonId 指定時は当該ポリゴンのみ解除（飛地個別解除）、省略時は一括解除。 */
+  async unbindPolygonFromArea(
+    areaId: string,
+    polygonId?: PolygonID,
+  ): Promise<void> {
+    await this.regionAPI.UnbindPolygonFromArea(
+      areaId,
+      polygonId as string | undefined,
+    );
   }
 
   /** ポリゴンの構成エッジを削除（穴含む）→ ポリゴン消滅。孤立頂点も掃除する。
@@ -109,7 +118,8 @@ export class PolygonService {
     areaId: string,
   ): Promise<void> {
     this.deletePolygonEdges(snapshot);
-    await this.regionAPI.UnbindPolygonFromArea(areaId);
+    // 削除したポリゴンの紐付けだけ外す（同一区域の他の飛地は維持）。
+    await this.regionAPI.UnbindPolygonFromArea(areaId, snapshot.id as string);
   }
 
   async save(): Promise<void> {

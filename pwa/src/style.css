@@ -2113,11 +2113,19 @@ section {
 }
 
 .area-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 8px 6px 36px;
   font-size: 14px;
   color: #334155;
   cursor: pointer;
   border-radius: 4px;
+}
+
+.area-picker-item-label {
+  flex: 1;
+  min-width: 0;
 }
 
 .area-picker-item:hover {
@@ -2127,11 +2135,35 @@ section {
 .area-picker-item-disabled {
   color: #94a3b8;
   cursor: not-allowed;
+}
+
+/* 減光はラベルのみ（行全体に opacity を掛けると飛地追加ボタンまで薄くなる） */
+.area-picker-item-disabled .area-picker-item-label {
   opacity: 0.5;
 }
 
 .area-picker-item-disabled:hover {
   background: transparent;
+}
+
+/* 紐付け済み区域行の「飛地ポリゴンを追加」ボタン。
+   行はグレーアウトのままボタンだけ操作可能に見せる。 */
+.area-picker-exclave-btn {
+  flex: none;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.area-picker-exclave-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
 }
 
 /* トースト */

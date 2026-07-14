@@ -21,6 +21,8 @@ export interface MapViewHandle {
   setCursor(cursor: string): void;
   highlightPolygon(id: PolygonID | null): void;
   focusPolygon(id: PolygonID): void;
+  /** 指定ポリゴン群（飛地含む）が全て収まる範囲へフォーカスする。 */
+  focusPolygons(ids: readonly PolygonID[]): void;
   setLinkedPolygonIds(ids: Set<string>): void;
   setPolygonAreaIds(ids: ReadonlyMap<string, string>): void;
   enableRubberBand(): void;
@@ -33,7 +35,10 @@ export interface MapViewHandle {
   pixelsToDegrees(px: number): number;
   getSnapThresholdPx(): number;
   // --- 区域詳細編集モード ---
-  setDetailMode(targetId: PolygonID, neighborIds: Set<string>): void;
+  setDetailMode(
+    targetIds: readonly PolygonID[],
+    neighborIds: Set<string>,
+  ): void;
   clearDetailMode(): void;
   setPlaces(
     places: ReadonlyArray<{
@@ -169,6 +174,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     focusPolygon(id) {
       rendererRef.current?.focusPolygon(id);
     },
+    focusPolygons(ids) {
+      rendererRef.current?.focusPolygons(ids);
+    },
     setLinkedPolygonIds(ids) {
       rendererRef.current?.setLinkedPolygonIds(ids);
     },
@@ -203,8 +211,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     getSnapThresholdPx() {
       return rendererRef.current?.getSnapThresholdPx() ?? 20;
     },
-    setDetailMode(targetId, neighborIds) {
-      rendererRef.current?.setDetailMode(targetId, neighborIds);
+    setDetailMode(targetIds, neighborIds) {
+      rendererRef.current?.setDetailMode(targetIds, neighborIds);
     },
     clearDetailMode() {
       rendererRef.current?.clearDetailMode();

@@ -2,7 +2,12 @@
 // Wails の models 依存を domain 型に置き換えた。RegionBindingAPI 抽象は維持し、
 // PWA では RegionRepository を包む region-binding-adapter を注入する。
 
-import type { Area, ParentArea, Region } from "../domain/models/region";
+import {
+  areaPolygonIds,
+  type Area,
+  type ParentArea,
+  type Region,
+} from "../domain/models/region";
 import type { DeleteCommand, DeleteEntry } from "./command-history";
 
 // RegionBindingAPI（旧 Wails 自動生成の関数群に対応する抽象）
@@ -24,7 +29,8 @@ export interface RegionBindingAPI {
   ReorderRegions(ids: string[]): Promise<void>;
   SetParentAreaCount(regionId: string, count: number): Promise<void>;
   BindPolygonToArea(areaId: string, polygonId: string): Promise<void>;
-  UnbindPolygonFromArea(areaId: string): Promise<void>;
+  /** polygonId 指定時は当該ポリゴンのみ、省略時は全ポリゴンを解除する。 */
+  UnbindPolygonFromArea(areaId: string, polygonId?: string): Promise<void>;
 }
 
 // ツリー表示用の型
@@ -39,7 +45,8 @@ export interface AreaTreeNode {
     areas: {
       id: string;
       number: string;
-      polygonId?: string;
+      /** 紐付け済みポリゴンID群（飛地対応で複数可。未紐付けは undefined） */
+      polygonIds?: string[];
     }[];
   }[];
 }
@@ -63,11 +70,14 @@ export class RegionService {
           number: pa.number,
           name: pa.name,
           areas: areas
-            .map((a) => ({
-              id: a.id,
-              number: a.number,
-              ...(a.polygonId ? { polygonId: a.polygonId } : {}),
-            }))
+            .map((a) => {
+              const polygonIds = areaPolygonIds(a);
+              return {
+                id: a.id,
+                number: a.number,
+                ...(polygonIds.length > 0 ? { polygonIds } : {}),
+              };
+            })
             .sort((a, b) => a.number.localeCompare(b.number)),
         });
       }
@@ -87,7 +97,10 @@ export class RegionService {
 
   async addRegion(name: string, symbol: string): Promise<void> {
     const existing = (await this.api.ListRegions()) ?? [];
-    const maxOrder = existing.reduce((max, r) => Math.max(max, r.order ?? 0), -1);
+    const maxOrder = existing.reduce(
+      (max, r) => Math.max(max, r.order ?? 0),
+      -1,
+    );
     const region: Region = {
       id: symbol,
       name,

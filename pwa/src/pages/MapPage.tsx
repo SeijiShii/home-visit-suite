@@ -640,11 +640,12 @@ export function MapPage() {
     [polygonService, reloadPolygons],
   );
 
+  // ポリゴン一覧の ✂: 当該ポリゴンのみ解除（同一区域の他の飛地は維持）
   const handleUnlinkPolygon = useCallback(
-    async (_polygonId: PolygonID, areaId: string) => {
+    async (polygonId: PolygonID, areaId: string) => {
       if (!polygonService) return;
       try {
-        await polygonService.unbindPolygonFromArea(areaId);
+        await polygonService.unbindPolygonFromArea(areaId, polygonId);
         await reloadPolygons();
         treeRef.current?.reload();
       } catch (err) {
@@ -654,6 +655,7 @@ export function MapPage() {
     [polygonService, reloadPolygons],
   );
 
+  // 区域一覧（AreaTree）の解除メニュー: 当該区域の全ポリゴンを一括解除
   const handleUnlinkArea = useCallback(
     async (areaId: string) => {
       if (!polygonService) return;

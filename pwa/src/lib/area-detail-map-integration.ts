@@ -7,7 +7,10 @@ import type { AreaDetailViewModel } from "./area-detail-controller";
  * 本物の MapViewHandle はより広いが、ここでは詳細編集で使うメソッドのみ要求する。
  */
 export interface DetailMapHandleLike {
-  setDetailMode(targetId: PolygonID, neighborIds: Set<string>): void;
+  setDetailMode(
+    targetIds: readonly PolygonID[],
+    neighborIds: Set<string>,
+  ): void;
   clearDetailMode(): void;
   renderAll(linkedPolygonIds?: Set<string>): void;
   setPlaces(
@@ -24,7 +27,8 @@ export interface DetailMapHandleLike {
   clearPlaces(): void;
   setMinZoom(zoom: number): void;
   clearMinZoom(): void;
-  focusPolygon(id: PolygonID): void;
+  /** 指定ポリゴン群（飛地含む）が全て収まる範囲へフォーカスする。 */
+  focusPolygons(ids: readonly PolygonID[]): void;
 }
 
 export interface PlaceWithType {
@@ -60,12 +64,13 @@ export function applyDetailViewModelToMap(
   const visibleIds = new Set(vm.visiblePlaces.map((p) => p.id));
   const places = allPlaces.filter((p) => visibleIds.has(p.id));
 
-  handle.setDetailMode(vm.targetPolygonId as PolygonID, vm.neighborIds);
+  handle.setDetailMode(vm.targetPolygonIds as PolygonID[], vm.neighborIds);
   handle.renderAll(linkedPolygonIds);
   handle.setPlaces(places);
   handle.setMinZoom(vm.minZoom);
   if (!skipFocus) {
-    handle.focusPolygon(vm.targetPolygonId as PolygonID);
+    // 飛地含め全対象ポリゴンが収まる範囲へフォーカスする
+    handle.focusPolygons(vm.targetPolygonIds as PolygonID[]);
   }
 }
 

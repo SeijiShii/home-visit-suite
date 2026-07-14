@@ -61,6 +61,8 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
     const [unlinkConfirm, setUnlinkConfirm] = useState<{
       areaId: string;
       areaLabel: string;
+      /** 紐付け中ポリゴン数（複数=飛地あり。確認文言の出し分けに使う） */
+      polygonCount: number;
     } | null>(null);
 
     const { snapshot, history } = useCommandHistory();
@@ -208,104 +210,114 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                       </span>
                     </div>
                     {expanded.has(ap.id) &&
-                      ap.areas.map((area) => (
-                        <div key={area.id} className="tree-node tree-indent-2">
+                      ap.areas.map((area) => {
+                        const polygonIds = area.polygonIds ?? [];
+                        const hasPolygon = polygonIds.length > 0;
+                        return (
                           <div
-                            className={`tree-row tree-row-area${
-                              area.polygonId &&
-                              selectedPolygonId === area.polygonId
-                                ? " tree-row-selected"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              if (area.polygonId && onSelectPolygon) {
-                                onSelectPolygon(area.polygonId);
-                              }
-                            }}
-                            onDoubleClick={() => {
-                              if (area.polygonId && onOpenAreaDetail) {
-                                onOpenAreaDetail(area.id);
-                              }
-                            }}
-                            style={
-                              area.polygonId && onSelectPolygon
-                                ? { cursor: "pointer" }
-                                : undefined
-                            }
+                            key={area.id}
+                            className="tree-node tree-indent-2"
                           >
-                            <span className="tree-leaf">•</span>
-                            <span className="tree-label">{area.number}</span>
-                            <span className="tree-actions">
-                              {area.polygonId && (
-                                <>
-                                  <span
-                                    className="tree-action-btn tree-action-polygon"
-                                    title={t.map.tabPolygons}
+                            <div
+                              className={`tree-row tree-row-area${
+                                selectedPolygonId != null &&
+                                polygonIds.includes(selectedPolygonId)
+                                  ? " tree-row-selected"
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                // 複数飛地は先頭ポリゴンへフォーカスする
+                                if (hasPolygon && onSelectPolygon) {
+                                  onSelectPolygon(polygonIds[0]);
+                                }
+                              }}
+                              onDoubleClick={() => {
+                                if (hasPolygon && onOpenAreaDetail) {
+                                  onOpenAreaDetail(area.id);
+                                }
+                              }}
+                              style={
+                                hasPolygon && onSelectPolygon
+                                  ? { cursor: "pointer" }
+                                  : undefined
+                              }
+                            >
+                              <span className="tree-leaf">•</span>
+                              <span className="tree-label">{area.number}</span>
+                              <span className="tree-actions">
+                                {hasPolygon && (
+                                  <>
+                                    <span
+                                      className="tree-action-btn tree-action-polygon"
+                                      title={t.map.tabPolygons}
+                                    >
+                                      ⬡
+                                    </span>
+                                    {(onUnlinkPolygon || onOpenAreaDetail) && (
+                                      <div className="tree-action-menu-wrapper">
+                                        <button
+                                          className="tree-action-btn"
+                                          onClick={() =>
+                                            setMenuTarget(
+                                              menuTarget === area.id
+                                                ? null
+                                                : area.id,
+                                            )
+                                          }
+                                        >
+                                          ⋯
+                                        </button>
+                                        {menuTarget === area.id && (
+                                          <div className="tree-action-dropdown">
+                                            {onOpenAreaDetail && (
+                                              <button
+                                                className="tree-action-dropdown-item"
+                                                onClick={() => {
+                                                  setMenuTarget(null);
+                                                  onOpenAreaDetail(area.id);
+                                                }}
+                                              >
+                                                {t.visitRecord.pageTitle}
+                                              </button>
+                                            )}
+                                            {onUnlinkPolygon && (
+                                              <button
+                                                className="tree-action-dropdown-item"
+                                                onClick={() => {
+                                                  setMenuTarget(null);
+                                                  setUnlinkConfirm({
+                                                    areaId: area.id,
+                                                    areaLabel: area.id,
+                                                    polygonCount:
+                                                      polygonIds.length,
+                                                  });
+                                                }}
+                                              >
+                                                {t.map.unlinkPolygon}
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {service.isLastArea(ap, area.id) && (
+                                  <button
+                                    className="tree-action-btn tree-action-delete"
+                                    title={m.remove}
+                                    onClick={() =>
+                                      handleDeleteClick("area", area.id)
+                                    }
                                   >
-                                    ⬡
-                                  </span>
-                                  {(onUnlinkPolygon || onOpenAreaDetail) && (
-                                    <div className="tree-action-menu-wrapper">
-                                      <button
-                                        className="tree-action-btn"
-                                        onClick={() =>
-                                          setMenuTarget(
-                                            menuTarget === area.id
-                                              ? null
-                                              : area.id,
-                                          )
-                                        }
-                                      >
-                                        ⋯
-                                      </button>
-                                      {menuTarget === area.id && (
-                                        <div className="tree-action-dropdown">
-                                          {onOpenAreaDetail && (
-                                            <button
-                                              className="tree-action-dropdown-item"
-                                              onClick={() => {
-                                                setMenuTarget(null);
-                                                onOpenAreaDetail(area.id);
-                                              }}
-                                            >
-                                              {t.visitRecord.pageTitle}
-                                            </button>
-                                          )}
-                                          {onUnlinkPolygon && (
-                                            <button
-                                              className="tree-action-dropdown-item"
-                                              onClick={() => {
-                                                setMenuTarget(null);
-                                                setUnlinkConfirm({
-                                                  areaId: area.id,
-                                                  areaLabel: area.id,
-                                                });
-                                              }}
-                                            >
-                                              {t.map.unlinkPolygon}
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                              {service.isLastArea(ap, area.id) && (
-                                <button
-                                  className="tree-action-btn tree-action-delete"
-                                  title={m.remove}
-                                  onClick={() =>
-                                    handleDeleteClick("area", area.id)
-                                  }
-                                >
-                                  🗑
-                                </button>
-                              )}
-                            </span>
+                                    🗑
+                                  </button>
+                                )}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 ))}
             </div>
@@ -391,7 +403,15 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
           <div className="modal-overlay" onClick={() => setUnlinkConfirm(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <p className="polygon-delete-dialog-message">
-                {t.map.confirmUnlink.replace("{area}", unlinkConfirm.areaLabel)}
+                {/* 複数飛地の一括解除は件数を明示する（docs/wants/03） */}
+                {unlinkConfirm.polygonCount > 1
+                  ? t.map.confirmUnlinkAll
+                      .replace("{area}", unlinkConfirm.areaLabel)
+                      .replace("{count}", String(unlinkConfirm.polygonCount))
+                  : t.map.confirmUnlink.replace(
+                      "{area}",
+                      unlinkConfirm.areaLabel,
+                    )}
               </p>
               <div className="modal-actions">
                 <button

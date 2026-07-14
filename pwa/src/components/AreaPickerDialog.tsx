@@ -76,7 +76,25 @@ export function AreaPickerDialog({
                               if (!isLinked) onSelect(area.id, area.id);
                             }}
                           >
-                            {area.id}
+                            <span className="area-picker-item-label">
+                              {area.id}
+                            </span>
+                            {isLinked && (
+                              <button
+                                type="button"
+                                className="area-picker-exclave-btn"
+                                title={t.map.addExclavePolygon}
+                                aria-label={t.map.addExclavePolygon}
+                                onClick={(e) => {
+                                  // 紐付け済み区域へ飛地ポリゴンとして追加紐付けする
+                                  // （行自体は不活性のままボタンだけ活性）。
+                                  e.stopPropagation();
+                                  onSelect(area.id, area.id);
+                                }}
+                              >
+                                {"➕"}
+                              </button>
+                            )}
                           </div>
                         );
                       })}

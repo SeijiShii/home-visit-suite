@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity, isRoleAtLeast } from "../contexts/IdentityContext";
+import { areaPolygonIds } from "../domain/models/region";
 import { type AppServices, useServices } from "../contexts/ServicesContext";
 
 /**
@@ -41,7 +42,8 @@ interface RegionTreeIndex {
       number: string;
       parentAreaId: string;
       regionId: string;
-      polygonId?: string;
+      /** 紐付け済みポリゴンID群（飛地対応で複数可） */
+      polygonIds: string[];
     }[]
   >;
   /** id → { regionId, parentAreaId } の逆引き（フィルタ判定用） */
@@ -74,7 +76,7 @@ async function buildRegionTreeIndex(
           number: a.number,
           parentAreaId: pa.id,
           regionId: r.id,
-          polygonId: a.polygonId,
+          polygonIds: areaPolygonIds(a),
         })),
       );
       for (const a of areas) {
@@ -314,7 +316,7 @@ export function DashboardPage() {
         const candidateAreas: { areaId: string; displayName: string }[] = [];
         for (const [, areas] of tree.areasByParent) {
           for (const a of areas) {
-            if (!a.polygonId) continue;
+            if (a.polygonIds.length === 0) continue;
             candidateAreas.push({
               areaId: a.id,
               displayName: tree.displayIndex.get(a.id) ?? a.id,

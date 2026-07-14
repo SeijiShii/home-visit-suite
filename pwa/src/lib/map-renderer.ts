@@ -215,8 +215,9 @@ export class MapRenderer {
   private polygonDoubleClickCallback: ((id: PolygonID) => void) | null = null;
 
   // 区域詳細編集モード: target/neighbor のみ描画 (それ以外は非表示)
+  // targetIds は対象区域の全ポリゴン（飛地対応で複数可）
   private detailMode: {
-    targetId: string;
+    targetIds: Set<string>;
     neighborIds: Set<string>;
   } | null = null;
 
@@ -881,7 +882,9 @@ export class MapRenderer {
     // 描画された隣接区域の線が対象のオレンジ線を上書きしないようにするため
     // （docs/wants/03「場所の直接編集」描画ルール）。
     if (this.detailMode) {
-      this.polygonLayers.get(this.detailMode.targetId)?.bringToFront();
+      for (const targetId of this.detailMode.targetIds) {
+        this.polygonLayers.get(targetId)?.bringToFront();
+      }
     }
 
     this.refreshAreaIdLabels();
@@ -1096,7 +1099,7 @@ export class MapRenderer {
   private computePolygonStyle(id: PolygonID): PolygonStyle | null {
     const idStr = id as string;
     if (this.detailMode) {
-      if (this.detailMode.targetId === idStr) {
+      if (this.detailMode.targetIds.has(idStr)) {
         return getAreaDetailPolygonStyle("target");
       }
       if (this.detailMode.neighborIds.has(idStr)) {
@@ -1167,12 +1170,16 @@ export class MapRenderer {
   }
 
   /**
-   * 区域詳細編集モードに入る。target は濃色、neighbors は薄色で描画され、
-   * それ以外のポリゴンは非表示。再描画は呼び出し側で renderAll() を実行すること。
+   * 区域詳細編集モードに入る。targets（飛地含む全対象ポリゴン）は濃色、
+   * neighbors は薄色で描画され、それ以外のポリゴンは非表示。
+   * 再描画は呼び出し側で renderAll() を実行すること。
    */
-  setDetailMode(targetId: PolygonID, neighborIds: Set<string>): void {
+  setDetailMode(
+    targetIds: readonly PolygonID[],
+    neighborIds: Set<string>,
+  ): void {
     this.detailMode = {
-      targetId: targetId as string,
+      targetIds: new Set(targetIds as readonly string[]),
       neighborIds: new Set(neighborIds),
     };
   }
@@ -1402,10 +1409,20 @@ export class MapRenderer {
   }
 
   focusPolygon(id: PolygonID): void {
+    this.focusPolygons([id]);
+  }
+
+  /** 指定ポリゴン群（飛地含む）が全て収まる範囲へフォーカスする。 */
+  focusPolygons(ids: readonly PolygonID[]): void {
     if (!this.map) return;
-    const layer = this.polygonLayers.get(id as string);
-    if (!layer) return;
-    this.map.flyToBounds(layer.getBounds(), {
+    let bounds: L.LatLngBounds | null = null;
+    for (const id of ids) {
+      const layer = this.polygonLayers.get(id as string);
+      if (!layer) continue;
+      bounds = bounds ? bounds.extend(layer.getBounds()) : layer.getBounds();
+    }
+    if (!bounds) return;
+    this.map.flyToBounds(bounds, {
       padding: [50, 50],
       maxZoom: 17,
       duration: 0.8,

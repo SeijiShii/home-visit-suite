@@ -3,7 +3,12 @@
 // SetParentAreaCount / UpdateRegion / ReorderRegions / Restore* / BindPolygon*
 // のロジックを移植している。
 
-import type { Area, ParentArea, Region } from "../domain/models/region";
+import {
+  areaPolygonIds,
+  type Area,
+  type ParentArea,
+  type Region,
+} from "../domain/models/region";
 import type { RegionRepository } from "../domain/repositories/region-repository";
 import type { RegionBindingAPI } from "./region-service";
 import { ServiceError } from "./errors";
@@ -33,7 +38,11 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
 
   // 領域の名前・記号を更新する。記号が変わった場合、配下の ParentArea・Area の
   // ID を連鎖更新する（子 → 親の順、参照整合性のため）。
-  async UpdateRegion(id: string, name: string, newSymbol: string): Promise<void> {
+  async UpdateRegion(
+    id: string,
+    name: string,
+    newSymbol: string,
+  ): Promise<void> {
     const r = await this.repo.getRegion(id);
     if (!r) throw new ServiceError("not_found", `region not found: ${id}`);
     const oldSymbol = r.symbol;
@@ -53,7 +62,11 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
       for (const a of areas) {
         const newAreaId = newSymbol + a.id.slice(oldSymbol.length);
         await this.repo.removeArea(a.id);
-        await this.repo.saveArea({ ...a, id: newAreaId, parentAreaId: newPaId });
+        await this.repo.saveArea({
+          ...a,
+          id: newAreaId,
+          parentAreaId: newPaId,
+        });
       }
     }
 
@@ -61,12 +74,21 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
     for (const pa of parentAreas) {
       const newPaId = newSymbol + pa.id.slice(oldSymbol.length);
       await this.repo.removeParentArea(pa.id);
-      await this.repo.saveParentArea({ ...pa, id: newPaId, regionId: newSymbol });
+      await this.repo.saveParentArea({
+        ...pa,
+        id: newPaId,
+        regionId: newSymbol,
+      });
     }
 
     // 3. Region: 旧ID削除 → 新ID保存
     await this.repo.removeRegion(id);
-    await this.repo.saveRegion({ ...r, id: newSymbol, symbol: newSymbol, name });
+    await this.repo.saveRegion({
+      ...r,
+      id: newSymbol,
+      symbol: newSymbol,
+      name,
+    });
   }
 
   async ListParentAreas(regionId: string): Promise<ParentArea[]> {
@@ -75,7 +97,8 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
 
   async GetParentArea(id: string): Promise<ParentArea> {
     const pa = await this.repo.getParentArea(id);
-    if (!pa) throw new ServiceError("not_found", `parent area not found: ${id}`);
+    if (!pa)
+      throw new ServiceError("not_found", `parent area not found: ${id}`);
     return pa;
   }
 
@@ -85,7 +108,8 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
 
   async RestoreParentArea(id: string): Promise<void> {
     const pa = await this.repo.getParentAreaRaw(id);
-    if (!pa) throw new ServiceError("not_found", `parent area not found: ${id}`);
+    if (!pa)
+      throw new ServiceError("not_found", `parent area not found: ${id}`);
     const { deletedAt: _deletedAt, ...rest } = pa;
     await this.repo.saveParentArea(rest);
   }
@@ -117,7 +141,8 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
   async ReorderRegions(ids: string[]): Promise<void> {
     for (let i = 0; i < ids.length; i++) {
       const r = await this.repo.getRegionRaw(ids[i]);
-      if (!r) throw new ServiceError("not_found", `region not found: ${ids[i]}`);
+      if (!r)
+        throw new ServiceError("not_found", `region not found: ${ids[i]}`);
       await this.repo.saveRegion({ ...r, order: i });
     }
   }
@@ -125,7 +150,10 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
   // 領域配下の区域親番数を count に合わせる（増加は連番作成、減少は番号大きい順に削除）。
   async SetParentAreaCount(regionId: string, count: number): Promise<void> {
     if (count < 0) {
-      throw new ServiceError("invalid_input", `count must be >= 0, got ${count}`);
+      throw new ServiceError(
+        "invalid_input",
+        `count must be >= 0, got ${count}`,
+      );
     }
     if (!(await this.repo.getRegion(regionId))) {
       throw new ServiceError("not_found", `region not found: ${regionId}`);
@@ -156,15 +184,17 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
     }
 
     // 減少: 番号が大きい順に削除
-    const sorted = [...current].sort((a, b) => b.number.localeCompare(a.number));
+    const sorted = [...current].sort((a, b) =>
+      b.number.localeCompare(a.number),
+    );
     const toDelete = current.length - count;
     for (let i = 0; i < toDelete; i++) {
       const pa = sorted[i];
       const areas = await this.repo.listAreas(pa.id);
       for (const area of areas) {
-        // ポリゴン紐づき解除
-        if (area.polygonId) {
-          const { polygonId: _polygonId, ...rest } = area;
+        // ポリゴン紐づき解除（飛地含め全件）
+        if (areaPolygonIds(area).length > 0) {
+          const { polygonId: _legacy, polygonIds: _ids, ...rest } = area;
           await this.repo.saveArea(rest);
         }
         await this.repo.deleteArea(area.id);
@@ -173,16 +203,34 @@ export class RegionRepositoryBindingAdapter implements RegionBindingAPI {
     }
   }
 
+  // 区域へポリゴンを追加紐付けする（飛地対応で複数可・冪等）。
+  // 旧・単一 polygonId 保存分は areaPolygonIds() で配列へ読み替えたうえで
+  // polygonIds に一本化し、旧フィールドは書き込み時に除去する。
   async BindPolygonToArea(areaId: string, polygonId: string): Promise<void> {
     const a = await this.repo.getAreaRaw(areaId);
     if (!a) throw new ServiceError("not_found", `area not found: ${areaId}`);
-    await this.repo.saveArea({ ...a, polygonId });
+    const current = areaPolygonIds(a);
+    const polygonIds = current.includes(polygonId)
+      ? current
+      : [...current, polygonId];
+    const { polygonId: _legacy, ...rest } = a;
+    await this.repo.saveArea({ ...rest, polygonIds });
   }
 
-  async UnbindPolygonFromArea(areaId: string): Promise<void> {
+  // polygonId 指定時は当該ポリゴンのみ解除、省略時は全ポリゴンを一括解除する。
+  async UnbindPolygonFromArea(
+    areaId: string,
+    polygonId?: string,
+  ): Promise<void> {
     const a = await this.repo.getAreaRaw(areaId);
     if (!a) throw new ServiceError("not_found", `area not found: ${areaId}`);
-    const { polygonId: _polygonId, ...rest } = a;
-    await this.repo.saveArea(rest);
+    const remaining =
+      polygonId === undefined
+        ? []
+        : areaPolygonIds(a).filter((id) => id !== polygonId);
+    const { polygonId: _legacy, polygonIds: _ids, ...rest } = a;
+    await this.repo.saveArea(
+      remaining.length > 0 ? { ...rest, polygonIds: remaining } : rest,
+    );
   }
 }

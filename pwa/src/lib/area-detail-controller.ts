@@ -1,8 +1,9 @@
 import type { Polygon as GeoPolygon } from "geojson";
 import {
-  findNeighborPolygons,
+  haversineKm,
   minZoomForRadius,
   polygonCenter,
+  unionBounds,
   type LatLng,
   type PolygonCenter,
   type PlaceLike,
@@ -36,7 +37,18 @@ export function polygonCentersFromEditor(
     const open = ring.slice(0, ring.length - 1);
     const vertices: LatLng[] = open.map(([lng, lat]) => ({ lat, lng }));
     if (vertices.length === 0) continue;
-    centers.push({ id: p.id, center: polygonCenter(vertices) });
+    const lats = vertices.map((v) => v.lat);
+    const lngs = vertices.map((v) => v.lng);
+    centers.push({
+      id: p.id,
+      center: polygonCenter(vertices),
+      bounds: {
+        minLat: Math.min(...lats),
+        maxLat: Math.max(...lats),
+        minLng: Math.min(...lngs),
+        maxLng: Math.max(...lngs),
+      },
+    });
   }
   return centers;
 }
@@ -63,8 +75,9 @@ export interface VisiblePlace {
 }
 
 export interface AreaDetailViewModel {
-  targetPolygonId: string;
-  /** 対象区域ポリゴンの中心 (地図のパン先) */
+  /** 対象区域に紐づく全ポリゴン（飛地対応で複数可） */
+  targetPolygonIds: string[];
+  /** 対象区域の中心 = 全飛地の外接範囲（バウンディングボックス）の中心 */
   targetCenter: { lat: number; lng: number };
   neighborIds: Set<string>;
   visiblePlaces: VisiblePlace[];
@@ -73,8 +86,9 @@ export interface AreaDetailViewModel {
 
 /**
  * 区域詳細編集モードの表示モデルを計算する純関数。
- * - 対象区域の polygonId を逆引き
- * - 中心から半径 N km 以内のポリゴンを neighbor とする
+ * - 対象区域の polygonId 群（飛地含む）を逆引き
+ * - 中心（全飛地の外接範囲の中心）から半径 N km 以内のポリゴンを neighbor とする
+ *   （対象飛地自身は neighbor に含めない）
  * - 論理削除済み場所は非表示
  * - minZoom は半径 2N km がビューポートに収まる値 (floor)
  *
@@ -92,21 +106,40 @@ export function buildAreaDetailViewModel(
     viewportPx,
   } = inputs;
 
-  // areaId → polygonId 逆引き
-  let targetPolygonId: string | null = null;
+  // areaId → polygonId 群の逆引き（飛地対応）
+  const targetIdSet = new Set<string>();
   for (const [polyId, areaId] of polygonToArea) {
-    if (areaId === targetAreaId) {
-      targetPolygonId = polyId;
-      break;
-    }
+    if (areaId === targetAreaId) targetIdSet.add(polyId);
   }
-  if (!targetPolygonId) return null;
+  const targets = polygonCenters.filter((p) => targetIdSet.has(p.id));
+  if (targets.length === 0) return null;
 
-  const target = polygonCenters.find((p) => p.id === targetPolygonId);
-  if (!target) return null;
+  // 中心 = 全飛地の外接範囲の中心（bounds 未算出のポリゴンは中心点で代用）
+  const bbox = unionBounds(
+    targets.map(
+      (p) =>
+        p.bounds ?? {
+          minLat: p.center.lat,
+          maxLat: p.center.lat,
+          minLng: p.center.lng,
+          maxLng: p.center.lng,
+        },
+    ),
+  )!;
+  const targetCenter: LatLng = {
+    lat: (bbox.minLat + bbox.maxLat) / 2,
+    lng: (bbox.minLng + bbox.maxLng) / 2,
+  };
 
-  const neighbors = findNeighborPolygons(target, polygonCenters, radiusKm);
-  const neighborIds = new Set(neighbors.map((n) => n.id));
+  const neighborIds = new Set(
+    polygonCenters
+      .filter(
+        (p) =>
+          !targetIdSet.has(p.id) &&
+          haversineKm(targetCenter, p.center) <= radiusKm,
+      )
+      .map((p) => p.id),
+  );
 
   const visiblePlaces: VisiblePlace[] = places
     .filter((p) => !p.deletedAt)
@@ -114,13 +147,13 @@ export function buildAreaDetailViewModel(
 
   const minZoom = minZoomForRadius({
     radiusKm,
-    latitude: target.center.lat,
+    latitude: targetCenter.lat,
     viewportPx,
   });
 
   return {
-    targetPolygonId,
-    targetCenter: target.center,
+    targetPolygonIds: targets.map((p) => p.id),
+    targetCenter,
     neighborIds,
     visiblePlaces,
     minZoom,

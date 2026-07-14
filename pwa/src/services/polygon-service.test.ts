@@ -111,7 +111,7 @@ describe("buildPolygonAreaMap のラベル生成", () => {
           id: "NRT-001",
           number: "001",
           name: parentName,
-          areas: [{ id: "NRT-001-05", number: "05", polygonId: "poly-1" }],
+          areas: [{ id: "NRT-001-05", number: "05", polygonIds: ["poly-1"] }],
         },
       ],
     },
@@ -131,5 +131,36 @@ describe("buildPolygonAreaMap のラベル生成", () => {
     const ids = toPolygonAreaIds(buildPolygonAreaMap(tree("加良部1丁目")));
     expect(ids.get("poly-1")).toBe("NRT-001-05");
     expect(ids.size).toBe(1);
+  });
+
+  it("複数の飛地ポリゴンはすべて同一区域へマップされる", () => {
+    const multi: AreaTreeNode[] = [
+      {
+        id: "NRT",
+        name: "成田市",
+        symbol: "NRT",
+        parentAreas: [
+          {
+            id: "NRT-001",
+            number: "001",
+            name: "加良部1丁目",
+            areas: [
+              {
+                id: "NRT-001-05",
+                number: "05",
+                polygonIds: ["poly-1", "poly-2"],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const map = buildPolygonAreaMap(multi);
+    expect(map.get("poly-1")?.areaId).toBe("NRT-001-05");
+    expect(map.get("poly-2")?.areaId).toBe("NRT-001-05");
+    expect(map.get("poly-1")?.areaLabel).toBe("NRT-001-05 加良部1丁目");
+    const ids = toPolygonAreaIds(map);
+    expect(ids.get("poly-2")).toBe("NRT-001-05");
+    expect(ids.size).toBe(2);
   });
 });

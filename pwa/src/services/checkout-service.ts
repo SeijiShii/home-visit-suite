@@ -8,6 +8,7 @@
 // 日付入力は ISO 8601 文字列（モデルのフィールド型と統一）。
 
 import type { AccessMode } from "../domain/models/access";
+import { areaPolygonIds } from "../domain/models/region";
 import { DEFAULT_CHECKOUT_INVITE_TTL_MS } from "../domain/models/checkout-invitation";
 import {
   type CheckoutInvitation,
@@ -51,7 +52,7 @@ export interface CheckoutService {
    * 区域をチェックアウトする。
    * 排他的取得: 同一区域に他者を含むアクティブなチェックアウトがあればエラー。
    * 他者のアクティブなチェックアウトが無い区域は誰でもチェックアウトできる（期間ゲートは廃止）。
-   * - ポリゴン未紐付けの区域（area.polygonId 無し）はチェックアウト不可
+   * - ポリゴン未紐付けの区域（紐付けポリゴンが 0 件）はチェックアウト不可
    * - 活動メンバー: 自分自身を担当者にしたチェックアウトのみ発行可能（personInChargeId === actorId）
    * - 編集メンバー以上: 任意のメンバー（自分含む）を担当者にしたチェックアウトを発行可能
    * checkedOutById には actorId が記録される（操作履歴）。
@@ -204,7 +205,7 @@ export class CheckoutServiceImpl implements CheckoutService {
     }
 
     // ポリゴン未紐付けの区域はチェックアウト不可（仕様 docs/wants/05_チェックアウト.md）
-    if (!area.polygonId) {
+    if (areaPolygonIds(area).length === 0) {
       throw new ServiceError(
         "invalid_state",
         `area ${areaId} has no polygon bound`,

@@ -40,10 +40,20 @@ export interface Area {
   parentAreaId: string;
   /** 例: "05" */
   number: string;
-  /** map-polygon-editor のポリゴンID */
+  /** map-polygon-editor のポリゴンID群（飛地対応で 1 区域に複数可） */
+  polygonIds?: string[];
+  /** @deprecated 旧・単一ポリゴン紐付け。読み取りは areaPolygonIds() で配列へ読み替える */
   polygonId?: string;
   geometry: GeoJSONPolygon | null;
   deletedAt?: string;
+}
+
+/** 区域に紐づくポリゴンID群を返す。旧 polygonId（単一）保存分も配列へ読み替える。 */
+export function areaPolygonIds(
+  area: Pick<Area, "polygonIds" | "polygonId">,
+): string[] {
+  if (area.polygonIds && area.polygonIds.length > 0) return area.polygonIds;
+  return area.polygonId ? [area.polygonId] : [];
 }
 
 /** 区域の完全識別子を組み立てる。例: NRT-001-05 */

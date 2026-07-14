@@ -42,17 +42,17 @@
 - `services/region-binding-adapter.ts` — RegionBindingAPI 実装（記号変更の ID 連鎖更新等）
 - `services/command-executor.ts` — region/parentArea/area 削除の undo/redo を API 経由で実行
 - `services/command-history.ts` — 領域ツリー編集の削除コマンドを undo/redo スタックで保持
-- `domain/models/region.ts` — 領域/区域親番/区域の階層モデルと識別子・表示ラベル生成
+- `domain/models/region.ts` — 領域/区域親番/区域の階層モデルと識別子・表示ラベル生成・飛地ポリゴンID群の読み替え(areaPolygonIds、旧 polygonId 互換)
 - `domain/repositories/region-repository.ts` — 領域ツリーの取得/保存/論理・物理削除 IF
 - `data/inmemory/inmemory-region-repository.ts` — RegionRepository の InMemory 実装（論理削除フィルタ）
 - `pages/RegionManagementPage.tsx` — 領域記号・区域番号の CRUD 画面 (→10)
 - `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け）(→03)
-- `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ (→03)
+- `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ（紐付け済み区域には飛地追加ボタン）(→03)
 - `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック・AI下書き取込）(→03)
 
 ## 03 地図機能（ポリゴン編集/紐付け/住宅情報/AI取込）
 ### サービス
-- `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea)・エリアマップ構築
+- `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea、1区域複数ポリゴン=飛地対応・個別/一括解除)・エリアマップ構築
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
 - `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
 - `services/place-import-service.ts` — AI下書き場所の stash とポリゴン紐付け後の区域 Place 取込
@@ -78,7 +78,7 @@
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
 - `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）
-- `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群
+- `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群（飛地=複数対象ポリゴン・外接範囲中心）
 - `lib/area-detail-geo.ts` — 幾何計算基盤（重心/haversine/点内包/近傍削除場所探索）
 - `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層
 - `lib/add-place-flow.ts` — 「家を追加」フローの純状態機械（削除済み場所の復元判定含む）

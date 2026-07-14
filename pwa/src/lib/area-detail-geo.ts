@@ -3,9 +3,33 @@ export interface LatLng {
   lng: number;
 }
 
+export interface LatLngBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
 export interface PolygonCenter {
   id: string;
   center: LatLng;
+  /** 頂点の外接範囲。飛地区域の中心（外接ボックス中心）算出に使う。 */
+  bounds?: LatLngBounds;
+}
+
+/** 複数の外接範囲の合成（union）。空配列は null。 */
+export function unionBounds(
+  list: readonly LatLngBounds[],
+): LatLngBounds | null {
+  if (list.length === 0) return null;
+  let { minLat, maxLat, minLng, maxLng } = list[0];
+  for (const b of list.slice(1)) {
+    minLat = Math.min(minLat, b.minLat);
+    maxLat = Math.max(maxLat, b.maxLat);
+    minLng = Math.min(minLng, b.minLng);
+    maxLng = Math.max(maxLng, b.maxLng);
+  }
+  return { minLat, maxLat, minLng, maxLng };
 }
 
 const EARTH_RADIUS_KM = 6371;
@@ -137,15 +161,4 @@ export function formatAreaLabel(
     }
   }
   return null;
-}
-
-export function findNeighborPolygons(
-  target: PolygonCenter,
-  all: readonly PolygonCenter[],
-  radiusKm: number,
-): PolygonCenter[] {
-  return all.filter(
-    (p) =>
-      p.id !== target.id && haversineKm(target.center, p.center) <= radiusKm,
-  );
 }
