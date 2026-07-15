@@ -19,6 +19,8 @@ interface NavItem {
   end?: boolean;
   /** このメニュー項目を表示するために必要な最低ロール（未指定なら全ロール表示） */
   minRole?: Role;
+  /** 狭幅ビューポートでは提供しない画面（docs/wants/03「画面構成」） */
+  hideOnNarrow?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -48,6 +50,7 @@ const navItems: NavItem[] = [
     to: "/map",
     labelKey: "map",
     minRole: "editor",
+    hideOnNarrow: true,
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -64,11 +67,36 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // 区域一覧: 編集メンバー以上専用
+    // 仕様 docs/wants/10_画面設計.md「区域一覧 /areas」
+    to: "/areas",
+    labelKey: "areas",
+    minRole: "editor",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
+      </svg>
+    ),
+  },
+  {
     // 領域管理: 管理者専用
     // 仕様 docs/wants/04_メンバー管理と権限.md「領域の管理は管理者専用ページで行う」
     to: "/regions",
     labelKey: "regions",
     minRole: "admin",
+    hideOnNarrow: true,
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -186,9 +214,12 @@ export function Layout() {
     if (narrow) setCollapsed(true);
   }, [narrow]);
 
-  // ロール別フィルタ: minRole 指定があれば currentRole >= minRole の項目だけ表示
+  // ロール別フィルタ: minRole 指定があれば currentRole >= minRole の項目だけ表示。
+  // 狭幅ではポリゴン編集等が成立しない画面（hideOnNarrow）を出さない。
   const visibleItems = navItems.filter(
-    (item) => !item.minRole || isRoleAtLeast(currentRole, item.minRole),
+    (item) =>
+      (!item.minRole || isRoleAtLeast(currentRole, item.minRole)) &&
+      !(narrow && item.hideOnNarrow),
   );
 
   return (

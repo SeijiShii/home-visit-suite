@@ -95,16 +95,19 @@ export function getPolygonStyle(
     : { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
 }
 
+/** 親番境界線の専用 Leaflet ペイン名（overlayPane より上に固定描画） */
+const PARENT_BOUNDARY_PANE = "parentBoundary";
+
 /**
- * 区域親番境界（親番グループの境目）の強調帯スタイル。ポリゴン輪郭の下層に
- * 半透明の太線を敷く（docs/wants/03「区域親番境界の強調表示」）。
+ * 区域親番境界（親番グループの境目）の強調スタイル。ポリゴン輪郭より上層に
+ * 実線の太線を描く（docs/wants/03「区域親番境界の強調表示」）。
  */
 export function getParentBoundaryStyle(): {
   color: string;
   weight: number;
   opacity: number;
 } {
-  return { color: "#334155", weight: 6, opacity: 0.6 };
+  return { color: "#334155", weight: 5, opacity: 0.9 };
 }
 
 export type AreaDetailPolygonRole = "target" | "neighbor";
@@ -302,6 +305,12 @@ export class MapRenderer {
       wheelPxPerZoomLevel: 120,
       clickTolerance: 8,
     } as L.MapOptions).setView(center, zoom);
+
+    // 親番境界線の専用ペイン: overlayPane(400) より上・markerPane(600) より下。
+    // DOM 追加順に依存せず常にポリゴン輪郭より上層に描ける（wants/03「区域親番境界の強調表示」）。
+    const boundaryPane = this.map.createPane(PARENT_BOUNDARY_PANE);
+    boundaryPane.style.zIndex = "450";
+    boundaryPane.style.pointerEvents = "none";
 
     this.setBaseMap(baseMap);
 
@@ -1537,7 +1546,7 @@ export class MapRenderer {
   // --- 区域親番境界の強調帯 ---
 
   /**
-   * 区域親番の境目にあたる辺へ、ポリゴン輪郭の下層に半透明の太線を敷く
+   * 区域親番の境目にあたる辺へ、ポリゴン輪郭より上層に実線の太線を描く
    * （docs/wants/03「区域親番境界の強調表示」）。
    * 境目判定は全活性ポリゴンの紐付けで行い、描画は表示中ポリゴン
    * （polygonLayers。詳細モードでは対象＋隣接のみ）の辺に絞る。
@@ -1593,12 +1602,12 @@ export class MapRenderer {
         existing.setLatLngs(latlngs);
         continue;
       }
+      // 専用ペイン（zIndex 450）に描くため、ポリゴン層の再追加でも埋もれない
       const line = L.polyline(latlngs, {
         ...style,
+        pane: PARENT_BOUNDARY_PANE,
         interactive: false,
       }).addTo(this.map);
-      // ポリゴン輪郭・グレー辺より下層の帯として敷く
-      line.bringToBack();
       this.parentBoundaryLayers.set(id, line);
     }
   }

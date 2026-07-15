@@ -18,6 +18,7 @@ import {
   type AsyncJoinResult,
 } from "./lib/linkself/group-network";
 import { TipsProvider } from "./contexts/TipsContext";
+import { AreasPage } from "./pages/AreasPage";
 import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
@@ -102,6 +103,7 @@ export default function App() {
               element={<RedirectAreaDetailToVisits />}
             />
 
+            <Route path="/areas" element={<AreasPage />} />
             <Route path="/regions" element={<RegionManagementPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/checkouts" element={<CheckoutsPage />} />

@@ -187,17 +187,16 @@ describe("DashboardPage", () => {
     confirmSpy.mockRestore();
   });
 
-  it("member には全ての区域一覧セクションが表示されない", async () => {
+  it("member には全ての区域一覧セクションが表示されない（/areas へ移管済み）", async () => {
     await renderDashboard(MEMBER);
     await screen.findByText("NRT-001-01");
     expect(screen.queryByText("全ての区域一覧")).toBeNull();
   });
 
-  it("editor+ には全ての区域一覧が表示され担当者名が出る", async () => {
-    // member が a1 をチェックアウトした状態を admin 視点で見る
+  it("editor+ にはチェックアウト可能な区域セクションが表示されない（/areas から割り当てる）", async () => {
+    // 2026-07-16 改訂: editor+ のチェックアウト導線は区域一覧 /areas に移管
     const services = createInMemoryServices();
     await seed(services);
-    await services.checkoutService.checkout(MEMBER, "a1", MEMBER);
 
     localStorage.setItem("dev.identity.actor", ADMIN);
     const identityService = new DevIdentityService(services.userRepo, ADMIN);
@@ -213,17 +212,31 @@ describe("DashboardPage", () => {
       </I18nProvider>,
     );
 
-    expect(await screen.findByText("全ての区域一覧")).toBeInTheDocument();
-    expect(await screen.findByText("Dev Member（担当）")).toBeInTheDocument();
-    expect(screen.getByText("未チェックアウト")).toBeInTheDocument();
+    await screen.findByText("アクセス可能な区域");
+    expect(screen.queryByText("チェックアウト可能な区域")).toBeNull();
+    expect(screen.queryByText("全ての区域一覧")).toBeNull();
+    expect(screen.queryByRole("button", { name: "チェックアウト" })).toBeNull();
   });
 
   it("担当者行の招待ボタンで招待ダイアログが開き member を招待できる", async () => {
-    await renderDashboard(ADMIN);
-    const buttons = await screen.findAllByRole("button", {
-      name: "チェックアウト",
-    });
-    await userEvent.click(buttons[0]);
+    // admin が自分担当のチェックアウトを持つ状態（発行は /areas 経由の想定でサービス直呼び）
+    const services = createInMemoryServices();
+    await seed(services);
+    await services.checkoutService.checkout(ADMIN, "a1", ADMIN);
+
+    localStorage.setItem("dev.identity.actor", ADMIN);
+    const identityService = new DevIdentityService(services.userRepo, ADMIN);
+    render(
+      <I18nProvider>
+        <ServicesProvider services={services}>
+          <IdentityProvider service={identityService}>
+            <HashRouter>
+              <DashboardPage />
+            </HashRouter>
+          </IdentityProvider>
+        </ServicesProvider>
+      </I18nProvider>,
+    );
 
     await userEvent.click(await screen.findByRole("button", { name: "招待" }));
     const dialog = await screen.findByRole("dialog");

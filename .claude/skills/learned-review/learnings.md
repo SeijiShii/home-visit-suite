@@ -85,3 +85,15 @@
 - パターン: identity・アクティブグループ等の「主体」を切り替える処理で、主体に紐づくローカルキーの一部だけ破棄し残りが持ち越される
 - 検査: 切替系 diff では対象主体に紐づく全ローカルキーを列挙（CODEMAP・`grep -rn "localStorage" 該当層`）して破棄/保持の判断を突合
 - status: active
+
+## L-015 Leaflet ベクタ層の重なりを一回きりの bringToFront/bringToBack で固定
+- 初出: 2026-07-16 `map-renderer.ts` 親番境界線（追加時のみ bringToFront したが、renderAll・差分再描画がポリゴン層を remove→再 add すると境界線が輪郭の下に沈む。独立レビューが commit 前に検出。専用ペイン=createPane+zIndex 固定で修正）
+- パターン: Leaflet の同一ペイン内 z 順は DOM 追加順のため、bringToFront/bringToBack は「その時点」の順序しか保証しない。後から同ペインへ layer が再 add される経路（全再描画・modified 再構築）で順序が崩れる
+- 検査: bringToFront/bringToBack を含む diff では、同ペインへ layer が後から add される経路を列挙し、順序が再確立されるか・専用ペイン（createPane + zIndex）で代替できるかを問う
+- status: active
+
+## L-016 @media 上書きを同一セレクタのベース規則よりソース順で前に書いて無効化
+- 初出: 2026-07-16 `style.css` `.checkouts-list-panel`（狭幅上書きの @media ブロックをベース規則より前に挿入し、同一詳細度の後勝ちでベースが常に適用＝上書きが死んでいた。独立レビューが commit 前に検出）
+- パターン: メディアクエリは詳細度を上げないため、同一セレクタの上書きはベース規則より後ろに無いと効かない。追記位置が既存ベース定義より前だと無言で無効化される
+- 検査: @media 追加の diff では、上書き対象セレクタのベース定義行番号と @media ブロックの行番号を `grep -n` で比較し、media が後にあることを確認
+- status: active
