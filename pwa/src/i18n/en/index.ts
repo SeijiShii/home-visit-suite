@@ -468,7 +468,19 @@ const en: Translations = {
     title: "Carrying over device",
     pending: "Registering…",
     error: "Carry-over failed. The URL/code is invalid or expired",
-    toOnboarding: "Go to onboarding",
+    reissueHint:
+      "Issue a new QR from Settings > Devices on the existing device and scan it again (QR codes expire after a few minutes)",
+    createInstead:
+      "Skip linking and create a new ID (it becomes a separate group)",
+    openApp: "Open the app",
+    conflictCurrent: (name: string) =>
+      `This device is already used with a different ID "${name}"`,
+    conflictIncoming: (name: string) =>
+      `Switch to the QR's ID "${name}" and link this device?`,
+    conflictWarn:
+      "Switching discards this device's own group state (group membership and your local member record)",
+    relink: "Switch and link to this ID",
+    keepCurrent: "Keep the current ID and open the app",
   },
   join: {
     title: "Join the group",

@@ -444,7 +444,14 @@ export interface Translations {
     title: string;
     pending: string;
     error: string;
-    toOnboarding: string;
+    reissueHint: string;
+    createInstead: string;
+    openApp: string;
+    conflictCurrent: (name: string) => string;
+    conflictIncoming: (name: string) => string;
+    conflictWarn: string;
+    relink: string;
+    keepCurrent: string;
   };
   join: {
     title: string;

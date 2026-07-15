@@ -151,6 +151,22 @@ export function localStoragePendingJoinStore(
   };
 }
 
+/**
+ * 端末の所属グループ状態（所属ネットワーク ID・非同期参加の成立待ち・持ち越し結果）を
+ * ローカルから破棄する。端末を別 DID へ紐づけ直すとき（PairPage の切替）に、
+ * 旧 ID のグループ状態を新 ID へ引き継がないために使う
+ * （docs/wants/01_共通基盤.md「冪等性と DID 照合」）。
+ */
+export function clearGroupNetworkLocalState(): void {
+  try {
+    localStorage.removeItem(NETWORK_ID_KEY);
+    localStorage.removeItem(PENDING_JOIN_STORE_KEY);
+    localStorage.removeItem(ASYNC_JOIN_RESULT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export interface IssueInviteOptions {
   /** 割り当てるロール（既定は活動メンバー）。 */
   role?: string;

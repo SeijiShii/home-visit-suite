@@ -472,7 +472,19 @@ const ja: Translations = {
     title: "端末の引き継ぎ",
     pending: "登録処理中です…",
     error: "引き継ぎに失敗しました。URL/コードが正しくないか期限切れです",
-    toOnboarding: "オンボーディングへ",
+    reissueHint:
+      "既存端末の設定画面「デバイス」で新しい QR を発行し、もう一度読み取ってください（QR の有効期限は数分です）",
+    createInstead:
+      "紐づけをやめて新しい ID を作成する（別のグループになります）",
+    openApp: "アプリを開く",
+    conflictCurrent: (name: string) =>
+      `この端末は既に別の ID「${name}」で使われています`,
+    conflictIncoming: (name: string) =>
+      `QR の ID「${name}」に切り替えて、この端末を紐づけますか？`,
+    conflictWarn:
+      "切り替えると、この端末側で作られたグループの情報（所属グループ・自分のメンバー記録）は破棄されます",
+    relink: "この ID に切り替えて紐づける",
+    keepCurrent: "切り替えずにアプリを開く",
   },
   join: {
     title: "グループへの参加",
