@@ -19,6 +19,7 @@ import {
   type Identity,
   type SignedRoster,
 } from "@linkself/core";
+import { ROSTER_UPDATED_EVENT } from "./shared-events";
 
 /** 署名済みロスター（marshal 済み JSON 文字列）の localStorage キー。 */
 const ROSTER_KEY = "hvs.deviceRoster";
@@ -28,6 +29,13 @@ function persist(roster: SignedRoster): void {
     ROSTER_KEY,
     new TextDecoder().decode(marshalRoster(roster)),
   );
+  // 開いている設定画面のデバイス一覧が再読み込みなしで追従する
+  // （docs/wants/01「ロスター更新の即時 UI 反映」）。
+  try {
+    globalThis.dispatchEvent?.(new CustomEvent(ROSTER_UPDATED_EVENT));
+  } catch {
+    // 非ブラウザ環境では通知なしでよい
+  }
 }
 
 function loadPersisted(): SignedRoster | null {
@@ -57,17 +65,36 @@ export async function loadOrCreateRoster(
     existing.userDID === userIdentity.did &&
     (await verifyRoster(existing))
   ) {
-    if (rosterHasDevice(existing, selfDeviceDID)) return existing;
-    const updated = await withDevice(userIdentity, existing.devices, {
-      deviceDID: selfDeviceDID,
-      label,
-    });
+    let base = existing;
+    if (base.rev === 0) {
+      // rev 導入（2026-07-15）前に永続された v1 ロスターの一度きり移行。
+      // rev 0 のまま残すと、後から追加した新端末の低 rev(>0) ロスターが
+      // merge の「高 rev 全面採用」で勝ち、既存の兄弟端末が脱落する。
+      // 新規作成の不変条件（fresh=rev1 で 1 台、pending 消費で +1 ずつ
+      // ≒ 掲載台数）に合わせ、掲載台数を下限に再署名する。
+      base = await buildRoster(
+        userIdentity,
+        base.devices,
+        Math.max(1, base.devices.length),
+      );
+      persist(base);
+    }
+    if (rosterHasDevice(base, selfDeviceDID)) return base;
+    const updated = await withDevice(
+      userIdentity,
+      base.devices,
+      { deviceDID: selfDeviceDID, label },
+      base.rev + 1,
+    );
     persist(updated);
     return updated;
   }
-  const fresh = await buildRoster(userIdentity, [
-    { deviceDID: selfDeviceDID, label },
-  ]);
+  // rev は 1 始まり（v2 正規形）。rev 0 は旧形式との互換用で新規には使わない。
+  const fresh = await buildRoster(
+    userIdentity,
+    [{ deviceDID: selfDeviceDID, label }],
+    1,
+  );
   persist(fresh);
   return fresh;
 }
@@ -110,10 +137,12 @@ export async function consumePendingSiblingDevices(
       entry.d &&
       !rosterHasDevice(current, entry.d)
     ) {
-      current = await withDevice(userIdentity, current.devices, {
-        deviceDID: entry.d,
-        label: "",
-      });
+      current = await withDevice(
+        userIdentity,
+        current.devices,
+        { deviceDID: entry.d, label: "" },
+        current.rev + 1,
+      );
     }
   }
   if (current !== roster) persist(current);
@@ -132,10 +161,35 @@ export async function addDeviceToRoster(
   deviceDID: string,
   label = "",
 ): Promise<SignedRoster> {
-  const updated = await withDevice(userIdentity, current.devices, {
-    deviceDID,
-    label,
-  });
+  const updated = await withDevice(
+    userIdentity,
+    current.devices,
+    { deviceDID, label },
+    current.rev + 1,
+  );
+  persist(updated);
+  return updated;
+}
+
+/**
+ * ロスター上の該当デバイスのラベルを変更し、rev+1 で再署名・永続して返す。
+ * ラベルの SoT はロスター（docs/wants/01「ラベルの同期」）。接続中の兄弟端末への
+ * announce は呼び出し側（linkself-services の DeviceDirectory 実装）が
+ * `client.updateRoster()` で行う。該当デバイスが載っていなければ何もしない。
+ */
+export async function setDeviceLabelInRoster(
+  userIdentity: Identity,
+  current: SignedRoster,
+  deviceDID: string,
+  label: string,
+): Promise<SignedRoster> {
+  if (!rosterHasDevice(current, deviceDID)) return current;
+  const updated = await withDevice(
+    userIdentity,
+    current.devices,
+    { deviceDID, label },
+    current.rev + 1,
+  );
   persist(updated);
   return updated;
 }

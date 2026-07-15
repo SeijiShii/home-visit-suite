@@ -18,6 +18,8 @@ import {
   resolveModel,
 } from "../services/settings-service";
 import { removeOrphanVertices } from "../lib/map-maintenance";
+import { getDeviceDirectory } from "../lib/device-directory";
+import { ROSTER_UPDATED_EVENT } from "../lib/linkself/shared-events";
 import { isCode } from "../services/errors";
 import type { Locales } from "../i18n/i18n-types";
 
@@ -69,6 +71,9 @@ export function SettingsPage() {
   const [deviceConfirm, setDeviceConfirm] = useState<{ id: string } | null>(
     null,
   );
+  // ロスター行（兄弟端末）の改名可否 = ラベルを書けるディレクトリ（ネットワーク
+  // 配線）の有無。bootstrap で登録済みのため描画時点で確定している。
+  const rosterEditable = getDeviceDirectory() != null;
 
   const reloadDevices = useCallback(async () => {
     if (!hasIdentity) return;
@@ -86,6 +91,16 @@ export function SettingsPage() {
 
   useEffect(() => {
     void reloadDevices();
+  }, [reloadDevices]);
+
+  // ロスター更新（ペアリング統合・兄弟端末からのラベル変更 announce）で
+  // デバイス一覧を再読み込みなしで追従させる（docs/wants/01「ロスター更新の
+  // 即時 UI 反映」）。
+  useEffect(() => {
+    const onRosterUpdated = () => void reloadDevices();
+    window.addEventListener(ROSTER_UPDATED_EVENT, onRosterUpdated);
+    return () =>
+      window.removeEventListener(ROSTER_UPDATED_EVENT, onRosterUpdated);
   }, [reloadDevices]);
 
   const [aiProvider, setAiProvider] = useState<string>(DEFAULT_AI_PROVIDER);
@@ -487,8 +502,12 @@ export function SettingsPage() {
                   )}
                 </span>
                 <span className="device-list-actions">
-                  {/* ロスター由来の兄弟端末は改名・削除不可（docs/wants/01）。 */}
-                  {!d.fromRoster && (
+                  {/* ラベルは全行編集可（SoT はロスター）。ただしロスター行は
+                      ディレクトリ（ネットワーク配線）が無いと書けないため、
+                      スタンドアロン時は無言 no-op を避けてボタンを出さない。
+                      削除はロスター失効が未実装のためロスター由来行では不可
+                      （docs/wants/01）。 */}
+                  {(!d.fromRoster || rosterEditable) && (
                     <button
                       type="button"
                       className="btn btn-sm"

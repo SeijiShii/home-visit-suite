@@ -21,6 +21,7 @@ import {
   type PairingPayload,
 } from "../lib/pairing";
 import { collectPairingExtras } from "../lib/pairing-extras";
+import { getDeviceDirectory } from "../lib/device-directory";
 import { ServiceError } from "./errors";
 
 /**
@@ -401,54 +402,98 @@ export class LocalIdentityService implements IdentityService {
     const s = this.read();
     if (!s) return [];
     const local = this.readDevices().filter((d) => d.userId === s.did);
-    return [...local, ...(await this.rosterSiblingDevices(s.did))];
+    const view = await this.rosterView(s.did);
+    // ラベルの SoT はロスター（docs/wants/01「ラベルの同期」）。兄弟端末が
+    // 改名した自端末のラベルも、ロスター側が非空なら表示に採用する。
+    // ただしディレクトリ未登録（スタンドアロン）時はローカル改名がロスターに
+    // 書けないため、残存ロスターの旧ラベルで新しいローカル改名を隠さない。
+    const rosterIsWritable = getDeviceDirectory() != null;
+    const selfId = this.ensureDeviceId();
+    const merged = local.map((d) =>
+      d.id === selfId && view.selfLabel && rosterIsWritable
+        ? { ...d, label: view.selfLabel }
+        : d,
+    );
+    return [...merged, ...view.siblings];
+  }
+
+  /** この端末のデバイス DID（`hvs.deviceKeySeed` から導出。未生成なら null）。 */
+  private async selfDeviceDid(): Promise<string | null> {
+    try {
+      const seedB64 = localStorage.getItem("hvs.deviceKeySeed");
+      if (!seedB64) return null;
+      return (await identityFromSeed(seedFromBase64(seedB64))).did;
+    } catch {
+      return null;
+    }
   }
 
   /**
-   * ロスター掲載の兄弟端末を表示用 Device に写す（docs/wants/01「デバイス一覧への
-   * 反映」）。ロスターの正体は lib/linkself/device-roster.ts（`hvs.deviceRoster`、
-   * marshalRoster の JSON）だが、本サービスは main バンドルのため @linkself/core を
-   * 引き込まず JSON を直接読む。自分のユーザー DID のロスターのみ対象とし、
-   * 自デバイス（`hvs.deviceKeySeed` から導出）は除外する。
+   * ロスターの表示ビュー: 兄弟端末の一覧と、ロスター上の自端末ラベル
+   * （docs/wants/01「デバイス一覧への反映」）。ロスターの正体は
+   * lib/linkself/device-roster.ts（`hvs.deviceRoster`、marshalRoster の JSON）だが、
+   * 本サービスは main バンドルのため @linkself/core を引き込まず JSON を直接読む。
+   * 自分のユーザー DID のロスターのみ対象とする。
    */
-  private async rosterSiblingDevices(userDid: string): Promise<Device[]> {
+  private async rosterView(
+    userDid: string,
+  ): Promise<{ selfLabel: string | null; siblings: Device[] }> {
+    const empty = { selfLabel: null, siblings: [] as Device[] };
     try {
       const raw = localStorage.getItem("hvs.deviceRoster");
-      if (!raw) return [];
+      if (!raw) return empty;
       const roster = JSON.parse(raw) as {
         userDID?: string;
         devices?: Array<{ deviceDID?: string; label?: string }>;
       };
       if (roster.userDID !== userDid || !Array.isArray(roster.devices)) {
-        return [];
+        return empty;
       }
-      let selfDeviceDid: string | null = null;
-      const seedB64 = localStorage.getItem("hvs.deviceKeySeed");
-      if (seedB64) {
-        selfDeviceDid = (await identityFromSeed(seedFromBase64(seedB64))).did;
-      }
-      return roster.devices
-        .filter(
-          (d): d is { deviceDID: string; label?: string } =>
-            typeof d.deviceDID === "string" && d.deviceDID !== selfDeviceDid,
-        )
-        .map((d) => ({
-          id: d.deviceDID,
-          userId: userDid,
-          label: d.label ?? "",
-          createdAt: "",
-          fromRoster: true,
-        }));
+      const selfDeviceDid = await this.selfDeviceDid();
+      const entries = roster.devices.filter(
+        (d): d is { deviceDID: string; label?: string } =>
+          typeof d.deviceDID === "string",
+      );
+      return {
+        selfLabel:
+          entries.find((d) => d.deviceDID === selfDeviceDid)?.label || null,
+        siblings: entries
+          .filter((d) => d.deviceDID !== selfDeviceDid)
+          .map((d) => ({
+            id: d.deviceDID,
+            userId: userDid,
+            label: d.label ?? "",
+            createdAt: "",
+            fromRoster: true,
+          })),
+      };
     } catch {
-      return [];
+      return empty;
     }
   }
 
   async renameDevice(deviceId: string, label: string): Promise<void> {
+    const trimmed = label.trim();
     const list = this.readDevices().map((d) =>
-      d.id === deviceId ? { ...d, label: label.trim() } : d,
+      d.id === deviceId ? { ...d, label: trimmed } : d,
     );
     this.writeDevices(list);
+    // ラベルの SoT はロスター。ネットワーク配線時は linkself-services が登録した
+    // ディレクトリ経由で再署名（rev+1）+ 兄弟端末へ即時 announce する
+    // （docs/wants/01「ラベルの同期」）。スタンドアロン時はローカル登録簿のみ。
+    const dir = getDeviceDirectory();
+    if (dir == null) return;
+    const did =
+      deviceId === this.ensureDeviceId()
+        ? await this.selfDeviceDid()
+        : deviceId;
+    if (!did) return;
+    try {
+      await dir.setLabel(did, trimmed);
+    } catch (e) {
+      // ローカルの改名は済んでいる。同期は次回接続の announce で収束する。
+      console.warn("device label sync failed", e);
+    }
   }
 
   async removeDevice(deviceId: string): Promise<void> {

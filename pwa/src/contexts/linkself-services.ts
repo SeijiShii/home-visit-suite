@@ -50,8 +50,10 @@ import {
   consumePendingSiblingDevices,
   loadOrCreateRoster,
   persistRoster,
+  setDeviceLabelInRoster,
 } from "../lib/linkself/device-roster";
-import { didToPeerId } from "@linkself/core";
+import { registerDeviceDirectory } from "../lib/device-directory";
+import { didToPeerId, type SignedRoster } from "@linkself/core";
 import {
   GroupNetworkService,
   localStorageNetworkIdStore,
@@ -244,26 +246,28 @@ export async function createLinkSelfServices(
       // 自端末を登録した署名済みロスター。ペアリング payload から控えた
       // 発行側デバイス DID があれば追加署名して取り込む（QR にはロスター本体を
       // 載せない。以後は接続時の announce 統合で収束）。
-      const roster = await consumePendingSiblingDevices(
+      let currentRoster = await consumePendingSiblingDevices(
         userIdentity,
         await loadOrCreateRoster(userIdentity, deviceIdentity.did),
       );
       // 兄弟端末（ロスター掲載の他デバイス）へのダイヤル先。リレーが固定のため
       // presence を待たず circuit アドレスを合成できる（peerId ≡ device DID。
       // docs/wants/01「自己端末間のローカルデータ同期」）。
-      const siblingPeers: KnownPeer[] = roster.devices
-        .filter((d) => d.deviceDID !== deviceIdentity.did)
-        .flatMap((d) => {
-          try {
-            const peerId = didToPeerId(d.deviceDID).toString();
-            const addrs = (opts.relays ?? []).flatMap((r) =>
-              r.addrs.map((a) => `${a}/p2p-circuit/p2p/${peerId}`),
-            );
-            return addrs.length > 0 ? [{ did: d.deviceDID, addrs }] : [];
-          } catch {
-            return [];
-          }
-        });
+      const siblingCircuitPeers = (roster: SignedRoster): KnownPeer[] =>
+        roster.devices
+          .filter((d) => d.deviceDID !== deviceIdentity.did)
+          .flatMap((d) => {
+            try {
+              const peerId = didToPeerId(d.deviceDID).toString();
+              const addrs = (opts.relays ?? []).flatMap((r) =>
+                r.addrs.map((a) => `${a}/p2p-circuit/p2p/${peerId}`),
+              );
+              return addrs.length > 0 ? [{ did: d.deviceDID, addrs }] : [];
+            } catch {
+              return [];
+            }
+          });
+      const siblingPeers = siblingCircuitPeers(currentRoster);
       // onAsyncJoinDecision / onMemberJoined はファサード・リポジトリ構築前に
       // client へ渡す必要があるため可変参照で後結びする。
       let gn: GroupNetworkService | undefined;
@@ -271,7 +275,7 @@ export async function createLinkSelfServices(
       const session = await createLinkSelfClient({
         identity: deviceIdentity,
         userIdentity,
-        roster,
+        roster: currentRoster,
         // presence 未実装のため、参加時に保存した既知メンバー（管理者）へも
         // FastStart で毎起動ダイヤルする（ハブ型トポロジで catch-up を成立させる）。
         knownPeers: [
@@ -279,8 +283,13 @@ export async function createLinkSelfServices(
           ...loadKnownMembers(),
           ...siblingPeers,
         ],
-        // announce 統合で自ロスターが育ったら永続する（次回起動のダイヤル先に反映）。
-        onRosterUpdated: (updated) => persistRoster(updated),
+        // announce 統合で自ロスターが育ったら永続する（次回起動のダイヤル先に
+        // 反映。persist が UI イベントも発火＝デバイス一覧が再読み込みなしで
+        // 追従する。docs/wants/01「ロスター更新の即時 UI 反映」）。
+        onRosterUpdated: (updated) => {
+          currentRoster = updated;
+          persistRoster(updated);
+        },
         sqlDatabase: groupSqlDb,
         roles: HVS_ROLES,
         allowLocalDial: opts.allowLocalDial,
@@ -395,23 +404,65 @@ export async function createLinkSelfServices(
       // グループ招待/参加ファサード（起動中の実 client で署名・参加できる）。
       gn = new GroupNetworkService(session.client, hookedIdStore);
       groupNetwork = gn;
+      // ラベル変更の窓口（設定画面 → identity-service → ここ）。ロスターを
+      // rev+1 で再署名・永続し、接続中の兄弟端末へ即時 announce する
+      // （docs/wants/01「ラベルの同期」）。
+      registerDeviceDirectory({
+        setLabel: async (deviceDID, label) => {
+          // 署名の await 中に announce 統合（onRosterUpdated）が currentRoster
+          // を進めた場合は、その新しいロスターへリベースして適用し直す
+          // （古いスナップショット由来の rev+1 で統合結果を巻き戻さない）。
+          for (;;) {
+            const base = currentRoster;
+            const updated = await setDeviceLabelInRoster(
+              userIdentity,
+              base,
+              deviceDID,
+              label,
+            );
+            if (updated === base) return; // ロスター未掲載 → 変更なし
+            if (currentRoster !== base) continue; // 統合が割り込んだ → リベース
+            currentRoster = updated;
+            await session.client.updateRoster(updated);
+            return;
+          }
+        },
+      });
       // 非同期参加の成立待ちを復元し、メールボックスを起動時 + 定期（60 秒）で
       // 確認する（管理者側の無人受理・被招待者側の結果受領の両方を担う）。
+      // 同じ周期で未接続の兄弟端末へ再ダイヤルする（片側だけ先に起動していた・
+      // 一時切断などでも、再読み込みなしで出会い直して catch-up が走る。
+      // docs/wants/01「兄弟端末への定期再ダイヤル」）。
       gn.restorePendingJoin();
       const poll = () => {
         void session.client.checkMailbox().catch((err) => {
           console.warn("linkself: checkMailbox failed", err);
         });
+        // 再ダイヤル対象はリレー + 兄弟端末のみ（peerId ≡ DID で接続済み判定が
+        // 効く相手）。既知メンバー（アカウント DID）を渡すと接続済みでも毎回
+        // 再認証され、auth 後フック（announce + catch-up）が 60 秒毎に全員分
+        // 走ってしまうため含めない。
+        void session.client
+          .redial([
+            ...(opts.relays ?? []),
+            ...siblingCircuitPeers(currentRoster),
+          ])
+          .catch((err) => {
+            console.warn("linkself: sibling redial failed", err);
+          });
       };
       poll();
       const pollTimer = setInterval(poll, 60_000);
       stop = async () => {
+        registerDeviceDirectory(null);
         clearInterval(pollTimer);
         await session.stop();
       };
     } catch (e) {
       // ネットワーク配線失敗でアプリを起動不能にしない。ローカル永続へフォールバック。
       // groupSqlDb は開場済みのものを再利用する（再 open は Access Handle 排他で失敗する）。
+      // 登録済みの DeviceDirectory も外す（死んだ session へ announce し続ける残骸防止）。
+      registerDeviceDirectory(null);
       console.error(
         "linkself: network wiring failed, falling back to standalone",
         e,

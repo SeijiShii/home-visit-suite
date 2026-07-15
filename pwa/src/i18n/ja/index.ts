@@ -567,7 +567,7 @@ const ja: Translations = {
     thisDevice: "この端末",
     unnamedDevice: "（名称未設定）",
     listPendingNote:
-      "他端末の一覧・削除の反映はデータ同期対応後に有効になります",
+      "端末名はどの端末からでも変更でき、全端末に同期されます。削除の他端末への反映は未対応です",
     rename: "名称変更",
     renameTitle: "デバイス名を変更",
     labelLabel: "デバイス名",

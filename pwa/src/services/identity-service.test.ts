@@ -1,11 +1,20 @@
 // LocalIdentityService: 初回作成・永続・端末ペアリング（同一 DID コピー）の検証。
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repository";
+import { registerDeviceDirectory } from "../lib/device-directory";
+import {
+  generateIdentity as generateLocalIdentity,
+  seedToBase64,
+} from "../lib/identity-crypto";
 import { LocalIdentityService } from "./identity-service";
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+afterEach(() => {
+  registerDeviceDirectory(null);
 });
 
 describe("LocalIdentityService の初回 ID 作成", () => {
@@ -162,5 +171,110 @@ describe("デバイス登録簿", () => {
     const devices = await svc.listDevices();
     expect(devices.map((d) => d.id).sort()).toEqual(["dev-phone", myId].sort());
     expect(devices.find((d) => d.id === myId)?.label).toBe("自宅PC");
+  });
+});
+
+describe("デバイスラベルのロスター同期（docs/wants/01「ラベルの同期」）", () => {
+  /** ロスター JSON（marshalRoster 互換の表示対象部分）を localStorage に置く。 */
+  function putRoster(
+    userDID: string,
+    devices: Array<{ deviceDID: string; label: string }>,
+  ): void {
+    localStorage.setItem(
+      "hvs.deviceRoster",
+      JSON.stringify({ userDID, devices, rev: 1, sig: "" }),
+    );
+  }
+
+  it("listDevices はロスターをラベルの SoT にする（自端末・兄弟端末）", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    const user = await svc.createIdentity("木村");
+    const myId = await svc.getCurrentDeviceId();
+    // ネットワーク配線あり（ロスターへ書ける）状態を模す
+    registerDeviceDirectory({ setLabel: vi.fn().mockResolvedValue(undefined) });
+    // この端末のデバイス鍵と兄弟端末を持つロスターを模す
+    const devKey = await generateLocalIdentity();
+    localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
+    const sibling = await generateLocalIdentity();
+    putRoster(user.id, [
+      { deviceDID: devKey.did, label: "リビングPC" },
+      { deviceDID: sibling.did, label: "スマホ" },
+    ]);
+
+    const devices = await svc.listDevices();
+    const self = devices.find((d) => d.id === myId);
+    expect(self?.label).toBe("リビングPC"); // ロスター側ラベルが表示に勝つ
+    const sib = devices.find((d) => d.id === sibling.did);
+    expect(sib?.fromRoster).toBe(true);
+    expect(sib?.label).toBe("スマホ");
+  });
+
+  it("スタンドアロン（ディレクトリ未登録）では残存ロスターの旧ラベルよりローカル改名を優先する", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    const user = await svc.createIdentity("斎藤");
+    const myId = await svc.getCurrentDeviceId();
+    const devKey = await generateLocalIdentity();
+    localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
+    putRoster(user.id, [{ deviceDID: devKey.did, label: "旧名" }]);
+
+    await svc.renameDevice(myId, "新名"); // ロスターへは書けない
+    const self = (await svc.listDevices()).find((d) => d.id === myId);
+    expect(self?.label).toBe("新名"); // 旧ロスターの「旧名」で隠さない
+  });
+
+  it("自端末の改名はデバイス DID に解決してディレクトリへ委譲する", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("小林");
+    const myId = await svc.getCurrentDeviceId();
+    const devKey = await generateLocalIdentity();
+    localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
+    const setLabel = vi.fn().mockResolvedValue(undefined);
+    registerDeviceDirectory({ setLabel });
+
+    await svc.renameDevice(myId, "  仕事PC ");
+
+    expect(setLabel).toHaveBeenCalledWith(devKey.did, "仕事PC");
+    // ローカル登録簿にも反映（スタンドアロン時のフォールバック表示）。
+    expect((await svc.listDevices()).find((d) => d.id === myId)?.label).toBe(
+      "仕事PC",
+    );
+  });
+
+  it("ロスター行（兄弟端末）の改名は DID をそのままディレクトリへ渡す", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("加藤");
+    const sibling = await generateLocalIdentity();
+    const setLabel = vi.fn().mockResolvedValue(undefined);
+    registerDeviceDirectory({ setLabel });
+
+    await svc.renameDevice(sibling.did, "倉庫タブレット");
+
+    expect(setLabel).toHaveBeenCalledWith(sibling.did, "倉庫タブレット");
+  });
+
+  it("ディレクトリ未登録（スタンドアロン）ならローカル改名のみで例外を出さない", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("吉田");
+    const myId = await svc.getCurrentDeviceId();
+    await svc.renameDevice(myId, "自宅PC");
+    expect((await svc.listDevices()).find((d) => d.id === myId)?.label).toBe(
+      "自宅PC",
+    );
+  });
+
+  it("ディレクトリの失敗はローカル改名を巻き戻さない（次回接続で収束）", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("山口");
+    const myId = await svc.getCurrentDeviceId();
+    const devKey = await generateLocalIdentity();
+    localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
+    registerDeviceDirectory({
+      setLabel: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+
+    await expect(svc.renameDevice(myId, "外出用")).resolves.toBeUndefined();
+    expect((await svc.listDevices()).find((d) => d.id === myId)?.label).toBe(
+      "外出用",
+    );
   });
 });

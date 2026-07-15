@@ -562,7 +562,7 @@ const en: Translations = {
     thisDevice: "This device",
     unnamedDevice: "(unnamed)",
     listPendingNote:
-      "Listing/removing other devices takes effect once data sync is available",
+      "Device names can be changed from any device and sync to all of them. Removal does not propagate to other devices yet",
     rename: "Rename",
     renameTitle: "Rename device",
     labelLabel: "Device name",
