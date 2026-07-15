@@ -4565,3 +4565,31 @@ section {
   font-variant-numeric: tabular-nums;
   color: #475569;
 }
+
+/* 狭幅（スマホ等）のサイドバー: 常に fixed（開閉でコンテンツをリフローさせない）。
+   折りたたみ時は 48px のレール、展開時はコンテンツを狭めずオーバーレイで重ねる。
+   z-index はコンテンツ側の浮遊 UI（tip-stack 9999 等）より上に置く。 */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: 100%;
+  z-index: 10001;
+}
+
+.sidebar-overlay:not(.collapsed) {
+  box-shadow: 4px 0 16px rgba(15, 23, 42, 0.45);
+}
+
+/* fixed で抜けたレール分の定常マージン（開閉で幅が揺れない）。 */
+.layout-narrow .content {
+  margin-left: 48px;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 10000;
+}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
 import {
@@ -6,6 +6,10 @@ import {
   isRoleAtLeast,
   type Role,
 } from "../contexts/IdentityContext";
+import {
+  NARROW_VIEWPORT_QUERY,
+  useNarrowViewport,
+} from "../hooks/useMediaQuery";
 
 interface NavItem {
   to: string;
@@ -168,7 +172,18 @@ const navItems: NavItem[] = [
 export function Layout() {
   const { t } = useI18n();
   const { currentRole, currentName } = useIdentity();
-  const [collapsed, setCollapsed] = useState(false);
+  // 狭幅（スマホ等）ではサイドバーを初期折りたたみにし、展開時はコンテンツを
+  // 狭めずオーバーレイで重ねる（docs/wants/10「共通レイアウト」）。
+  const narrow = useNarrowViewport();
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia &&
+      window.matchMedia(NARROW_VIEWPORT_QUERY).matches,
+  );
+  useEffect(() => {
+    if (narrow) setCollapsed(true);
+  }, [narrow]);
 
   // ロール別フィルタ: minRole 指定があれば currentRole >= minRole の項目だけ表示
   const visibleItems = navItems.filter(
@@ -176,8 +191,19 @@ export function Layout() {
   );
 
   return (
-    <div className="layout">
-      <nav className={`sidebar${collapsed ? " collapsed" : ""}`}>
+    <div className={`layout${narrow ? " layout-narrow" : ""}`}>
+      {narrow && !collapsed && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
+      <nav
+        className={`sidebar${collapsed ? " collapsed" : ""}${
+          narrow ? " sidebar-overlay" : ""
+        }`}
+      >
         <div className="sidebar-header">
           <h3 className="app-title">Home Visit</h3>
           <button
@@ -197,6 +223,10 @@ export function Layout() {
               className={({ isActive }) =>
                 `nav-link${isActive ? " active" : ""}`
               }
+              onClick={() => {
+                // 狭幅のオーバーレイ表示では、遷移したら閉じる。
+                if (narrow) setCollapsed(true);
+              }}
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{t.nav[item.labelKey]}</span>
