@@ -80,6 +80,51 @@ export function persistRoster(roster: SignedRoster): void {
   persist(roster);
 }
 
+/**
+ * ペアリング payload から控えた兄弟デバイス DID（`hvs.pendingSiblingDevices`、
+ * lib/pairing-extras.ts が書く）をロスターへ追加署名して消費する。
+ * QR にはロスター本体を載せず、この経路と接続時の announce 統合で収束させる
+ * （docs/wants/01「ペアリング payload の拡張」）。
+ */
+export async function consumePendingSiblingDevices(
+  userIdentity: Identity,
+  roster: SignedRoster,
+): Promise<SignedRoster> {
+  const KEY = "hvs.pendingSiblingDevices";
+  let pending: Array<{ u?: string; d?: string }> = [];
+  try {
+    pending = JSON.parse(localStorage.getItem(KEY) ?? "[]") as Array<{
+      u?: string;
+      d?: string;
+    }>;
+  } catch {
+    pending = [];
+  }
+  let current = roster;
+  for (const entry of pending) {
+    // ユーザー DID 紐づき: 別ユーザー時代の残骸（切替後に残った控え）を
+    // 現ユーザーの鍵で署名しない。合わないエントリは消費時に捨てる。
+    if (
+      entry?.u === userIdentity.did &&
+      typeof entry.d === "string" &&
+      entry.d &&
+      !rosterHasDevice(current, entry.d)
+    ) {
+      current = await withDevice(userIdentity, current.devices, {
+        deviceDID: entry.d,
+        label: "",
+      });
+    }
+  }
+  if (current !== roster) persist(current);
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // ignore
+  }
+  return current;
+}
+
 /** ロスターに端末を追加（またはラベル更新）し、再署名・永続して返す（ペアリング時等）。 */
 export async function addDeviceToRoster(
   userIdentity: Identity,

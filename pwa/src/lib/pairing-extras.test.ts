@@ -1,8 +1,9 @@
-// ペアリング payload 拡張（デバイス DID・ロスター・所属グループ同梱）の
-// 収集/適用テスト。docs/wants/01「ペアリング payload の拡張」参照。
-// 発行側: collectPairingExtras がローカル状態から拡張フィールドを組み立てる。
-// 受信側: applyPairingExtras がロスター保存・グループの器（スロット+networkId+
-// ネットワーク実体）作成を行う。
+// ペアリング payload 拡張（鍵＋最小限のポインタのみ）の収集/適用テスト。
+// docs/wants/01「ペアリング payload の拡張」参照。
+// - 発行側: collectPairingExtras = デバイス DID と所属グループの ID/名前だけを収集
+//   （ロスター本体・メンバー表は QR に載せない）
+// - 受信側: applyPairingExtras = デバイス DID をロスター追加待ちに積み、
+//   グループの器（スロット + networkId + 合成した最小実体）を作る
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { identityFromSeed, seedToBase64 } from "./identity-crypto";
@@ -10,12 +11,12 @@ import {
   getActiveGroupSlot,
   listGroupSlots,
   nsKey,
-  repoPrefix,
 } from "./group-slots";
 import {
   applyPairingExtras,
   applyPairingExtrasIfMissing,
   collectPairingExtras,
+  PENDING_SIBLING_DEVICES_KEY,
 } from "./pairing-extras";
 
 function randomSeed(): Uint8Array {
@@ -24,26 +25,20 @@ function randomSeed(): Uint8Array {
   return seed;
 }
 
+function pendingSiblings(): { u: string; d: string }[] {
+  return JSON.parse(
+    localStorage.getItem(PENDING_SIBLING_DEVICES_KEY) ?? "[]",
+  ) as { u: string; d: string }[];
+}
+
 describe("pairing-extras 収集（発行側）", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it("デバイス DID・ロスター・networkId 確定済みグループを収集する", async () => {
+  it("デバイス DID と networkId 確定済みグループの ID/名前だけを収集する", async () => {
     const deviceSeed = randomSeed();
     localStorage.setItem("hvs.deviceKeySeed", seedToBase64(deviceSeed));
-    // ロスターは自分（hvs.identity）のユーザー DID のものだけ同梱される。
-    localStorage.setItem(
-      "hvs.identity",
-      JSON.stringify({
-        did: "did:key:zU",
-        seedB64: "",
-        name: "",
-        role: "admin",
-      }),
-    );
-    localStorage.setItem("hvs.deviceRoster", '{"userDID":"did:key:zU"}');
-    // スロット2つ: networkId 確定済みと未確定（未確定は同梱しない）。
     localStorage.setItem(
       "hvs.groups",
       JSON.stringify([
@@ -51,56 +46,36 @@ describe("pairing-extras 収集（発行側）", () => {
         { slotId: "g-bbbbbbbb", networkId: null, groupName: null },
       ]),
     );
-    // フル実体（全メンバー）がローカルにあっても、QR には自分のメンバーシップ
-    // だけの最小スナップショットを載せる（QR 密度をグループ人数に依存させない）。
+    localStorage.setItem(
+      "hvs.identity",
+      JSON.stringify({ did: "did:key:zU", role: "member" }),
+    );
+    // フル実体がローカルにあっても QR には載せない（鍵とポインタのみ）。
+    // 実体の自ロール（editor）が identity のグローバルロール（member）に優先。
     localStorage.setItem(
       "hvs.networks",
       JSON.stringify({
         "net-1": {
           id: "net-1",
-          suiteId: "jp.home-visit-suite",
-          members: ["did:key:zU", "did:key:zOther"],
-          memberRoles: { "did:key:zU": "admin", "did:key:zOther": "member" },
+          members: ["a", "did:key:zU"],
+          memberRoles: { "did:key:zU": "editor" },
         },
       }),
     );
 
     const extras = await collectPairingExtras();
-    const expectedDid = (await identityFromSeed(deviceSeed)).did;
-    expect(extras.deviceDid).toBe(expectedDid);
-    expect(extras.rosterJson).toBe('{"userDID":"did:key:zU"}');
+    expect(extras.deviceDid).toBe((await identityFromSeed(deviceSeed)).did);
+    // ロールはグループ実体の自ロール（グループ毎に異なり得る）を載せる。
     expect(extras.groups).toEqual([
-      {
-        networkId: "net-1",
-        groupName: "第一",
-        network: {
-          id: "net-1",
-          suiteId: "jp.home-visit-suite",
-          members: ["did:key:zU"],
-          memberRoles: { "did:key:zU": "admin" },
-        },
-      },
+      { networkId: "net-1", groupName: "第一", role: "editor" },
     ]);
+    expect(JSON.stringify(extras)).not.toContain("members");
   });
 
   it("ローカル状態が無ければ空の拡張を返す（旧環境互換）", async () => {
     const extras = await collectPairingExtras();
     expect(extras.deviceDid).toBeUndefined();
-    expect(extras.rosterJson).toBeUndefined();
     expect(extras.groups).toEqual([]);
-  });
-
-  it("別ユーザーのロスター残骸は同梱しない", async () => {
-    localStorage.setItem(
-      "hvs.identity",
-      JSON.stringify({ did: "did:key:zMe", seedB64: "", name: "", role: "" }),
-    );
-    localStorage.setItem(
-      "hvs.deviceRoster",
-      '{"userDID":"did:key:zSomeoneElse","devices":[]}',
-    );
-    const extras = await collectPairingExtras();
-    expect(extras.rosterJson).toBeUndefined();
   });
 });
 
@@ -109,22 +84,20 @@ describe("pairing-extras 適用（受信側）", () => {
     localStorage.clear();
   });
 
-  it("ロスターを保存し、グループの器（スロット+networkId+実体）を作って先頭をアクティブにする", () => {
+  it("デバイス DID を追加待ちに積み、グループの器と合成実体を作って先頭をアクティブにする", () => {
     applyPairingExtras({
-      rosterJson: '{"userDID":"did:key:zU","devices":[]}',
+      did: "did:key:zU",
+      role: "admin",
+      deviceDid: "did:key:zPcDevice",
       groups: [
-        {
-          networkId: "net-1",
-          groupName: "第一",
-          network: { id: "net-1", members: ["did:key:zU"] },
-        },
+        { networkId: "net-1", groupName: "第一" },
         { networkId: "net-2", groupName: null },
       ],
     });
 
-    expect(localStorage.getItem("hvs.deviceRoster")).toBe(
-      '{"userDID":"did:key:zU","devices":[]}',
-    );
+    expect(pendingSiblings()).toEqual([
+      { u: "did:key:zU", d: "did:key:zPcDevice" },
+    ]);
     const slots = listGroupSlots();
     expect(slots).toHaveLength(2);
     expect(slots[0].networkId).toBe("net-1");
@@ -132,22 +105,77 @@ describe("pairing-extras 適用（受信側）", () => {
     expect(localStorage.getItem(nsKey(slots[0].slotId, "networkId"))).toBe(
       "net-1",
     );
-    expect(localStorage.getItem(nsKey(slots[1].slotId, "networkId"))).toBe(
-      "net-2",
-    );
-    // ネットワーク実体は共通ストア（hvs.networks）に入る。
+    // ネットワーク実体は自分のメンバーシップのみで合成される。
     const networks = JSON.parse(localStorage.getItem("hvs.networks") ?? "{}");
-    expect(networks["net-1"].members).toEqual(["did:key:zU"]);
-    // 先頭グループがアクティブになる。
+    expect(networks["net-1"]).toEqual({
+      id: "net-1",
+      suiteId: "jp.home-visit-suite",
+      members: ["did:key:zU"],
+      memberRoles: { "did:key:zU": "admin" },
+    });
     expect(getActiveGroupSlot()?.slotId).toBe(slots[0].slotId);
-    // repo 名前空間はスロット毎に分かれる前提（他テストの回帰防止の確認のみ）。
-    expect(repoPrefix(slots[0].slotId)).not.toBe(repoPrefix(slots[1].slotId));
   });
 
   it("拡張フィールドが無い旧 payload では何もしない", () => {
-    applyPairingExtras({});
+    applyPairingExtras({ did: "did:key:zU", role: "member" });
     expect(listGroupSlots()).toHaveLength(0);
-    expect(localStorage.getItem("hvs.deviceRoster")).toBeNull();
+    expect(pendingSiblings()).toEqual([]);
+  });
+});
+
+describe("pairing-extras 残骸への耐性", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("自分を含まない残骸実体（別ユーザー時代）は合成実体で上書きする", () => {
+    localStorage.setItem(
+      "hvs.networks",
+      JSON.stringify({
+        "net-1": { id: "net-1", members: ["did:key:zOldUser"] },
+      }),
+    );
+    applyPairingExtras({
+      did: "did:key:zU",
+      role: "member",
+      groups: [{ networkId: "net-1", groupName: null, role: "member" }],
+    });
+    const networks = JSON.parse(localStorage.getItem("hvs.networks") ?? "{}");
+    expect(networks["net-1"].members).toEqual(["did:key:zU"]);
+  });
+
+  it("自分を含む既存実体（同一ユーザーの残骸）は温存する", () => {
+    const full = {
+      id: "net-1",
+      members: ["did:key:zU", "did:key:zOther"],
+      memberRoles: { "did:key:zU": "admin", "did:key:zOther": "member" },
+    };
+    localStorage.setItem("hvs.networks", JSON.stringify({ "net-1": full }));
+    applyPairingExtras({
+      did: "did:key:zU",
+      role: "admin",
+      groups: [{ networkId: "net-1", groupName: null }],
+    });
+    const networks = JSON.parse(localStorage.getItem("hvs.networks") ?? "{}");
+    expect(networks["net-1"]).toEqual(full);
+  });
+
+  it("ロスター登録済みのデバイスは追加待ちに再キューしない", () => {
+    localStorage.setItem(
+      "hvs.deviceRoster",
+      JSON.stringify({
+        userDID: "did:key:zU",
+        devices: [{ deviceDID: "did:key:zPcDevice", label: "" }],
+        sig: "x",
+      }),
+    );
+    const applied = applyPairingExtrasIfMissing({
+      did: "did:key:zU",
+      role: "member",
+      deviceDid: "did:key:zPcDevice",
+    });
+    expect(applied).toBe(false);
+    expect(pendingSiblings()).toEqual([]);
   });
 });
 
@@ -159,56 +187,33 @@ describe("pairing-extras 不足分のみ適用（同一 DID 再スキャン）",
   it("器を持たない端末には適用し true を返す", () => {
     const applied = applyPairingExtrasIfMissing({
       did: "did:key:zU",
-      rosterJson: '{"userDID":"did:key:zU","devices":[{"deviceDID":"d1"}]}',
+      role: "member",
+      deviceDid: "did:key:zPcDevice",
       groups: [{ networkId: "net-1", groupName: "第一" }],
     });
     expect(applied).toBe(true);
-    const slots = listGroupSlots();
-    expect(slots).toHaveLength(1);
-    expect(slots[0].networkId).toBe("net-1");
-    expect(localStorage.getItem("hvs.deviceRoster")).toContain("d1");
+    expect(listGroupSlots()).toHaveLength(1);
+    expect(pendingSiblings()).toEqual([
+      { u: "did:key:zU", d: "did:key:zPcDevice" },
+    ]);
   });
 
-  it("確立済みの端末（同グループの器 + 複数端末ロスター）には何もしない", () => {
-    const local =
-      '{"userDID":"did:key:zU","devices":[{"deviceDID":"d1"},{"deviceDID":"d2"}]}';
-    localStorage.setItem("hvs.deviceRoster", local);
+  it("確立済みの端末（同グループの器 + 追加待ち登録済み）には何もしない", () => {
     applyPairingExtras({
+      did: "did:key:zU",
+      role: "member",
+      deviceDid: "did:key:zPcDevice",
       groups: [{ networkId: "net-1", groupName: "第一" }],
     });
     const before = listGroupSlots();
 
     const applied = applyPairingExtrasIfMissing({
       did: "did:key:zU",
-      rosterJson: '{"userDID":"did:key:zU","devices":[{"deviceDID":"d3"}]}',
+      role: "member",
+      deviceDid: "did:key:zPcDevice",
       groups: [{ networkId: "net-1", groupName: "第一" }],
     });
     expect(applied).toBe(false);
     expect(listGroupSlots()).toEqual(before);
-    expect(localStorage.getItem("hvs.deviceRoster")).toBe(local);
-  });
-
-  it("自分のみのロスターは payload 側（兄弟入り）で置き換える", () => {
-    localStorage.setItem(
-      "hvs.deviceRoster",
-      '{"userDID":"did:key:zU","devices":[{"deviceDID":"self"}]}',
-    );
-    const incoming =
-      '{"userDID":"did:key:zU","devices":[{"deviceDID":"pc"},{"deviceDID":"phone"}]}';
-    const applied = applyPairingExtrasIfMissing({
-      did: "did:key:zU",
-      rosterJson: incoming,
-    });
-    expect(applied).toBe(true);
-    expect(localStorage.getItem("hvs.deviceRoster")).toBe(incoming);
-  });
-
-  it("別ユーザーのロスターは取り込まない", () => {
-    const applied = applyPairingExtrasIfMissing({
-      did: "did:key:zU",
-      rosterJson: '{"userDID":"did:key:zOther","devices":[{"deviceDID":"x"}]}',
-    });
-    expect(applied).toBe(false);
-    expect(localStorage.getItem("hvs.deviceRoster")).toBeNull();
   });
 });

@@ -128,7 +128,8 @@ export function GroupInviteSection() {
               {m.dialogRole(t.users.roles[role])}
             </p>
             <div className="device-pairing-qr">
-              <QrCode text={url} />
+              {/* ペアリング QR と同様、密度対策で大きめに描画する。 */}
+              <QrCode text={url} size={300} />
             </div>
             <div className="device-pairing-url-row">
               <input

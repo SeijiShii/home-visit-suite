@@ -47,6 +47,7 @@ import {
 } from "../lib/linkself/shared-store";
 import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
 import {
+  consumePendingSiblingDevices,
   loadOrCreateRoster,
   persistRoster,
 } from "../lib/linkself/device-roster";
@@ -240,8 +241,13 @@ export async function createLinkSelfServices(
       const deviceIdentity = identityFromPrivateKey(
         await loadOrCreateDeviceTransportKey(),
       );
-      // 自端末を登録した署名済みロスター（兄弟端末は接続時のロスター交換で収束）。
-      const roster = await loadOrCreateRoster(userIdentity, deviceIdentity.did);
+      // 自端末を登録した署名済みロスター。ペアリング payload から控えた
+      // 発行側デバイス DID があれば追加署名して取り込む（QR にはロスター本体を
+      // 載せない。以後は接続時の announce 統合で収束）。
+      const roster = await consumePendingSiblingDevices(
+        userIdentity,
+        await loadOrCreateRoster(userIdentity, deviceIdentity.did),
+      );
       // 兄弟端末（ロスター掲載の他デバイス）へのダイヤル先。リレーが固定のため
       // presence を待たず circuit アドレスを合成できる（peerId ≡ device DID。
       // docs/wants/01「自己端末間のローカルデータ同期」）。

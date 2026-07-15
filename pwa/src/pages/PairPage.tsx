@@ -20,6 +20,7 @@ import { purgeAllGroupSlots } from "../lib/group-slots";
 import {
   applyPairingExtras,
   applyPairingExtrasIfMissing,
+  clearPendingSiblingDevices,
 } from "../lib/pairing-extras";
 import { clearGroupNetworkLocalState } from "../lib/linkself/group-network";
 import {
@@ -106,7 +107,8 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
         // ID 無し端末に残ったグループ状態は前の identity の残骸なので破棄する。
         clearGroupNetworkLocalState();
         purgeAllGroupSlots();
-        // 発行側の所属グループ・ロスターを引き継ぐ（再読み込み後に catch-up）。
+        clearPendingSiblingDevices();
+        // 発行側の所属グループの器と兄弟デバイスの控えを引き継ぐ（再読込後に catch-up）。
         applyPairingExtras(payload);
         cleanUp();
         reload();
@@ -134,8 +136,9 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
       }
       clearGroupNetworkLocalState();
       purgeAllGroupSlots();
+      clearPendingSiblingDevices();
       setGroupName("");
-      // 発行側の所属グループ・ロスターを引き継ぐ（再読み込み後に catch-up）。
+      // 発行側の所属グループの器と兄弟デバイスの控えを引き継ぐ（再読込後に catch-up）。
       if (payload) applyPairingExtras(payload);
       cleanUp();
       reload();

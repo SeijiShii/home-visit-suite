@@ -340,9 +340,9 @@ export class LocalIdentityService implements IdentityService {
     const s = this.read();
     if (!s) throw new Error("no identity to pair");
     const token = createPairingToken(PAIRING_TTL_MS, Date.now());
-    // 2026-07-15 拡張: デバイス DID・署名済みロスター・所属グループ一覧を同梱し、
-    // 新端末がグループの器を作って兄弟端末へダイヤルできるようにする
-    // （docs/wants/01「ペアリング payload の拡張」）。
+    // 2026-07-15 拡張: 鍵＋最小限のポインタ（発行側デバイス DID・所属グループの
+    // ID/名前）のみを同梱する。ロスター・メンバー表は QR に載せず接続後に収束
+    // させる（docs/wants/01「ペアリング payload の拡張」）。
     const extras = await collectPairingExtras();
     const payload: PairingPayload = {
       v: 1,
@@ -353,7 +353,6 @@ export class LocalIdentityService implements IdentityService {
       role: s.role,
       did: s.did,
       deviceDid: extras.deviceDid,
-      rosterJson: extras.rosterJson,
       groups: extras.groups.length > 0 ? extras.groups : undefined,
     };
     // ペアリング URL のベース。env で正規の公開 URL を上書きでき（プロキシ/独自ドメイン、

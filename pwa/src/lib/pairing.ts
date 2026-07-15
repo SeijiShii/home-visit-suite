@@ -12,18 +12,19 @@ export interface PairingToken {
   expiresAt: number;
 }
 
-/** payload に同梱する所属グループ 1 件分（docs/wants/01「ペアリング payload の拡張」）。 */
+/**
+ * payload に同梱する所属グループ 1 件分（docs/wants/01「ペアリング payload の拡張」）。
+ * QR には**鍵と最小限のポインタだけ**を載せる方針のため、ID と表示名のみ。
+ * ネットワーク実体は受信側が自分のメンバーシップから合成し、全容は接続後の
+ * 兄弟端末 catch-up で収束する。
+ */
 export interface PairingGroup {
   /** LinkSelf ネットワーク ID。 */
   networkId: string;
   /** 表示用グループ名（無ければ null）。 */
   groupName: string | null;
-  /**
-   * LinkSelf ネットワーク実体（メンバー・ロール表）のスナップショット。
-   * 同一アカウントの端末間には membership 配信が届かないため、新端末は
-   * これを種にして catch-up のメンバーシップ判定材料を得る。
-   */
-  network?: unknown;
+  /** このグループでの自分のロール（実体合成用。グループ毎に異なり得る）。 */
+  role?: string;
 }
 
 /** QR に載せる完全ペイロード。新端末が同一 identity を復元するのに必要な素材一式。 */
@@ -39,11 +40,13 @@ export interface PairingPayload {
   role: string;
   /** 参照/表示用 DID。 */
   did: string;
-  /** 発行側端末のデバイス DID（2026-07-15 拡張。旧 payload には無い）。 */
+  /**
+   * 発行側端末のデバイス DID（2026-07-15 拡張）。受信側はこれを自分のロスターへ
+   * 追加署名し（鍵は seedB64 で受領済み）、兄弟端末ダイヤルの宛先にする。
+   * ロスター本体は QR に載せない（接続時の announce 統合で収束する）。
+   */
   deviceDid?: string;
-  /** 発行側の署名済みデバイスロスター（marshalRoster の JSON 文字列）。 */
-  rosterJson?: string;
-  /** 発行側が所属するグループ一覧。新端末はここからグループの器を作る。 */
+  /** 発行側が所属するグループ一覧（ID と表示名のみ）。新端末はここから器を作る。 */
   groups?: PairingGroup[];
 }
 
@@ -154,7 +157,6 @@ function isPairingPayload(v: unknown): v is PairingPayload {
   if (!baseOk) return false;
   // 2026-07-15 拡張フィールド（旧 payload には無いので省略可）。
   if (p.deviceDid != null && typeof p.deviceDid !== "string") return false;
-  if (p.rosterJson != null && typeof p.rosterJson !== "string") return false;
   if (p.groups != null) {
     if (!Array.isArray(p.groups)) return false;
     for (const g of p.groups) {

@@ -87,7 +87,7 @@ describe("PairPage 端末ペアリング取り込み", () => {
 
   it("未登録端末は QR の identity を復元して登録し、再読み込みする", async () => {
     const payload = await makePayload("PC太郎", {
-      rosterJson: '{"userDID":"did:key:zU","devices":[]}',
+      deviceDid: "did:key:zPcDevice",
       groups: [{ networkId: "net-pc", groupName: "PCグループ" }],
     });
     setPairHash(payload);
@@ -96,7 +96,8 @@ describe("PairPage 端末ペアリング取り込み", () => {
     await waitFor(() => expect(reloadApp).toHaveBeenCalled());
     expect(storedDid()).toBe(payload.did);
     expect(onConsumed).not.toHaveBeenCalled();
-    // 発行側の所属グループ・ロスターを引き継ぐ（docs/wants/01 payload 拡張）。
+    // 発行側の所属グループの器と、兄弟デバイスの追加待ちを引き継ぐ
+    // （docs/wants/01 payload 拡張 = 鍵とポインタのみ）。
     const slots = JSON.parse(localStorage.getItem("hvs.groups") ?? "[]") as {
       networkId: string | null;
       groupName: string | null;
@@ -104,9 +105,9 @@ describe("PairPage 端末ペアリング取り込み", () => {
     expect(slots).toHaveLength(1);
     expect(slots[0].networkId).toBe("net-pc");
     expect(slots[0].groupName).toBe("PCグループ");
-    expect(localStorage.getItem("hvs.deviceRoster")).toBe(
-      '{"userDID":"did:key:zU","devices":[]}',
-    );
+    expect(
+      JSON.parse(localStorage.getItem("hvs.pendingSiblingDevices") ?? "[]"),
+    ).toEqual([{ u: payload.did, d: "did:key:zPcDevice" }]);
   });
 
   it("登録済み・同一 DID は追加登録せず冪等スルーする", async () => {
