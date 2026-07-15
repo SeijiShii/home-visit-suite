@@ -64,11 +64,14 @@ import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
 import {
   attachNetworkId,
   createGroupSlot,
+  dbPoolDirFor,
+  dbPoolNameFor,
   ensureActiveSlot,
   groupDbFilename,
   nsKey,
   setActiveGroupSlot,
 } from "../lib/group-slots";
+import { markPersistenceDegraded } from "../lib/persistence-status";
 import { AuthServiceImpl } from "../services/auth-service";
 import { CheckoutServiceImpl } from "../services/checkout-service";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
@@ -186,11 +189,22 @@ export async function createLinkSelfServices(
   // OPFS SQLite は各ファイル一度だけ開き、以降の全経路（ネットワーク/スタンド
   // アロン/配線失敗フォールバック）で同一インスタンスを共有する。SAHPool の
   // Access Handle は排他のため、同一ファイルの二重 open は必ず失敗する。
+  // さらに SAHPool は**プールディレクトリ単位**で排他するため、2 つ目以降の DB
+  // （グループ DB）はファイル毎の専用プール（vfsPool）で開く。個人 DB は既存
+  // データ互換のため既定プールに置いたままにする。
   // 開けない場合（別タブが保持中など。多タブ直列化は未実装 = docs/wants/01）は
   // このタブに限り in-memory で起動し、アプリを起動不能にしない。
-  const openDb = async (filename: string): Promise<SqliteWasmDatabase> => {
+  const openDb = async (
+    filename: string,
+    dedicatedPool: boolean,
+  ): Promise<SqliteWasmDatabase> => {
     try {
-      return await SqliteWasmDatabase.open({ filename });
+      return await SqliteWasmDatabase.open({
+        filename,
+        vfsPool: dedicatedPool
+          ? { name: dbPoolNameFor(filename), directory: dbPoolDirFor(filename) }
+          : undefined,
+      });
     } catch (e) {
       console.warn(
         `linkself: OPFS DB open failed for ${filename} (another tab holding ` +
@@ -198,11 +212,14 @@ export async function createLinkSelfServices(
           "data will not persist here.",
         e,
       );
+      // 無言のインメモリ化は永続喪失の見逃しに直結する（learnings L-010）。
+      // Layout が警告バナーを出せるよう記録する。
+      markPersistenceDegraded();
       return SqliteWasmDatabase.open({ filename: ":memory:" });
     }
   };
-  const personalSqlDb = await openDb(personalFilename);
-  const groupSqlDb = await openDb(groupFilename);
+  const personalSqlDb = await openDb(personalFilename, false);
+  const groupSqlDb = await openDb(groupFilename, true);
   // 個人設定はクライアント（グループ DB）と切り離した個人 DB に常駐する。
   // ScopeDevice の devicesync ミラーは兄弟端末ダイヤル導入時に再配線する。
   const personalMyDB = await openStandaloneMyDB(personalSqlDb);

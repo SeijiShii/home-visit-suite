@@ -468,6 +468,10 @@ const ja: Translations = {
     back: "戻る",
     invalidCode: "URL/コードが正しくないか期限切れです",
   },
+  system: {
+    persistenceDegraded:
+      "このタブはデータの保存領域を開けなかったため、変更が保存されません（別のタブでアプリを開いていませんか？他のタブを閉じてから読み込み直してください）",
+  },
   pair: {
     title: "端末の引き継ぎ",
     pending: "登録処理中です…",

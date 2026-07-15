@@ -133,10 +133,13 @@ describe("group-slots グループ名前空間", () => {
 
     purgeGroupSlot(a.slotId);
 
-    // OPFS のグループ DB は同期 API では消せないため、孤児として記録される。
-    expect(
-      JSON.parse(localStorage.getItem("hvs.orphanGroupDbs") ?? "[]"),
-    ).toContain(groupDbFilename(a.slotId));
+    // OPFS のグループ DB は同期 API では消せないため、孤児として
+    // 実体位置（専用プールディレクトリ）付きで記録される。
+    const orphans = JSON.parse(
+      localStorage.getItem("hvs.orphanGroupDbs") ?? "[]",
+    ) as { file: string; dir: string }[];
+    expect(orphans.map((e) => e.file)).toContain(groupDbFilename(a.slotId));
+    expect(orphans[0].dir).toMatch(/^\.sahpool-hvs-group-/);
     expect(listGroupSlots().map((s) => s.slotId)).toEqual([b.slotId]);
     expect(localStorage.getItem(nsKey(a.slotId, "networkId"))).toBeNull();
     expect(localStorage.getItem(`${repoPrefix(a.slotId)}:user`)).toBeNull();

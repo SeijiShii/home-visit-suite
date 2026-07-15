@@ -464,6 +464,10 @@ const en: Translations = {
     back: "Back",
     invalidCode: "The URL/code is invalid or expired",
   },
+  system: {
+    persistenceDegraded:
+      "This tab could not open the local storage area, so changes will NOT be saved (is the app open in another tab? Close other tabs and reload)",
+  },
   pair: {
     title: "Carrying over device",
     pending: "Registering…",

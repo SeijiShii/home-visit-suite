@@ -10,6 +10,7 @@ import {
   NARROW_VIEWPORT_QUERY,
   useNarrowViewport,
 } from "../hooks/useMediaQuery";
+import { isPersistenceDegraded } from "../lib/persistence-status";
 
 interface NavItem {
   to: string;
@@ -248,6 +249,12 @@ export function Layout() {
         </div>
       </nav>
       <main className="content">
+        {/* OPFS を開けず in-memory 起動したタブの永続喪失警告（L-010）。 */}
+        {isPersistenceDegraded() && (
+          <div className="persistence-warning" role="alert">
+            {t.system.persistenceDegraded}
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

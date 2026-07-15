@@ -152,6 +152,20 @@ export function groupDbFilename(slotId: string): string {
 }
 
 /**
+ * DB ファイル用の専用 SAHPool の VFS 名。SAHPool はプールディレクトリ単位で
+ * Access Handle を排他取得するため、2 つ目以降の DB はファイル毎に専用プール
+ * で開く（docs/wants/01「OPFS の制約」・learnings L-010）。
+ */
+export function dbPoolNameFor(filename: string): string {
+  return `sahpool-${filename.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
+/** DB ファイル用の専用 SAHPool のプールディレクトリ（OPFS 上の実体の在処）。 */
+export function dbPoolDirFor(filename: string): string {
+  return `.${dbPoolNameFor(filename)}`;
+}
+
+/**
  * 旧（単一グループ時代）のローカルデータを一度だけスロット名前空間へ移行する。
  * スロット一覧が既にあれば何もしない。旧データが何も無ければスロットも作らない
  * （新規インストールは ensureActiveSlot が担う）。bootstrap（main.tsx）の最初に呼ぶ。
@@ -205,15 +219,21 @@ export function migrateLegacyGroupData(): void {
   }
 }
 
+/** 孤児 DB の記録（掃除にはプールディレクトリの実体位置が要る）。 */
+export interface OrphanGroupDb {
+  /** 論理ファイル名（hvs-group-<slotId>.db）。 */
+  file: string;
+  /** 専用 SAHPool のプールディレクトリ（OPFS 上の実体。ここを removeEntry すれば消える）。 */
+  dir: string;
+}
+
 /** purge で参照が切れる OPFS グループ DB を孤児一覧へ記録する（重複なし）。 */
 function recordOrphanGroupDb(slotId: string): void {
   try {
-    const list = JSON.parse(
-      localStorage.getItem(ORPHAN_DBS_KEY) ?? "[]",
-    ) as string[];
+    const list = listOrphanGroupDbs();
     const file = groupDbFilename(slotId);
-    if (!list.includes(file)) {
-      list.push(file);
+    if (!list.some((e) => e.file === file)) {
+      list.push({ file, dir: dbPoolDirFor(file) });
       localStorage.setItem(ORPHAN_DBS_KEY, JSON.stringify(list));
     }
   } catch {
@@ -221,10 +241,15 @@ function recordOrphanGroupDb(slotId: string): void {
   }
 }
 
-/** 孤児になった OPFS グループ DB のファイル名一覧（後日の掃除用）。 */
-export function listOrphanGroupDbs(): string[] {
+/** 孤児になった OPFS グループ DB の一覧（後日の掃除用。旧形式=文字列も読める）。 */
+export function listOrphanGroupDbs(): OrphanGroupDb[] {
   try {
-    return JSON.parse(localStorage.getItem(ORPHAN_DBS_KEY) ?? "[]") as string[];
+    const raw = JSON.parse(
+      localStorage.getItem(ORPHAN_DBS_KEY) ?? "[]",
+    ) as Array<string | OrphanGroupDb>;
+    return raw.map((e) =>
+      typeof e === "string" ? { file: e, dir: dbPoolDirFor(e) } : e,
+    );
   } catch {
     return [];
   }

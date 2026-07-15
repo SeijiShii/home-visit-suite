@@ -4608,3 +4608,14 @@ section {
   color: #475569;
   font-size: 13px;
 }
+
+/* 永続化デグレード（in-memory 起動）の警告バナー。 */
+.persistence-warning {
+  margin: 12px 12px 0;
+  padding: 10px 14px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 13px;
+}

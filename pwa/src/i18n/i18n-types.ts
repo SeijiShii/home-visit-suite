@@ -440,6 +440,9 @@ export interface Translations {
     back: string;
     invalidCode: string;
   };
+  system: {
+    persistenceDegraded: string;
+  };
   pair: {
     title: string;
     pending: string;

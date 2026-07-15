@@ -50,6 +50,12 @@
 - 検査: payload/出力データを拡張する diff では、出力経路の上限（QR 容量・URL 実務上限等）と最大想定サイズを見積もり、超過時の可視挙動を確認
 - status: active
 
+## L-010 OPFS SAHPool はプールディレクトリ単位で排他（複数 DB 同時 open が衝突）
+- 初出: 2026-07-15 増分①の DB 分割（個人 DB+グループ DB の 2 ファイル同時 open で 2 つ目の installOpfsSAHPoolVfs が NoModificationAllowedError → グループ DB が in-memory フォールバックし users が永続されず。**レビュー 2 回とも見逃し・本番でユーザー報告により発覚**）
+- パターン: OPFS SAHPool VFS はプールディレクトリ内の全ファイルの Access Handle を排他取得するため、既定プールを共有する複数 worker の同時 open は必ず失敗する。かつ失敗が catch でフォールバックされると**無言でインメモリ化**し永続性だけが消える
+- 検査: `SqliteWasmDatabase.open`（または SAHPool install）の呼び出しが 1 実行パスに複数ないか。複数あれば vfsPool（プール分離）指定を確認。catch フォールバックがあるなら「失敗がユーザー/ログからみえるか」も確認
+- status: active
+
 ## L-005 主体切替時のローカル状態の部分的な持ち越し
 - 初出: 2026-07-15 `PairPage.tsx` の別 DID 切替（旧 ID の networkId・グループ名・自己レコードが新 ID 側に残り得る問題を実装時に対処）
 - パターン: identity・アクティブグループ等の「主体」を切り替える処理で、主体に紐づくローカルキーの一部だけ破棄し残りが持ち越される
