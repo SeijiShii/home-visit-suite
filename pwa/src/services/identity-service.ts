@@ -20,6 +20,7 @@ import {
   validatePairing,
   type PairingPayload,
 } from "../lib/pairing";
+import { collectPairingExtras } from "../lib/pairing-extras";
 import { ServiceError } from "./errors";
 
 /**
@@ -339,6 +340,10 @@ export class LocalIdentityService implements IdentityService {
     const s = this.read();
     if (!s) throw new Error("no identity to pair");
     const token = createPairingToken(PAIRING_TTL_MS, Date.now());
+    // 2026-07-15 拡張: デバイス DID・署名済みロスター・所属グループ一覧を同梱し、
+    // 新端末がグループの器を作って兄弟端末へダイヤルできるようにする
+    // （docs/wants/01「ペアリング payload の拡張」）。
+    const extras = await collectPairingExtras();
     const payload: PairingPayload = {
       v: 1,
       secret: token.secret,
@@ -347,6 +352,9 @@ export class LocalIdentityService implements IdentityService {
       name: s.name,
       role: s.role,
       did: s.did,
+      deviceDid: extras.deviceDid,
+      rosterJson: extras.rosterJson,
+      groups: extras.groups.length > 0 ? extras.groups : undefined,
     };
     // ペアリング URL のベース。env で正規の公開 URL を上書きでき（プロキシ/独自ドメイン、
     // localhost からスキャンできない開発時など）、未設定なら実行時オリジンにフォールバックする。
@@ -393,7 +401,48 @@ export class LocalIdentityService implements IdentityService {
   async listDevices(): Promise<Device[]> {
     const s = this.read();
     if (!s) return [];
-    return this.readDevices().filter((d) => d.userId === s.did);
+    const local = this.readDevices().filter((d) => d.userId === s.did);
+    return [...local, ...(await this.rosterSiblingDevices(s.did))];
+  }
+
+  /**
+   * ロスター掲載の兄弟端末を表示用 Device に写す（docs/wants/01「デバイス一覧への
+   * 反映」）。ロスターの正体は lib/linkself/device-roster.ts（`hvs.deviceRoster`、
+   * marshalRoster の JSON）だが、本サービスは main バンドルのため @linkself/core を
+   * 引き込まず JSON を直接読む。自分のユーザー DID のロスターのみ対象とし、
+   * 自デバイス（`hvs.deviceKeySeed` から導出）は除外する。
+   */
+  private async rosterSiblingDevices(userDid: string): Promise<Device[]> {
+    try {
+      const raw = localStorage.getItem("hvs.deviceRoster");
+      if (!raw) return [];
+      const roster = JSON.parse(raw) as {
+        userDID?: string;
+        devices?: Array<{ deviceDID?: string; label?: string }>;
+      };
+      if (roster.userDID !== userDid || !Array.isArray(roster.devices)) {
+        return [];
+      }
+      let selfDeviceDid: string | null = null;
+      const seedB64 = localStorage.getItem("hvs.deviceKeySeed");
+      if (seedB64) {
+        selfDeviceDid = (await identityFromSeed(seedFromBase64(seedB64))).did;
+      }
+      return roster.devices
+        .filter(
+          (d): d is { deviceDID: string; label?: string } =>
+            typeof d.deviceDID === "string" && d.deviceDID !== selfDeviceDid,
+        )
+        .map((d) => ({
+          id: d.deviceDID,
+          userId: userDid,
+          label: d.label ?? "",
+          createdAt: "",
+          fromRoster: true,
+        }));
+    } catch {
+      return [];
+    }
   }
 
   async renameDevice(deviceId: string, label: string): Promise<void> {

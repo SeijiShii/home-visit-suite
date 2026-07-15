@@ -4593,3 +4593,18 @@ section {
   background: rgba(15, 23, 42, 0.4);
   z-index: 10000;
 }
+
+/* QR 生成失敗（容量超過等）のフォールバック表示。 */
+.qr-canvas-hidden {
+  display: none;
+}
+
+.qr-fallback {
+  margin: 8px 0;
+  padding: 12px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #475569;
+  font-size: 13px;
+}

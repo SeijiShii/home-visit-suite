@@ -46,7 +46,11 @@ import {
   LocalStorageSharedStorage,
 } from "../lib/linkself/shared-store";
 import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
-import { loadOrCreateRoster } from "../lib/linkself/device-roster";
+import {
+  loadOrCreateRoster,
+  persistRoster,
+} from "../lib/linkself/device-roster";
+import { didToPeerId } from "@linkself/core";
 import {
   GroupNetworkService,
   localStorageNetworkIdStore,
@@ -221,6 +225,22 @@ export async function createLinkSelfServices(
       );
       // 自端末を登録した署名済みロスター（兄弟端末は接続時のロスター交換で収束）。
       const roster = await loadOrCreateRoster(userIdentity, deviceIdentity.did);
+      // 兄弟端末（ロスター掲載の他デバイス）へのダイヤル先。リレーが固定のため
+      // presence を待たず circuit アドレスを合成できる（peerId ≡ device DID。
+      // docs/wants/01「自己端末間のローカルデータ同期」）。
+      const siblingPeers: KnownPeer[] = roster.devices
+        .filter((d) => d.deviceDID !== deviceIdentity.did)
+        .flatMap((d) => {
+          try {
+            const peerId = didToPeerId(d.deviceDID).toString();
+            const addrs = (opts.relays ?? []).flatMap((r) =>
+              r.addrs.map((a) => `${a}/p2p-circuit/p2p/${peerId}`),
+            );
+            return addrs.length > 0 ? [{ did: d.deviceDID, addrs }] : [];
+          } catch {
+            return [];
+          }
+        });
       // onAsyncJoinDecision / onMemberJoined はファサード・リポジトリ構築前に
       // client へ渡す必要があるため可変参照で後結びする。
       let gn: GroupNetworkService | undefined;
@@ -231,7 +251,13 @@ export async function createLinkSelfServices(
         roster,
         // presence 未実装のため、参加時に保存した既知メンバー（管理者）へも
         // FastStart で毎起動ダイヤルする（ハブ型トポロジで catch-up を成立させる）。
-        knownPeers: [...(opts.relays ?? []), ...loadKnownMembers()],
+        knownPeers: [
+          ...(opts.relays ?? []),
+          ...loadKnownMembers(),
+          ...siblingPeers,
+        ],
+        // announce 統合で自ロスターが育ったら永続する（次回起動のダイヤル先に反映）。
+        onRosterUpdated: (updated) => persistRoster(updated),
         sqlDatabase: groupSqlDb,
         roles: HVS_ROLES,
         allowLocalDial: opts.allowLocalDial,

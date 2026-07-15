@@ -72,6 +72,14 @@ export async function loadOrCreateRoster(
   return fresh;
 }
 
+/**
+ * 署名済みロスターを永続する。クライアントの onRosterUpdated（接続時の
+ * announce 統合で自アカウントのロスターが更新されたとき）から呼ぶ。
+ */
+export function persistRoster(roster: SignedRoster): void {
+  persist(roster);
+}
+
 /** ロスターに端末を追加（またはラベル更新）し、再署名・永続して返す（ペアリング時等）。 */
 export async function addDeviceToRoster(
   userIdentity: Identity,

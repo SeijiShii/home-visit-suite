@@ -14,4 +14,10 @@ export interface Device {
   label: string;
   /** 登録日時（ISO 8601）。 */
   createdAt: string;
+  /**
+   * デバイスロスター由来の兄弟端末（この端末の登録簿ではなくロスターから
+   * 表示している行）。改名・削除は不可（ロスター失効は将来対応）。
+   * docs/wants/01「デバイス一覧への反映」。
+   */
+  fromRoster?: boolean;
 }

@@ -41,6 +41,8 @@ export interface CreateLinkSelfClientOptions {
    * のみを対象・受理する（ロスター＝信頼の起点）。
    */
   roster?: SignedRoster;
+  /** 自アカウントのロスターが announce 統合で更新されたときの永続フック。 */
+  onRosterUpdated?: (roster: SignedRoster) => void;
   /** FastStart 用の既知ピア（リレー/ブートストラップ・ペア済み端末）。 */
   knownPeers?: KnownPeer[];
   /**
@@ -145,6 +147,7 @@ export async function createLinkSelfClient(
     identity: opts.identity,
     userIdentity: opts.userIdentity,
     roster: opts.roster,
+    onRosterUpdated: opts.onRosterUpdated,
     knownPeers: opts.knownPeers,
     sqlDatabase: opts.sqlDatabase,
     roles: opts.roles,

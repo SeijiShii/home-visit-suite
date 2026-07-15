@@ -12,6 +12,20 @@ export interface PairingToken {
   expiresAt: number;
 }
 
+/** payload に同梱する所属グループ 1 件分（docs/wants/01「ペアリング payload の拡張」）。 */
+export interface PairingGroup {
+  /** LinkSelf ネットワーク ID。 */
+  networkId: string;
+  /** 表示用グループ名（無ければ null）。 */
+  groupName: string | null;
+  /**
+   * LinkSelf ネットワーク実体（メンバー・ロール表）のスナップショット。
+   * 同一アカウントの端末間には membership 配信が届かないため、新端末は
+   * これを種にして catch-up のメンバーシップ判定材料を得る。
+   */
+  network?: unknown;
+}
+
 /** QR に載せる完全ペイロード。新端末が同一 identity を復元するのに必要な素材一式。 */
 export interface PairingPayload {
   v: 1;
@@ -25,6 +39,12 @@ export interface PairingPayload {
   role: string;
   /** 参照/表示用 DID。 */
   did: string;
+  /** 発行側端末のデバイス DID（2026-07-15 拡張。旧 payload には無い）。 */
+  deviceDid?: string;
+  /** 発行側の署名済みデバイスロスター（marshalRoster の JSON 文字列）。 */
+  rosterJson?: string;
+  /** 発行側が所属するグループ一覧。新端末はここからグループの器を作る。 */
+  groups?: PairingGroup[];
 }
 
 export class PairingError extends Error {
@@ -123,13 +143,29 @@ export function validatePairing(payload: PairingPayload, now: number): void {
 function isPairingPayload(v: unknown): v is PairingPayload {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Record<string, unknown>;
-  return (
+  const baseOk =
     p.v === 1 &&
     typeof p.secret === "string" &&
     typeof p.expiresAt === "number" &&
     typeof p.seedB64 === "string" &&
     typeof p.name === "string" &&
     typeof p.role === "string" &&
-    typeof p.did === "string"
-  );
+    typeof p.did === "string";
+  if (!baseOk) return false;
+  // 2026-07-15 拡張フィールド（旧 payload には無いので省略可）。
+  if (p.deviceDid != null && typeof p.deviceDid !== "string") return false;
+  if (p.rosterJson != null && typeof p.rosterJson !== "string") return false;
+  if (p.groups != null) {
+    if (!Array.isArray(p.groups)) return false;
+    for (const g of p.groups) {
+      if (
+        typeof g !== "object" ||
+        g === null ||
+        typeof (g as Record<string, unknown>).networkId !== "string"
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
 }

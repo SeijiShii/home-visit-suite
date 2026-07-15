@@ -540,6 +540,8 @@ const en: Translations = {
     section: "Devices",
     description:
       "Add another device (such as a phone) to this ID. Added devices run under the same ID",
+    qrTooLarge:
+      "The pairing data no longer fits in a QR code. Copy the URL below and send it to the new device instead",
     addDevice: "Add a device to this ID",
     dialogTitle: "Add another device",
     dialogHint:

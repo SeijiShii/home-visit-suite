@@ -503,6 +503,7 @@ export interface Translations {
   devicePairing: {
     section: string;
     description: string;
+    qrTooLarge: string;
     addDevice: string;
     dialogTitle: string;
     dialogHint: string;

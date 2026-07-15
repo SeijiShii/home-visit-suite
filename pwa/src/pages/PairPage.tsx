@@ -17,6 +17,10 @@ import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import { setGroupName } from "../lib/group-name";
 import { purgeAllGroupSlots } from "../lib/group-slots";
+import {
+  applyPairingExtras,
+  applyPairingExtrasIfMissing,
+} from "../lib/pairing-extras";
 import { clearGroupNetworkLocalState } from "../lib/linkself/group-network";
 import {
   decodePairingPayload,
@@ -79,9 +83,16 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
     }
     if (hasIdentity) {
       if (payload.did === realDID) {
-        // 冪等: 同一 ID の登録済み端末は追加登録せず通常起動する。
+        // 冪等: 同一 ID の登録済み端末は追加登録しない。ただし v2 拡張の器
+        // （グループ/ロスター）が欠けていれば取り込む——旧版でペアリング済みの
+        // 端末は QR 再スキャンが同期収束の入口になる（learnings L-002）。
+        const applied = applyPairingExtrasIfMissing(payload);
         cleanUp();
-        onConsumed();
+        if (applied) {
+          reload();
+        } else {
+          onConsumed();
+        }
       } else {
         // 別 DID: 無条件スルーせず、切り替えるかをユーザーに確認する。
         setPhase("conflict");
@@ -95,6 +106,8 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
         // ID 無し端末に残ったグループ状態は前の identity の残骸なので破棄する。
         clearGroupNetworkLocalState();
         purgeAllGroupSlots();
+        // 発行側の所属グループ・ロスターを引き継ぐ（再読み込み後に catch-up）。
+        applyPairingExtras(payload);
         cleanUp();
         reload();
       } catch (e) {
@@ -122,6 +135,8 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
       clearGroupNetworkLocalState();
       purgeAllGroupSlots();
       setGroupName("");
+      // 発行側の所属グループ・ロスターを引き継ぐ（再読み込み後に catch-up）。
+      if (payload) applyPairingExtras(payload);
       cleanUp();
       reload();
     } catch (e) {

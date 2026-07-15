@@ -546,6 +546,8 @@ const ja: Translations = {
     section: "デバイス",
     description:
       "この ID にスマホなど別の端末を追加します。追加した端末は同じ ID で動作します",
+    qrTooLarge:
+      "QR コードに収まらないサイズになりました。下の URL をコピーして新しい端末に送ってください",
     addDevice: "この ID に端末を追加",
     dialogTitle: "別端末を追加",
     dialogHint:

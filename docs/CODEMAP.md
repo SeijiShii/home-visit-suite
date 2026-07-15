@@ -31,7 +31,7 @@
 - `components/AppBrand.tsx` — ロゴ+アプリ名の共通ブランド表示（初回系画面: オンボーディング/参加/ペアリングのカード先頭）(→04,10)
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
 - `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
-- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧・ラベル・自分以外の削除)/AIプロバイダ・キー=編集メンバー以上のみ表示/地図メンテナンス）(→01,04,10)
+- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末(操作不可)・ラベル・自分以外の削除)/AIプロバイダ・キー=編集メンバー以上のみ表示/地図メンテナンス）(→01,04,10)
 - `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ（キー注入可。本番はグループ名前空間 `hvs.g.<slotId>:map.network`）(→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
@@ -110,10 +110,11 @@
 
 ## 04 メンバー管理と権限（ロール/招待/承認）
 - `services/auth-service.ts` — ロール権限判定・メンバー編集（updateMember=表示名/ロール直接変更。自己ロール変更不可・同名は already_exists・最後の管理者降格ガード）・メンバー削除（removeMember=自己削除不可）。任命招待フローは 2026-07-14 廃止
-- `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング・デバイス登録簿・setName=表示名変更、ローカルメンバー表で同名は already_exists。loadIdentity はリポジトリ側レコードを正とし同期済みの名前/ロールを stomp しない）と DevIdentityService（dev 切替）。`loadStoredSeed()` は保存済みシードを返し LinkSelfClient のネットワーク配線に供給(→01,11)
+- `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング=payload v2 拡張同梱・デバイス登録簿+ロスター由来兄弟端末の一覧表示・setName=表示名変更、ローカルメンバー表で同名は already_exists。loadIdentity はリポジトリ側レコードを正とし同期済みの名前/ロールを stomp しない）と DevIdentityService（dev 切替）。`loadStoredSeed()` は保存済みシードを返し LinkSelfClient のネットワーク配線に供給(→01,11)
 - `contexts/IdentityContext.tsx` — actorID/ロール/表示名（currentName・renameSelf）/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice=自分以外）。`hvs:shared-applied`(users) で自分のロール・表示名を同期追従 (→10)
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
-- `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）
+- `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）。payload v2 拡張=発行側デバイス DID・署名済みロスター JSON・所属グループ一覧（networkId/グループ名/ネットワーク実体）(→01)
+- `lib/pairing-extras.ts` — ペアリング payload 拡張の収集（発行側: deviceKeySeed から DID 導出・ロスター/ネットワーク実体の同梱）と適用（受信側: ロスター保存・グループスロット作成・実体投入・先頭アクティブ化）。applyPairingExtrasIfMissing=同一 DID 再スキャン時に欠けた器のみ取り込み（旧版ペア済み端末の収束入口）。main バンドルのため @linkself/core 非依存で対応キーを直接読む (→01)
 - `lib/linkself/group-invite.ts` — グループ招待（別 DID 参加）の発行/解析ラッパ。@linkself/core の invitation を束ね、3 日期限の `#/join?i=...` URL 生成（issueGroupInvite=シード / buildGroupInviteUrl=Identity。表示用グループ名 `&g=` 同梱）と検証付き解析（parseGroupInvite / extractGroupNameParam）。デバイスペアリングと異なり鍵は運ばない (→11)
 - `lib/group-name.ts` — グループ名（アプリレベルデータ・LinkSelf に名前概念なし）のローカル永続。アクティブなグループスロットに保存（スロット未作成時は旧 `hvs.groupName` フォールバック）。創設時設定・管理者変更・参加時保存の共有ヘルパ (→01,04)
 - `lib/group-slots.ts` — グループスロット＝グループ毎のローカル DB 名前空間（`hvs.groups`/`hvs.activeGroup`・キー `hvs.g.<slotId>.*`・repo プレフィクス `hvs.g.<slotId>:*`・グループ DB ファイル名導出）。旧単一グループデータの一度きり移行（migrateLegacyGroupData）・スロット破棄（purgeGroupSlot=脱退 / purgeAllGroupSlots=別 DID 紐づけ直し）(→01,04)
@@ -125,12 +126,12 @@
 - `data/linkself/linkself-user-repository.ts` — UserRepository の MyDB(SQL) 実装（users/member_tags。OPFS 永続 + ScopeNetwork でメンバー間同期。invitations は廃止フローのため InMemory 委譲。USER_SYNC_TABLES）(→01,04)
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label、暫定 localStorage・M5 で同期リポジトリへ）
 - `pages/OnboardingPage.tsx` — 初回オンボーディング（ID 作成=創設グループ名の設定込み / 既存端末から URL・コード引き継ぎ。AppBrand 表示）(→10)
-- `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。DID 照合で分岐: 未登録は登録＋再読込で LinkSelf 再配線・同一 DID は冪等スルー・別 DID は確認のうえ切替=旧グループ状態/旧自己レコード破棄・失敗時は QR 再発行案内でオンボーディングへ誘導しない。フラグメント除去）(→01,10)
+- `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。DID 照合で分岐: 未登録は登録＋再読込で LinkSelf 再配線・同一 DID は冪等スルー・別 DID は確認のうえ切替=旧グループ状態/旧自己レコード破棄・失敗時は QR 再発行案内でオンボーディングへ誘導しない。成立時は payload 拡張を適用=グループの器とロスター引き継ぎ。フラグメント除去）(→01,10)
 - `pages/JoinPage.tsx` — グループ招待取り込み（`#/join?i=…`。別 DID が招待を受けて参加。AppBrand+「○○グループに招待されています」（`&g=`）+招待ロール表示。ID 未作成なら作成へ誘導・参加は GroupNetwork.join。管理者不達時は joinAsync で非同期参加へフォールバックし成立待ち表示、受理結果イベントで完了/失効へ遷移。成立/預け時にグループ名をローカル保存）(→10,11)
 - `components/GroupInviteSection.tsx` — グループ招待の発行 UI（管理者専用・admin 以外は非表示。参加ロール選択=既定活動メンバー・3 日期限の URL/QR 発行・コピー・グループ名同梱。メンバー管理画面 `/users` に配置）(→11)
 - `components/GroupNameSection.tsx` — グループ名の表示・変更 UI（管理者専用。`/users` に配置。見出し横に現在値プレビュー・未保存/保存済みの状態表示付きで、招待 URL に同梱される表示名を編集）
 - `contexts/GroupNetworkContext.tsx` — グループ招待/参加ファサード（GroupNetworkService）の DI。ネットワーク未配線時は null (→01,11)
-- `components/QrCode.tsx` — テキスト（ペアリング URL 等）を QR canvas 描画
+- `components/QrCode.tsx` — テキスト（ペアリング URL 等）を QR canvas 描画（誤り訂正 L=容量優先・生成失敗時は URL コピーへ誘導するフォールバック表示）
 - `pages/UsersPage.tsx` — メンバー一覧（編集=表示名/ロール直接変更・削除=LinkSelf グループからの削除、自分の行はロール変更/削除不可）とタグ CRUD・検索/フィルタ画面。`hvs:shared-applied` で同期受信時に自動再読込 (→10)
 - `domain/models/user.ts` — メンバー/ロール(admin/editor/member)権限判定・メンバータグ
 - `domain/models/invitation.ts` — グループ参加・ロール任命の招待モデル
@@ -183,10 +184,10 @@
 - 各 `*-binding-adapter.ts`（01/02/03/08節）— ドメイン↔BindingAPI 境界。LinkSelf 実装差し替えの接続点。
 - `lib/linkself/client-factory.ts` — ブラウザ用 LinkSelf クライアント（@linkself/core）の組み立て。WebSocket + Circuit Relay v2（`circuitRelayTransport`）/Noise/yamux + identify サービスで libp2p を構成し `createLinkSelfClient()` が起動済み `LinkSelfSession`（client + libp2p + graceful stop）を返す。circuit-relay により着信不可のブラウザ同士がリレー経由（`/p2p-circuit`）で相互到達できる。`transportPrivateKey`（省略時 DID 鍵）で libp2p host 鍵を DID 鍵から分離＝同一 DID 多端末が別 peerId を持ち相互 devicesync 可能に。`sqlDatabase`（OPFS SqliteWasmDatabase）を渡すと `client.myDB` の SQL/KV が使える。`mailboxes`/`onAsyncJoinDecision` で非同期参加（メールボックス）を配線。M5 統合の実利用エントリ
 - `lib/linkself/device-key.ts` — この端末固有の libp2p transport 鍵（=device 鍵）を生成・永続（32byte シードを localStorage `hvs.deviceKeySeed` に保管、決定的復元で peerId 固定）。`loadOrCreateDeviceTransportKey()`。ユーザー鍵（hvs.identity）とは独立。2層 identity の device DID を供給
-- `lib/linkself/device-roster.ts` — デバイスロスターのローカル永続・自端末登録（`loadOrCreateRoster()`/`addDeviceToRoster()`）。ユーザー鍵署名の `userDID→[deviceDID]` を localStorage `hvs.deviceRoster` に marshal 保管。自端末を必ず登録し、別ユーザー/破損時は作り直す。兄弟端末の収束（相手 device DID 取り込み）は接続時のロスター交換＝発見フェーズ（後続）。link-self `roster.ts` と対
+- `lib/linkself/device-roster.ts` — デバイスロスターのローカル永続・自端末登録（`loadOrCreateRoster()`/`addDeviceToRoster()`/`persistRoster()`）。ユーザー鍵署名の `userDID→[deviceDID]` を localStorage `hvs.deviceRoster` に marshal 保管。自端末を必ず登録し、別ユーザー/破損時は作り直す。兄弟端末の収束は接続時のロスター announce 統合（link-self `mergeSiblingRoster`。onRosterUpdated で永続）とペアリング payload 同梱で成立。link-self `roster.ts` と対
 - `lib/linkself/identity-bridge.ts` — アプリの identity（32byte Ed25519 シード, `identity-crypto.ts`）から @linkself/core の `Identity` を導出（`linkselfIdentityFromSeed`）。同一シード→同一 did:key で既存ユーザーの DID を保ったまま LinkSelf 統合へ移行（04節 identity-service と対）
 - `data/linkself/linkself-personal-repository.ts` — PersonalRepository の LinkSelf(MyDB SQL) 実装。アプリ設定(`my_settings`)・非表示tip(`hidden_tips`)を MyDB の SQL テーブル（ブラウザは OPFS SAHPool VFS の SQLite=リロード永続）に保存。書き込みは wireSqlSync が devicesync へミラー（ScopeDevice=将来の端末間同期に接続）。ノート/タグは当面 InMemory 委譲。※KV 面は MemDeviceStorage=インメモリで永続しないため設定は SQL 面に載せる（ScopeDevice フェーズ Slice-1）
-- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定 + **users/member_tags**（LinkSelfUserRepository。ScopeNetwork 配線 = networkId 確定時に setSyncScope、includeExisting は初回のみ（スロット名前空間の scopedTables）、受信適用と参加受理記録は `hvs:shared-applied` イベント発火＝テーブル単位 100ms 合流（開いている /users が自動更新・バースト時の再読込連発を防止）、旧 localStorage データの一度きり移行、userRepo 依存の auth/checkout/visit サービス再構築、既知メンバーへの FastStart 再ダイヤル）を OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。**DB はグループ毎に分離**（個人設定=hvs-personal.db / グループ系=hvs-group-<slotId>.db。networkId・scopedTables・sharedRecords・membershipEpochs もスロット名前空間キー。既所属と異なる networkId の参加は新スロットを作って切替＝上書きしない追加参加ガード。docs/wants/01「グループ毎のローカル DB 分離」）。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。ネットワーク時はメールボックス（=リレー同一ノード）を配線し、成立待ち復元 + 起動時/60 秒間隔の checkMailbox ポーリング（管理者の無人受理・被招待者の結果受領）。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
+- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定 + **users/member_tags**（LinkSelfUserRepository。ScopeNetwork 配線 = networkId 確定時に setSyncScope、includeExisting は初回のみ（スロット名前空間の scopedTables）、受信適用と参加受理記録は `hvs:shared-applied` イベント発火＝テーブル単位 100ms 合流（開いている /users が自動更新・バースト時の再読込連発を防止）、旧 localStorage データの一度きり移行、userRepo 依存の auth/checkout/visit サービス再構築、既知メンバー + ロスター掲載兄弟端末（リレー circuit アドレス合成）への FastStart 再ダイヤル・onRosterUpdated でロスター永続）を OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。**DB はグループ毎に分離**（個人設定=hvs-personal.db / グループ系=hvs-group-<slotId>.db。networkId・scopedTables・sharedRecords・membershipEpochs もスロット名前空間キー。既所属と異なる networkId の参加は新スロットを作って切替＝上書きしない追加参加ガード。docs/wants/01「グループ毎のローカル DB 分離」）。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。ネットワーク時はメールボックス（=リレー同一ノード）を配線し、成立待ち復元 + 起動時/60 秒間隔の checkMailbox ポーリング（管理者の無人受理・被招待者の結果受領）。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
 - `lib/linkself/linkself-wiring.test.ts` — @linkself/core が alias 経由で pwa のツールチェーン下に解決・トランスパイルできる配線確認（CP-A）
 - `lib/linkself/linkself-interop.test.ts` — client-factory から Go ノード（link-self/core `poc-wsnode`）へ実 WebSocket 接続・LinkSelf auth・echo 往復の自動 interop 検証（CP-B、`go` 無ければ skip）
 - 依存リンク: `@linkself/core` は姉妹リポジトリ `../../link-self/ts/linkself/src` の TS ソースを Vite `resolve.alias` + tsconfig `paths` で直接参照（build 不要）。libp2p 実行時依存は pwa 側に固定バージョンで導入し `resolve.dedupe` で単一化（`pwa/vite.config.ts` / `pwa/tsconfig.json`）

@@ -487,16 +487,19 @@ export function SettingsPage() {
                   )}
                 </span>
                 <span className="device-list-actions">
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() =>
-                      setRenameTarget({ id: d.id, label: d.label })
-                    }
-                  >
-                    {t.devicePairing.rename}
-                  </button>
-                  {d.id !== currentDeviceId && (
+                  {/* ロスター由来の兄弟端末は改名・削除不可（docs/wants/01）。 */}
+                  {!d.fromRoster && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() =>
+                        setRenameTarget({ id: d.id, label: d.label })
+                      }
+                    >
+                      {t.devicePairing.rename}
+                    </button>
+                  )}
+                  {!d.fromRoster && d.id !== currentDeviceId && (
                     <button
                       type="button"
                       className="btn btn-sm btn-danger"
