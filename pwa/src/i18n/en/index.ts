@@ -463,6 +463,8 @@ const en: Translations = {
     submitLink: "Import",
     back: "Back",
     invalidCode: "The URL/code is invalid or expired",
+    deviceRemovedNotice:
+      "This device was reset because its registration was removed from another device",
   },
   system: {
     persistenceDegraded:
@@ -567,9 +569,11 @@ const en: Translations = {
     renameTitle: "Rename device",
     labelLabel: "Device name",
     remove: "Remove",
-    confirmRemove: "Remove this device?",
+    confirmRemove:
+      "Remove this device? The removed device will be reset (on its next connection if offline)",
+    removeError: "Removal failed. Please try again later",
     removeNote:
-      "A removed device stops syncing. You can re-add it by sharing a pairing URL again",
+      "A removed device stops syncing and its local data is reset. You can re-add it as a new device by sharing a pairing URL again",
     save: "Save",
     cancel: "Cancel",
   },

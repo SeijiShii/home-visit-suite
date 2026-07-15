@@ -498,11 +498,24 @@ export class LocalIdentityService implements IdentityService {
 
   async removeDevice(deviceId: string): Promise<void> {
     // 当該デバイス自身は削除できない（削除は自分以外の端末のみ）。
-    // 削除＝同一ユーザーのデバイス集合（同期ロスター）から外す＝以後同期しない。
-    // 鍵は端末に残るため、再度ペアリング URL を渡せば再登録（再同期）できる。
     if (deviceId === this.ensureDeviceId()) {
       throw new Error("cannot remove the current device");
     }
+    // ロスター行（id はデバイス DID）＝失効＋対象端末の全初期化
+    // （docs/wants/01「削除の意味」）。ディレクトリ（ネットワーク配線）必須。
+    // UI はスタンドアロン時にボタンを出さないが、二重の防御として拒否する。
+    if (deviceId.startsWith("did:")) {
+      if (deviceId === (await this.selfDeviceDid())) {
+        throw new Error("cannot remove the current device");
+      }
+      const dir = getDeviceDirectory();
+      if (dir == null) {
+        throw new Error("device removal requires network wiring");
+      }
+      await dir.removeDevice(deviceId);
+      return;
+    }
+    // ローカル登録簿の行（旧形式・同期前の残骸）は登録簿から外すのみ。
     this.writeDevices(this.readDevices().filter((d) => d.id !== deviceId));
   }
 }

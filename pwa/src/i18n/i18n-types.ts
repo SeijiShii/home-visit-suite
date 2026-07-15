@@ -439,6 +439,7 @@ export interface Translations {
     submitLink: string;
     back: string;
     invalidCode: string;
+    deviceRemovedNotice: string;
   };
   system: {
     persistenceDegraded: string;
@@ -525,6 +526,7 @@ export interface Translations {
     labelLabel: string;
     remove: string;
     confirmRemove: string;
+    removeError: string;
     removeNote: string;
     save: string;
     cancel: string;

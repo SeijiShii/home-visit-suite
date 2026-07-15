@@ -467,6 +467,8 @@ const ja: Translations = {
     submitLink: "取り込む",
     back: "戻る",
     invalidCode: "URL/コードが正しくないか期限切れです",
+    deviceRemovedNotice:
+      "別の端末からこの端末の登録が削除されたため、この端末は初期化されました",
   },
   system: {
     persistenceDegraded:
@@ -572,9 +574,11 @@ const ja: Translations = {
     renameTitle: "デバイス名を変更",
     labelLabel: "デバイス名",
     remove: "削除",
-    confirmRemove: "このデバイスを削除しますか？",
+    confirmRemove:
+      "このデバイスを削除しますか？削除された端末は初期化されます（オフラインの場合は次回接続時）",
+    removeError: "削除に失敗しました。時間をおいて再度お試しください",
     removeNote:
-      "削除した端末は同期対象から外れます。再度ペアリング URL を渡せば再登録できます",
+      "削除した端末は同期対象から外れ、端末側のデータは初期化されます。再度ペアリング URL を渡せば新しい端末として再登録できます",
     save: "保存",
     cancel: "キャンセル",
   },

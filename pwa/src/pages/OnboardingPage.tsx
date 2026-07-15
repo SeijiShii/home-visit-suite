@@ -5,19 +5,40 @@
 // 仕様: docs/wants/01_共通基盤.md「自分の ID の作成と保管」「端末ペアリング」
 //       docs/wants/04_メンバー管理と権限.md「初回オンボーディングと創設メンバー」「グループ名」
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppBrand } from "../components/AppBrand";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
+import { DEVICE_REMOVED_NOTICE_KEY } from "../lib/full-reset";
 import { setGroupName } from "../lib/group-name";
 
 type Mode = "choose" | "create" | "link";
+
+/** デバイス失効による全初期化（lib/full-reset.ts）の直後か。 */
+function hasDeviceRemovedNotice(): boolean {
+  try {
+    return localStorage.getItem(DEVICE_REMOVED_NOTICE_KEY) != null;
+  } catch {
+    return false;
+  }
+}
 
 export function OnboardingPage() {
   const { t } = useI18n();
   const m = t.onboarding;
   const { createIdentity, completePairing } = useIdentity();
 
+  // initializer は読むだけにし、フラグの消費（削除）は effect で行う
+  // （StrictMode は initializer を二重呼び出しするため、消費を伴うと
+  // 2 回目が false になり通知が一度も表示されない）。
+  const [wasRemoved] = useState(hasDeviceRemovedNotice);
+  useEffect(() => {
+    try {
+      localStorage.removeItem(DEVICE_REMOVED_NOTICE_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
   const [mode, setMode] = useState<Mode>("choose");
   const [name, setName] = useState("");
   const [groupName, setGroupNameInput] = useState("");
@@ -69,6 +90,12 @@ export function OnboardingPage() {
         <AppBrand />
         <h1 className="onboarding-title">{m.title}</h1>
         <p className="onboarding-subtitle">{m.subtitle}</p>
+
+        {wasRemoved && (
+          <p className="onboarding-error" role="status">
+            {m.deviceRemovedNotice}
+          </p>
+        )}
 
         {mode === "choose" && (
           <div className="onboarding-options">

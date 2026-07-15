@@ -11,6 +11,12 @@ export interface DeviceDirectory {
    * 接続中の兄弟端末への即時 announce まで行う。
    */
   setLabel(deviceDID: string, label: string): Promise<void>;
+  /**
+   * 該当デバイスをロスターから失効（rev+1 再署名・永続・残る兄弟への
+   * announce）し、除外後ロスターを対象端末宛にも送る（store-and-forward、
+   * best-effort）。対象端末は受理時に全初期化する（docs/wants/01「削除の意味」）。
+   */
+  removeDevice(deviceDID: string): Promise<void>;
 }
 
 let directory: DeviceDirectory | null = null;

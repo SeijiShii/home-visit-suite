@@ -191,7 +191,10 @@ describe("デバイスラベルのロスター同期（docs/wants/01「ラベル
     const user = await svc.createIdentity("木村");
     const myId = await svc.getCurrentDeviceId();
     // ネットワーク配線あり（ロスターへ書ける）状態を模す
-    registerDeviceDirectory({ setLabel: vi.fn().mockResolvedValue(undefined) });
+    registerDeviceDirectory({
+      setLabel: vi.fn().mockResolvedValue(undefined),
+      removeDevice: vi.fn().mockResolvedValue(undefined),
+    });
     // この端末のデバイス鍵と兄弟端末を持つロスターを模す
     const devKey = await generateLocalIdentity();
     localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
@@ -229,7 +232,10 @@ describe("デバイスラベルのロスター同期（docs/wants/01「ラベル
     const devKey = await generateLocalIdentity();
     localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
     const setLabel = vi.fn().mockResolvedValue(undefined);
-    registerDeviceDirectory({ setLabel });
+    registerDeviceDirectory({
+      setLabel,
+      removeDevice: vi.fn().mockResolvedValue(undefined),
+    });
 
     await svc.renameDevice(myId, "  仕事PC ");
 
@@ -245,7 +251,10 @@ describe("デバイスラベルのロスター同期（docs/wants/01「ラベル
     await svc.createIdentity("加藤");
     const sibling = await generateLocalIdentity();
     const setLabel = vi.fn().mockResolvedValue(undefined);
-    registerDeviceDirectory({ setLabel });
+    registerDeviceDirectory({
+      setLabel,
+      removeDevice: vi.fn().mockResolvedValue(undefined),
+    });
 
     await svc.renameDevice(sibling.did, "倉庫タブレット");
 
@@ -262,6 +271,40 @@ describe("デバイスラベルのロスター同期（docs/wants/01「ラベル
     );
   });
 
+  it("ロスター行（兄弟端末 DID）の削除はディレクトリの失効へ委譲する", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("中村");
+    const sibling = await generateLocalIdentity();
+    const removeDevice = vi.fn().mockResolvedValue(undefined);
+    registerDeviceDirectory({
+      setLabel: vi.fn().mockResolvedValue(undefined),
+      removeDevice,
+    });
+
+    await svc.removeDevice(sibling.did);
+
+    expect(removeDevice).toHaveBeenCalledWith(sibling.did);
+  });
+
+  it("ディレクトリ未登録（スタンドアロン）ではロスター行の削除を拒否する", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("井上");
+    const sibling = await generateLocalIdentity();
+    await expect(svc.removeDevice(sibling.did)).rejects.toThrow();
+  });
+
+  it("自デバイス DID の削除は拒否する（ロスター行に自分は出ない前提の二重防御）", async () => {
+    const svc = new LocalIdentityService(new InMemoryUserRepository());
+    await svc.createIdentity("原");
+    const devKey = await generateLocalIdentity();
+    localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
+    registerDeviceDirectory({
+      setLabel: vi.fn().mockResolvedValue(undefined),
+      removeDevice: vi.fn().mockResolvedValue(undefined),
+    });
+    await expect(svc.removeDevice(devKey.did)).rejects.toThrow();
+  });
+
   it("ディレクトリの失敗はローカル改名を巻き戻さない（次回接続で収束）", async () => {
     const svc = new LocalIdentityService(new InMemoryUserRepository());
     await svc.createIdentity("山口");
@@ -270,6 +313,7 @@ describe("デバイスラベルのロスター同期（docs/wants/01「ラベル
     localStorage.setItem("hvs.deviceKeySeed", seedToBase64(devKey.seed));
     registerDeviceDirectory({
       setLabel: vi.fn().mockRejectedValue(new Error("offline")),
+      removeDevice: vi.fn().mockResolvedValue(undefined),
     });
 
     await expect(svc.renameDevice(myId, "外出用")).resolves.toBeUndefined();

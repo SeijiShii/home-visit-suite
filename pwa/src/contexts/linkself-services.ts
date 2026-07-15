@@ -50,10 +50,16 @@ import {
   consumePendingSiblingDevices,
   loadOrCreateRoster,
   persistRoster,
+  removeDeviceFromRoster,
   setDeviceLabelInRoster,
 } from "../lib/linkself/device-roster";
 import { registerDeviceDirectory } from "../lib/device-directory";
-import { didToPeerId, type SignedRoster } from "@linkself/core";
+import { wipeThisDevice } from "../lib/full-reset";
+import {
+  didToPeerId,
+  rosterHasTombstone,
+  type SignedRoster,
+} from "@linkself/core";
 import {
   GroupNetworkService,
   localStorageNetworkIdStore,
@@ -250,6 +256,12 @@ export async function createLinkSelfServices(
         userIdentity,
         await loadOrCreateRoster(userIdentity, deviceIdentity.did),
       );
+      // 前回セッションで失効（tombstone）を受理したままワイプが完了しなかった
+      // 残骸端末は、起動時に今度こそ全初期化する（docs/wants/01「削除の意味」）。
+      if (rosterHasTombstone(currentRoster, deviceIdentity.did)) {
+        await wipeThisDevice();
+        throw new Error("device revoked — wiping");
+      }
       // 兄弟端末（ロスター掲載の他デバイス）へのダイヤル先。リレーが固定のため
       // presence を待たず circuit アドレスを合成できる（peerId ≡ device DID。
       // docs/wants/01「自己端末間のローカルデータ同期」）。
@@ -272,6 +284,9 @@ export async function createLinkSelfServices(
       // client へ渡す必要があるため可変参照で後結びする。
       let gn: GroupNetworkService | undefined;
       let networkUserRepo: LinkSelfUserRepository | undefined;
+      // ワイプ時の graceful stop（Access Handle 解放）。session 構築後に後結びする。
+      let stopForWipe: (() => Promise<void>) | null = null;
+      let wiping = false;
       const session = await createLinkSelfClient({
         identity: deviceIdentity,
         userIdentity,
@@ -287,6 +302,19 @@ export async function createLinkSelfServices(
         // 反映。persist が UI イベントも発火＝デバイス一覧が再読み込みなしで
         // 追従する。docs/wants/01「ロスター更新の即時 UI 反映」）。
         onRosterUpdated: (updated) => {
+          // 自分の tombstone（明示的な失効記録）を含むロスター＝別端末がこの
+          // 端末を削除した（ユーザー鍵署名は merge で検証済み）。仕様は常に
+          // 全初期化（docs/wants/01「削除の意味」）。単なる「掲載に無い」は
+          // ペアリング直後の未収束（発行側がまだ自分を学んでいない）でも起きる
+          // 正当な過渡状態のため、ワイプの根拠にしない。
+          if (rosterHasTombstone(updated, deviceIdentity.did)) {
+            if (!wiping) {
+              wiping = true;
+              registerDeviceDirectory(null);
+              void wipeThisDevice(stopForWipe ?? undefined);
+            }
+            return; // 失効ロスターは永続しない
+          }
           currentRoster = updated;
           persistRoster(updated);
         },
@@ -404,9 +432,11 @@ export async function createLinkSelfServices(
       // グループ招待/参加ファサード（起動中の実 client で署名・参加できる）。
       gn = new GroupNetworkService(session.client, hookedIdStore);
       groupNetwork = gn;
-      // ラベル変更の窓口（設定画面 → identity-service → ここ）。ロスターを
-      // rev+1 で再署名・永続し、接続中の兄弟端末へ即時 announce する
-      // （docs/wants/01「ラベルの同期」）。
+      // ワイプ（デバイス失効の受理）時の graceful stop を後結びする。
+      stopForWipe = () => session.stop();
+      // ラベル変更・端末削除の窓口（設定画面 → identity-service → ここ）。
+      // ロスターを rev+1 で再署名・永続し、接続中の兄弟端末へ即時 announce する
+      // （docs/wants/01「ラベルの同期」「削除の意味」）。
       registerDeviceDirectory({
         setLabel: async (deviceDID, label) => {
           // 署名の await 中に announce 統合（onRosterUpdated）が currentRoster
@@ -424,6 +454,24 @@ export async function createLinkSelfServices(
             if (currentRoster !== base) continue; // 統合が割り込んだ → リベース
             currentRoster = updated;
             await session.client.updateRoster(updated);
+            return;
+          }
+        },
+        removeDevice: async (deviceDID) => {
+          // 失効ロスター（rev+1）を残る兄弟へ announce し、対象端末宛にも直接
+          // 送る（store-and-forward。オフラインなら次回接続時に受理→全初期化）。
+          for (;;) {
+            const base = currentRoster;
+            const updated = await removeDeviceFromRoster(
+              userIdentity,
+              base,
+              deviceDID,
+            );
+            if (updated === base) return; // 掲載なし → 変更なし
+            if (currentRoster !== base) continue; // 統合が割り込んだ → リベース
+            currentRoster = updated;
+            await session.client.updateRoster(updated);
+            await session.client.sendRosterTo(deviceDID);
             return;
           }
         },

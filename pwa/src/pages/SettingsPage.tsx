@@ -74,6 +74,7 @@ export function SettingsPage() {
   // ロスター行（兄弟端末）の改名可否 = ラベルを書けるディレクトリ（ネットワーク
   // 配線）の有無。bootstrap で登録済みのため描画時点で確定している。
   const rosterEditable = getDeviceDirectory() != null;
+  const [deviceErr, setDeviceErr] = useState<string>("");
 
   const reloadDevices = useCallback(async () => {
     if (!hasIdentity) return;
@@ -253,11 +254,14 @@ export function SettingsPage() {
   const handleDeviceConfirm = async () => {
     if (!deviceConfirm) return;
     try {
+      setDeviceErr("");
       await removeDevice(deviceConfirm.id);
       setDeviceConfirm(null);
       await reloadDevices();
     } catch (e) {
+      // 無言の失敗はユーザーが成功と誤認する（独立レビュー所見）。
       console.error("device action failed", e);
+      setDeviceErr(t.devicePairing.removeError);
       setDeviceConfirm(null);
     }
   };
@@ -502,11 +506,10 @@ export function SettingsPage() {
                   )}
                 </span>
                 <span className="device-list-actions">
-                  {/* ラベルは全行編集可（SoT はロスター）。ただしロスター行は
-                      ディレクトリ（ネットワーク配線）が無いと書けないため、
-                      スタンドアロン時は無言 no-op を避けてボタンを出さない。
-                      削除はロスター失効が未実装のためロスター由来行では不可
-                      （docs/wants/01）。 */}
+                  {/* ラベル・削除とも全行操作可（SoT はロスター、削除＝失効＋
+                      対象端末の全初期化。docs/wants/01「削除の意味」）。ただし
+                      ロスター行はディレクトリ（ネットワーク配線）が無いと書けない
+                      ため、スタンドアロン時は無言 no-op を避けてボタンを出さない。 */}
                   {(!d.fromRoster || rosterEditable) && (
                     <button
                       type="button"
@@ -518,19 +521,25 @@ export function SettingsPage() {
                       {t.devicePairing.rename}
                     </button>
                   )}
-                  {!d.fromRoster && d.id !== currentDeviceId && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-danger"
-                      onClick={() => setDeviceConfirm({ id: d.id })}
-                    >
-                      {t.devicePairing.remove}
-                    </button>
-                  )}
+                  {(!d.fromRoster || rosterEditable) &&
+                    d.id !== currentDeviceId && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => setDeviceConfirm({ id: d.id })}
+                      >
+                        {t.devicePairing.remove}
+                      </button>
+                    )}
                 </span>
               </li>
             ))}
           </ul>
+          {deviceErr && (
+            <p className="settings-msg" role="status">
+              {deviceErr}
+            </p>
+          )}
           <p className="device-pairing-note">
             {t.devicePairing.listPendingNote}
           </p>

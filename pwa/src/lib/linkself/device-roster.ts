@@ -13,9 +13,11 @@ import {
   buildRoster,
   marshalRoster,
   rosterHasDevice,
+  rosterHasTombstone,
   unmarshalRoster,
   verifyRoster,
   withDevice,
+  withoutDevice,
   type Identity,
   type SignedRoster,
 } from "@linkself/core";
@@ -79,13 +81,18 @@ export async function loadOrCreateRoster(
       );
       persist(base);
     }
-    if (rosterHasDevice(base, selfDeviceDID)) return base;
-    const updated = await withDevice(
-      userIdentity,
-      base.devices,
-      { deviceDID: selfDeviceDID, label },
-      base.rev + 1,
-    );
+    // 自端末が失効（tombstone）済みなら自己再登録しない（失効の受理＝全初期化は
+    // 呼び出し側 linkself-services が rosterHasTombstone で行う）。
+    if (
+      rosterHasDevice(base, selfDeviceDID) ||
+      rosterHasTombstone(base, selfDeviceDID)
+    ) {
+      return base;
+    }
+    const updated = await withDevice(userIdentity, base, {
+      deviceDID: selfDeviceDID,
+      label,
+    });
     persist(updated);
     return updated;
   }
@@ -135,14 +142,13 @@ export async function consumePendingSiblingDevices(
       entry?.u === userIdentity.did &&
       typeof entry.d === "string" &&
       entry.d &&
-      !rosterHasDevice(current, entry.d)
+      !rosterHasDevice(current, entry.d) &&
+      !rosterHasTombstone(current, entry.d)
     ) {
-      current = await withDevice(
-        userIdentity,
-        current.devices,
-        { deviceDID: entry.d, label: "" },
-        current.rev + 1,
-      );
+      current = await withDevice(userIdentity, current, {
+        deviceDID: entry.d,
+        label: "",
+      });
     }
   }
   if (current !== roster) persist(current);
@@ -161,12 +167,27 @@ export async function addDeviceToRoster(
   deviceDID: string,
   label = "",
 ): Promise<SignedRoster> {
-  const updated = await withDevice(
-    userIdentity,
-    current.devices,
-    { deviceDID, label },
-    current.rev + 1,
-  );
+  const updated = await withDevice(userIdentity, current, {
+    deviceDID,
+    label,
+  });
+  persist(updated);
+  return updated;
+}
+
+/**
+ * ロスターから該当デバイスを除外（失効＝tombstone 追加）し、rev+1 で再署名・
+ * 永続して返す。merge は tombstone を union し再追加を拒むため失効は恒久で、
+ * 対象端末は「自分の tombstone を含む自ユーザー鍵署名ロスター」の受理で
+ * 全初期化する（docs/wants/01「削除の意味」）。掲載が無ければ何もしない。
+ */
+export async function removeDeviceFromRoster(
+  userIdentity: Identity,
+  current: SignedRoster,
+  deviceDID: string,
+): Promise<SignedRoster> {
+  if (!rosterHasDevice(current, deviceDID)) return current;
+  const updated = await withoutDevice(userIdentity, current, deviceDID);
   persist(updated);
   return updated;
 }
@@ -184,12 +205,10 @@ export async function setDeviceLabelInRoster(
   label: string,
 ): Promise<SignedRoster> {
   if (!rosterHasDevice(current, deviceDID)) return current;
-  const updated = await withDevice(
-    userIdentity,
-    current.devices,
-    { deviceDID, label },
-    current.rev + 1,
-  );
+  const updated = await withDevice(userIdentity, current, {
+    deviceDID,
+    label,
+  });
   persist(updated);
   return updated;
 }

@@ -7,6 +7,7 @@ import {
   generateIdentity,
   marshalRoster,
   rosterHasDevice,
+  rosterHasTombstone,
   verifyRoster,
 } from "@linkself/core";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -14,6 +15,7 @@ import {
   addDeviceToRoster,
   consumePendingSiblingDevices,
   loadOrCreateRoster,
+  removeDeviceFromRoster,
   setDeviceLabelInRoster,
 } from "./device-roster";
 import { ROSTER_UPDATED_EVENT } from "./shared-events";
@@ -155,6 +157,71 @@ describe("device roster manager", () => {
     expect(r3.devices.find((d) => d.deviceDID === devB.did)?.label).toBe(
       "スマホ",
     );
+  });
+
+  it("removeDeviceFromRoster は対象を除外＋tombstone 追加で rev+1 再署名・永続する（失効）", async () => {
+    const user = await generateIdentity();
+    const devA = await generateIdentity();
+    const devB = await generateIdentity();
+    const r1 = await addDeviceToRoster(
+      user,
+      await loadOrCreateRoster(user, devA.did),
+      devB.did,
+      "Phone",
+    );
+    const r2 = await removeDeviceFromRoster(user, r1, devB.did);
+    expect(r2.rev).toBe(r1.rev + 1);
+    expect(rosterHasDevice(r2, devB.did)).toBe(false);
+    expect(rosterHasTombstone(r2, devB.did)).toBe(true);
+    expect(rosterHasDevice(r2, devA.did)).toBe(true);
+    expect(await verifyRoster(r2)).toBe(true);
+    // 永続済み（リロード後も除外・失効のまま）。
+    const r3 = await loadOrCreateRoster(user, devA.did);
+    expect(rosterHasDevice(r3, devB.did)).toBe(false);
+    expect(rosterHasTombstone(r3, devB.did)).toBe(true);
+  });
+
+  it("loadOrCreateRoster は失効（tombstone）済みの自端末を再登録しない", async () => {
+    const user = await generateIdentity();
+    const devA = await generateIdentity();
+    const devB = await generateIdentity();
+    const r1 = await addDeviceToRoster(
+      user,
+      await loadOrCreateRoster(user, devA.did),
+      devB.did,
+    );
+    await removeDeviceFromRoster(user, r1, devB.did);
+    // 失効された B 自身が（ワイプ未完のまま）起動した状況を模す。
+    const reloaded = await loadOrCreateRoster(user, devB.did);
+    expect(rosterHasDevice(reloaded, devB.did)).toBe(false);
+    expect(rosterHasTombstone(reloaded, devB.did)).toBe(true);
+  });
+
+  it("consumePendingSiblingDevices は失効済み DID の控えを署名しない", async () => {
+    const user = await generateIdentity();
+    const devA = await generateIdentity();
+    const devB = await generateIdentity();
+    const r1 = await addDeviceToRoster(
+      user,
+      await loadOrCreateRoster(user, devA.did),
+      devB.did,
+    );
+    const revoked = await removeDeviceFromRoster(user, r1, devB.did);
+    localStorage.setItem(
+      "hvs.pendingSiblingDevices",
+      JSON.stringify([{ u: user.did, d: devB.did }]),
+    );
+    const updated = await consumePendingSiblingDevices(user, revoked);
+    expect(rosterHasDevice(updated, devB.did)).toBe(false);
+    expect(rosterHasTombstone(updated, devB.did)).toBe(true);
+  });
+
+  it("removeDeviceFromRoster は未掲載デバイスには何もしない", async () => {
+    const user = await generateIdentity();
+    const devA = await generateIdentity();
+    const r1 = await loadOrCreateRoster(user, devA.did);
+    const r2 = await removeDeviceFromRoster(user, r1, "did:key:zUnknown");
+    expect(r2).toBe(r1);
   });
 
   it("setDeviceLabelInRoster は未掲載デバイスには何もしない", async () => {
