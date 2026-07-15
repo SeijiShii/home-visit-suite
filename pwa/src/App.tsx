@@ -75,8 +75,11 @@ export default function App() {
     return (
       <JoinPage
         onConsumed={() => {
+          // 参加成立でアクティブスロット/networkId が変わり得るため、再読み込みで
+          // LinkSelf の配線（同期スコープ・グループ DB）を向け直す。追加参加
+          // （既所属からの別グループ参加）では新スロットへの切替がここで効く。
           window.location.hash = "#/";
-          setHash("#/");
+          window.location.reload();
         }}
       />
     );

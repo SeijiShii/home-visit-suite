@@ -57,6 +57,14 @@ import {
   LocalStorageNetworkStore,
 } from "../lib/linkself/network-store";
 import { linkselfIdentityFromSeed } from "../lib/linkself/identity-bridge";
+import {
+  attachNetworkId,
+  createGroupSlot,
+  ensureActiveSlot,
+  groupDbFilename,
+  nsKey,
+  setActiveGroupSlot,
+} from "../lib/group-slots";
 import { AuthServiceImpl } from "../services/auth-service";
 import { CheckoutServiceImpl } from "../services/checkout-service";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
@@ -122,8 +130,10 @@ export interface LinkSelfServicesBundle {
 }
 
 export interface CreateLinkSelfServicesOptions extends CreateServicesOptions {
-  /** OPFS SQLite ファイル名の上書き（テスト用。省略時は本番既定名）。 */
+  /** 個人設定用 OPFS SQLite ファイル名の上書き（テスト用。省略時は本番既定名）。 */
   personalDbFilename?: string;
+  /** グループ用 OPFS SQLite ファイル名の上書き（テスト用。省略時はアクティブスロット既定名）。 */
+  groupDbFilenameOverride?: string;
   /** 実 identity の 32byte Ed25519 シード。relays と併せて指定でネットワーク配線を有効化。 */
   seed?: Uint8Array;
   /** 既知ピア（リレー/ブートストラップ）。空/未指定ならネットワーク配線しない。 */
@@ -136,11 +146,10 @@ export interface CreateLinkSelfServicesOptions extends CreateServicesOptions {
  * スタンドアロンの OPFS-backed MyDB（KV=devicesync + SQL）を組む。libp2p は起動しない。
  * SQL 書き込みは wireSqlSync 経由で devicesync にミラーされる（本番配線と同じ）。
  * sqlDb は開場済みインスタンスを受け取る（OPFS SAHPool の Access Handle は排他の
- * ため、同一ファイルを二重に open してはならない）。
+ * ため、同一ファイルを二重に open してはならない）。個人設定 DB とグループ DB の
+ * 両方で使う（ファイルは別）。
  */
-async function openStandalonePersonalMyDB(
-  sqlDb: SqliteWasmDatabase,
-): Promise<MyDB> {
+async function openStandaloneMyDB(sqlDb: SqliteWasmDatabase): Promise<MyDB> {
   const engine = new ReplicationEngine({
     storage: new MemDeviceStorage(),
     selfDID: "did:key:zlocal", // スタンドアロンは同期相手なし
@@ -161,25 +170,38 @@ export async function createLinkSelfServices(
   opts: CreateLinkSelfServicesOptions = {},
 ): Promise<LinkSelfServicesBundle> {
   const base = createInMemoryServices(opts);
-  const filename = opts.personalDbFilename ?? PERSONAL_DB_FILENAME;
+  // グループ毎のローカル DB 分離（docs/wants/01）: 個人設定はグループ非依存の
+  // 個人 DB、グループ系（users/member_tags + 共有状態キー）はアクティブスロットの
+  // 名前空間に置く。スロットは bootstrap（main.tsx）の移行後に必ず存在する。
+  const slot = ensureActiveSlot();
+  const personalFilename = opts.personalDbFilename ?? PERSONAL_DB_FILENAME;
+  const groupFilename =
+    opts.groupDbFilenameOverride ?? groupDbFilename(slot.slotId);
   const useNetwork = opts.seed != null && (opts.relays?.length ?? 0) > 0;
 
-  // OPFS SQLite は一度だけ開き、以降の全経路（ネットワーク/スタンドアロン/
-  // 配線失敗フォールバック）で同一インスタンスを共有する。SAHPool の
+  // OPFS SQLite は各ファイル一度だけ開き、以降の全経路（ネットワーク/スタンド
+  // アロン/配線失敗フォールバック）で同一インスタンスを共有する。SAHPool の
   // Access Handle は排他のため、同一ファイルの二重 open は必ず失敗する。
   // 開けない場合（別タブが保持中など。多タブ直列化は未実装 = docs/wants/01）は
   // このタブに限り in-memory で起動し、アプリを起動不能にしない。
-  let sqlDb: SqliteWasmDatabase;
-  try {
-    sqlDb = await SqliteWasmDatabase.open({ filename });
-  } catch (e) {
-    console.warn(
-      "linkself: OPFS DB open failed (another tab holding the Access Handle?). " +
-        "Falling back to in-memory for this tab — settings will not persist here.",
-      e,
-    );
-    sqlDb = await SqliteWasmDatabase.open({ filename: ":memory:" });
-  }
+  const openDb = async (filename: string): Promise<SqliteWasmDatabase> => {
+    try {
+      return await SqliteWasmDatabase.open({ filename });
+    } catch (e) {
+      console.warn(
+        `linkself: OPFS DB open failed for ${filename} (another tab holding ` +
+          "the Access Handle?). Falling back to in-memory for this tab — " +
+          "data will not persist here.",
+        e,
+      );
+      return SqliteWasmDatabase.open({ filename: ":memory:" });
+    }
+  };
+  const personalSqlDb = await openDb(personalFilename);
+  const groupSqlDb = await openDb(groupFilename);
+  // 個人設定はクライアント（グループ DB）と切り離した個人 DB に常駐する。
+  // ScopeDevice の devicesync ミラーは兄弟端末ダイヤル導入時に再配線する。
+  const personalMyDB = await openStandaloneMyDB(personalSqlDb);
 
   let myDB: MyDB;
   let stop = async (): Promise<void> => {};
@@ -210,7 +232,7 @@ export async function createLinkSelfServices(
         // presence 未実装のため、参加時に保存した既知メンバー（管理者）へも
         // FastStart で毎起動ダイヤルする（ハブ型トポロジで catch-up を成立させる）。
         knownPeers: [...(opts.relays ?? []), ...loadKnownMembers()],
-        sqlDatabase: sqlDb,
+        sqlDatabase: groupSqlDb,
         roles: HVS_ROLES,
         allowLocalDial: opts.allowLocalDial,
         // 参加受理（管理者側）でメンバー表へ記録する（displayName はここでしか
@@ -225,8 +247,15 @@ export async function createLinkSelfServices(
         // 再送・membership 巻き戻りが起きる）。
         networkStore: new LocalStorageNetworkStore(),
         consumedNonces: new LocalStorageConsumedNonceStore(),
-        sharedStorage: new LocalStorageSharedStorage(),
-        epochStore: new LocalStorageEpochStore(),
+        // 共有レコード（catch-up 高水位・LWW 材料）と membership epoch は
+        // グループ名前空間に分離する（脱退/紐づけ直しの purge で一緒に消えるように。
+        // docs/wants/01「グループ毎のローカル DB 分離」）。
+        sharedStorage: new LocalStorageSharedStorage(
+          nsKey(slot.slotId, "sharedRecords"),
+        ),
+        epochStore: new LocalStorageEpochStore(
+          nsKey(slot.slotId, "membershipEpochs"),
+        ),
         // 非同期参加: メールボックスは常時稼働ノード＝リレーと同一。
         mailboxes: opts.relays,
         // 受理結果（被招待者側）を pending と突き合わせて確定・UI 通知する。
@@ -246,7 +275,7 @@ export async function createLinkSelfServices(
       // 上書きし得るため）。配線後に catch-up を要求する。
       const client = session.client;
       const wireNetworkScopes = async (networkId: string) => {
-        const flagKey = "hvs.scopedTables";
+        const flagKey = nsKey(slot.slotId, "scopedTables");
         let scoped: string[] = [];
         try {
           scoped = JSON.parse(
@@ -274,11 +303,31 @@ export async function createLinkSelfServices(
       // networkId は (a) 既に永続済み（起動時） (b) 創設/参加で新規確定、の
       // 両方で配線する。(b) は NetworkIdStore.set をフックして拾う。
       // (a) はスキーマ適用・旧データ移行の後に実行する（initialScopeWiring）。
-      const idStore = localStorageNetworkIdStore();
+      const idStore = localStorageNetworkIdStore(
+        nsKey(slot.slotId, "networkId"),
+      );
       const hookedIdStore = {
         get: () => idStore.get(),
         set: (id: string) => {
+          // 追加参加ガード: アクティブスロットが既に別ネットワークに属している
+          // 場合は上書きしない（docs/wants/04「既存所属を上書きしない」）。
+          // 新しいスロットを作って networkId を記録し、次回起動（JoinPage 成立後の
+          // 再読み込み）で新スロットの空 DB に配線・catch-up させる。この セッションの
+          // 配線は旧グループのままにする（旧 DB へ新グループのデータを混ぜない）。
+          const existing = idStore.get();
+          if (existing && existing !== id) {
+            const added = createGroupSlot({ networkId: id });
+            try {
+              localStorage.setItem(nsKey(added.slotId, "networkId"), id);
+            } catch {
+              // ignore
+            }
+            setActiveGroupSlot(added.slotId);
+            return;
+          }
           idStore.set(id);
+          // スロット記録（設定画面のグループ一覧表示用）も追従させる。
+          attachNetworkId(slot.slotId, id);
           void wireNetworkScopes(id).catch((e) =>
             console.warn("linkself: network scope wiring failed", e),
           );
@@ -313,35 +362,43 @@ export async function createLinkSelfServices(
       };
     } catch (e) {
       // ネットワーク配線失敗でアプリを起動不能にしない。ローカル永続へフォールバック。
-      // sqlDb は開場済みのものを再利用する（再 open は Access Handle 排他で失敗する）。
+      // groupSqlDb は開場済みのものを再利用する（再 open は Access Handle 排他で失敗する）。
       console.error(
         "linkself: network wiring failed, falling back to standalone",
         e,
       );
-      myDB = await openStandalonePersonalMyDB(sqlDb);
+      myDB = await openStandaloneMyDB(groupSqlDb);
     }
   } else {
-    myDB = await openStandalonePersonalMyDB(sqlDb);
+    myDB = await openStandaloneMyDB(groupSqlDb);
   }
 
-  const personalRepo = new LinkSelfPersonalRepository(myDB);
+  const personalRepo = new LinkSelfPersonalRepository(personalMyDB);
   // settingsService は personalRepo に依存するため作り直す。
   const settingsService = new SettingsService(
     new PersonalRepositorySettingsAdapter(personalRepo),
   );
 
-  // users/member_tags は MyDB(SQL) リポジトリへ（両モード共通・OPFS 永続。
+  // users/member_tags はグループ MyDB(SQL) リポジトリへ（両モード共通・OPFS 永続。
   // ネットワーク配線時は ScopeNetwork で全メンバーへ伝播する）。
   const userRepo = networkUserRepoOuter ?? new LinkSelfUserRepository(myDB);
   await userRepo.ensureSchema();
-  // 旧 localStorage 実装（InMemory persist）からの一度きり移行。SQL 側が
-  // 空のときだけコピーする（自己ユーザー復元後は常に非空になる）。
+  // 旧実装からの一度きり移行。グループ DB が空のときだけコピーする
+  // （自己ユーザー復元後は常に非空になる）。移行元は新しい順に
+  // (1) 個人 DB（DB 分割前は users も hvs-personal.db に居た）
+  // (2) 旧 localStorage 実装（InMemory persist）。
   try {
     if ((await userRepo.listUsers()).length === 0) {
-      for (const u of await base.userRepo.listUsers()) {
+      const personalDbUsers = new LinkSelfUserRepository(personalMyDB);
+      await personalDbUsers.ensureSchema();
+      const src =
+        (await personalDbUsers.listUsers()).length > 0
+          ? personalDbUsers
+          : base.userRepo;
+      for (const u of await src.listUsers()) {
         await userRepo.saveUser(u);
       }
-      for (const t of await base.userRepo.listTags()) {
+      for (const t of await src.listTags()) {
         await userRepo.saveTag(t);
       }
     }

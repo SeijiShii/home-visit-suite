@@ -24,7 +24,7 @@
 - `services/test-fixture.ts` — サービス層テスト用の共通フィクスチャ
 - `services/settings-service.ts` — ロケール/Tips/AIプロバイダ/モデル/APIキー/取込同意など個人設定と定数 (→03)
 - `services/settings-binding-adapter.ts` — SettingsBindingAPI を PersonalRepository 上に実装する設定永続化アダプタ
-- `contexts/ServicesContext.tsx` — リポジトリ/サービス群をアプリ全体へ配線する DI コンテキスト
+- `contexts/ServicesContext.tsx` — リポジトリ/サービス群をアプリ全体へ配線する DI コンテキスト（persist 時の localStorage プレフィクスは `storagePrefix` で差し替え可＝グループ名前空間）
 - `contexts/I18nContext.tsx` — ロケール選択/翻訳と永続化ストア注入の i18n コンテキスト
 - `contexts/TipsContext.tsx` — 操作ヒント(Tips)の表示キュー制御と非表示状態の永続化 (→10)
 - `components/Layout.tsx` — アプリ共通レイアウトとロール別ナビゲーション・サイドバー下部の自己情報（表示名+ロールバッジ）表示 (→10)
@@ -32,7 +32,7 @@
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
 - `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
 - `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧・ラベル・自分以外の削除)/AIプロバイダ・キー=編集メンバー以上のみ表示/地図メンテナンス）(→01,04,10)
-- `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ (→03)
+- `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ（キー注入可。本番はグループ名前空間 `hvs.g.<slotId>:map.network`）(→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
 - `scripts/deploy-oci.sh` — 本番デプロイ（OCI VM + Caddy, home-visit.givers.work へビルド→rsync）
@@ -115,12 +115,13 @@
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
 - `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）
 - `lib/linkself/group-invite.ts` — グループ招待（別 DID 参加）の発行/解析ラッパ。@linkself/core の invitation を束ね、3 日期限の `#/join?i=...` URL 生成（issueGroupInvite=シード / buildGroupInviteUrl=Identity。表示用グループ名 `&g=` 同梱）と検証付き解析（parseGroupInvite / extractGroupNameParam）。デバイスペアリングと異なり鍵は運ばない (→11)
-- `lib/group-name.ts` — グループ名（アプリレベルデータ・LinkSelf に名前概念なし）の localStorage 永続（`hvs.groupName`）。創設時設定・管理者変更・参加時保存の共有ヘルパ
+- `lib/group-name.ts` — グループ名（アプリレベルデータ・LinkSelf に名前概念なし）のローカル永続。アクティブなグループスロットに保存（スロット未作成時は旧 `hvs.groupName` フォールバック）。創設時設定・管理者変更・参加時保存の共有ヘルパ (→01,04)
+- `lib/group-slots.ts` — グループスロット＝グループ毎のローカル DB 名前空間（`hvs.groups`/`hvs.activeGroup`・キー `hvs.g.<slotId>.*`・repo プレフィクス `hvs.g.<slotId>:*`・グループ DB ファイル名導出）。旧単一グループデータの一度きり移行（migrateLegacyGroupData）・スロット破棄（purgeGroupSlot=脱退 / purgeAllGroupSlots=別 DID 紐づけ直し）(→01,04)
 - `lib/linkself/group-network.ts` — グループ参加のアプリ向けファサード（GroupNetworkService）。起動中 LinkSelfClient を薄くラップし ensureFoundingNetwork（創設ネットワーク作成/永続。実体なし迷子 ID は作り直し回復）・issueInvite（管理者として3日招待発行）・setMemberRole/kickMember（ロール変更/除名の LinkSelf ネットワーク反映 + membership snapshot 配信。実体に無い対象は best-effort で素通り）・join（招待URL受理→requestJoin→networkId永続）・**非同期参加**（joinAsync=メールボックスへ封緘 deposit + pending 永続 `hvs.pendingJoin` / restorePendingJoin=起動時復元・失効判定 / resolveAsyncDecision=受理結果の確定・networkId 永続・`hvs:async-join-decision` イベント通知・持ち越し `hvs.asyncJoinResult` は App が consumeAsyncJoinResult でロール採用）を提供。networkId は localStorage `hvs.networkId`。clearGroupNetworkLocalState（別 DID への紐づけ直し時に networkId/pending/持ち越し結果を破棄。PairPage が使用）。upsertJoinedMember（onMemberJoined→UserRepository 記録。表示名は受理管理者のみ可視・既存メンバーと同名なら「(2)」からの連番付与）(→04,11)
 - `lib/linkself/network-store.ts` — ネットワーク実体（メンバー・ロール表）と使用済み招待ノンスの localStorage 永続ストア（LocalStorageNetworkStore / LocalStorageConsumedNonceStore）。in-memory だとリロードで消え招待が network_not_found 拒否になるのを防ぐ (→01,04)
 - `lib/linkself/shared-store.ts` — groupshare 共有レコード（LocalStorageSharedStorage、catch-up 高水位・LWW 判定材料の保持）と membership epoch（LocalStorageEpochStore、スナップショット巻き戻り防止）の localStorage 永続 (→01)
 - `lib/linkself/shared-events.ts` — ScopeNetwork 受信適用の window イベント定数（`hvs:shared-applied`。UsersPage/IdentityContext が購読。重量級 linkself-services に依存しない軽量モジュール）(→01,04)
-- `lib/linkself/known-members.ts` — 既知メンバー（招待発行者=管理者）到達アドレスの localStorage 永続（`hvs.knownMembers`）。presence 未実装のため次回起動の FastStart で管理者へ再ダイヤルするハブ型トポロジの土台 (→01)
+- `lib/linkself/known-members.ts` — 既知メンバー（招待発行者=管理者）到達アドレスのローカル永続（アクティブスロットの名前空間。未作成時は旧 `hvs.knownMembers`）。presence 未実装のため次回起動の FastStart で管理者へ再ダイヤルするハブ型トポロジの土台 (→01)
 - `data/linkself/linkself-user-repository.ts` — UserRepository の MyDB(SQL) 実装（users/member_tags。OPFS 永続 + ScopeNetwork でメンバー間同期。invitations は廃止フローのため InMemory 委譲。USER_SYNC_TABLES）(→01,04)
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label、暫定 localStorage・M5 で同期リポジトリへ）
 - `pages/OnboardingPage.tsx` — 初回オンボーディング（ID 作成=創設グループ名の設定込み / 既存端末から URL・コード引き継ぎ。AppBrand 表示）(→10)
@@ -185,7 +186,7 @@
 - `lib/linkself/device-roster.ts` — デバイスロスターのローカル永続・自端末登録（`loadOrCreateRoster()`/`addDeviceToRoster()`）。ユーザー鍵署名の `userDID→[deviceDID]` を localStorage `hvs.deviceRoster` に marshal 保管。自端末を必ず登録し、別ユーザー/破損時は作り直す。兄弟端末の収束（相手 device DID 取り込み）は接続時のロスター交換＝発見フェーズ（後続）。link-self `roster.ts` と対
 - `lib/linkself/identity-bridge.ts` — アプリの identity（32byte Ed25519 シード, `identity-crypto.ts`）から @linkself/core の `Identity` を導出（`linkselfIdentityFromSeed`）。同一シード→同一 did:key で既存ユーザーの DID を保ったまま LinkSelf 統合へ移行（04節 identity-service と対）
 - `data/linkself/linkself-personal-repository.ts` — PersonalRepository の LinkSelf(MyDB SQL) 実装。アプリ設定(`my_settings`)・非表示tip(`hidden_tips`)を MyDB の SQL テーブル（ブラウザは OPFS SAHPool VFS の SQLite=リロード永続）に保存。書き込みは wireSqlSync が devicesync へミラー（ScopeDevice=将来の端末間同期に接続）。ノート/タグは当面 InMemory 委譲。※KV 面は MemDeviceStorage=インメモリで永続しないため設定は SQL 面に載せる（ScopeDevice フェーズ Slice-1）
-- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定 + **users/member_tags**（LinkSelfUserRepository。ScopeNetwork 配線 = networkId 確定時に setSyncScope、includeExisting は初回のみ `hvs.scopedTables`、受信適用と参加受理記録は `hvs:shared-applied` イベント発火＝テーブル単位 100ms 合流（開いている /users が自動更新・バースト時の再読込連発を防止）、旧 localStorage データの一度きり移行、userRepo 依存の auth/checkout/visit サービス再構築、既知メンバーへの FastStart 再ダイヤル）を OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。ネットワーク時はメールボックス（=リレー同一ノード）を配線し、成立待ち復元 + 起動時/60 秒間隔の checkMailbox ポーリング（管理者の無人受理・被招待者の結果受領）。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
+- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定 + **users/member_tags**（LinkSelfUserRepository。ScopeNetwork 配線 = networkId 確定時に setSyncScope、includeExisting は初回のみ（スロット名前空間の scopedTables）、受信適用と参加受理記録は `hvs:shared-applied` イベント発火＝テーブル単位 100ms 合流（開いている /users が自動更新・バースト時の再読込連発を防止）、旧 localStorage データの一度きり移行、userRepo 依存の auth/checkout/visit サービス再構築、既知メンバーへの FastStart 再ダイヤル）を OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。**DB はグループ毎に分離**（個人設定=hvs-personal.db / グループ系=hvs-group-<slotId>.db。networkId・scopedTables・sharedRecords・membershipEpochs もスロット名前空間キー。既所属と異なる networkId の参加は新スロットを作って切替＝上書きしない追加参加ガード。docs/wants/01「グループ毎のローカル DB 分離」）。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。ネットワーク時はメールボックス（=リレー同一ノード）を配線し、成立待ち復元 + 起動時/60 秒間隔の checkMailbox ポーリング（管理者の無人受理・被招待者の結果受領）。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
 - `lib/linkself/linkself-wiring.test.ts` — @linkself/core が alias 経由で pwa のツールチェーン下に解決・トランスパイルできる配線確認（CP-A）
 - `lib/linkself/linkself-interop.test.ts` — client-factory から Go ノード（link-self/core `poc-wsnode`）へ実 WebSocket 接続・LinkSelf auth・echo 往復の自動 interop 検証（CP-B、`go` 無ければ skip）
 - 依存リンク: `@linkself/core` は姉妹リポジトリ `../../link-self/ts/linkself/src` の TS ソースを Vite `resolve.alias` + tsconfig `paths` で直接参照（build 不要）。libp2p 実行時依存は pwa 側に固定バージョンで導入し `resolve.dedupe` で単一化（`pwa/vite.config.ts` / `pwa/tsconfig.json`）

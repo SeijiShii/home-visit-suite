@@ -3,15 +3,23 @@
 // 同期（catch-up / 即時配信）が成立しない。参加時に招待へ載っていた管理者の
 // 到達アドレス（リレー circuit addr）を保存し、次回起動の FastStart 既知ピアに
 // 混ぜることで「メンバー→管理者へ毎起動ダイヤル」のハブ型トポロジを成立させる。
-// docs/wants/01「同期スコープ」実装ノート参照。
+// 保存先はアクティブなグループスロットの名前空間（既知メンバーはグループに属する。
+// docs/wants/01「グループ毎のローカル DB 分離」）。スロット未作成時は旧単一キーへ
+// フォールバックする。docs/wants/01「同期スコープ」実装ノート参照。
 
 import type { KnownPeer } from "@linkself/core";
+import { getActiveGroupSlot, nsKey } from "../group-slots";
 
-const KEY = "hvs.knownMembers";
+const LEGACY_KEY = "hvs.knownMembers";
+
+function storageKey(): string {
+  const slot = getActiveGroupSlot();
+  return slot ? nsKey(slot.slotId, "knownMembers") : LEGACY_KEY;
+}
 
 function load(): Record<string, string[]> {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(storageKey());
     return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
   } catch {
     return {};
@@ -24,7 +32,7 @@ export function saveKnownMember(did: string, addrs: string[]): void {
   const map = load();
   map[did] = addrs;
   try {
-    localStorage.setItem(KEY, JSON.stringify(map));
+    localStorage.setItem(storageKey(), JSON.stringify(map));
   } catch {
     // ignore
   }

@@ -16,6 +16,7 @@ import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import { setGroupName } from "../lib/group-name";
+import { purgeAllGroupSlots } from "../lib/group-slots";
 import { clearGroupNetworkLocalState } from "../lib/linkself/group-network";
 import {
   decodePairingPayload,
@@ -91,7 +92,9 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
     void (async () => {
       try {
         await completePairing(window.location.hash);
+        // ID 無し端末に残ったグループ状態は前の identity の残骸なので破棄する。
         clearGroupNetworkLocalState();
+        purgeAllGroupSlots();
         cleanUp();
         reload();
       } catch (e) {
@@ -117,6 +120,7 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
         // ignore
       }
       clearGroupNetworkLocalState();
+      purgeAllGroupSlots();
       setGroupName("");
       cleanUp();
       reload();

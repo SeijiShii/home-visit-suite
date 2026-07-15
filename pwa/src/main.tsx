@@ -15,6 +15,11 @@ import {
   DEV_SEED_USERS,
   loadStoredSeed,
 } from "./services/identity-service";
+import {
+  ensureActiveSlot,
+  migrateLegacyGroupData,
+  repoPrefix,
+} from "./lib/group-slots";
 import type { AppServices } from "./contexts/ServicesContext";
 import "leaflet/dist/leaflet.css";
 import "./style.css";
@@ -48,6 +53,12 @@ function devIdentityEnabled(): boolean {
 }
 
 async function bootstrap() {
+  // グループ毎のローカル DB 分離（docs/wants/01）: 旧単一グループデータを
+  // 一度だけスロット名前空間へ移行し、アクティブスロットを確定する。
+  migrateLegacyGroupData();
+  const activeSlot = ensureActiveSlot();
+  const storagePrefix = repoPrefix(activeSlot.slotId);
+
   let services: AppServices;
   // ネットワーク配線を有効化したときの graceful stop（既定は no-op）。
   let stopLinkSelf = async (): Promise<void> => {};
@@ -60,6 +71,7 @@ async function bootstrap() {
     const relays = mod.parseRelays(import.meta.env.VITE_LINKSELF_RELAYS);
     const bundle = await mod.createLinkSelfServices({
       persist: true,
+      storagePrefix,
       seed,
       relays,
       allowLocalDial: allowLocalDial(),
@@ -73,7 +85,7 @@ async function bootstrap() {
     // （管理者が裏で待つ）等が成立しなくなるため。タブが裏でも WebSocket は維持される。
     globalThis.addEventListener?.("pagehide", () => void stopLinkSelf());
   } else {
-    services = createInMemoryServices({ persist: true });
+    services = createInMemoryServices({ persist: true, storagePrefix });
   }
 
   // 開発用の identity 切替（ロール別 UI 確認用のシードユーザー + 切替 UI）は

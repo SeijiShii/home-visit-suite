@@ -67,12 +67,18 @@ export interface CreateServicesOptions {
    * ※ユーザー（identity）は毎起動でシードされるため永続化しない。
    */
   persist?: boolean;
+  /**
+   * persist 時の localStorage プレフィクス。グループ毎のローカル DB 分離
+   * （docs/wants/01）のため、bootstrap がアクティブスロットの
+   * `repoPrefix(slotId)` を渡す。省略時は旧来の "hvs"（テスト・移行前互換）。
+   */
+  storagePrefix?: string;
 }
 
 export function createInMemoryServices(
   opts: CreateServicesOptions = {},
 ): AppServices {
-  const prefix = opts.persist ? "hvs" : undefined;
+  const prefix = opts.persist ? (opts.storagePrefix ?? "hvs") : undefined;
   const sub = (name: string) => (prefix ? `${prefix}:${name}` : undefined);
 
   const userRepo = new InMemoryUserRepository(sub("user"));
@@ -112,7 +118,11 @@ export function createInMemoryServices(
   );
 
   const regionBindingApi = new RegionRepositoryBindingAdapter(regionRepo);
-  const mapBinding = new LocalStorageMapBinding();
+  // 地図ポリゴンネットワークも ScopeNetwork ドメインデータ（docs/wants/01）の
+  // ためグループ名前空間に置く（プレフィクス無し=テスト時は旧既定キー）。
+  const mapBinding = new LocalStorageMapBinding(
+    prefix ? `${prefix}:map.network` : undefined,
+  );
 
   return {
     userRepo,
