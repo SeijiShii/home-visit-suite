@@ -35,7 +35,12 @@ describe("pairing-extras 収集（発行側）", () => {
     // ロスターは自分（hvs.identity）のユーザー DID のものだけ同梱される。
     localStorage.setItem(
       "hvs.identity",
-      JSON.stringify({ did: "did:key:zU", seedB64: "", name: "", role: "" }),
+      JSON.stringify({
+        did: "did:key:zU",
+        seedB64: "",
+        name: "",
+        role: "admin",
+      }),
     );
     localStorage.setItem("hvs.deviceRoster", '{"userDID":"did:key:zU"}');
     // スロット2つ: networkId 確定済みと未確定（未確定は同梱しない）。
@@ -46,9 +51,18 @@ describe("pairing-extras 収集（発行側）", () => {
         { slotId: "g-bbbbbbbb", networkId: null, groupName: null },
       ]),
     );
+    // フル実体（全メンバー）がローカルにあっても、QR には自分のメンバーシップ
+    // だけの最小スナップショットを載せる（QR 密度をグループ人数に依存させない）。
     localStorage.setItem(
       "hvs.networks",
-      JSON.stringify({ "net-1": { id: "net-1", members: ["did:key:zU"] } }),
+      JSON.stringify({
+        "net-1": {
+          id: "net-1",
+          suiteId: "jp.home-visit-suite",
+          members: ["did:key:zU", "did:key:zOther"],
+          memberRoles: { "did:key:zU": "admin", "did:key:zOther": "member" },
+        },
+      }),
     );
 
     const extras = await collectPairingExtras();
@@ -59,7 +73,12 @@ describe("pairing-extras 収集（発行側）", () => {
       {
         networkId: "net-1",
         groupName: "第一",
-        network: { id: "net-1", members: ["did:key:zU"] },
+        network: {
+          id: "net-1",
+          suiteId: "jp.home-visit-suite",
+          members: ["did:key:zU"],
+          memberRoles: { "did:key:zU": "admin" },
+        },
       },
     ]);
   });

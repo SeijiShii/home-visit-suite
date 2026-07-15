@@ -21,6 +21,8 @@ import type { PairingGroup, PairingPayload } from "./pairing";
 const DEVICE_KEY_SEED_KEY = "hvs.deviceKeySeed";
 const ROSTER_KEY = "hvs.deviceRoster";
 const NETWORKS_KEY = "hvs.networks";
+/** LinkSelf の SuiteID（docs/wants/01「ストレージ」。実体に無い場合のフォールバック）。 */
+const HVS_SUITE_ID_FALLBACK = "jp.home-visit-suite";
 
 /** payload に同梱する拡張フィールド一式。 */
 export interface PairingExtras {
@@ -40,12 +42,13 @@ function readNetworks(): Record<string, unknown> {
   }
 }
 
-/** 保存済み identity（`hvs.identity`）のユーザー DID。無ければ null。 */
-function readIdentityDid(): string | null {
+/** 保存済み identity（`hvs.identity`）のユーザー DID・ロール。無ければ null。 */
+function readIdentity(): { did: string; role: string } | null {
   try {
     const raw = localStorage.getItem("hvs.identity");
     if (!raw) return null;
-    return (JSON.parse(raw) as { did?: string }).did ?? null;
+    const s = JSON.parse(raw) as { did?: string; role?: string };
+    return s.did ? { did: s.did, role: s.role ?? "member" } : null;
   } catch {
     return null;
   }
@@ -58,6 +61,30 @@ function parseRosterUserDid(rosterJson: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * QR に載せるネットワーク実体の**最小スナップショット**（自分のメンバーシップのみ）。
+ * フル実体（全メンバー・ロール表）を同梱すると QR がグループ人数に比例して
+ * 高密度化し実機カメラで読めなくなるため、catch-up の membership 判定に必要な
+ * 「自分がメンバーである」事実だけを一定サイズで運ぶ。全メンバーの実体・
+ * メンバー表は接続後の catch-up（users テーブル同期）で収束する。
+ */
+function minimalNetworkSnapshot(
+  networkId: string,
+  entity: unknown,
+  selfDid: string,
+  selfRole: string,
+): unknown {
+  const e = entity as
+    { suiteId?: string; memberRoles?: Record<string, string> } | undefined;
+  const role = e?.memberRoles?.[selfDid] ?? selfRole ?? "member";
+  return {
+    id: networkId,
+    suiteId: e?.suiteId ?? HVS_SUITE_ID_FALLBACK,
+    members: [selfDid],
+    memberRoles: { [selfDid]: role },
+  };
 }
 
 /** marshalRoster JSON の掲載デバイス数。解析できなければ 0。 */
@@ -85,22 +112,32 @@ export async function collectPairingExtras(): Promise<PairingExtras> {
   } catch {
     // 導出できなければ載せない（受信側はロスターからも学べる）。
   }
+  const self = readIdentity();
   // ロスターは自分のユーザー DID のものだけ同梱する（別 ID へ切替えた端末に
   // 残った旧ユーザーのロスター残骸を運ばない）。
   let rosterJson = localStorage.getItem(ROSTER_KEY) ?? undefined;
   if (rosterJson) {
-    const selfDid = readIdentityDid();
-    if (selfDid == null || parseRosterUserDid(rosterJson) !== selfDid) {
+    if (self == null || parseRosterUserDid(rosterJson) !== self.did) {
       rosterJson = undefined;
     }
   }
   const networks = readNetworks();
+  // ネットワーク実体は最小スナップショット（自分のメンバーシップのみ）に落とす。
+  // QR の密度をグループ人数に依存させないため（minimalNetworkSnapshot 参照）。
   const groups: PairingGroup[] = listGroupSlots()
     .filter((s) => s.networkId != null)
     .map((s) => ({
       networkId: s.networkId!,
       groupName: s.groupName,
-      network: networks[s.networkId!],
+      network:
+        self != null
+          ? minimalNetworkSnapshot(
+              s.networkId!,
+              networks[s.networkId!],
+              self.did,
+              self.role,
+            )
+          : undefined,
     }));
   return { deviceDid, rosterJson, groups };
 }

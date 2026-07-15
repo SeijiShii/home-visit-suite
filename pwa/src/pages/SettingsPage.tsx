@@ -527,7 +527,8 @@ export function SettingsPage() {
               {t.devicePairing.dialogHint}
             </p>
             <div className="device-pairing-qr">
-              <QrCode text={pairingUrl} />
+              {/* payload v2 で情報量が増えたため大きめに描画する（密度対策）。 */}
+              <QrCode text={pairingUrl} size={300} />
             </div>
             <div className="device-pairing-url-row">
               <input
