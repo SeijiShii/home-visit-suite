@@ -17,10 +17,6 @@ export class InMemoryPersonalRepository implements PersonalRepository {
   private hiddenTipKeys = new Set<string>();
   private locale = "";
   private areaDetailRadiusKm = 0;
-  private aiProvider = "";
-  private aiApiKeys = new Map<string, string>();
-  private aiModel = "";
-  private aiMapImportConsent = false;
 
   async getPersonalNote(visitRecordId: string): Promise<PersonalNote | null> {
     const n = this.notes.get(visitRecordId);
@@ -91,37 +87,5 @@ export class InMemoryPersonalRepository implements PersonalRepository {
 
   async setAreaDetailRadiusKm(km: number): Promise<void> {
     this.areaDetailRadiusKm = km;
-  }
-
-  async getAiProvider(): Promise<string> {
-    return this.aiProvider;
-  }
-
-  async setAiProvider(provider: string): Promise<void> {
-    this.aiProvider = provider;
-  }
-
-  async getAiApiKey(provider: string): Promise<string> {
-    return this.aiApiKeys.get(provider) ?? "";
-  }
-
-  async setAiApiKey(provider: string, key: string): Promise<void> {
-    this.aiApiKeys.set(provider, key);
-  }
-
-  async getAiModel(): Promise<string> {
-    return this.aiModel;
-  }
-
-  async setAiModel(model: string): Promise<void> {
-    this.aiModel = model;
-  }
-
-  async getAiMapImportConsent(): Promise<boolean> {
-    return this.aiMapImportConsent;
-  }
-
-  async setAiMapImportConsent(consented: boolean): Promise<void> {
-    this.aiMapImportConsent = consented;
   }
 }

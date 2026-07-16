@@ -23,10 +23,6 @@ interface PolygonListProps {
   onPruneOrphans?: () => void;
   /** 編集モード中はツールバーのボタンを非活性にする */
   isEditing?: boolean;
-  /** ポリゴン別の AI 取込未確定場所件数（0/未定義は非表示）。 */
-  aiPendingCounts?: Map<string, number>;
-  /** 紐付け済み区域へ AI 下書きの場所番号を取り込む。 */
-  onImportAiPlaces?: (polygonId: PolygonID, areaId: string) => void;
 }
 
 export function PolygonList({
@@ -44,8 +40,6 @@ export function PolygonList({
   onStartDrawing,
   onPruneOrphans,
   isEditing = false,
-  aiPendingCounts,
-  onImportAiPlaces,
 }: PolygonListProps) {
   const { t } = useI18n();
   const [pendingDelete, setPendingDelete] = useState<PolygonSnapshot | null>(
@@ -203,19 +197,6 @@ export function PolygonList({
               <span className="polygon-list-item-label">
                 {areaInfo ? areaInfo.areaLabel : t.map.noArea}
               </span>
-              {areaInfo && (aiPendingCounts?.get(polyId) ?? 0) > 0 && (
-                <button
-                  className="btn btn-sm polygon-list-ai-import-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onImportAiPlaces?.(poly.id, areaInfo.areaId);
-                  }}
-                >
-                  {t.map.aiImport.importPlaces(
-                    aiPendingCounts?.get(polyId) ?? 0,
-                  )}
-                </button>
-              )}
               {areaInfo ? (
                 <button
                   className="polygon-list-toggle-btn polygon-list-unlink-btn"

@@ -38,36 +38,4 @@ export class PersonalRepositorySettingsAdapter implements SettingsBindingAPI {
   async SetAreaDetailRadiusKm(km: number): Promise<void> {
     await this.repo.setAreaDetailRadiusKm(km);
   }
-
-  async GetAiProvider(): Promise<string> {
-    return this.repo.getAiProvider();
-  }
-
-  async SetAiProvider(provider: string): Promise<void> {
-    await this.repo.setAiProvider(provider);
-  }
-
-  async GetAiApiKey(provider: string): Promise<string> {
-    return this.repo.getAiApiKey(provider);
-  }
-
-  async SetAiApiKey(provider: string, key: string): Promise<void> {
-    await this.repo.setAiApiKey(provider, key);
-  }
-
-  async GetAiModel(): Promise<string> {
-    return this.repo.getAiModel();
-  }
-
-  async SetAiModel(model: string): Promise<void> {
-    await this.repo.setAiModel(model);
-  }
-
-  async GetAiMapImportConsent(): Promise<boolean> {
-    return this.repo.getAiMapImportConsent();
-  }
-
-  async SetAiMapImportConsent(consented: boolean): Promise<void> {
-    await this.repo.setAiMapImportConsent(consented);
-  }
 }

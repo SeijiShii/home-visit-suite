@@ -43,24 +43,4 @@ export interface PersonalRepository {
   getAreaDetailRadiusKm(): Promise<number>;
   /** 隣接半径(km)を保存する。 */
   setAreaDetailRadiusKm(km: number): Promise<void>;
-
-  /** AI 地図取込用の生成 AI プロバイダ識別子を返す。未設定時は空文字。 */
-  getAiProvider(): Promise<string>;
-  /** AI プロバイダ識別子を保存する。 */
-  setAiProvider(provider: string): Promise<void>;
-
-  /** AI 地図取込用の API キー（秘匿）をプロバイダ別に返す。未設定時は空文字。 */
-  getAiApiKey(provider: string): Promise<string>;
-  /** API キーをプロバイダ別に保存する。 */
-  setAiApiKey(provider: string, key: string): Promise<void>;
-
-  /** AI 地図取込用のモデル ID を返す。未設定時は空文字。 */
-  getAiModel(): Promise<string>;
-  /** モデル ID を保存する。 */
-  setAiModel(model: string): Promise<void>;
-
-  /** AI 地図取込の画像外部送信への同意有無を返す。未設定時は false。 */
-  getAiMapImportConsent(): Promise<boolean>;
-  /** 画像外部送信への同意を保存する。 */
-  setAiMapImportConsent(consented: boolean): Promise<void>;
 }

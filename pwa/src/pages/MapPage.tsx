@@ -26,7 +26,6 @@ import { EdgeContextMenu } from "../components/EdgeContextMenu";
 import { VertexContextMenu } from "../components/VertexContextMenu";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
-import { AiMapImportDialog } from "../components/AiMapImportDialog";
 import { TipStack } from "../components/TipStack";
 import { useServices } from "../contexts/ServicesContext";
 import { RegionService } from "../services/region-service";
@@ -34,23 +33,6 @@ import {
   buildPolygonAreaMap,
   toPolygonAreaIds,
 } from "../services/polygon-service";
-import { buildAiMapImportService } from "../services/ai-map-import-factory";
-import type {
-  AiMapImportService,
-  ImportDraft,
-} from "../services/ai-map-import";
-import { commitDraftPolygons } from "../lib/ai-map-commit";
-import {
-  assignPlacesToPolygons,
-  type PolygonRing,
-} from "../lib/assign-places-to-polygons";
-import {
-  overlayBoundariesToPolygons,
-  largestBoundary,
-  type ImageSize,
-} from "../lib/overlay-georeference";
-import { extractColorBoundaries } from "../lib/extract-boundary-color";
-import type { VisionBoundary } from "../services/ai-map-import";
 import type {
   PolygonID,
   EdgeID,
@@ -98,161 +80,11 @@ export function MapPage() {
     vertexId: VertexID;
   } | null>(null);
 
-  const { regionBindingApi, mapBinding, settingsService, placeImportService } =
-    useServices();
+  const { regionBindingApi, mapBinding } = useServices();
   const regionService = useMemo(
     () => new RegionService(regionBindingApi),
     [regionBindingApi],
   );
-
-  // --- AI 地図取込 ---
-  const [aiImportService, setAiImportService] =
-    useState<AiMapImportService | null>(null);
-  const [aiProviderName, setAiProviderName] = useState("");
-  const [aiConsent, setAiConsent] = useState(false);
-  const [aiDialogOpen, setAiDialogOpen] = useState(false);
-  const [aiPendingCounts, setAiPendingCounts] = useState<Map<string, number>>(
-    new Map(),
-  );
-
-  const refreshAiPendingCounts = useCallback(
-    async (polys: PolygonSnapshot[]) => {
-      const entries = await Promise.all(
-        polys.map(async (p) => {
-          const id = p.id as string;
-          return [id, await placeImportService.pendingCount(id)] as const;
-        }),
-      );
-      setAiPendingCounts(new Map(entries.filter(([, n]) => n > 0)));
-    },
-    [placeImportService],
-  );
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      const [provider, model, consent] = await Promise.all([
-        settingsService.getAiProvider(),
-        settingsService.getAiModel(),
-        settingsService.getAiMapImportConsent(),
-      ]);
-      const apiKey = await settingsService.getAiApiKey(provider);
-      if (!active) return;
-      setAiProviderName(provider);
-      setAiConsent(consent);
-      setAiImportService(
-        apiKey ? buildAiMapImportService(provider, apiKey, model) : null,
-      );
-    })();
-    return () => {
-      active = false;
-    };
-  }, [settingsService]);
-
-  const handleAiGrantConsent = useCallback(async () => {
-    await settingsService.setAiMapImportConsent(true);
-    setAiConsent(true);
-  }, [settingsService]);
-
-  const handleAiCommit = useCallback(
-    async (draft: ImportDraft): Promise<number> => {
-      const ed = editorRef.current;
-      if (!ed) return 0;
-      const ids = commitDraftPolygons(ed, draft.polygons);
-      await ed.save();
-
-      // 場所番号は、内包する取込ポリゴンに束ねて一時保持する。
-      // 区域へ紐付けた後にポリゴン一覧から Place 化する（docs/wants/03 Phase 1.1）。
-      if (draft.places.length > 0) {
-        const rings: PolygonRing[] = [];
-        for (const id of ids) {
-          const geojson = ed.getPolygonGeoJSON(id);
-          const ring = geojson?.coordinates?.[0] as
-            [number, number][] | undefined;
-          if (ring) rings.push({ id: id as string, ring });
-        }
-        await placeImportService.stash(
-          assignPlacesToPolygons(rings, draft.places),
-        );
-      }
-
-      await reloadPolygonsRef.current();
-      await refreshAiPendingCounts(ed.getPolygons());
-      return ids.length;
-    },
-    [placeImportService, refreshAiPendingCounts],
-  );
-
-  const handleImportAiPlaces = useCallback(
-    async (polygonId: PolygonID, areaId: string) => {
-      await placeImportService.importForArea(areaId, [polygonId as string]);
-      const ed = editorRef.current;
-      if (ed) await refreshAiPendingCounts(ed.getPolygons());
-    },
-    [placeImportService, refreshAiPendingCounts],
-  );
-
-  // --- 手動オーバーレイ整列（低信頼フォールバック） ---
-  const [alignment, setAlignment] = useState<{
-    url: string;
-    imageSize: ImageSize;
-    boundaries: VisionBoundary[];
-  } | null>(null);
-  const [alignOpacity, setAlignOpacity] = useState(0.9);
-
-  const handleManualAlign = useCallback((image: Blob, draft: ImportDraft) => {
-    const url = URL.createObjectURL(image);
-    const img = new Image();
-    img.onload = () => {
-      setAlignOpacity(0.9);
-      const width = img.naturalWidth;
-      const height = img.naturalHeight;
-      void (async () => {
-        // 太い色付き境界線を色抽出で優先的に取得（vision の座標推定より正確）。
-        // 見つからなければ vision のトレース結果へフォールバックする。
-        let boundaries = draft.extraction.boundaries;
-        try {
-          const rings = await extractColorBoundaries(image);
-          if (rings.length > 0)
-            boundaries = rings.map((r) => ({ vertices: r }));
-        } catch {
-          // 色抽出に失敗しても vision 結果で継続
-        }
-        // 番号付き小枠などの誤検出を落とし、面積最大の外周 1 本だけ採用する。
-        boundaries = largestBoundary(boundaries);
-        setAlignment({ url, imageSize: { width, height }, boundaries });
-        // アスペクト比(幅/高さ)を渡して正方形化を防ぐ。拡大縮小・回転は地図上のハンドルで操作。
-        mapRef.current?.showAlignmentOverlay(url, 0.9, width / height);
-      })();
-    };
-    img.src = url;
-    setAiDialogOpen(false);
-  }, []);
-
-  const clearAlignment = useCallback(() => {
-    mapRef.current?.hideAlignmentOverlay();
-    setAlignment((cur) => {
-      if (cur) URL.revokeObjectURL(cur.url);
-      return null;
-    });
-  }, []);
-
-  const handleAlignConfirm = useCallback(async () => {
-    const ed = editorRef.current;
-    const bounds = mapRef.current?.getAlignmentOverlayBounds();
-    const rotation = mapRef.current?.getAlignmentOverlayRotation() ?? 0;
-    if (ed && alignment && bounds) {
-      const polys = overlayBoundariesToPolygons(
-        bounds,
-        alignment.boundaries,
-        rotation,
-      );
-      commitDraftPolygons(ed, polys);
-      await ed.save();
-      await reloadPolygonsRef.current();
-    }
-    clearAlignment();
-  }, [alignment, clearAlignment]);
 
   const {
     editor,
@@ -791,57 +623,6 @@ export function MapPage() {
         />
       )}
 
-      {aiDialogOpen && aiImportService && (
-        <AiMapImportDialog
-          importService={aiImportService}
-          providerName={
-            aiProviderName === "anthropic"
-              ? "Anthropic"
-              : aiProviderName === "gemini"
-                ? "Gemini"
-                : aiProviderName
-          }
-          consentGiven={aiConsent}
-          onGrantConsent={handleAiGrantConsent}
-          onCommit={handleAiCommit}
-          onManualAlign={handleManualAlign}
-          onClose={() => setAiDialogOpen(false)}
-        />
-      )}
-
-      {alignment && (
-        <div className="align-panel">
-          <span className="align-panel-title">{t.map.aiImport.alignTitle}</span>
-          <p className="align-panel-hint">{t.map.aiImport.alignHint}</p>
-          <label className="align-panel-field">
-            {t.map.aiImport.alignOpacity}
-            <input
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={alignOpacity}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setAlignOpacity(v);
-                mapRef.current?.setAlignmentOverlayOpacity(v);
-              }}
-            />
-          </label>
-          <div className="align-panel-actions">
-            <button className="btn btn-sm" onClick={clearAlignment}>
-              {t.common.cancel}
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => void handleAlignConfirm()}
-            >
-              {t.map.aiImport.alignConfirm}
-            </button>
-          </div>
-        </div>
-      )}
-
       {isEditing && (
         <div className="drawing-toolbar">
           <span className="drawing-hint">{t.map.editingHint}</span>
@@ -934,14 +715,6 @@ export function MapPage() {
                 className="sidebar-tab-panel"
                 style={{ display: activeTab === "polygons" ? "flex" : "none" }}
               >
-                {aiImportService && (
-                  <button
-                    className="btn btn-sm ai-import-trigger"
-                    onClick={() => setAiDialogOpen(true)}
-                  >
-                    {t.map.aiImport.button}
-                  </button>
-                )}
                 <PolygonList
                   polygons={polygons}
                   polygonAreaMap={polygonAreaMap}
@@ -957,10 +730,6 @@ export function MapPage() {
                   isEditing={isEditing}
                   onStartDrawing={handleStartFreeDrawing}
                   onPruneOrphans={handlePruneOrphans}
-                  aiPendingCounts={aiPendingCounts}
-                  onImportAiPlaces={(polygonId, areaId) =>
-                    void handleImportAiPlaces(polygonId, areaId)
-                  }
                 />
               </div>
             </div>

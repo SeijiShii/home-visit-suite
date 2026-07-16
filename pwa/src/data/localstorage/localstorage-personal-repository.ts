@@ -1,13 +1,10 @@
 // PersonalRepository の localStorage 永続実装（開発 / 単体 PWA 用の暫定バックエンド）。
 // LinkSelf TS アダプタ（暗号化された個人 DB）完成までのブリッジとして、
-// アプリ設定（言語・区域詳細半径・AI プロバイダ/キー/モデル・同意・非表示 tip）を
+// アプリ設定（言語・区域詳細半径・非表示 tip）を
 // ブラウザの localStorage に永続化し、再読み込みでも失われないようにする。
 //
 // ノート/タグ/割り当てなどのドメインデータは LinkSelf 側で保持される想定のため、
 // 内部の InMemoryPersonalRepository に委譲する（開発中の再読み込みで消えるのは許容）。
-//
-// 注意: API キーは localStorage に平文で保存される（利用者自身のキー・当該端末内のみ）。
-// LinkSelf 導入時に暗号化ストレージへ移行する。
 
 import type {
   PersonalNote,
@@ -23,10 +20,6 @@ interface PersistedSettings {
   hiddenTipKeys: string[];
   locale: string;
   areaDetailRadiusKm: number;
-  aiProvider: string;
-  aiApiKeys: Record<string, string>;
-  aiModel: string;
-  aiMapImportConsent: boolean;
 }
 
 function emptySettings(): PersistedSettings {
@@ -34,10 +27,6 @@ function emptySettings(): PersistedSettings {
     hiddenTipKeys: [],
     locale: "",
     areaDetailRadiusKm: 0,
-    aiProvider: "",
-    aiApiKeys: {},
-    aiModel: "",
-    aiMapImportConsent: false,
   };
 }
 
@@ -54,8 +43,29 @@ export class LocalStoragePersonalRepository implements PersonalRepository {
     try {
       const raw = this.storage.getItem(STORAGE_KEY);
       if (!raw) return emptySettings();
-      const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
-      return { ...emptySettings(), ...parsed };
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const settings: PersistedSettings = {
+        hiddenTipKeys: Array.isArray(parsed.hiddenTipKeys)
+          ? (parsed.hiddenTipKeys as string[])
+          : [],
+        locale: typeof parsed.locale === "string" ? parsed.locale : "",
+        areaDetailRadiusKm:
+          typeof parsed.areaDetailRadiusKm === "number"
+            ? parsed.areaDetailRadiusKm
+            : 0,
+      };
+      // AI 地図取込の廃止（2026-07-16）: 廃止済みフィールド（平文 API キー等の
+      // 旧 AI 設定）が JSON に残っていたら、既知フィールドだけに絞って即座に
+      // 書き戻して破棄する（docs/wants/03「AI による区域地図作成（廃止）」）。
+      const known = new Set(Object.keys(settings));
+      if (Object.keys(parsed).some((k) => !known.has(k))) {
+        try {
+          this.storage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        } catch {
+          // 書き戻せなくても読み込みは継続する
+        }
+      }
+      return settings;
     } catch {
       return emptySettings();
     }
@@ -132,42 +142,6 @@ export class LocalStoragePersonalRepository implements PersonalRepository {
 
   async setAreaDetailRadiusKm(km: number): Promise<void> {
     this.settings.areaDetailRadiusKm = km;
-    this.persist();
-  }
-
-  async getAiProvider(): Promise<string> {
-    return this.settings.aiProvider;
-  }
-
-  async setAiProvider(provider: string): Promise<void> {
-    this.settings.aiProvider = provider;
-    this.persist();
-  }
-
-  async getAiApiKey(provider: string): Promise<string> {
-    return this.settings.aiApiKeys[provider] ?? "";
-  }
-
-  async setAiApiKey(provider: string, key: string): Promise<void> {
-    this.settings.aiApiKeys[provider] = key;
-    this.persist();
-  }
-
-  async getAiModel(): Promise<string> {
-    return this.settings.aiModel;
-  }
-
-  async setAiModel(model: string): Promise<void> {
-    this.settings.aiModel = model;
-    this.persist();
-  }
-
-  async getAiMapImportConsent(): Promise<boolean> {
-    return this.settings.aiMapImportConsent;
-  }
-
-  async setAiMapImportConsent(consented: boolean): Promise<void> {
-    this.settings.aiMapImportConsent = consented;
     this.persist();
   }
 }

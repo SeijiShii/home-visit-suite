@@ -41,10 +41,10 @@ describe("createLinkSelfServices (standalone: no seed/relays)", () => {
   it("wires settings through settingsService and personalRepo (round-trip)", async () => {
     const b = await createLinkSelfServices({ personalDbFilename: ":memory:" });
     await b.services.settingsService.setLocale("ja");
-    await b.services.personalRepo.setAiApiKey("anthropic", "sk-x");
+    await b.services.personalRepo.setAreaDetailRadiusKm(3);
 
     expect(await b.services.settingsService.getLocale()).toBe("ja");
-    expect(await b.services.personalRepo.getAiApiKey("anthropic")).toBe("sk-x");
+    expect(await b.services.personalRepo.getAreaDetailRadiusKm()).toBe(3);
     await b.stop();
   });
 

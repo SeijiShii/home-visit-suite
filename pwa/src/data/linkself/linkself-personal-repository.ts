@@ -10,9 +10,6 @@
 //
 // ノート/タグ/割り当てのドメインデータは当面 InMemory へ委譲する
 // （localStorage 実装と同構造。ドメインデータの MyDB SQL 化は後続ステップ）。
-//
-// 注意: API キーは SQLite に平文で入る（利用者自身のキー・端末間共有は本人の端末のみ）。
-// 秘匿情報の暗号化ストレージ化は後続で対応（docs/wants/01「秘密鍵の保管」と同様）。
 
 import type { MyDB } from "@linkself/core";
 import type {
@@ -26,10 +23,6 @@ import { InMemoryPersonalRepository } from "../inmemory/inmemory-personal-reposi
 // 設定キー（my_settings.key）。
 const K_LOCALE = "locale";
 const K_AREA_RADIUS = "areaDetailRadiusKm";
-const K_AI_PROVIDER = "aiProvider";
-const K_AI_MODEL = "aiModel";
-const K_AI_CONSENT = "aiMapImportConsent";
-const K_AI_APIKEY_PREFIX = "aiApiKey/"; // aiApiKey/<provider>
 
 // スキーマ。各テーブルの先頭列を主キーにする（wireSqlSync が devicesync へ
 // ミラーする際、先頭列値をレコード ID として読み戻す規約に合わせる）。
@@ -52,7 +45,15 @@ export class LinkSelfPersonalRepository implements PersonalRepository {
   constructor(private readonly db: MyDB) {}
 
   private ensureMigrated(): Promise<void> {
-    return (this.migrated ??= this.db.migrate(MIGRATIONS));
+    return (this.migrated ??= (async () => {
+      await this.db.migrate(MIGRATIONS);
+      // AI 地図取込の廃止（2026-07-16）: 旧 AI 設定行（平文 API キー含む）を
+      // 破棄する。削除は wireSqlSync 経由で兄弟端末にも伝播する。対象行が
+      // 無ければ no-op（冪等）。docs/wants/03「AI による区域地図作成（廃止）」
+      await this.db.exec(
+        "DELETE FROM my_settings WHERE key IN ('aiProvider','aiModel','aiMapImportConsent') OR key LIKE 'aiApiKey/%'",
+      );
+    })());
   }
 
   // ── 設定 KV ヘルパ（my_settings テーブル） ───────────────────
@@ -139,33 +140,5 @@ export class LinkSelfPersonalRepository implements PersonalRepository {
   }
   async setAreaDetailRadiusKm(km: number): Promise<void> {
     await this.setStr(K_AREA_RADIUS, String(km));
-  }
-
-  async getAiProvider(): Promise<string> {
-    return this.getStr(K_AI_PROVIDER);
-  }
-  async setAiProvider(provider: string): Promise<void> {
-    await this.setStr(K_AI_PROVIDER, provider);
-  }
-
-  async getAiApiKey(provider: string): Promise<string> {
-    return this.getStr(K_AI_APIKEY_PREFIX + provider);
-  }
-  async setAiApiKey(provider: string, key: string): Promise<void> {
-    await this.setStr(K_AI_APIKEY_PREFIX + provider, key);
-  }
-
-  async getAiModel(): Promise<string> {
-    return this.getStr(K_AI_MODEL);
-  }
-  async setAiModel(model: string): Promise<void> {
-    await this.setStr(K_AI_MODEL, model);
-  }
-
-  async getAiMapImportConsent(): Promise<boolean> {
-    return (await this.getStr(K_AI_CONSENT)) === "true";
-  }
-  async setAiMapImportConsent(consented: boolean): Promise<void> {
-    await this.setStr(K_AI_CONSENT, consented ? "true" : "false");
   }
 }

@@ -55,33 +55,15 @@ describe("LinkSelfPersonalRepository (settings via MyDB SQL)", () => {
   it("returns empty/zero defaults before anything is set", async () => {
     expect(await repo.getLocale()).toBe("");
     expect(await repo.getAreaDetailRadiusKm()).toBe(0);
-    expect(await repo.getAiProvider()).toBe("");
-    expect(await repo.getAiApiKey("openai")).toBe("");
-    expect(await repo.getAiModel()).toBe("");
-    expect(await repo.getAiMapImportConsent()).toBe(false);
     expect(await repo.getHiddenTipKeys()).toEqual([]);
   });
 
   it("round-trips all scalar settings", async () => {
     await repo.setLocale("ja");
     await repo.setAreaDetailRadiusKm(1.5);
-    await repo.setAiProvider("anthropic");
-    await repo.setAiModel("claude-opus-4-8");
-    await repo.setAiMapImportConsent(true);
 
     expect(await repo.getLocale()).toBe("ja");
     expect(await repo.getAreaDetailRadiusKm()).toBe(1.5);
-    expect(await repo.getAiProvider()).toBe("anthropic");
-    expect(await repo.getAiModel()).toBe("claude-opus-4-8");
-    expect(await repo.getAiMapImportConsent()).toBe(true);
-  });
-
-  it("keeps API keys isolated per provider", async () => {
-    await repo.setAiApiKey("openai", "sk-openai");
-    await repo.setAiApiKey("anthropic", "sk-anthropic");
-    expect(await repo.getAiApiKey("openai")).toBe("sk-openai");
-    expect(await repo.getAiApiKey("anthropic")).toBe("sk-anthropic");
-    expect(await repo.getAiApiKey("google")).toBe("");
   });
 
   it("manages hidden tip keys (add is idempotent, clear empties)", async () => {
@@ -94,9 +76,24 @@ describe("LinkSelfPersonalRepository (settings via MyDB SQL)", () => {
     expect(await repo.getHiddenTipKeys()).toEqual([]);
   });
 
+  it("purges obsolete AI settings rows (incl. plaintext API keys) on first access", async () => {
+    // migrate 済みストアに旧 AI 設定行を直接差し込み、新しいリポジトリの
+    // 初回アクセスで破棄されることを確認する（AI 地図取込の廃止 2026-07-16）。
+    await repo.setLocale("ja"); // migrate を走らせる
+    const myDB2 = await newMyDB(sqlDb, new MemDeviceStorage());
+    await myDB2.exec(
+      "INSERT OR REPLACE INTO my_settings (key, value) VALUES ('aiApiKey/anthropic','sk-ant-secret'), ('aiProvider','anthropic'), ('aiMapImportConsent','true')",
+    );
+    const repo2 = new LinkSelfPersonalRepository(myDB2);
+    await repo2.getLocale(); // 初回アクセスで掃除が走る
+    const rows = await myDB2.query(
+      "SELECT key FROM my_settings WHERE key LIKE 'ai%'",
+    );
+    expect(rows).toEqual([]);
+  });
+
   it("persists across a fresh repository over the same SQL store", async () => {
     await repo.setLocale("en");
-    await repo.setAiApiKey("anthropic", "sk-persist");
     await repo.addHiddenTipKey("tip.persist");
 
     // 同一 SQL DB 上に別 MyDB / 別リポジトリを作り直す（"リロード" 相当）。
@@ -104,7 +101,6 @@ describe("LinkSelfPersonalRepository (settings via MyDB SQL)", () => {
       await newMyDB(sqlDb, new MemDeviceStorage()),
     );
     expect(await repo2.getLocale()).toBe("en");
-    expect(await repo2.getAiApiKey("anthropic")).toBe("sk-persist");
     expect(await repo2.getHiddenTipKeys()).toEqual(["tip.persist"]);
   });
 });

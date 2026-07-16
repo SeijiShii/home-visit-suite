@@ -22,7 +22,7 @@
 - `services/errors.ts` — サービス層の構造化エラー（ErrCode/ServiceError/isCode）
 - `services/id.ts` — 単調増加カウンタ併用のエンティティID生成
 - `services/test-fixture.ts` — サービス層テスト用の共通フィクスチャ
-- `services/settings-service.ts` — ロケール/Tips/AIプロバイダ/モデル/APIキー/取込同意など個人設定と定数 (→03)
+- `services/settings-service.ts` — ロケール/Tips/隣接半径など個人設定と定数 (→03)
 - `services/settings-binding-adapter.ts` — SettingsBindingAPI を PersonalRepository 上に実装する設定永続化アダプタ
 - `contexts/ServicesContext.tsx` — リポジトリ/サービス群をアプリ全体へ配線する DI コンテキスト（persist 時の localStorage プレフィクスは `storagePrefix` で差し替え可＝グループ名前空間）
 - `contexts/I18nContext.tsx` — ロケール選択/翻訳と永続化ストア注入の i18n コンテキスト
@@ -31,7 +31,7 @@
 - `components/AppBrand.tsx` — ロゴ+アプリ名の共通ブランド表示（初回系画面: オンボーディング/参加/ペアリングのカード先頭）(→04,10)
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
 - `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
-- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末・ラベルは全行改名可=ロスター同期・削除は自分以外の全行=失効+対象端末の全初期化(ロスター行はネットワーク配線時のみ)・`hvs:roster-updated` 購読で一覧が再読込なしで追従)/AIプロバイダ・キー=編集メンバー以上のみ表示/地図メンテナンス）(→01,04,10)
+- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末・ラベルは全行改名可=ロスター同期・削除は自分以外の全行=失効+対象端末の全初期化(ロスター行はネットワーク配線時のみ)・`hvs:roster-updated` 購読で一覧が再読込なしで追従)/地図メンテナンス）(→01,04,10)
 - `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ（キー注入可。本番はグループ名前空間 `hvs.g.<slotId>:map.network`）(→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
@@ -49,24 +49,16 @@
 - `pages/RegionManagementPage.tsx` — 領域記号・区域番号の CRUD 画面 (→10)
 - `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け）(→03)
 - `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ（紐付け済み区域には飛地追加ボタン）(→03)
-- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック・AI下書き取込）(→03)
+- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック）(→03)
 
-## 03 地図機能（ポリゴン編集/紐付け/住宅情報/AI取込）
+## 03 地図機能（ポリゴン編集/紐付け/住宅情報）
 ### サービス
 - `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea、1区域複数ポリゴン=飛地対応・個別/一括解除)・エリアマップ構築
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
 - `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
-- `services/place-import-service.ts` — AI下書き場所の stash とポリゴン紐付け後の区域 Place 取込
-- `services/ai-map-import-factory.ts` — 設定から AI地図取込サービス（vision+GSI）を組立
-- `services/ai-map-import.ts` — vision抽出→GSI接地→ジオリファレンス変換で区域下書き生成
-- `services/anthropic-map-vision.ts` — Anthropic Messages API による地図画像解析アダプタ
-- `services/gemini-map-vision.ts` — Gemini generateContent API による地図画像解析アダプタ
-- `services/map-vision-extraction.ts` — vision 共通のプロンプト契約/画像判定/base64・JSON抽出/正規化
-- `services/gsi-geocoder.ts` — 国土地理院住所検索 API による Geocoder（住所→座標接地）
 ### 画面/コンポーネント
-- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/AI取込の統合）(→10)
+- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧の統合）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント
-- `components/AiMapImportDialog.tsx` — AI地図取込ダイアログ（同意→画像→解析→下書きレビュー→取込）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（部屋行の追加・並替・削除）
 - `components/PlaceListPanel.tsx` — 場所一覧と訪問記録の一覧（直近記録併記/展開・D&D並替は権限ゲート・右ペイン/オーバーレイ両対応）(→08)
@@ -87,13 +79,6 @@
 - `lib/move-place-flow.ts` — 場所マーカー移動フローの純状態機械
 - `lib/building-flow.ts` — 集合住宅編集の部屋行モデルと保存差分計算
 - `lib/place-sort-order.ts` — 場所一覧の初回並び順採番
-- `lib/polygon-clip.ts` — 隣接境界共有のスナップ・差集合クリップ幾何
-- `lib/assign-places-to-polygons.ts` — AI下書き場所を内包取込ポリゴンへ割当 (→06)
-- `lib/ai-map-commit.ts` — AI下書きポリゴンを NetworkPolygonEditor へ流し込み（正規化/クリップ/失敗スキップ）
-- `lib/extract-boundary-color.ts` — 画像から色ベースで境界線検出しポリゴン化
-- `lib/georeference.ts` — GCP対応点から画素→緯度経度アフィン変換を最小二乗推定
-- `lib/overlay-georeference.ts` — 手動オーバーレイ整列の相対座標→緯度経度線形写像
-- `lib/pdf-raster.ts` — AI取込の PDF 入力を1ページ目 PNG にラスタ化
 ### hooks
 - `hooks/useAreaDetailMap.ts` — 訪問記録画面の地図/場所描画とビューモデル適用を束ねる (→08)
 - `hooks/useMediaQuery.ts` — matchMedia 購読（タッチ主体判定=直接編集ゲート/狭幅判定=一覧レイアウト）(→07,08)
@@ -103,11 +88,8 @@
 ### domain / data
 - `domain/models/geometry.ts` — 地理座標と GeoJSON ポリゴンの基礎型
 - `domain/models/place.ts` — 座標に紐づく場所（戸建/集合住宅/部屋）モデル (→08)
-- `domain/models/pending-import-place.ts` — AI取込の未確定場所（紐付け前）モデル
 - `domain/repositories/place-repository.ts` — 場所の取得/保存/論理削除・近傍削除済み検索 IF (→08)
-- `domain/repositories/pending-import-place-repository.ts` — AI取込未確定場所の保存/取得/件数/削除 IF
 - `data/inmemory/inmemory-place-repository.ts` — PlaceRepository の InMemory 実装（論理削除除外・Haversine 近傍）(→08)
-- `data/inmemory/inmemory-pending-import-place-repository.ts` — PendingImportPlaceRepository の InMemory 実装
 
 ## 04 メンバー管理と権限（ロール/招待/承認）
 - `services/auth-service.ts` — ロール権限判定・メンバー編集（updateMember=表示名/ロール直接変更。自己ロール変更不可・同名は already_exists・最後の管理者降格ガード）・メンバー削除（removeMember=自己削除不可）。任命招待フローは 2026-07-14 廃止

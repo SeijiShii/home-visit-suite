@@ -6,7 +6,6 @@ import { createContext, useContext, type ReactNode } from "react";
 import { InMemoryCheckoutRepository } from "../data/inmemory/inmemory-checkout-repository";
 import { InMemoryCoverageRepository } from "../data/inmemory/inmemory-coverage-repository";
 import { InMemoryNotificationRepository } from "../data/inmemory/inmemory-notification-repository";
-import { InMemoryPendingImportPlaceRepository } from "../data/inmemory/inmemory-pending-import-place-repository";
 import { InMemoryPersonalRepository } from "../data/inmemory/inmemory-personal-repository";
 import { LocalStoragePersonalRepository } from "../data/localstorage/localstorage-personal-repository";
 import { InMemoryPlaceRepository } from "../data/inmemory/inmemory-place-repository";
@@ -29,7 +28,6 @@ import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-
 import { SettingsService } from "../services/settings-service";
 import { PlaceService } from "../services/place-service";
 import { PlaceRepositoryBindingAdapter } from "../services/place-binding-adapter";
-import { PlaceImportService } from "../services/place-import-service";
 import { VisitService } from "../services/visit-service";
 import { VisitBindingAdapter } from "../services/visit-binding-adapter";
 import type { RegionBindingAPI } from "../services/region-service";
@@ -50,7 +48,6 @@ export interface AppServices {
   checkoutService: CheckoutService;
   settingsService: SettingsService;
   placeService: PlaceService;
-  placeImportService: PlaceImportService;
   visitService: VisitService;
 
   // 地図編集用のアダプタ（旧 Wails RegionBinding / MapBinding 相当）
@@ -81,6 +78,19 @@ export function createInMemoryServices(
   const prefix = opts.persist ? (opts.storagePrefix ?? "hvs") : undefined;
   const sub = (name: string) => (prefix ? `${prefix}:${name}` : undefined);
 
+  // AI 地図取込の廃止（2026-07-16）: 旧 stash（AI 下書きの未確定場所）の永続
+  // エントリを破棄する（読む者のいない孤児データ）。冪等・全名前空間対象。
+  if (opts.persist) {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.endsWith(":pendingImportPlace")) localStorage.removeItem(k);
+      }
+    } catch {
+      // storage が使えない環境では何もしない
+    }
+  }
+
   const userRepo = new InMemoryUserRepository(sub("user"));
   const regionRepo = new InMemoryRegionRepository(sub("region"));
   const checkoutRepo = new InMemoryCheckoutRepository(sub("checkout"));
@@ -106,13 +116,6 @@ export function createInMemoryServices(
   const placeService = new PlaceService(
     new PlaceRepositoryBindingAdapter(placeRepo),
   );
-  const pendingImportPlaceRepo = new InMemoryPendingImportPlaceRepository(
-    sub("pendingImportPlace"),
-  );
-  const placeImportService = new PlaceImportService(
-    pendingImportPlaceRepo,
-    placeService,
-  );
   const visitService = new VisitService(
     new VisitBindingAdapter(checkoutService, checkoutRepo),
   );
@@ -136,7 +139,6 @@ export function createInMemoryServices(
     checkoutService,
     settingsService,
     placeService,
-    placeImportService,
     visitService,
     regionBindingApi,
     mapBinding,
