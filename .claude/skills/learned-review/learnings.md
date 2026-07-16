@@ -97,3 +97,9 @@
 - パターン: メディアクエリは詳細度を上げないため、同一セレクタの上書きはベース規則より後ろに無いと効かない。追記位置が既存ベース定義より前だと無言で無効化される
 - 検査: @media 追加の diff では、上書き対象セレクタのベース定義行番号と @media ブロックの行番号を `grep -n` で比較し、media が後にあることを確認
 - status: active
+
+## L-017 fit 系 API へのローカル maxZoom 上限が小さい対象のフィットを破る
+- 初出: 2026-07-16 `map-renderer.ts` focusPolygons（flyToBounds に maxZoom:17 を指定。150m 四方の区域のタイトフィットに必要な z19 がキャップされ、訪問記録画面「地図を区域へ戻す」で区域が画面の一部にしか映らず周辺の広い範囲が表示された。実機でユーザー体感バグとして発覚＝レビュー見逃し）
+- パターン: fitBounds/flyToBounds/getBoundsZoom 系にオプションで固定 maxZoom を渡すと、対象 bounds が小さいときフィットズームがキャップされ「対象が画面に収まるビュー」にならない。ズーム上限は map 全体の maxZoom 設定に委ねるのが既定
+- 検査: fitBounds/flyToBounds を含む diff で maxZoom オプションの有無を見る。指定があれば「最小サイズの対象で必要なフィットズーム」が上限を超えないか、map レベルの maxZoom で代替できないかを問う
+- status: active

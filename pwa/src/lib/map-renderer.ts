@@ -1456,9 +1456,11 @@ export class MapRenderer {
       bounds = bounds ? bounds.extend(layer.getBounds()) : layer.getBounds();
     }
     if (!bounds) return;
+    // maxZoom は指定しない: 小さな区域では z17 上限がフィットを妨げ、周辺の
+    // 広い範囲が表示されてしまう（区域が画面の一部にしか映らない）。ズームは
+    // getBoundsZoom が地図の maxZoom(19) で自然にクランプする。
     this.map.flyToBounds(bounds, {
       padding: [50, 50],
-      maxZoom: 17,
       duration: 0.8,
     });
   }
