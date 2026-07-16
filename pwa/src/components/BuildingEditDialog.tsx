@@ -108,139 +108,141 @@ export function BuildingEditDialog({
   );
 
   return (
-    <form
-      role="dialog"
-      aria-label={title}
-      className="building-edit-dialog"
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSave();
-      }}
-    >
-      <h3 className="building-edit-dialog-title">{title}</h3>
-      <label className="building-edit-dialog-field">
-        <span>
-          {t.areaDetail.addPlaceNameLabel}
-          <span className="add-place-input-dialog-optional">
-            （{t.areaDetail.addPlaceOptional}）
+    <div className="dialog-backdrop">
+      <form
+        role="dialog"
+        aria-label={title}
+        className="building-edit-dialog"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSave();
+        }}
+      >
+        <h3 className="building-edit-dialog-title">{title}</h3>
+        <label className="building-edit-dialog-field">
+          <span>
+            {t.areaDetail.addPlaceNameLabel}
+            <span className="add-place-input-dialog-optional">
+              （{t.areaDetail.addPlaceOptional}）
+            </span>
           </span>
-        </span>
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          autoFocus
-        />
-      </label>
-      <label className="building-edit-dialog-field">
-        <span>
-          {t.areaDetail.addPlaceAddressLabel}
-          <span className="add-place-input-dialog-optional">
-            （{t.areaDetail.addPlaceOptional}）
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            autoFocus
+          />
+        </label>
+        <label className="building-edit-dialog-field">
+          <span>
+            {t.areaDetail.addPlaceAddressLabel}
+            <span className="add-place-input-dialog-optional">
+              （{t.areaDetail.addPlaceOptional}）
+            </span>
           </span>
-        </span>
-        <input
-          type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-      </label>
-      <label className="building-edit-dialog-field">
-        <span>
-          {t.areaDetail.addBuildingDescriptionLabel}
-          <span className="add-place-input-dialog-optional">
-            （{t.areaDetail.addPlaceOptional}）
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </label>
+        <label className="building-edit-dialog-field">
+          <span>
+            {t.areaDetail.addBuildingDescriptionLabel}
+            <span className="add-place-input-dialog-optional">
+              （{t.areaDetail.addPlaceOptional}）
+            </span>
           </span>
-        </span>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder={t.areaDetail.addBuildingDescriptionPlaceholder}
-          rows={3}
-        />
-      </label>
-      <fieldset className="building-edit-dialog-rooms">
-        <legend>{t.areaDetail.buildingRoomsLabel}</legend>
-        <ul className="building-room-list" role="list">
-          {rows.map((row, index) => (
-            <li
-              key={row.key}
-              data-testid="room-row"
-              className="building-room-row"
-              draggable
-              onDragStart={() => setDragIndex(index)}
-              onDragOver={(e) => {
-                if (dragIndex !== null && dragIndex !== index) {
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t.areaDetail.addBuildingDescriptionPlaceholder}
+            rows={3}
+          />
+        </label>
+        <fieldset className="building-edit-dialog-rooms">
+          <legend>{t.areaDetail.buildingRoomsLabel}</legend>
+          <ul className="building-room-list" role="list">
+            {rows.map((row, index) => (
+              <li
+                key={row.key}
+                data-testid="room-row"
+                className="building-room-row"
+                draggable
+                onDragStart={() => setDragIndex(index)}
+                onDragOver={(e) => {
+                  if (dragIndex !== null && dragIndex !== index) {
+                    e.preventDefault();
+                  }
+                }}
+                onDrop={(e) => {
                   e.preventDefault();
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragIndex !== null && dragIndex !== index) {
-                  setRows((rs) => reorderRoomRows(rs, dragIndex, index));
-                }
-                setDragIndex(null);
-              }}
-              onDragEnd={() => setDragIndex(null)}
-            >
-              <input
-                type="text"
-                aria-label={t.areaDetail.buildingRoomNumberPlaceholder}
-                placeholder={t.areaDetail.buildingRoomNumberPlaceholder}
-                value={row.displayName}
-                onChange={(e) => updateDisplayName(row.key, e.target.value)}
-              />
-              <button
-                type="button"
-                className="building-room-remove"
-                aria-label={t.areaDetail.buildingRemoveRow}
-                disabled={!canDelete}
-                onClick={() => handleRemoveClick(row)}
+                  if (dragIndex !== null && dragIndex !== index) {
+                    setRows((rs) => reorderRoomRows(rs, dragIndex, index));
+                  }
+                  setDragIndex(null);
+                }}
+                onDragEnd={() => setDragIndex(null)}
               >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="building-room-add-actions">
-          <button type="button" onClick={() => addN(1)}>
-            {t.areaDetail.buildingAddOneRoom}
+                <input
+                  type="text"
+                  aria-label={t.areaDetail.buildingRoomNumberPlaceholder}
+                  placeholder={t.areaDetail.buildingRoomNumberPlaceholder}
+                  value={row.displayName}
+                  onChange={(e) => updateDisplayName(row.key, e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="building-room-remove"
+                  aria-label={t.areaDetail.buildingRemoveRow}
+                  disabled={!canDelete}
+                  onClick={() => handleRemoveClick(row)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="building-room-add-actions">
+            <button type="button" onClick={() => addN(1)}>
+              {t.areaDetail.buildingAddOneRoom}
+            </button>
+            <button type="button" onClick={() => addN(5)}>
+              {t.areaDetail.buildingAddFiveRooms}
+            </button>
+            <button type="button" onClick={() => addN(10)}>
+              {t.areaDetail.buildingAddTenRooms}
+            </button>
+          </div>
+        </fieldset>
+        <div className="add-place-input-dialog-actions">
+          <button
+            type="button"
+            className="add-place-input-dialog-cancel"
+            onClick={onCancel}
+          >
+            {t.areaDetail.cancel}
           </button>
-          <button type="button" onClick={() => addN(5)}>
-            {t.areaDetail.buildingAddFiveRooms}
-          </button>
-          <button type="button" onClick={() => addN(10)}>
-            {t.areaDetail.buildingAddTenRooms}
+          <button type="submit" className="add-place-input-dialog-save">
+            {t.areaDetail.save}
           </button>
         </div>
-      </fieldset>
-      <div className="add-place-input-dialog-actions">
-        <button
-          type="button"
-          className="add-place-input-dialog-cancel"
-          onClick={onCancel}
-        >
-          {t.areaDetail.cancel}
-        </button>
-        <button type="submit" className="add-place-input-dialog-save">
-          {t.areaDetail.save}
-        </button>
-      </div>
-      {removedRow && (
-        <div
-          role="dialog"
-          aria-label={t.areaDetail.buildingConfirmRemoveExistingRoom}
-          className="building-room-confirm-dialog"
-        >
-          <p>{t.areaDetail.buildingConfirmRemoveExistingRoom}</p>
-          <button type="button" onClick={cancelRemove}>
-            {t.areaDetail.no}
-          </button>
-          <button type="button" onClick={confirmRemove}>
-            {t.areaDetail.yes}
-          </button>
-        </div>
-      )}
-    </form>
+        {removedRow && (
+          <div
+            role="dialog"
+            aria-label={t.areaDetail.buildingConfirmRemoveExistingRoom}
+            className="building-room-confirm-dialog"
+          >
+            <p>{t.areaDetail.buildingConfirmRemoveExistingRoom}</p>
+            <button type="button" onClick={cancelRemove}>
+              {t.areaDetail.no}
+            </button>
+            <button type="button" onClick={confirmRemove}>
+              {t.areaDetail.yes}
+            </button>
+          </div>
+        )}
+      </form>
+    </div>
   );
 }

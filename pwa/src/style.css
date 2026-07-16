@@ -1248,10 +1248,15 @@ section {
 .visit-page-map.with-back .leaflet-top.leaflet-left {
   padding-top: 44px;
 }
-/* 狭幅時の場所一覧オーバーレイ（全面） */
+/* 狭幅時の場所一覧オーバーレイ。
+   サイドバーの折りたたみレール（48px・常時表示）を避けて右側全面に重ねる。
+   展開サイドバー（z 10001）より下・ダイアログ（.dialog-backdrop 10500）より下。 */
 .place-list-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 48px;
   z-index: 1100;
   display: flex;
   flex-direction: column;
@@ -1296,7 +1301,16 @@ section {
 
 /* ===== 訪問記録ダイアログ群 (戸建て / 集合住宅) ===== */
 
-/* 共通: モーダル風の中央配置 + バックドロップ */
+/* ダイアログ共通バックドロップ: 実要素で全面を覆い、背後（地図等）へのポインタ操作を遮断する。
+   狭幅サイドバーのレール（.sidebar-overlay z 10001）より上に置き、ダイアログが下に入り込まないようにする。 */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 10500;
+}
+
+/* 共通: モーダル風の中央配置（バックドロップは .dialog-backdrop が担う） */
 .visit-record-dialog,
 .building-visit-dialog {
   position: fixed;
@@ -1307,9 +1321,7 @@ section {
   background: #fff;
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.25),
-    0 0 0 100vmax rgba(15, 23, 42, 0.45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   padding: 18px 22px;
   min-width: 360px;
   max-width: min(560px, calc(100vw - 32px));
@@ -1678,7 +1690,8 @@ section {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  /* 狭幅サイドバーのレール（z 10001）より上 */
+  z-index: 10500;
 }
 
 .modal {
@@ -3512,7 +3525,8 @@ section {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  /* 狭幅サイドバーのレール（z 10001）より上 */
+  z-index: 10500;
 }
 
 .checkouts-dialog {
@@ -3862,7 +3876,8 @@ section {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  /* 狭幅サイドバーのレール（z 10001）より上 */
+  z-index: 10500;
 }
 .coverage-dialog {
   background: #fff;

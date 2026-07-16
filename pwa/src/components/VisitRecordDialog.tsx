@@ -200,210 +200,212 @@ export function VisitRecordDialog({
   };
 
   return (
-    <form
-      role="dialog"
-      aria-label={t.visitRecord.dialogTitle}
-      className="visit-record-dialog"
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSave();
-      }}
-    >
-      <header className="visit-record-dialog-header">
-        <h3>{placeLabel}</h3>
-        {placeAddress && <p>{placeAddress}</p>}
-        <p
-          data-testid="last-met-date"
-          className={`visit-record-last-met ${lastMetClassName}`}
-        >
-          <span>{t.visitRecord.lastMetLabel}: </span>
-          {lastMetDate ? (
-            <span>
-              {formatDate(lastMetDate)}
-              {t.visitRecord.lastMetSuffix}
-            </span>
-          ) : (
-            <span>{t.visitRecord.lastMetNone}</span>
-          )}
-        </p>
-      </header>
-
-      {readOnly ? (
-        <p className="visit-record-readonly-hint" role="note">
-          {readOnlyHint ?? t.visitRecord.placeReadOnlyHint}
-        </p>
-      ) : (
-        <>
-          <label className="visit-record-field">
-            <span>{t.visitRecord.visitedAtLabel}</span>
-            <input
-              type="datetime-local"
-              value={visitedAtStr}
-              onChange={(e) => setVisitedAtStr(e.target.value)}
-            />
-          </label>
-
-          <label className="visit-record-field">
-            <span>{t.visitRecord.resultLabel}</span>
-            <select
-              value={result}
-              onChange={(e) =>
-                handleResultChange(e.target.value as VisitResult)
-              }
-            >
-              {VISIT_RESULTS.map((r) => (
-                <option key={r} value={r}>
-                  {visitResultLabel(r, t)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="visit-record-field">
-            <span>{t.visitRecord.noteLabel}</span>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t.visitRecord.notePlaceholder}
-              rows={3}
-            />
-          </label>
-        </>
-      )}
-
-      <section className="visit-record-history">
-        <button
-          type="button"
-          className="visit-record-history-toggle"
-          onClick={() => setHistoryOpen((v) => !v)}
-          aria-expanded={historyOpen}
-        >
-          {t.visitRecord.historyToggle} ({myHistory.length})
-        </button>
-        {historyOpen && (
-          <div className="visit-record-history-list">
-            {myHistory.length === 0 ? (
-              <p>{t.visitRecord.historyNone}</p>
-            ) : (
-              <ul>
-                {myHistory.map((h) => (
-                  <li key={h.id} data-testid="history-row">
-                    {formatDate(new Date(h.visitedAt))} —{" "}
-                    {visitResultLabel(h.result, t)}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-        {!historyOpen && myHistory.length === 0 && (
-          <p className="visit-record-history-empty">
-            {t.visitRecord.historyNone}
-          </p>
-        )}
-      </section>
-
-      <div className="visit-record-actions">
-        <button
-          type="button"
-          className="visit-record-cancel"
-          onClick={onCancel}
-        >
-          {readOnly ? t.visitRecord.close : t.areaDetail.cancel}
-        </button>
-        {!readOnly && (
-          <button type="submit" className="visit-record-save">
-            {t.areaDetail.save}
-          </button>
-        )}
-      </div>
-
-      <button
-        type="button"
-        className="visit-record-edit-request"
-        onClick={openEdit}
+    <div className="dialog-backdrop">
+      <form
+        role="dialog"
+        aria-label={t.visitRecord.dialogTitle}
+        className="visit-record-dialog"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSave();
+        }}
       >
-        {t.visitRecord.placeEditRequestButton}
-      </button>
+        <header className="visit-record-dialog-header">
+          <h3>{placeLabel}</h3>
+          {placeAddress && <p>{placeAddress}</p>}
+          <p
+            data-testid="last-met-date"
+            className={`visit-record-last-met ${lastMetClassName}`}
+          >
+            <span>{t.visitRecord.lastMetLabel}: </span>
+            {lastMetDate ? (
+              <span>
+                {formatDate(lastMetDate)}
+                {t.visitRecord.lastMetSuffix}
+              </span>
+            ) : (
+              <span>{t.visitRecord.lastMetNone}</span>
+            )}
+          </p>
+        </header>
 
-      {pendingApplicationResult && (
-        <div
-          role="dialog"
-          aria-label={t.visitRecord.applicationDialogTitle}
-          className="visit-record-application-dialog"
-        >
-          <h4>{t.visitRecord.applicationDialogTitle}</h4>
-          <label>
-            <span>{t.visitRecord.applicationTextLabel}</span>
-            <textarea
-              value={applicationText}
-              onChange={(e) => setApplicationText(e.target.value)}
-              placeholder={t.visitRecord.applicationTextPlaceholder}
-              rows={4}
-              autoFocus
-            />
-          </label>
-          <div className="visit-record-application-actions">
-            <button type="button" onClick={cancelApplication}>
-              {t.visitRecord.applicationCancel}
-            </button>
-            <button
-              type="button"
-              onClick={confirmApplication}
-              disabled={applicationText.trim().length === 0}
-            >
-              {t.visitRecord.applicationConfirmSave}
-            </button>
-          </div>
-        </div>
-      )}
+        {readOnly ? (
+          <p className="visit-record-readonly-hint" role="note">
+            {readOnlyHint ?? t.visitRecord.placeReadOnlyHint}
+          </p>
+        ) : (
+          <>
+            <label className="visit-record-field">
+              <span>{t.visitRecord.visitedAtLabel}</span>
+              <input
+                type="datetime-local"
+                value={visitedAtStr}
+                onChange={(e) => setVisitedAtStr(e.target.value)}
+              />
+            </label>
 
-      {editOpen && (
-        <div
-          role="dialog"
-          aria-label={t.visitRecord.placeEditDialogTitle}
-          className="visit-record-edit-dialog"
-        >
-          <h4>{t.visitRecord.placeEditDialogTitle}</h4>
-          <label className="visit-record-edit-field">
-            <span>{t.visitRecord.placeEditKindLabel}</span>
-            <select
-              value={editKind}
-              onChange={(e) =>
-                setEditKind(e.target.value as PlaceEditRequestKind)
-              }
-            >
-              {PLACE_EDIT_REQUEST_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {editKindLabel(k, t)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="visit-record-edit-field">
-            <span>{t.visitRecord.placeEditTextLabel}</span>
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              placeholder={t.visitRecord.placeEditTextPlaceholder}
-              rows={4}
-              autoFocus
-            />
-          </label>
-          <div className="visit-record-edit-actions">
-            <button type="button" onClick={() => setEditOpen(false)}>
-              {t.areaDetail.cancel}
+            <label className="visit-record-field">
+              <span>{t.visitRecord.resultLabel}</span>
+              <select
+                value={result}
+                onChange={(e) =>
+                  handleResultChange(e.target.value as VisitResult)
+                }
+              >
+                {VISIT_RESULTS.map((r) => (
+                  <option key={r} value={r}>
+                    {visitResultLabel(r, t)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="visit-record-field">
+              <span>{t.visitRecord.noteLabel}</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t.visitRecord.notePlaceholder}
+                rows={3}
+              />
+            </label>
+          </>
+        )}
+
+        <section className="visit-record-history">
+          <button
+            type="button"
+            className="visit-record-history-toggle"
+            onClick={() => setHistoryOpen((v) => !v)}
+            aria-expanded={historyOpen}
+          >
+            {t.visitRecord.historyToggle} ({myHistory.length})
+          </button>
+          {historyOpen && (
+            <div className="visit-record-history-list">
+              {myHistory.length === 0 ? (
+                <p>{t.visitRecord.historyNone}</p>
+              ) : (
+                <ul>
+                  {myHistory.map((h) => (
+                    <li key={h.id} data-testid="history-row">
+                      {formatDate(new Date(h.visitedAt))} —{" "}
+                      {visitResultLabel(h.result, t)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {!historyOpen && myHistory.length === 0 && (
+            <p className="visit-record-history-empty">
+              {t.visitRecord.historyNone}
+            </p>
+          )}
+        </section>
+
+        <div className="visit-record-actions">
+          <button
+            type="button"
+            className="visit-record-cancel"
+            onClick={onCancel}
+          >
+            {readOnly ? t.visitRecord.close : t.areaDetail.cancel}
+          </button>
+          {!readOnly && (
+            <button type="submit" className="visit-record-save">
+              {t.areaDetail.save}
             </button>
-            <button
-              type="button"
-              onClick={submitEdit}
-              disabled={editText.trim().length === 0}
-            >
-              {t.visitRecord.placeEditSubmit}
-            </button>
-          </div>
+          )}
         </div>
-      )}
-    </form>
+
+        <button
+          type="button"
+          className="visit-record-edit-request"
+          onClick={openEdit}
+        >
+          {t.visitRecord.placeEditRequestButton}
+        </button>
+
+        {pendingApplicationResult && (
+          <div
+            role="dialog"
+            aria-label={t.visitRecord.applicationDialogTitle}
+            className="visit-record-application-dialog"
+          >
+            <h4>{t.visitRecord.applicationDialogTitle}</h4>
+            <label>
+              <span>{t.visitRecord.applicationTextLabel}</span>
+              <textarea
+                value={applicationText}
+                onChange={(e) => setApplicationText(e.target.value)}
+                placeholder={t.visitRecord.applicationTextPlaceholder}
+                rows={4}
+                autoFocus
+              />
+            </label>
+            <div className="visit-record-application-actions">
+              <button type="button" onClick={cancelApplication}>
+                {t.visitRecord.applicationCancel}
+              </button>
+              <button
+                type="button"
+                onClick={confirmApplication}
+                disabled={applicationText.trim().length === 0}
+              >
+                {t.visitRecord.applicationConfirmSave}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {editOpen && (
+          <div
+            role="dialog"
+            aria-label={t.visitRecord.placeEditDialogTitle}
+            className="visit-record-edit-dialog"
+          >
+            <h4>{t.visitRecord.placeEditDialogTitle}</h4>
+            <label className="visit-record-edit-field">
+              <span>{t.visitRecord.placeEditKindLabel}</span>
+              <select
+                value={editKind}
+                onChange={(e) =>
+                  setEditKind(e.target.value as PlaceEditRequestKind)
+                }
+              >
+                {PLACE_EDIT_REQUEST_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {editKindLabel(k, t)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="visit-record-edit-field">
+              <span>{t.visitRecord.placeEditTextLabel}</span>
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                placeholder={t.visitRecord.placeEditTextPlaceholder}
+                rows={4}
+                autoFocus
+              />
+            </label>
+            <div className="visit-record-edit-actions">
+              <button type="button" onClick={() => setEditOpen(false)}>
+                {t.areaDetail.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={submitEdit}
+                disabled={editText.trim().length === 0}
+              >
+                {t.visitRecord.placeEditSubmit}
+              </button>
+            </div>
+          </div>
+        )}
+      </form>
+    </div>
   );
 }

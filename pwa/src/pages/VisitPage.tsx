@@ -970,26 +970,30 @@ export function VisitPage({
       )}
 
       {addFlow.kind === "confirmingRestore" && (
-        <div
-          role="dialog"
-          aria-label={t.areaDetail.linkRestoredPrompt}
-          className="area-detail-restore-dialog"
-        >
-          <p>{t.areaDetail.linkRestoredPrompt}</p>
-          <button onClick={handleRestoreYes}>{t.areaDetail.yes}</button>
-          <button onClick={handleRestoreNo}>{t.areaDetail.no}</button>
+        <div className="dialog-backdrop">
+          <div
+            role="dialog"
+            aria-label={t.areaDetail.linkRestoredPrompt}
+            className="area-detail-restore-dialog"
+          >
+            <p>{t.areaDetail.linkRestoredPrompt}</p>
+            <button onClick={handleRestoreYes}>{t.areaDetail.yes}</button>
+            <button onClick={handleRestoreNo}>{t.areaDetail.no}</button>
+          </div>
         </div>
       )}
 
       {moveFlow.kind === "confirmingRestore" && (
-        <div
-          role="dialog"
-          aria-label={t.areaDetail.linkRestoredPrompt}
-          className="area-detail-restore-dialog"
-        >
-          <p>{t.areaDetail.linkRestoredPrompt}</p>
-          <button onClick={handleMoveRestoreYes}>{t.areaDetail.yes}</button>
-          <button onClick={handleMoveRestoreNo}>{t.areaDetail.no}</button>
+        <div className="dialog-backdrop">
+          <div
+            role="dialog"
+            aria-label={t.areaDetail.linkRestoredPrompt}
+            className="area-detail-restore-dialog"
+          >
+            <p>{t.areaDetail.linkRestoredPrompt}</p>
+            <button onClick={handleMoveRestoreYes}>{t.areaDetail.yes}</button>
+            <button onClick={handleMoveRestoreNo}>{t.areaDetail.no}</button>
+          </div>
         </div>
       )}
 
@@ -1030,23 +1034,25 @@ export function VisitPage({
       )}
 
       {pendingBuildingDelete && (
-        <div
-          role="dialog"
-          aria-label={t.areaDetail.buildingConfirmDeleteCascade}
-          className="delete-place-confirm-dialog"
-        >
-          <p>
-            {t.areaDetail.buildingConfirmDeleteCascade.replace(
-              "{count}",
-              String(buildingRoomCount(pendingBuildingDelete.id)),
-            )}
-          </p>
-          <button onClick={() => setPendingBuildingDelete(null)}>
-            {t.areaDetail.cancel}
-          </button>
-          <button onClick={handleBuildingDeleteConfirm}>
-            {t.areaDetail.deletePlace}
-          </button>
+        <div className="dialog-backdrop">
+          <div
+            role="dialog"
+            aria-label={t.areaDetail.buildingConfirmDeleteCascade}
+            className="delete-place-confirm-dialog"
+          >
+            <p>
+              {t.areaDetail.buildingConfirmDeleteCascade.replace(
+                "{count}",
+                String(buildingRoomCount(pendingBuildingDelete.id)),
+              )}
+            </p>
+            <button onClick={() => setPendingBuildingDelete(null)}>
+              {t.areaDetail.cancel}
+            </button>
+            <button onClick={handleBuildingDeleteConfirm}>
+              {t.areaDetail.deletePlace}
+            </button>
+          </div>
         </div>
       )}
     </div>

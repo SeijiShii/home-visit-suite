@@ -27,27 +27,29 @@ export function DeletePlaceConfirmDialog({
   }, [onCancel]);
 
   return (
-    <div
-      role="dialog"
-      aria-label={t.areaDetail.confirmDeletePlace}
-      className="delete-place-confirm-dialog"
-    >
-      <p>{t.areaDetail.confirmDeletePlace}</p>
-      <div className="delete-place-confirm-dialog-actions">
-        <button
-          type="button"
-          className="delete-place-confirm-dialog-cancel"
-          onClick={onCancel}
-        >
-          {t.areaDetail.no}
-        </button>
-        <button
-          type="button"
-          className="delete-place-confirm-dialog-confirm"
-          onClick={onConfirm}
-        >
-          {t.areaDetail.deletePlace}
-        </button>
+    <div className="dialog-backdrop">
+      <div
+        role="dialog"
+        aria-label={t.areaDetail.confirmDeletePlace}
+        className="delete-place-confirm-dialog"
+      >
+        <p>{t.areaDetail.confirmDeletePlace}</p>
+        <div className="delete-place-confirm-dialog-actions">
+          <button
+            type="button"
+            className="delete-place-confirm-dialog-cancel"
+            onClick={onCancel}
+          >
+            {t.areaDetail.no}
+          </button>
+          <button
+            type="button"
+            className="delete-place-confirm-dialog-confirm"
+            onClick={onConfirm}
+          >
+            {t.areaDetail.deletePlace}
+          </button>
+        </div>
       </div>
     </div>
   );

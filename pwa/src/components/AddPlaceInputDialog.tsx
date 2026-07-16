@@ -38,55 +38,57 @@ export function AddPlaceInputDialog({
   }, [onCancel]);
 
   return (
-    <form
-      role="dialog"
-      aria-label={dialogTitle}
-      className="add-place-input-dialog"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave({ address, label });
-      }}
-    >
-      <h3 className="add-place-input-dialog-title">{dialogTitle}</h3>
-      <label className="add-place-input-dialog-field">
-        <span>
-          {t.areaDetail.addPlaceNameLabel}
-          <span className="add-place-input-dialog-optional">
-            （{t.areaDetail.addPlaceOptional}）
+    <div className="dialog-backdrop">
+      <form
+        role="dialog"
+        aria-label={dialogTitle}
+        className="add-place-input-dialog"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave({ address, label });
+        }}
+      >
+        <h3 className="add-place-input-dialog-title">{dialogTitle}</h3>
+        <label className="add-place-input-dialog-field">
+          <span>
+            {t.areaDetail.addPlaceNameLabel}
+            <span className="add-place-input-dialog-optional">
+              （{t.areaDetail.addPlaceOptional}）
+            </span>
           </span>
-        </span>
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          autoFocus
-        />
-      </label>
-      <label className="add-place-input-dialog-field">
-        <span>
-          {t.areaDetail.addPlaceAddressLabel}
-          <span className="add-place-input-dialog-optional">
-            （{t.areaDetail.addPlaceOptional}）
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            autoFocus
+          />
+        </label>
+        <label className="add-place-input-dialog-field">
+          <span>
+            {t.areaDetail.addPlaceAddressLabel}
+            <span className="add-place-input-dialog-optional">
+              （{t.areaDetail.addPlaceOptional}）
+            </span>
           </span>
-        </span>
-        <input
-          type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-      </label>
-      <div className="add-place-input-dialog-actions">
-        <button
-          type="button"
-          className="add-place-input-dialog-cancel"
-          onClick={onCancel}
-        >
-          {t.areaDetail.cancel}
-        </button>
-        <button type="submit" className="add-place-input-dialog-save">
-          {t.areaDetail.save}
-        </button>
-      </div>
-    </form>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </label>
+        <div className="add-place-input-dialog-actions">
+          <button
+            type="button"
+            className="add-place-input-dialog-cancel"
+            onClick={onCancel}
+          >
+            {t.areaDetail.cancel}
+          </button>
+          <button type="submit" className="add-place-input-dialog-save">
+            {t.areaDetail.save}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
