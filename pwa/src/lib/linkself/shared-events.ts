@@ -23,6 +23,7 @@ export const MAP_NETWORK_TABLES = [
 export const PLACE_TABLES = ["places"] as const;
 export const CHECKOUT_TABLES = ["checkouts", "checkout_invitations"] as const;
 export const VISIT_TABLES = ["visit_records", "visit_record_edits"] as const;
+export const REQUEST_TABLES = ["requests"] as const;
 
 /**
  * デバイスロスターの更新イベント名（detail なし）。ロスターの永続

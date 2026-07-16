@@ -48,7 +48,7 @@
 | 4 | メンバー管理と権限 | `04_メンバー管理と権限.md` | `models/user.go`, `service/auth*.go`, `binding/user.go`, `pages/UsersPage.tsx` | ⚠️ 部分（タグ管理は本実装、招待/任免 UI は未実装） |
 | 5 | チェックアウト | `05_チェックアウト.md` | `models/{visit,checkout_invitation,available_period,access}.go`, `service/checkout*.go`, `service/available_period*.go`, `binding/{checkout,available_period}.go`, `pages/CheckoutsPage.tsx` | ✅ 稼働（Place レベル read-only は未実装） |
 | 6 | 網羅管理 | `06_網羅管理.md` | `models/coverage.go`, `service/available_period*.go`, `pages/CoveragePage.tsx` | ⚠️ 部分（AvailablePeriod は本実装、網羅率算出は未配線） |
-| 7 | 通知と申請 | `07_通知と申請.md` | `models/{notification,request,audit}.go`, `pages/RequestsPage.tsx` | ⚠️ スタブ（RequestsPage は静的、申請ライフサイクル未実装） |
+| 7 | 通知と申請 | `07_通知と申請.md` | `models/{notification,request,audit}.go`, `pages/RequestsPage.tsx` | ✅ 申請一覧・状態管理実装済み（2026-07-16。却下フロー・申請者通知は次期スコープ） |
 | 8 | 活動メンバー向けアプリ | `08_活動メンバー向けアプリ.md` | （未着手） | ❌ 未着手（技術方針: 単一 PWA のロール別 UI に統合 — 2026-07-07 改訂。旧案 Expo RN + gomobile は廃止） |
 | 9 | 継続的検討事項 | `09_継続的検討事項.md` | — | 未決論点集（§8 と連動） |
 | 10 | 画面設計 | `10_画面設計.md` | `pages/*`, `components/*` | ⚠️ 仕様が古い（後述 §8: 複数画面で実装が先行） |
@@ -212,9 +212,8 @@ home-visit-suite/
 - **[論点-003] Place レベル read-only モードが UI 未実装**
   - 検出根拠: `AccessMode` モデル・`PlaceAccessMode` API は存在するが常に `editable` を返すスタブ。UI トグルなし（05/09 の記載通り）。
   - 詰めるべき問い: 招待期限切れ後の再訪ニーズ（09）への対応としていつ実装するか。
-- **[論点-004] 申請（Request）ライフサイクルが未実装（RequestsPage スタブ）**
-  - 検出根拠: `pages/RequestsPage.tsx` は静的表示のみ。VisitPage の場所作成/修正申請は `console.log` のみ（`// TODO: Slice 10 RequestService`）。未処理/保留/処理済みの状態管理・却下・申請者通知が未実装（07 の「次スコープ」通り）。
-  - 詰めるべき問い: RequestService の実装スコープと優先度。
+- **[論点-004] 申請（Request）ライフサイクルが未実装（RequestsPage スタブ）** → **解消済み（2026-07-16）**
+  - 申請の永続化（`NotificationRepository.saveRequest`）と申請一覧 `/requests`（単一リスト・ステータス管理・絞り込み）を実装（`07_通知と申請.md`「申請一覧」）。却下フロー・申請者への通知は引き続き次期スコープ。
 - **[論点-005] 網羅率/達成率の算出が未配線**
   - 検出根拠: Dashboard の進捗列は `progressPlaceholder`、CoveragePage は達成率/過去記録ビューを明示的に未実装。`Coverage.ActualPercent/StatusPercent` カラムはあるが算出ロジックなし（06）。
   - 詰めるべき問い: 網羅率算出（訪問先の ≥1 記録比率、AvailablePeriod スコープ）の実装。
@@ -272,6 +271,6 @@ home-visit-suite/
 | Binding 名前空間 | 9（region/map/user/settings/place/availablePeriod/visit/checkout/identity） |
 | サービス | auth / checkout / available_period 実装、region は IF のみ（未実装） |
 | LinkSelf migrations | v1〜v8 |
-| フロント画面 | 本実装 7（Dashboard/Map/AreaDetail/Regions/Checkouts/Coverage/Users）+ Visit(Phase-1) + Requests(スタブ) + Settings |
+| フロント画面 | 本実装 7（Dashboard/Map/AreaDetail/Regions/Checkouts/Coverage/Users）+ Visit(Phase-1) + Requests(2026-07-16 本実装) + Settings |
 | ドリフト論点 | 17 件（§8: A×1, B×6, C×7, D×3）+ 09 継続検討 |
 | 過去 flow 実行 | 0（本 onboard が初回） |

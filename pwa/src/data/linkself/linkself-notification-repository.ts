@@ -36,6 +36,10 @@ export class LinkSelfNotificationRepository implements NotificationRepository {
     );
   }
 
+  listAllRequests(): Promise<Request[]> {
+    return listRows<Request>(this.db, "requests");
+  }
+
   getRequest(id: string): Promise<Request | null> {
     return getRow<Request>(this.db, "requests", id);
   }

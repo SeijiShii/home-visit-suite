@@ -281,12 +281,28 @@ export interface Translations {
   };
   requests: {
     title: string;
-    pending: string;
-    noPending: string;
-    resolved: string;
-    noResolved: string;
+    searchPlaceholder: string;
+    statusLabel: string;
+    statusPending: string;
+    statusOnHold: string;
+    statusResolved: string;
+    createdDateLabel: string;
+    resolvedDateLabel: string;
+    dateRangeSeparator: string;
+    createdFromLabel: string;
+    createdToLabel: string;
+    resolvedFromLabel: string;
+    resolvedToLabel: string;
+    loading: string;
+    empty: string;
+    noMatch: string;
+    setPending: string;
+    setOnHold: string;
+    setResolved: string;
     types: {
-      placeAdd: string;
+      placeDelete: string;
+      placeMove: string;
+      placeInfoModify: string;
       mapUpdate: string;
       doNotVisit: string;
     };

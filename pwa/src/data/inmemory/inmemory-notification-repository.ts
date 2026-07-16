@@ -42,6 +42,10 @@ export class InMemoryNotificationRepository implements NotificationRepository {
       .map(cloneRequest);
   }
 
+  async listAllRequests(): Promise<Request[]> {
+    return [...this.requests.values()].map(cloneRequest);
+  }
+
   async getRequest(id: string): Promise<Request | null> {
     const r = this.requests.get(id);
     return r ? cloneRequest(r) : null;

@@ -13,6 +13,8 @@ export interface NotificationRepository {
 
   // Request
   listRequests(areaId: string): Promise<Request[]>;
+  /** 全区域の申請を返す（申請一覧 /requests 用。docs/wants/07「申請一覧」） */
+  listAllRequests(): Promise<Request[]>;
   getRequest(id: string): Promise<Request | null>;
   saveRequest(req: Request): Promise<void>;
 

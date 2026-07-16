@@ -112,7 +112,7 @@
 - `lib/linkself/group-network.ts` — グループ参加のアプリ向けファサード（GroupNetworkService）。起動中 LinkSelfClient を薄くラップし ensureFoundingNetwork（創設ネットワーク作成/永続。実体なし迷子 ID は作り直し回復）・issueInvite（管理者として3日招待発行）・setMemberRole/kickMember（ロール変更/除名の LinkSelf ネットワーク反映 + membership snapshot 配信。実体に無い対象は best-effort で素通り）・join（招待URL受理→requestJoin→networkId永続）・**非同期参加**（joinAsync=メールボックスへ封緘 deposit + pending 永続 `hvs.pendingJoin` / restorePendingJoin=起動時復元・失効判定 / resolveAsyncDecision=受理結果の確定・networkId 永続・`hvs:async-join-decision` イベント通知・持ち越し `hvs.asyncJoinResult` は App が consumeAsyncJoinResult でロール採用）を提供。networkId は localStorage `hvs.networkId`。clearGroupNetworkLocalState（別 DID への紐づけ直し時に networkId/pending/持ち越し結果を破棄。PairPage が使用）。upsertJoinedMember（onMemberJoined→UserRepository 記録。表示名は受理管理者のみ可視・既存メンバーと同名なら「(2)」からの連番付与）(→04,11)
 - `lib/linkself/network-store.ts` — ネットワーク実体（メンバー・ロール表）と使用済み招待ノンスの localStorage 永続ストア（LocalStorageNetworkStore / LocalStorageConsumedNonceStore）。in-memory だとリロードで消え招待が network_not_found 拒否になるのを防ぐ (→01,04)
 - `lib/linkself/shared-store.ts` — groupshare 共有レコード（LocalStorageSharedStorage、catch-up 高水位・LWW 判定材料の保持）と membership epoch（LocalStorageEpochStore、スナップショット巻き戻り防止）の localStorage 永続 (→01)
-- `lib/linkself/shared-events.ts` — ScopeNetwork 受信適用（`hvs:shared-applied`。UsersPage/IdentityContext + useSharedApplied 経由で区域一覧/ダッシュボード/領域管理/地図/訪問画面が購読）とロスター更新（`hvs:roster-updated`。SettingsPage デバイス一覧が購読）の window イベント定数・画面別購読テーブル群プリセット。重量級 linkself-services に依存しない軽量モジュール (→01,04)
+- `lib/linkself/shared-events.ts` — ScopeNetwork 受信適用（`hvs:shared-applied`。UsersPage/IdentityContext + useSharedApplied 経由で区域一覧/ダッシュボード/領域管理/地図/訪問画面/申請一覧が購読）とロスター更新（`hvs:roster-updated`。SettingsPage デバイス一覧が購読）の window イベント定数・画面別購読テーブル群プリセット。重量級 linkself-services に依存しない軽量モジュール (→01,04)
 - `lib/linkself/known-members.ts` — 既知メンバー（招待発行者=管理者）到達アドレスのローカル永続（アクティブスロットの名前空間。未作成時は旧 `hvs.knownMembers`）。presence 未実装のため次回起動の FastStart で管理者へ再ダイヤルするハブ型トポロジの土台 (→01)
 - `data/linkself/linkself-user-repository.ts` — UserRepository の MyDB(SQL) 実装（users/member_tags。OPFS 永続 + ScopeNetwork でメンバー間同期。invitations は廃止フローのため InMemory 委譲。USER_SYNC_TABLES）(→01,04)
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label。ラベルの SoT はロスター、fromRoster 行は改名可・削除不可）
@@ -150,7 +150,7 @@
 - 「チェックアウト可能期間（AvailablePeriod）」は 2026-07-13 廃止（旧 `available-period*` / `CoveragePage` は削除。網羅進捗参照画面は後続フェーズ）
 
 ## 07 通知と申請（通知/申請/監査ログ/データ保持）
-- `pages/RequestsPage.tsx` — 通知と申請画面（保留/解決一覧、現状プレースホルダ）(→10)
+- `pages/RequestsPage.tsx` — 申請一覧（全区域の単一リスト＋ステータスバッジ〔未処理/保留/処理済み〕・区域ID/区域名検索・申請日/処理日期間・ステータス絞り込み〔初期=未処理〕・行内ステータス変更・申請者名表示・受信同期で自動更新）(→10)
 - `components/VisitRecordDialog.tsx` — 訪問記録入力（結果/メモ）＋編集リクエスト（要削除/要移動/その他）(→08)
 - `domain/models/notification.ts` — 任命/貸出/返却/申請結果等の通知モデル
 - `domain/models/request.ts` — 各種申請（場所削除/情報修正/地図更新/訪問拒否）モデル
