@@ -299,6 +299,7 @@ export interface Translations {
     setPending: string;
     setOnHold: string;
     setResolved: string;
+    openVisitPage: string;
     types: {
       placeDelete: string;
       placeMove: string;

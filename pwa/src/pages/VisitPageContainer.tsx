@@ -7,6 +7,7 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 import { VisitPage } from "./VisitPage";
 import { RegionService } from "../services/region-service";
@@ -50,6 +51,10 @@ export function VisitPageContainer() {
   const fromMapEditor =
     (location.state as { from?: string } | null)?.from === "map-editor";
   const handleBackToMap = useCallback(() => navigate("/map"), [navigate]);
+  // 申請一覧からの遷移で対象の場所を選択状態で開く（?place=<placeId>。
+  // docs/wants/07「申請一覧 / 申請対象への遷移」）
+  const [searchParams] = useSearchParams();
+  const focusPlaceId = searchParams.get("place") ?? undefined;
   const {
     placeService,
     visitService,
@@ -184,6 +189,7 @@ export function VisitPageContainer() {
       }}
       canDirectEdit={canDirectEdit}
       onBackToMap={fromMapEditor ? handleBackToMap : undefined}
+      initialSelectedPlaceId={focusPlaceId}
     />
   );
 }

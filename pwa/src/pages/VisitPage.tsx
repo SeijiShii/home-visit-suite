@@ -115,6 +115,12 @@ export interface VisitPageProps {
    * 指定時は地図上に戻るボタンを表示する（docs/wants/03「場所の直接編集」）。
    */
   onBackToMap?: () => void;
+  /**
+   * 初期選択する場所 ID（申請一覧からの遷移 `?place=` 用。
+   * docs/wants/07「申請一覧 / 申請対象への遷移」）。
+   * マーカー強調と場所一覧の行ハイライトに反映される。
+   */
+  initialSelectedPlaceId?: string;
 }
 
 type DialogState =
@@ -143,6 +149,7 @@ export function VisitPage({
   onPlaceEditRequest,
   canDirectEdit = false,
   onBackToMap,
+  initialSelectedPlaceId,
 }: VisitPageProps) {
   const { t } = useI18n();
   const mapRef = useRef<MapViewHandle | null>(null);
@@ -156,7 +163,9 @@ export function VisitPage({
   // ScopeNetwork 受信追従: 他メンバー・他端末の場所追加/訪問記録が開いている
   // 訪問記録画面（マーカー・一覧・直近記録併記）に反映される。
   useSharedApplied([...PLACE_TABLES, ...VISIT_TABLES], bumpRefresh);
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
+    initialSelectedPlaceId ?? null,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // --- 直接編集（canDirectEdit のときのみ使用） ---

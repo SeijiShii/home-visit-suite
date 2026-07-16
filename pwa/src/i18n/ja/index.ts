@@ -293,6 +293,7 @@ const ja: Translations = {
     setPending: "未処理に戻す",
     setOnHold: "保留にする",
     setResolved: "処理済みにする",
+    openVisitPage: "訪問記録へ",
     types: {
       placeDelete: "要削除",
       placeMove: "要移動",

@@ -295,6 +295,7 @@ const en: Translations = {
     setPending: "Mark as pending",
     setOnHold: "Put on hold",
     setResolved: "Mark as resolved",
+    openVisitPage: "Open visit page",
     types: {
       placeDelete: "Delete place",
       placeMove: "Move place",

@@ -4,7 +4,13 @@
 // 申請日・処理日の期間絞り込み / 申請者名表示 / 行内ステータス変更。
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nProvider } from "../contexts/I18nContext";
 import { IdentityProvider } from "../contexts/IdentityContext";
@@ -13,13 +19,38 @@ import {
   ServicesProvider,
   createInMemoryServices,
 } from "../contexts/ServicesContext";
+import { HashRouter } from "react-router-dom";
 import { setLocale } from "../i18n/i18n-util";
 import { DevIdentityService } from "../services/identity-service";
 import type { Request } from "../domain/models/request";
+import type { Place } from "../services/place-service";
 import { RequestsPage } from "./RequestsPage";
 
 const ADMIN = "did:dev:admin";
 const MEMBER = "did:dev:member";
+
+function makePlace(partial: Partial<Place>): Place {
+  return {
+    id: "p1",
+    areaId: "a1",
+    coord: { lat: 35.7, lng: 140.3 },
+    type: "house",
+    label: "田中宅",
+    displayName: "",
+    address: "",
+    description: "",
+    parentId: "",
+    sortOrder: 0,
+    languages: [],
+    doNotVisit: false,
+    doNotVisitNote: "",
+    createdAt: "2026-07-01T00:00:00Z",
+    updatedAt: "2026-07-01T00:00:00Z",
+    deletedAt: null,
+    restoredFromId: null,
+    ...partial,
+  };
+}
 
 function makeRequest(partial: Partial<Request>): Request {
   return {
@@ -119,7 +150,9 @@ async function renderRequests(services: AppServices) {
     <I18nProvider>
       <ServicesProvider services={services}>
         <IdentityProvider service={identityService}>
-          <RequestsPage />
+          <HashRouter>
+            <RequestsPage />
+          </HashRouter>
         </IdentityProvider>
       </ServicesProvider>
     </I18nProvider>,
@@ -141,6 +174,7 @@ function checkStatus(label: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  window.location.hash = "";
   setLocale("ja");
 });
 
@@ -237,6 +271,80 @@ describe("RequestsPage 申請一覧", () => {
     expect(saved?.status).toBe("resolved");
     expect(saved?.resolvedAt).toBeTruthy();
     expect(saved?.resolvedBy).toBe(ADMIN);
+  });
+
+  it("行の「訪問記録へ」で対象区域の訪問記録画面へ場所指定付きで遷移する", async () => {
+    await setup();
+    await userEvent.click(screen.getByRole("button", { name: "訪問記録へ" }));
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#/visits/a1?place=p1");
+    });
+  });
+
+  it("部屋を対象とする申請は親の集合住宅を選択対象にして遷移する", async () => {
+    const services = createInMemoryServices();
+    await seed(services);
+    await services.placeService.savePlace(
+      makePlace({ id: "b1", type: "building", label: "○○荘" }),
+    );
+    await services.placeService.savePlace(
+      makePlace({
+        id: "rm1",
+        type: "room",
+        parentId: "b1",
+        displayName: "101",
+      }),
+    );
+    await services.notificationRepo.saveRequest(
+      makeRequest({
+        id: "req-room",
+        placeId: "rm1",
+        description: "部屋の修正",
+      }),
+    );
+    await renderRequests(services);
+    const row = (await screen.findByText("部屋の修正")).closest("li")!;
+    await userEvent.click(
+      within(row as HTMLElement).getByRole("button", { name: "訪問記録へ" }),
+    );
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#/visits/a1?place=b1");
+    });
+  });
+
+  it("placeId なしは場所指定なしで遷移し、areaId なしには遷移操作が出ない", async () => {
+    const services = createInMemoryServices();
+    await seed(services);
+    await services.notificationRepo.saveRequest(
+      makeRequest({
+        id: "req-noplace",
+        placeId: "",
+        description: "場所なし申請",
+      }),
+    );
+    await services.notificationRepo.saveRequest(
+      makeRequest({
+        id: "req-noarea",
+        areaId: "",
+        description: "区域なし申請",
+      }),
+    );
+    await renderRequests(services);
+    const noAreaRow = (await screen.findByText("区域なし申請")).closest("li")!;
+    expect(
+      within(noAreaRow as HTMLElement).queryByRole("button", {
+        name: "訪問記録へ",
+      }),
+    ).toBeNull();
+    const noPlaceRow = screen.getByText("場所なし申請").closest("li")!;
+    await userEvent.click(
+      within(noPlaceRow as HTMLElement).getByRole("button", {
+        name: "訪問記録へ",
+      }),
+    );
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#/visits/a1");
+    });
   });
 
   it("処理済みから未処理に戻すと処理日・処理者が消去される", async () => {

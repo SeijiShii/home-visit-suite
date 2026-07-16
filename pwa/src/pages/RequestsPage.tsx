@@ -3,6 +3,7 @@
 // 区域ID/区域名・申請日/処理日の期間で絞り込む。行内操作でステータスを変更できる。
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
@@ -39,6 +40,7 @@ export function RequestsPage() {
   const r = t.requests;
   const services = useServices();
   const { currentActorID } = useIdentity();
+  const navigate = useNavigate();
 
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
@@ -194,6 +196,25 @@ export function RequestsPage() {
     reload();
   };
 
+  // 申請対象の訪問記録画面へ遷移（placeId 保持時は場所を選択状態で開く。
+  // docs/wants/07「申請一覧 / 申請対象への遷移」）
+  const openVisitPage = async (req: Request) => {
+    let placeId = req.placeId;
+    if (placeId) {
+      try {
+        // 部屋はマーカー・場所一覧の行を持たないため、親の集合住宅に読み替える
+        const place = await services.placeService.getPlace(placeId);
+        if (place?.type === "room" && place.parentId) {
+          placeId = place.parentId;
+        }
+      } catch (e) {
+        console.error("[RequestsPage] getPlace failed", e);
+      }
+    }
+    const search = placeId ? `?place=${encodeURIComponent(placeId)}` : "";
+    navigate(`/visits/${encodeURIComponent(req.areaId)}${search}`);
+  };
+
   return (
     <>
       <h1>{r.title}</h1>
@@ -298,6 +319,15 @@ export function RequestsPage() {
                   </span>
                 )}
                 <div className="requests-row-actions">
+                  {req.areaId && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => void openVisitPage(req)}
+                    >
+                      {r.openVisitPage}
+                    </button>
+                  )}
                   {STATUSES.filter((s) => s !== req.status).map((s) => (
                     <button
                       key={s}

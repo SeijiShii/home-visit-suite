@@ -150,7 +150,7 @@
 - 「チェックアウト可能期間（AvailablePeriod）」は 2026-07-13 廃止（旧 `available-period*` / `CoveragePage` は削除。網羅進捗参照画面は後続フェーズ）
 
 ## 07 通知と申請（通知/申請/監査ログ/データ保持）
-- `pages/RequestsPage.tsx` — 申請一覧（全区域の単一リスト＋ステータスバッジ〔未処理/保留/処理済み〕・区域ID/区域名検索・申請日/処理日期間・ステータス絞り込み〔初期=未処理〕・行内ステータス変更・申請者名表示・受信同期で自動更新）(→10)
+- `pages/RequestsPage.tsx` — 申請一覧（全区域の単一リスト＋ステータスバッジ〔未処理/保留/処理済み〕・区域ID/区域名検索・申請日/処理日期間・ステータス絞り込み〔初期=未処理〕・行内ステータス変更・申請者名表示・対象の訪問記録画面への遷移〔?place= で場所選択・部屋は親集合住宅へ読み替え〕・受信同期で自動更新）(→10)
 - `components/VisitRecordDialog.tsx` — 訪問記録入力（結果/メモ）＋編集リクエスト（要削除/要移動/その他）(→08)
 - `domain/models/notification.ts` — 任命/貸出/返却/申請結果等の通知モデル
 - `domain/models/request.ts` — 各種申請（場所削除/情報修正/地図更新/訪問拒否）モデル
@@ -163,7 +163,7 @@
 - `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定・区域内記録一覧
 - `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
 - `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加/一覧＋直接編集〔編集メンバー×非タッチのみ〕・編集リクエスト）(→03,10)
-- `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ（直接編集権限判定・活動メンバーのアクセス制御）(→01)
+- `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ（直接編集権限判定・活動メンバーのアクセス制御・?place= の初期場所選択）(→01)
 - `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・返却/招待管理導線〔担当者本人の招待一覧・取消・発行〕。チェックアウト可能一覧は活動メンバーのみ＝editor+ は /areas から）(→10)
 - `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択
 - `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定
