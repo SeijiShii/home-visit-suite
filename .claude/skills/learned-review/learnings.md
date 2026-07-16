@@ -89,8 +89,9 @@
 
 ## L-015 Leaflet ベクタ層の重なりを一回きりの bringToFront/bringToBack で固定
 - 初出: 2026-07-16 `map-renderer.ts` 親番境界線（追加時のみ bringToFront したが、renderAll・差分再描画がポリゴン層を remove→再 add すると境界線が輪郭の下に沈む。独立レビューが commit 前に検出。専用ペイン=createPane+zIndex 固定で修正）
+- 再発: 2026-07-16 `map-renderer.ts` 場所オーバーレイ（bringToFront すら無くデフォルト overlayPane に追加。頂点ドラッグ中の applyChangeSet がポリゴンを remove→再 add するたび灰色アイコンが塗りの下に沈む。独立レビューが commit 前に検出。専用ペイン zIndex 450 で修正）。**bringToFront の有無に関わらず「デフォルトペインへの追加＋別 layer の再 add 経路」自体がこのパターン**
 - パターン: Leaflet の同一ペイン内 z 順は DOM 追加順のため、bringToFront/bringToBack は「その時点」の順序しか保証しない。後から同ペインへ layer が再 add される経路（全再描画・modified 再構築）で順序が崩れる
-- 検査: bringToFront/bringToBack を含む diff では、同ペインへ layer が後から add される経路を列挙し、順序が再確立されるか・専用ペイン（createPane + zIndex）で代替できるかを問う
+- 検査: 新しい layer 追加や bringToFront/bringToBack を含む diff では、同ペインへ layer が後から add される経路を列挙し、順序が再確立されるか・専用ペイン（createPane + zIndex）で代替できるかを問う
 - status: active
 
 ## L-016 @media 上書きを同一セレクタのベース規則よりソース順で前に書いて無効化
@@ -103,4 +104,10 @@
 - 初出: 2026-07-16 `map-renderer.ts` focusPolygons（flyToBounds に maxZoom:17 を指定。150m 四方の区域のタイトフィットに必要な z19 がキャップされ、訪問記録画面「地図を区域へ戻す」で区域が画面の一部にしか映らず周辺の広い範囲が表示された。実機でユーザー体感バグとして発覚＝レビュー見逃し）
 - パターン: fitBounds/flyToBounds/getBoundsZoom 系にオプションで固定 maxZoom を渡すと、対象 bounds が小さいときフィットズームがキャップされ「対象が画面に収まるビュー」にならない。ズーム上限は map 全体の maxZoom 設定に委ねるのが既定
 - 検査: fitBounds/flyToBounds を含む diff で maxZoom オプションの有無を見る。指定があれば「最小サイズの対象で必要なフィットズーム」が上限を超えないか、map レベルの maxZoom で代替できないかを問う
+- status: active
+
+## L-018 同一データへの規則（表示換算・自動修復）が箇所ごとに別実装で食い違う/競合する
+- 初出: 2026-07-16 場所オーバーレイ追加時に 2 件同時検出（独立レビューが commit 前に検出）: (1) SortOrder 全件 0 の未初期化区域を「重複」と誤判定し、既存の CreatedAt 昇順初期採番（訪問記録画面）と幾何順再採番（区域編集画面）が競合＝先に開いた画面が勝つ状態になっていた。(2) 番号バッジの換算が画面ごとに別実装（訪問記録画面の地図=位置 index で欠番を詰める / 一覧パネルと新オーバーレイ=SortOrder+1）で、欠番のある区域では同じ場所が画面によって別番号表示になっていた
+- パターン: 同じフィールド（番号・状態）を読む表示換算や、同じデータを書く自動修復規則が複数箇所に別実装されると、前提条件の重なり（未初期化 vs 重複）や換算差（詰める vs 詰めない）で挙動が食い違う。どちらが発動するかが「どの画面を先に開いたか」に依存する競合は特に気づきにくい
+- 検査: 番号・状態の表示や自動修復を追加する diff では、同じフィールドを読む/書く既存箇所を grep（例: `sortOrder`）して列挙し、(a) 換算規則が単一実装（共有関数）か、(b) 自動修復規則が複数あるなら前提条件が排他的かを確認する
 - status: active

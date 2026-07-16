@@ -161,12 +161,6 @@ export function useAreaDetailMap({
       }
 
       const linked = linkedPolygonIds ?? new Set<string>();
-      const sortedForMap = [...areaPlaces].sort(
-        (a, b) => a.sortOrder - b.sortOrder,
-      );
-      const indexById = new Map<string, number>();
-      sortedForMap.forEach((p, idx) => indexById.set(p.id, idx));
-
       const skipFocus = viewportInitializedRef.current;
       applyDetailViewModelToMap(
         handle,
@@ -179,7 +173,9 @@ export function useAreaDetailMap({
             lng: p.coord.lng,
             type: p.type as PlaceType,
             tooltip: parts.length > 0 ? parts.join(" / ") : noNameLabel,
-            index: indexById.get(p.id),
+            // 通し番号 = SortOrder + 1（wants/03「場所一覧と訪問記録の一覧」。
+            // 欠番は詰めない＝一覧パネルのバッジ表示と常に一致させる）
+            index: p.sortOrder,
             selected: p.id === selectedPlaceId,
           };
         }),

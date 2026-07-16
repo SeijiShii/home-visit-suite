@@ -147,6 +147,32 @@ export function getPlaceMarkerRadius(zoom: number): number {
   return Math.max(8, Math.min(14, r));
 }
 
+/**
+ * 区域編集画面の読み取り専用場所オーバーレイを表示する最小ズーム。
+ * 仕様: docs/wants/03「区域編集画面での場所表示と番号再採番」（ズーム 16 以上で表示）。
+ */
+export const PLACE_OVERLAY_MIN_ZOOM = 16;
+
+/** 場所オーバーレイの専用 Leaflet ペイン名（overlayPane より上に固定描画） */
+const PLACE_OVERLAY_PANE = "placeOverlay";
+
+/** 読み取り専用（不活性）場所アイコンの塗り色（灰色）。 */
+export const PLACE_OVERLAY_COLOR = "#94a3b8";
+
+/** 所属区域のどのポリゴンにも内包されない場所の警告色（赤灰色）。 */
+export const PLACE_OVERLAY_ORPHAN_COLOR = "#b06a6a";
+
+/** 区域編集画面の読み取り専用場所オーバーレイの 1 件分。 */
+export interface PlaceOverlayItem {
+  id: string;
+  lat: number;
+  lng: number;
+  /** 通し番号バッジ用 index（0 始まり。表示は +1）。 */
+  index: number;
+  /** 所属区域のどのポリゴンにも内包されない場所なら true（赤灰色表示）。 */
+  orphan: boolean;
+}
+
 /** 場所マーカーに重ねる通し番号バッジの表示テキスト (index は 0 始まり → 表示は 1 始まり) */
 export function getPlaceBadgeText(index: number): string {
   return String(index + 1);
@@ -245,6 +271,11 @@ export class MapRenderer {
   private placeMarkers = new Map<string, L.CircleMarker>();
 
   private placeBadgeMarkers = new Map<string, L.Marker>();
+
+  // 読み取り専用の場所オーバーレイ（区域編集画面専用。ズーム閾値ゲート付き）
+  private placeOverlayItems: PlaceOverlayItem[] = [];
+  private placeOverlayMarkers: (L.CircleMarker | L.Marker)[] = [];
+  private placeOverlayZoomHandler: (() => void) | null = null;
   private placeContextMenuCallback:
     ((placeId: string, type: PlaceType, x: number, y: number) => void) | null =
     null;
@@ -303,6 +334,14 @@ export class MapRenderer {
     const boundaryPane = this.map.createPane(PARENT_BOUNDARY_PANE);
     boundaryPane.style.zIndex = "390";
     boundaryPane.style.pointerEvents = "none";
+
+    // 読み取り専用の場所オーバーレイの専用ペイン: overlayPane(400) より上・
+    // markerPane(600) より下。ポリゴンの再 add（頂点ドラッグ中の applyChangeSet
+    // 等）で DOM 追加順が変わっても、灰色アイコンが塗りの下へ沈まないよう
+    // 重なり順をペインで固定する（learnings L-015 対応）。非インタラクティブ。
+    const overlayPane = this.map.createPane(PLACE_OVERLAY_PANE);
+    overlayPane.style.zIndex = "450";
+    overlayPane.style.pointerEvents = "none";
 
     this.setBaseMap(baseMap);
 
@@ -526,6 +565,7 @@ export class MapRenderer {
 
   unmount(): void {
     this.disableRubberBand();
+    this.clearPlaceOverlay();
     // map.remove() がコントロールも破棄するため参照だけ落とす。
     this.baseMapControl = null;
     this.baseMapControlEl = null;
@@ -1032,6 +1072,73 @@ export class MapRenderer {
     if (this.placeZoomHandler && this.map) {
       this.map.off("zoomend", this.placeZoomHandler);
       this.placeZoomHandler = null;
+    }
+  }
+
+  // --- 読み取り専用の場所オーバーレイ（区域編集画面専用） ---
+  // 仕様: docs/wants/03「区域編集画面での場所表示と番号再採番」。
+  // ズーム PLACE_OVERLAY_MIN_ZOOM 以上でのみ描画し、一切のポインタ操作に反応しない。
+
+  /**
+   * 場所オーバーレイのデータを設定する。空配列で消去。
+   * ズームが閾値未満の間はデータだけ保持し、閾値以上になったら描画する。
+   */
+  setPlaceOverlay(places: ReadonlyArray<PlaceOverlayItem>): void {
+    this.placeOverlayItems = [...places];
+    if (!this.map) return;
+    if (!this.placeOverlayZoomHandler) {
+      this.placeOverlayZoomHandler = () => this.renderPlaceOverlay();
+      this.map.on("zoomend", this.placeOverlayZoomHandler);
+    }
+    this.renderPlaceOverlay();
+  }
+
+  clearPlaceOverlay(): void {
+    this.placeOverlayItems = [];
+    if (this.placeOverlayZoomHandler && this.map) {
+      this.map.off("zoomend", this.placeOverlayZoomHandler);
+      this.placeOverlayZoomHandler = null;
+    }
+    this.removePlaceOverlayLayers();
+  }
+
+  private removePlaceOverlayLayers(): void {
+    for (const m of this.placeOverlayMarkers) m.remove();
+    this.placeOverlayMarkers = [];
+  }
+
+  private renderPlaceOverlay(): void {
+    this.removePlaceOverlayLayers();
+    if (!this.map) return;
+    const zoom = this.map.getZoom();
+    if (zoom < PLACE_OVERLAY_MIN_ZOOM) return;
+    const radius = getPlaceMarkerRadius(zoom);
+    for (const p of this.placeOverlayItems) {
+      const fill = p.orphan ? PLACE_OVERLAY_ORPHAN_COLOR : PLACE_OVERLAY_COLOR;
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius,
+        color: "#fff",
+        weight: 2,
+        opacity: 0.85,
+        fillColor: fill,
+        fillOpacity: 0.55,
+        interactive: false,
+        pane: PLACE_OVERLAY_PANE,
+      }).addTo(this.map);
+      this.placeOverlayMarkers.push(marker);
+      const badgeIcon = L.divIcon({
+        className: "place-number-badge",
+        html: `<span class="place-number-badge-text">${getPlaceBadgeText(p.index)}</span>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+      const badge = L.marker([p.lat, p.lng], {
+        icon: badgeIcon,
+        interactive: false,
+        keyboard: false,
+        pane: PLACE_OVERLAY_PANE,
+      }).addTo(this.map);
+      this.placeOverlayMarkers.push(badge);
     }
   }
 

@@ -33,6 +33,13 @@ import {
   buildPolygonAreaMap,
   toPolygonAreaIds,
 } from "../services/polygon-service";
+import {
+  hasDuplicateSortOrder,
+  renumberByGeometry,
+  renumberTargets,
+} from "../lib/place-renumber";
+import { pointInRing } from "../lib/area-detail-geo";
+import type { PlaceOverlayItem } from "../lib/map-renderer";
 import type {
   PolygonID,
   EdgeID,
@@ -80,10 +87,62 @@ export function MapPage() {
     vertexId: VertexID;
   } | null>(null);
 
-  const { regionBindingApi, mapBinding } = useServices();
+  const { regionBindingApi, mapBinding, placeService } = useServices();
   const regionService = useMemo(
     () => new RegionService(regionBindingApi),
     [regionBindingApi],
+  );
+
+  // --- 読み取り専用の場所オーバーレイ（灰色/赤灰色）と重複再採番 ---
+  // 仕様: docs/wants/03「区域編集画面での場所表示と番号再採番」。
+  // 全区域の場所を読み込み、(1) 区域内で SortOrder が重複していたら幾何順
+  // （上→下、左→右）で再採番して保存、(2) 所属区域のどのポリゴンにも内包
+  // されない場所は orphan（赤灰色）として地図に渡す。
+  // 多重実行の完了順逆転で古い判定が最終表示に残らないための世代カウンタ。
+  const placeOverlayGenRef = useRef(0);
+  const refreshPlaceOverlay = useCallback(
+    async (tree: AreaTreeNode[]) => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      const gen = ++placeOverlayGenRef.current;
+      const overlay: PlaceOverlayItem[] = [];
+      for (const region of tree) {
+        for (const pa of region.parentAreas) {
+          for (const area of pa.areas) {
+            let places = renumberTargets(
+              await placeService.listPlaces(area.id),
+            );
+            if (hasDuplicateSortOrder(places)) {
+              const changed = renumberByGeometry(places);
+              for (const p of changed) await placeService.savePlace(p);
+              const byId = new Map(changed.map((p) => [p.id, p]));
+              places = places.map((p) => byId.get(p.id) ?? p);
+            }
+            // 飛地対応: 区域に紐づく全ポリゴンの外周リング（GeoJSON [lng,lat]）
+            const rings = (area.polygonIds ?? [])
+              .map(
+                (pid) =>
+                  ed.getPolygonGeoJSON(pid as PolygonID)?.coordinates?.[0] as
+                    [number, number][] | undefined,
+              )
+              .filter((r): r is [number, number][] => Boolean(r));
+            for (const p of places) {
+              overlay.push({
+                id: p.id,
+                lat: p.coord.lat,
+                lng: p.coord.lng,
+                index: p.sortOrder,
+                orphan: !rings.some((r) => pointInRing(p.coord, r)),
+              });
+            }
+          }
+        }
+      }
+      // 後発の refresh が走っていたら古い結果は捨てる（表示のみ。保存は冪等）
+      if (gen !== placeOverlayGenRef.current) return;
+      mapRef.current?.setPlaceOverlay(overlay);
+    },
+    [placeService],
   );
 
   const {
@@ -115,7 +174,8 @@ export function MapPage() {
     mapRef.current?.setLinkedPolygonIds(linkedIds);
     mapRef.current?.setPolygonAreaIds(toPolygonAreaIds(areaMap));
     mapRef.current?.renderAll(linkedIds);
-  }, [polygonService, editor, regionService]);
+    await refreshPlaceOverlay(tree);
+  }, [polygonService, editor, regionService, refreshPlaceOverlay]);
   reloadPolygonsRef.current = reloadPolygons;
 
   // エディタ準備完了時に初期描画

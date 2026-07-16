@@ -57,7 +57,7 @@
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
 - `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
 ### 画面/コンポーネント
-- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧の統合）(→10)
+- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（部屋行の追加・並替・削除）
@@ -67,7 +67,7 @@
 - `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
 ### lib（純ロジック/幾何/画像処理）
-- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・ベース地図切替・描画モードのスナップ表示（頂点/線分）
+- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・読み取り専用の場所オーバーレイ（ズーム16以上・灰/赤灰）・ベース地図切替・描画モードのスナップ表示（頂点/線分）
 - `lib/parent-boundary.ts` — 区域親番の境目となる辺の判定（親番キー抽出・辺単位の境界集合算出）
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
@@ -79,6 +79,7 @@
 - `lib/move-place-flow.ts` — 場所マーカー移動フローの純状態機械
 - `lib/building-flow.ts` — 集合住宅編集の部屋行モデルと保存差分計算
 - `lib/place-sort-order.ts` — 場所一覧の初回並び順採番
+- `lib/place-renumber.ts` — SortOrder 重複の検出と幾何順（北→南・西→東）再採番の純ロジック
 ### hooks
 - `hooks/useAreaDetailMap.ts` — 訪問記録画面の地図/場所描画とビューモデル適用を束ねる (→08)
 - `hooks/useMediaQuery.ts` — matchMedia 購読（タッチ主体判定=直接編集ゲート/狭幅判定=一覧レイアウト）(→07,08)

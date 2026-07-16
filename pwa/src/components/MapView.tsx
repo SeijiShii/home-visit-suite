@@ -3,6 +3,7 @@ import {
   MapRenderer,
   type VertexDragCallbacks,
   type PlaceType,
+  type PlaceOverlayItem,
 } from "../lib/map-renderer";
 import { resolveBaseMapConfig } from "../lib/map-config";
 import { useI18n } from "../contexts/I18nContext";
@@ -70,6 +71,8 @@ export interface MapViewHandle {
   ): void;
   cancelPlaceMove(): void;
   isPlaceMoving(): boolean;
+  /** 読み取り専用の場所オーバーレイ（区域編集画面。ズーム閾値ゲート付き）。空配列で消去。 */
+  setPlaceOverlay(places: ReadonlyArray<PlaceOverlayItem>): void;
 }
 
 interface MapViewProps {
@@ -230,6 +233,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     isPlaceMoving() {
       return rendererRef.current?.isPlaceMoving() ?? false;
+    },
+    setPlaceOverlay(places) {
+      rendererRef.current?.setPlaceOverlay(places);
     },
     focusPlace(lat, lng) {
       rendererRef.current?.focusPlace(lat, lng);
