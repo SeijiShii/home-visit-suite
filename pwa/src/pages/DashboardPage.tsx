@@ -377,11 +377,8 @@ export function DashboardPage() {
           areaDisplay={inviteTarget.areaDisplay}
           actorId={currentActorID}
           onClose={() => setInviteTarget(null)}
-          onIssued={() => setInviteTarget(null)}
-          onError={(msg) => {
-            console.error("invite failed", msg);
-            setInviteTarget(null);
-          }}
+          onIssued={() => {}}
+          onError={(msg) => window.alert(msg)}
         />
       )}
     </>

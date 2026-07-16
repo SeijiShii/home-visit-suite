@@ -19,7 +19,6 @@ import {
 } from "./lib/linkself/group-network";
 import { TipsProvider } from "./contexts/TipsContext";
 import { AreasPage } from "./pages/AreasPage";
-import { CheckoutsPage } from "./pages/CheckoutsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { MapPage } from "./pages/MapPage";
 import { JoinPage } from "./pages/JoinPage";
@@ -106,7 +105,6 @@ export default function App() {
             <Route path="/areas" element={<AreasPage />} />
             <Route path="/regions" element={<RegionManagementPage />} />
             <Route path="/users" element={<UsersPage />} />
-            <Route path="/checkouts" element={<CheckoutsPage />} />
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

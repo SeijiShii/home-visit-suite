@@ -144,9 +144,8 @@
 
 ## 05 チェックアウト（返却回収/担当者/区域アクセス権/区域招待）
 - `services/checkout-service.ts` — チェックアウト操作（排他制約 + ポリゴン紐付け必須・期間ゲート廃止）・担当者/招待・区域アクセス権・訪問記録書込
-- `pages/CheckoutsPage.tsx` — チェックアウト一覧/発行/招待/状態タブ管理（区域一覧 `/areas` の確立後に廃止予定）(→10)
-- `pages/AreasPage.tsx` — 区域一覧（editor+。親番テーブル絞り込み・行展開で区域・チェックアウト状況表示と担当者割り当て）(→02,10)
-- `components/InviteDialog.tsx` — チェックアウト招待発行（被招待者選択/TTL）(→07)
+- `pages/AreasPage.tsx` — 区域一覧（editor+。親番テーブル絞り込み・行展開で区域・チェックアウト状況表示、担当者割り当て・回収・招待管理。旧 `/checkouts` を置換 2026-07-16）(→02,10)
+- `components/InviteDialog.tsx` — 招待管理ダイアログ（既発行一覧・取消＋新規発行〔被招待者選択/TTL〕。経路=ダッシュボード/区域一覧）(→07)
 - `domain/models/access.ts` — 訪問記録画面の編集/読取アクセスモードと親子合成
 - `domain/models/checkout-invitation.ts` — 区域招待（時間制限付き参加）モデルと有効判定
 - `domain/models/visit.ts` — 訪問記録＋チェックアウト（排他取得）モデル・申請要否判定 (→08)
@@ -173,7 +172,7 @@
 - `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
 - `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加/一覧＋直接編集〔編集メンバー×非タッチのみ〕・編集リクエスト）(→03,10)
 - `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ（直接編集権限判定・活動メンバーのアクセス制御）(→01)
-- `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・返却/招待導線。チェックアウト可能一覧は活動メンバーのみ＝editor+ は /areas から）(→10)
+- `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・返却/招待管理導線〔担当者本人の招待一覧・取消・発行〕。チェックアウト可能一覧は活動メンバーのみ＝editor+ は /areas から）(→10)
 - `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択
 - `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定
 - `domain/models/personal.ts` — 端末内個人スコープの個人メモ/個人タグ/割当モデル

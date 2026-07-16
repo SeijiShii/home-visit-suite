@@ -3683,97 +3683,11 @@ section {
   margin-left: 4px;
 }
 
-/* ===== チェックアウト管理画面 (Phase G5)
-   仕様 docs/wants/10_画面設計.md「3. チェックアウト管理」 */
+/* ===== チェックアウト系ダイアログ共通
+   （区域一覧の割り当てダイアログ・招待管理ダイアログが使用。
+   旧チェックアウト管理画面は 2026-07-16 廃止 → 区域一覧 /areas へ移管） */
 
-.checkouts-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.checkouts-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  /* 狭幅では検索欄を次行へ折り返し、横はみ出しを防ぐ */
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-  gap: 12px;
-}
-
-.checkouts-tabs {
-  display: flex;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 12px;
-  gap: 4px;
-}
-
-.checkouts-tab {
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  font-size: 14px;
-  color: #64748b;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.checkouts-tab:hover {
-  color: #1e293b;
-}
-
-.checkouts-tab-active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
-  font-weight: 500;
-}
-
-.checkouts-search {
-  flex: 1 1 220px;
-  max-width: 320px;
-  padding: 6px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.checkouts-search:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
-.checkouts-split {
-  display: flex;
-  gap: 16px;
-  align-items: stretch;
-  flex: 1;
-  min-height: 0;
-}
-
-.checkouts-list-panel {
-  flex: 0 0 280px;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  background: white;
-  overflow-y: auto;
-  max-height: 600px;
-}
-
-/* 狭幅では一覧/詳細の 2 ペインを縦積みにする（横はみ出し防止）。
-   同一詳細度のためベース規則より後ろに置くこと（ソース順で上書き） */
 @media (max-width: 767px) {
-  .checkouts-split {
-    flex-direction: column;
-  }
-
-  .checkouts-list-panel {
-    flex: none;
-    max-height: 40vh;
-  }
-
   /* テーブルが収まらないときは表内スクロールに逃がす（ページ横はみ出し防止） */
   .member-table {
     display: block;
@@ -3781,166 +3695,6 @@ section {
   }
 }
 
-.checkouts-list-empty {
-  padding: 16px;
-  color: #64748b;
-  font-size: 13px;
-  text-align: center;
-}
-
-.checkouts-list-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 10px 14px;
-  background: white;
-  border: none;
-  border-bottom: 1px solid #f1f5f9;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.checkouts-list-item:hover {
-  background: #f8fafc;
-}
-
-.checkouts-list-item-active {
-  background: #eff6ff;
-  border-left: 3px solid #2563eb;
-  padding-left: 11px;
-}
-
-.checkouts-list-item-area {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  color: #1e293b;
-  font-weight: 500;
-}
-
-.checkouts-list-item-meta {
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 2px;
-}
-
-.checkouts-list-item-owner {
-  display: inline-block;
-  margin-right: 6px;
-}
-
-.checkouts-list-item-status {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.checkouts-status-active {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.checkouts-status-returned {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.checkouts-status-complete {
-  background: #d1fae5;
-  color: #047857;
-}
-
-.checkouts-status-pending {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.checkouts-detail-panel {
-  flex: 1;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  background: white;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.checkouts-detail-empty {
-  color: #64748b;
-  text-align: center;
-  padding: 40px 0;
-  font-size: 14px;
-}
-
-.checkouts-detail-row {
-  display: flex;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.checkouts-detail-label {
-  flex: 0 0 100px;
-  color: #64748b;
-}
-
-.checkouts-detail-value {
-  color: #1e293b;
-  font-weight: 500;
-}
-
-.checkouts-detail-value-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.checkouts-detail-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.checkouts-detail-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-  margin-bottom: 8px;
-}
-
-.checkouts-invitation-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  font-size: 13px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.checkouts-invitation-row:last-child {
-  border-bottom: none;
-}
-
-.checkouts-invitation-label {
-  color: #1e293b;
-}
-
-.checkouts-invitation-meta {
-  color: #64748b;
-  font-size: 12px;
-  margin-left: 6px;
-}
-
-.checkouts-invitation-revoked {
-  color: #94a3b8;
-  text-decoration: line-through;
-}
-
-.checkouts-detail-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-
-/* チェックアウト発行ダイアログ */
 .checkouts-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -4002,16 +3756,7 @@ section {
   margin-top: 20px;
 }
 
-.checkouts-error {
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: #fef2f2;
-  color: #b91c1c;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-/* ===== 招待発行ダイアログ (Phase G6)
+/* ===== 招待管理ダイアログ (Phase G6)
    仕様 docs/wants/05_チェックアウト.md「区域招待 > 招待 UI」 */
 
 .invite-dialog {
@@ -4038,6 +3783,48 @@ section {
   color: #64748b;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   margin-bottom: 16px;
+}
+
+.invite-dialog-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+/* 既発行の招待一覧（被招待者名・残り時間・状態・取消） */
+.invite-dialog-invitations {
+  margin-bottom: 16px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.invite-dialog-invitation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.invite-dialog-invitation-row:last-child {
+  border-bottom: none;
+}
+
+.invite-dialog-invitation-name {
+  color: #1e293b;
+}
+
+.invite-dialog-invitation-meta {
+  color: #64748b;
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+.invite-dialog-invitation-inactive {
+  color: #94a3b8;
+  text-decoration: line-through;
 }
 
 .invite-dialog-filters {

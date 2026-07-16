@@ -1,10 +1,11 @@
 // 区域一覧 `/areas`（編集メンバー以上専用）。
 // 区域親番の一覧テーブル → 行展開で配下区域のチェックアウト状況を俯瞰し、
-// その場で担当者を割り当てる。将来チェックアウト管理 `/checkouts` を置き換える。
+// その場で担当者の割り当て・回収・招待管理を行う（旧チェックアウト管理 `/checkouts` を置き換えた）。
 // 仕様: docs/wants/10_画面設計.md「区域一覧 /areas」
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
@@ -13,6 +14,14 @@ import {
   buildRegionTreeIndex,
   type RegionTreeIndex,
 } from "../lib/region-tree-index";
+
+/** 区域行に表示するアクティブなチェックアウトの要約 */
+interface ActiveCheckoutInfo {
+  checkoutId: string;
+  ownerId: string;
+  ownerName: string;
+  date: string;
+}
 
 /** 親番行（領域記号を含む表示 ID で一意化） */
 interface ParentRow {
@@ -30,7 +39,7 @@ interface AreaRow {
   displayName: string;
   hasPolygon: boolean;
   /** アクティブなチェックアウト（無ければ null） */
-  checkout: { ownerName: string; date: string } | null;
+  checkout: ActiveCheckoutInfo | null;
 }
 
 function formatDate(iso: string): string {
@@ -52,7 +61,7 @@ export function AreasPage() {
 
   const [tree, setTree] = useState<RegionTreeIndex | null>(null);
   const [checkoutByArea, setCheckoutByArea] = useState<
-    Map<string, { ownerName: string; date: string }>
+    Map<string, ActiveCheckoutInfo>
   >(new Map());
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +69,11 @@ export function AreasPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [assignTarget, setAssignTarget] = useState<{
     areaId: string;
+    displayName: string;
+  } | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<{
+    checkoutId: string;
+    ownerId: string;
     displayName: string;
   } | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
@@ -91,11 +105,13 @@ export function AreasPage() {
         if (cancelled) return;
         const userById = new Map<string, string>();
         for (const u of allUsers) userById.set(u.id, u.name || u.id);
-        const byArea = new Map<string, { ownerName: string; date: string }>();
+        const byArea = new Map<string, ActiveCheckoutInfo>();
         areaIds.forEach((id, i) => {
           const co = activeCheckouts[i];
           if (!co) return;
           byArea.set(id, {
+            checkoutId: co.id,
+            ownerId: co.personInChargeId,
             ownerName: userById.get(co.personInChargeId) ?? co.personInChargeId,
             date: formatDate(co.createdAt),
           });
@@ -153,6 +169,21 @@ export function AreasPage() {
     }));
     rows.sort((x, y) => x.displayName.localeCompare(y.displayName));
     return rows;
+  };
+
+  /** 回収（強制回収）: 確認ダイアログを挟んで ForceReturn。仕様 wants/10「区域一覧 /areas」 */
+  const handleCollect = async (row: AreaRow) => {
+    if (!row.checkout) return;
+    if (!window.confirm(a.confirmCollect)) return;
+    try {
+      await services.checkoutService.forceReturn(
+        currentActorID,
+        row.checkout.checkoutId,
+      );
+      setReloadTick((tick) => tick + 1);
+    } catch (e) {
+      window.alert(String(e));
+    }
   };
 
   const toggleExpanded = (parentId: string) => {
@@ -240,52 +271,81 @@ export function AreasPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {areaRowsOf(p.id).map((row) => (
-                              <tr key={row.areaId}>
-                                <td className="areas-cell-id">
-                                  {row.displayName}
-                                </td>
-                                <td>
-                                  {row.checkout ? (
-                                    a.checkoutInfo({
-                                      name: row.checkout.ownerName,
-                                      date: row.checkout.date,
-                                    })
-                                  ) : row.hasPolygon ? (
-                                    a.notCheckedOut
-                                  ) : (
-                                    <span className="areas-no-polygon">
-                                      {a.noPolygon}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="areas-cell-actions">
-                                  {!row.checkout && row.hasPolygon && (
+                            {areaRowsOf(p.id).map((row) => {
+                              const co = row.checkout;
+                              return (
+                                <tr key={row.areaId}>
+                                  <td className="areas-cell-id">
+                                    {row.displayName}
+                                  </td>
+                                  <td>
+                                    {co ? (
+                                      a.checkoutInfo({
+                                        name: co.ownerName,
+                                        date: co.date,
+                                      })
+                                    ) : row.hasPolygon ? (
+                                      a.notCheckedOut
+                                    ) : (
+                                      <span className="areas-no-polygon">
+                                        {a.noPolygon}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="areas-cell-actions">
+                                    {!co && row.hasPolygon && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        onClick={() =>
+                                          setAssignTarget({
+                                            areaId: row.areaId,
+                                            displayName: row.displayName,
+                                          })
+                                        }
+                                      >
+                                        {a.checkoutAction}
+                                      </button>
+                                    )}
+                                    {co && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm"
+                                          onClick={() =>
+                                            setInviteTarget({
+                                              checkoutId: co.checkoutId,
+                                              ownerId: co.ownerId,
+                                              displayName: row.displayName,
+                                            })
+                                          }
+                                        >
+                                          {a.inviteAction}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm"
+                                          onClick={() =>
+                                            void handleCollect(row)
+                                          }
+                                        >
+                                          {a.collectAction}
+                                        </button>
+                                      </>
+                                    )}
                                     <button
                                       type="button"
-                                      className="btn btn-primary btn-sm"
+                                      className="btn btn-sm"
                                       onClick={() =>
-                                        setAssignTarget({
-                                          areaId: row.areaId,
-                                          displayName: row.displayName,
-                                        })
+                                        navigate(`/visits/${row.areaId}`)
                                       }
                                     >
-                                      {a.checkoutAction}
+                                      {a.gotoVisit}
                                     </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm"
-                                    onClick={() =>
-                                      navigate(`/visits/${row.areaId}`)
-                                    }
-                                  >
-                                    {a.gotoVisit}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       )}
@@ -309,6 +369,18 @@ export function AreasPage() {
             setAssignTarget(null);
             setReloadTick((tick) => tick + 1);
           }}
+        />
+      )}
+
+      {inviteTarget && (
+        <InviteDialog
+          checkoutId={inviteTarget.checkoutId}
+          ownerId={inviteTarget.ownerId}
+          areaDisplay={inviteTarget.displayName}
+          actorId={currentActorID}
+          onClose={() => setInviteTarget(null)}
+          onIssued={() => {}}
+          onError={(msg) => window.alert(msg)}
         />
       )}
     </>

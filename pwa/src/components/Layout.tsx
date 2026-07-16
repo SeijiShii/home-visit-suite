@@ -136,28 +136,6 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    // チェックアウト管理（編集メンバー以上専用）
-    // 仕様 docs/wants/10_画面設計.md「チェックアウト管理 /checkouts」
-    to: "/checkouts",
-    labelKey: "checkouts",
-    minRole: "editor",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="18"
-        height="18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M3 10h18" />
-        <path d="M8 4v4" />
-        <path d="M16 4v4" />
-      </svg>
-    ),
-  },
-  {
     // 申請管理: 編集メンバー以上
     // 仕様 docs/wants/07_通知と申請.md「申請は編集メンバーのタスクリストに表示される」
     to: "/requests",

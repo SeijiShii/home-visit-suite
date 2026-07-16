@@ -218,11 +218,11 @@ describe("DashboardPage", () => {
     expect(screen.queryByRole("button", { name: "チェックアウト" })).toBeNull();
   });
 
-  it("担当者行の招待ボタンで招待ダイアログが開き member を招待できる", async () => {
+  it("担当者行の招待ボタンで招待管理ダイアログが開き、発行と取消ができる", async () => {
     // admin が自分担当のチェックアウトを持つ状態（発行は /areas 経由の想定でサービス直呼び）
     const services = createInMemoryServices();
     await seed(services);
-    await services.checkoutService.checkout(ADMIN, "a1", ADMIN);
+    const co = await services.checkoutService.checkout(ADMIN, "a1", ADMIN);
 
     localStorage.setItem("dev.identity.actor", ADMIN);
     const identityService = new DevIdentityService(services.userRepo, ADMIN);
@@ -245,7 +245,22 @@ describe("DashboardPage", () => {
     );
     await userEvent.click(within(dialog).getByRole("button", { name: "発行" }));
 
-    // ダイアログが閉じる（onIssued）
+    // ダイアログは閉じず、既発行一覧に招待が現れる（残り時間つき）
+    expect(await within(dialog).findByText(/残\d+h/)).toBeInTheDocument();
+    const invs = await services.checkoutService.listInvitations(co.id);
+    expect(invs).toHaveLength(1);
+    expect(invs[0].inviteeId).toBe(MEMBER);
+
+    // 担当者本人が取消できる
+    await userEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    await within(dialog).findByText("取消済み");
+    const after = await services.checkoutService.listInvitations(co.id);
+    expect(after[0].revokedAt).not.toBeNull();
+
+    // 閉じるボタンでダイアログを閉じる
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "閉じる" }),
+    );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
