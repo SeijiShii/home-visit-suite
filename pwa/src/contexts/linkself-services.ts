@@ -26,6 +26,8 @@ import {
   ReplicationEngine,
   SqlProxy,
   SqliteWasmDatabase,
+  depositRosterToMailbox,
+  fetchLatestRosterFromMailbox,
   identityFromPrivateKey,
   wireSqlSync,
   type KnownPeer,
@@ -91,6 +93,8 @@ import {
 } from "../lib/group-slots";
 import { markPersistenceDegraded } from "../lib/persistence-status";
 import { healDivergedSyncState } from "../lib/linkself/sync-state-heal";
+import { withUserMailboxTransport } from "../lib/linkself/user-mailbox";
+import { syncRosterWithMailbox } from "../lib/linkself/roster-mailbox-sync";
 import { AuthServiceImpl } from "../services/auth-service";
 import { CheckoutServiceImpl } from "../services/checkout-service";
 import { PlaceService } from "../services/place-service";
@@ -317,6 +321,28 @@ export async function createLinkSelfServices(
       // ワイプ時の graceful stop（Access Handle 解放）。session 構築後に後結びする。
       let stopForWipe: (() => Promise<void>) | null = null;
       let wiping = false;
+      // ロスターメールボックス（link-self spec §7.6 / docs/wants/01「ロスター
+      // メールボックス」）: ロスター変更を 3 秒合流でユーザー DID 宛メールボックス
+      // へ預け直す（新端末・オフライン端末が兄弟 DID / 失効を非同期に解決できる）。
+      const mailboxPeers = opts.relays ?? [];
+      let rosterDepositTimer: ReturnType<typeof setTimeout> | null = null;
+      const scheduleRosterDeposit = () => {
+        if (mailboxPeers.length === 0 || wiping) return;
+        if (rosterDepositTimer != null) clearTimeout(rosterDepositTimer);
+        rosterDepositTimer = setTimeout(() => {
+          rosterDepositTimer = null;
+          if (wiping) return; // ワイプ開始後に旧ロスターを預け直さない
+          const snapshot = currentRoster;
+          void withUserMailboxTransport(
+            userIdentity,
+            mailboxPeers,
+            (t) => depositRosterToMailbox(t, snapshot),
+            opts.allowLocalDial,
+          ).catch((e) =>
+            console.warn("linkself: roster mailbox deposit failed", e),
+          );
+        }, 3_000);
+      };
       const session = await createLinkSelfClient({
         identity: deviceIdentity,
         userIdentity,
@@ -347,6 +373,8 @@ export async function createLinkSelfServices(
           }
           currentRoster = updated;
           persistRoster(updated);
+          // announce 統合で育ったロスターはメールボックスにも預け直す。
+          scheduleRosterDeposit();
         },
         sqlDatabase: groupSqlDb,
         roles: HVS_ROLES,
@@ -464,6 +492,74 @@ export async function createLinkSelfServices(
       groupNetwork = gn;
       // ワイプ（デバイス失効の受理）時の graceful stop を後結びする。
       stopForWipe = () => session.stop();
+      // 起動時のロスターメールボックス同期: 最新ロスターを取得・統合し、最後に
+      // 預け直して TTL を更新する。ペアリング直後の端末はここで全兄弟 DID を
+      // 知り、発行側端末が不在でも第三の端末（PC 等）へ到達できる（サブデバイス
+      // 発行 QR で親デバイスと紐づかない問題の恒久修正）。統合の適用は setLabel と
+      // 同型のリベースループ（announce 統合の割り込みで進んだ currentRoster を
+      // 巻き戻さない）。自分の tombstone を受理したら announce 側と同じく全初期化
+      //（オフライン中に失効された端末がここで指示を受け取る）。
+      let rosterMailboxSynced = false;
+      // in-flight ガード: リレー不達で接続がハングしている間に 60 秒 poll が
+      // 並行の同期（createLibp2p フルインスタンス）を積み増さない。
+      let rosterMailboxSyncing = false;
+      const syncRosterMailbox = async () => {
+        if (mailboxPeers.length === 0 || wiping || rosterMailboxSyncing) {
+          return;
+        }
+        rosterMailboxSyncing = true;
+        try {
+          const res = await withUserMailboxTransport(
+            userIdentity,
+            mailboxPeers,
+            (t) =>
+              syncRosterWithMailbox(
+                userIdentity,
+                {
+                  fetchLatest: () =>
+                    fetchLatestRosterFromMailbox(t, userIdentity),
+                  deposit: async (r) => {
+                    await depositRosterToMailbox(t, r);
+                  },
+                },
+                {
+                  getCurrent: () => currentRoster,
+                  selfDeviceDID: deviceIdentity.did,
+                  isAborted: () => wiping,
+                  // 交換と永続を同期的に行う（announce 統合が割り込んでいたら
+                  // false でリベース）。
+                  commit: (base, merged) => {
+                    if (currentRoster !== base) return false;
+                    currentRoster = merged;
+                    persistRoster(merged);
+                    return true;
+                  },
+                  onRevoked: () => {
+                    if (!wiping) {
+                      wiping = true;
+                      registerDeviceDirectory(null);
+                      void wipeThisDevice(stopForWipe ?? undefined);
+                    }
+                  },
+                },
+              ),
+            opts.allowLocalDial,
+          );
+          if (res.applied) {
+            await session.client.updateRoster(res.applied);
+            // 新しく知った兄弟へ 60 秒ポーリングを待たず即時ダイヤルする。
+            void session.client
+              .redial(siblingCircuitPeers(res.applied))
+              .catch(() => {});
+          }
+          if (res.deposited) rosterMailboxSynced = true;
+        } catch (e) {
+          console.warn("linkself: roster mailbox sync failed", e);
+        } finally {
+          rosterMailboxSyncing = false;
+        }
+      };
+      void syncRosterMailbox();
       // ラベル変更・端末削除の窓口（設定画面 → identity-service → ここ）。
       // ロスターを rev+1 で再署名・永続し、接続中の兄弟端末へ即時 announce する
       // （docs/wants/01「ラベルの同期」「削除の意味」）。
@@ -484,6 +580,7 @@ export async function createLinkSelfServices(
             if (currentRoster !== base) continue; // 統合が割り込んだ → リベース
             currentRoster = updated;
             await session.client.updateRoster(updated);
+            scheduleRosterDeposit();
             return;
           }
         },
@@ -502,6 +599,9 @@ export async function createLinkSelfServices(
             currentRoster = updated;
             await session.client.updateRoster(updated);
             await session.client.sendRosterTo(deviceDID);
+            // 失効ロスターの恒久配送: 対象端末がオフラインでも次回起動の
+            // メールボックス同期で tombstone を受理して全初期化できる。
+            scheduleRosterDeposit();
             return;
           }
         },
@@ -516,6 +616,10 @@ export async function createLinkSelfServices(
         void session.client.checkMailbox().catch((err) => {
           console.warn("linkself: checkMailbox failed", err);
         });
+        // 初回のロスターメールボックス同期が未成功（リレー一時不達等）なら
+        // 再試行する。ペアリング直後の新端末はこれが成功するまで兄弟 DID を
+        // 解決できないため、フルリロードを待たず回復させる。
+        if (!rosterMailboxSynced) void syncRosterMailbox();
         // 再ダイヤル対象はリレー + 兄弟端末のみ（peerId ≡ DID で接続済み判定が
         // 効く相手）。既知メンバー（アカウント DID）を渡すと接続済みでも毎回
         // 再認証され、auth 後フック（announce + catch-up）が 60 秒毎に全員分
@@ -534,6 +638,7 @@ export async function createLinkSelfServices(
       stop = async () => {
         registerDeviceDirectory(null);
         clearInterval(pollTimer);
+        if (rosterDepositTimer != null) clearTimeout(rosterDepositTimer);
         await session.stop();
       };
     } catch (e) {
