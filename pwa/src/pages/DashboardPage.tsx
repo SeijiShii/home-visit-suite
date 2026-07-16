@@ -7,6 +7,12 @@ import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity, isRoleAtLeast } from "../contexts/IdentityContext";
 import { buildRegionTreeIndex } from "../lib/region-tree-index";
+import { useSharedApplied } from "../hooks/useSharedApplied";
+import {
+  AREA_TREE_TABLES,
+  CHECKOUT_TABLES,
+  VISIT_TABLES,
+} from "../lib/linkself/shared-events";
 import { useServices } from "../contexts/ServicesContext";
 
 /**
@@ -94,6 +100,13 @@ export function DashboardPage() {
     { areaId: string; displayName: string }[]
   >([]);
   const [reloadTick, setReloadTick] = useState(0);
+
+  // ScopeNetwork 同期の受信（他メンバー・他端末の区域/チェックアウト/訪問記録の
+  // 変更）でダッシュボードを再読込する。
+  useSharedApplied(
+    [...AREA_TREE_TABLES, ...CHECKOUT_TABLES, ...VISIT_TABLES, "users"],
+    () => setReloadTick((tick) => tick + 1),
+  );
   // 残り時間表示を 1 分ごとに更新する用途の現在時刻 tick
   const [now, setNow] = useState<number>(() => Date.now());
 

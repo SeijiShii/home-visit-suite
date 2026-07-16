@@ -13,6 +13,11 @@ import { RegionService } from "../services/region-service";
 import { isRoleAtLeast, useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
+import { useSharedApplied } from "../hooks/useSharedApplied";
+import {
+  AREA_TREE_TABLES,
+  MAP_NETWORK_TABLES,
+} from "../lib/linkself/shared-events";
 import { useTouchPrimary } from "../hooks/useMediaQuery";
 import { buildPolygonAreaMap } from "../services/polygon-service";
 import { newId } from "../services/id";
@@ -59,7 +64,16 @@ export function VisitPageContainer() {
     () => new RegionService(regionBindingApi),
     [regionBindingApi],
   );
-  const { editor, ready } = usePolygonEditor(mapBinding, regionBindingApi);
+  // ScopeNetwork 受信追従: map_* はエディタ再初期化、区域ツリーは再読込。
+  const [mapReloadKey, setMapReloadKey] = useState(0);
+  useSharedApplied(MAP_NETWORK_TABLES, () => setMapReloadKey((k) => k + 1));
+  const [treeReloadTick, setTreeReloadTick] = useState(0);
+  useSharedApplied(AREA_TREE_TABLES, () => setTreeReloadTick((t) => t + 1));
+  const { editor, ready } = usePolygonEditor(
+    mapBinding,
+    regionBindingApi,
+    mapReloadKey,
+  );
   const [polygonToArea, setPolygonToArea] = useState<Map<string, string>>(
     new Map(),
   );
@@ -107,7 +121,7 @@ export function VisitPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [regionService, areaId]);
+  }, [regionService, areaId, treeReloadTick]);
 
   // 活動メンバーのみアクセス判定を取得する（編集メンバー以上は常時アクセス可）
   useEffect(() => {

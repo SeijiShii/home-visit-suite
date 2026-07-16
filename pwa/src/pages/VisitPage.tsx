@@ -8,6 +8,8 @@ import {
 } from "react";
 import type { NetworkPolygonEditor, PolygonID } from "map-polygon-editor";
 import { useI18n } from "../contexts/I18nContext";
+import { useSharedApplied } from "../hooks/useSharedApplied";
+import { PLACE_TABLES, VISIT_TABLES } from "../lib/linkself/shared-events";
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { BuildingVisitDialog } from "../components/BuildingVisitDialog";
 import { AreaDetailContextMenu } from "../components/AreaDetailContextMenu";
@@ -151,6 +153,9 @@ export function VisitPage({
   const [myHistory, setMyHistory] = useState<VisitRecord[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  // ScopeNetwork 受信追従: 他メンバー・他端末の場所追加/訪問記録が開いている
+  // 訪問記録画面（マーカー・一覧・直近記録併記）に反映される。
+  useSharedApplied([...PLACE_TABLES, ...VISIT_TABLES], bumpRefresh);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

@@ -1,7 +1,7 @@
 // desktop/frontend/src/hooks/usePolygonEditor.ts からの移植。
 // wails-storage-adapter を lib/map-storage（localStorage 版）に置き換えた。
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { NetworkPolygonEditor } from "map-polygon-editor";
 import type { MapBindingAPI } from "../lib/map-storage";
 import { NetworkStorageAdapter } from "../lib/map-storage";
@@ -11,10 +11,16 @@ import type { PolygonBindingAPI } from "../services/polygon-service";
 export function usePolygonEditor(
   mapBinding: MapBindingAPI,
   regionAPI: PolygonBindingAPI,
+  /**
+   * 増分するとエディタをストレージから再初期化する（ScopeNetwork 受信で
+   * map_* テーブルが更新されたときに他端末の編集を取り込む用途）。
+   */
+  reloadKey = 0,
 ) {
-  const editorRef = useRef<NetworkPolygonEditor | null>(null);
-  const serviceRef = useRef<PolygonService | null>(null);
-  const [ready, setReady] = useState(false);
+  const [wired, setWired] = useState<{
+    editor: NetworkPolygonEditor;
+    polygonService: PolygonService;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,9 +32,10 @@ export function usePolygonEditor(
 
       if (cancelled) return;
 
-      editorRef.current = editor;
-      serviceRef.current = new PolygonService(editor, regionAPI);
-      setReady(true);
+      setWired({
+        editor,
+        polygonService: new PolygonService(editor, regionAPI),
+      });
     };
 
     init().catch((err) => {
@@ -38,11 +45,11 @@ export function usePolygonEditor(
     return () => {
       cancelled = true;
     };
-  }, [mapBinding, regionAPI]);
+  }, [mapBinding, regionAPI, reloadKey]);
 
   return {
-    editor: editorRef.current,
-    polygonService: serviceRef.current,
-    ready,
+    editor: wired?.editor ?? null,
+    polygonService: wired?.polygonService ?? null,
+    ready: wired != null,
   };
 }

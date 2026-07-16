@@ -4,6 +4,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useI18n } from "../contexts/I18nContext";
 import { useServices } from "../contexts/ServicesContext";
+import { useSharedApplied } from "../hooks/useSharedApplied";
+import { AREA_TREE_TABLES } from "../lib/linkself/shared-events";
 import { RegionRepositoryBindingAdapter } from "../services/region-binding-adapter";
 import { RegionService, type AreaTreeNode } from "../services/region-service";
 
@@ -53,6 +55,9 @@ export function RegionManagementPage() {
     void reload();
   }, [reload]);
 
+  // ScopeNetwork 同期の受信（他メンバー・他端末の領域/区域変更）で再読込する。
+  useSharedApplied(AREA_TREE_TABLES, () => void reload());
+
   const closeModal = () => {
     setModal({ type: "none" });
     setCanSubmit(false);
@@ -93,7 +98,9 @@ export function RegionManagementPage() {
       name !== modal.region.name ||
       symbol !== modal.region.symbol ||
       count !== currentCount;
-    setCanSubmit(name !== "" && symbol !== "" && !isNaN(count) && count >= 0 && changed);
+    setCanSubmit(
+      name !== "" && symbol !== "" && !isNaN(count) && count >= 0 && changed,
+    );
   };
 
   const handleEdit = async () => {
@@ -334,12 +341,16 @@ export function RegionManagementPage() {
             {editSymbolRef.current &&
               editSymbolRef.current.value.trim() !== modal.region.symbol &&
               editSymbolRef.current.value.trim() !== "" && (
-                <div className="region-management-warning">{m.symbolChangeWarning}</div>
+                <div className="region-management-warning">
+                  {m.symbolChangeWarning}
+                </div>
               )}
             {editCountRef.current &&
               parseInt(editCountRef.current.value, 10) <
                 modal.region.parentAreas.length && (
-                <div className="region-management-warning">{m.decreaseWarning}</div>
+                <div className="region-management-warning">
+                  {m.decreaseWarning}
+                </div>
               )}
             <div className="modal-actions">
               <button className="modal-btn" onClick={closeModal}>
@@ -364,8 +375,12 @@ export function RegionManagementPage() {
             <h3 className="modal-title">{m.confirmDeleteTitle}</h3>
             <p className="region-delete-message">{m.confirmDeleteMessage}</p>
             <div className="region-delete-target">
-              <span className="region-delete-target-symbol">{modal.region.symbol}</span>
-              <span className="region-delete-target-name">{modal.region.name}</span>
+              <span className="region-delete-target-symbol">
+                {modal.region.symbol}
+              </span>
+              <span className="region-delete-target-name">
+                {modal.region.name}
+              </span>
             </div>
             <div className="modal-field">
               <label className="modal-label">{m.enterNameToConfirm}</label>

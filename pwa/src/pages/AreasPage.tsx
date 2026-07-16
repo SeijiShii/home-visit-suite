@@ -5,6 +5,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSharedApplied } from "../hooks/useSharedApplied";
+import {
+  AREA_TREE_TABLES,
+  CHECKOUT_TABLES,
+} from "../lib/linkself/shared-events";
 import { InviteDialog } from "../components/InviteDialog";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
@@ -77,6 +82,12 @@ export function AreasPage() {
     displayName: string;
   } | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+
+  // ScopeNetwork 同期の受信（他メンバー・他端末の区域/チェックアウト/メンバー変更）で
+  // 一覧を再読込する。
+  useSharedApplied([...AREA_TREE_TABLES, ...CHECKOUT_TABLES, "users"], () =>
+    setReloadTick((tick) => tick + 1),
+  );
 
   useEffect(() => {
     if (!currentActorID) {

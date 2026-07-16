@@ -32,8 +32,11 @@
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ
 - `components/TipCard.tsx` / `components/TipStack.tsx` — ヘルプ Tip の表示 (→03)
 - `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末・ラベルは全行改名可=ロスター同期・削除は自分以外の全行=失効+対象端末の全初期化(ロスター行はネットワーク配線時のみ)・`hvs:roster-updated` 購読で一覧が再読込なしで追従)/地図メンテナンス）(→01,04,10)
-- `lib/map-storage.ts` — ポリゴンネットワークの localStorage 永続化アダプタ（キー注入可。本番はグループ名前空間 `hvs.g.<slotId>:map.network`）(→03)
+- `lib/map-storage.ts` — ポリゴンネットワークの MapBindingAPI 抽象と localStorage 実装（非 LinkSelf 時・テスト用。LinkSelf 時は data/linkself/linkself-map-binding.ts が map_* テーブルに置換）(→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
+- `data/linkself/group-schema.ts` — グループドメイン全テーブル（regions/places/map_*/checkouts 等）の MyDB SQL スキーマと JSON 行 `(id, data)` の共通ヘルパ・GROUP_SYNC_TABLES（ScopeNetwork 対象一覧）(→02,03,05,06,07,11)
+- `data/linkself/legacy-group-data-migration.ts` — 旧 localStorage（PersistentMap/map.network blob）→ MyDB SQL の一度きり移行（SQL 空のときだけ・昇格前に実行し初回一括配送へ載せる）(→11)
+- `hooks/useSharedApplied.ts` — ScopeNetwork 受信適用イベントの購読フック（指定テーブル群の受信で画面再読込）(→10)
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
 - `scripts/deploy-oci.sh` — 本番デプロイ（OCI VM + Caddy, home-visit.givers.work へビルド→rsync）
 
@@ -46,6 +49,7 @@
 - `lib/region-tree-index.ts` — 区域ツリー＋表示名インデックスの構築（ダッシュボード/区域一覧が共用）(→05,10)
 - `domain/repositories/region-repository.ts` — 領域ツリーの取得/保存/論理・物理削除 IF
 - `data/inmemory/inmemory-region-repository.ts` — RegionRepository の InMemory 実装（論理削除フィルタ）
+- `data/linkself/linkself-region-repository.ts` — RegionRepository の MyDB(SQL) 実装（regions/parent_areas/areas。OPFS 永続 + ScopeNetwork でメンバー間同期）(→01)
 - `pages/RegionManagementPage.tsx` — 領域記号・区域番号の CRUD 画面 (→10)
 - `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け）(→03)
 - `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ（紐付け済み区域には飛地追加ボタン）(→03)
@@ -56,6 +60,8 @@
 - `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea、1区域複数ポリゴン=飛地対応・個別/一括解除)・エリアマップ構築
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
 - `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
+- `data/linkself/linkself-place-repository.ts` — PlaceRepository の MyDB(SQL) 実装（places。OPFS 永続 + ScopeNetwork）(→01,08)
+- `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。OPFS 永続 + ScopeNetwork）(→01)
 ### 画面/コンポーネント
 - `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント
@@ -85,7 +91,7 @@
 - `hooks/useMediaQuery.ts` — matchMedia 購読（タッチ主体判定=直接編集ゲート/狭幅判定=一覧レイアウト）(→07,08)
 - `hooks/useCommandHistory.ts` — Undo/Redo コマンドヒストリを React へ購読
 - `hooks/useMapState.ts` — MapState ストアを useSyncExternalStore で購読
-- `hooks/usePolygonEditor.ts` — NetworkPolygonEditor/PolygonService の初期化・配線
+- `hooks/usePolygonEditor.ts` — NetworkPolygonEditor/PolygonService の初期化・配線（reloadKey 増分で ScopeNetwork 受信後にストレージから再初期化）
 ### domain / data
 - `domain/models/geometry.ts` — 地理座標と GeoJSON ポリゴンの基礎型
 - `domain/models/place.ts` — 座標に紐づく場所（戸建/集合住宅/部屋）モデル (→08)
@@ -106,7 +112,7 @@
 - `lib/linkself/group-network.ts` — グループ参加のアプリ向けファサード（GroupNetworkService）。起動中 LinkSelfClient を薄くラップし ensureFoundingNetwork（創設ネットワーク作成/永続。実体なし迷子 ID は作り直し回復）・issueInvite（管理者として3日招待発行）・setMemberRole/kickMember（ロール変更/除名の LinkSelf ネットワーク反映 + membership snapshot 配信。実体に無い対象は best-effort で素通り）・join（招待URL受理→requestJoin→networkId永続）・**非同期参加**（joinAsync=メールボックスへ封緘 deposit + pending 永続 `hvs.pendingJoin` / restorePendingJoin=起動時復元・失効判定 / resolveAsyncDecision=受理結果の確定・networkId 永続・`hvs:async-join-decision` イベント通知・持ち越し `hvs.asyncJoinResult` は App が consumeAsyncJoinResult でロール採用）を提供。networkId は localStorage `hvs.networkId`。clearGroupNetworkLocalState（別 DID への紐づけ直し時に networkId/pending/持ち越し結果を破棄。PairPage が使用）。upsertJoinedMember（onMemberJoined→UserRepository 記録。表示名は受理管理者のみ可視・既存メンバーと同名なら「(2)」からの連番付与）(→04,11)
 - `lib/linkself/network-store.ts` — ネットワーク実体（メンバー・ロール表）と使用済み招待ノンスの localStorage 永続ストア（LocalStorageNetworkStore / LocalStorageConsumedNonceStore）。in-memory だとリロードで消え招待が network_not_found 拒否になるのを防ぐ (→01,04)
 - `lib/linkself/shared-store.ts` — groupshare 共有レコード（LocalStorageSharedStorage、catch-up 高水位・LWW 判定材料の保持）と membership epoch（LocalStorageEpochStore、スナップショット巻き戻り防止）の localStorage 永続 (→01)
-- `lib/linkself/shared-events.ts` — ScopeNetwork 受信適用（`hvs:shared-applied`。UsersPage/IdentityContext が購読）とロスター更新（`hvs:roster-updated`。SettingsPage デバイス一覧が購読）の window イベント定数。重量級 linkself-services に依存しない軽量モジュール (→01,04)
+- `lib/linkself/shared-events.ts` — ScopeNetwork 受信適用（`hvs:shared-applied`。UsersPage/IdentityContext + useSharedApplied 経由で区域一覧/ダッシュボード/領域管理/地図/訪問画面が購読）とロスター更新（`hvs:roster-updated`。SettingsPage デバイス一覧が購読）の window イベント定数・画面別購読テーブル群プリセット。重量級 linkself-services に依存しない軽量モジュール (→01,04)
 - `lib/linkself/known-members.ts` — 既知メンバー（招待発行者=管理者）到達アドレスのローカル永続（アクティブスロットの名前空間。未作成時は旧 `hvs.knownMembers`）。presence 未実装のため次回起動の FastStart で管理者へ再ダイヤルするハブ型トポロジの土台 (→01)
 - `data/linkself/linkself-user-repository.ts` — UserRepository の MyDB(SQL) 実装（users/member_tags。OPFS 永続 + ScopeNetwork でメンバー間同期。invitations は廃止フローのため InMemory 委譲。USER_SYNC_TABLES）(→01,04)
 - `domain/models/device.ts` — 個人デバイス（自 DID に紐づく端末）モデル（deviceId/label。ラベルの SoT はロスター、fromRoster 行は改名可・削除不可）
@@ -134,11 +140,13 @@
 - `domain/models/visit.ts` — 訪問記録＋チェックアウト（排他取得）モデル・申請要否判定 (→08)
 - `domain/repositories/checkout-repository.ts` — チェックアウト/区域招待/訪問記録/編集履歴の永続化 IF
 - `data/inmemory/inmemory-checkout-repository.ts` — CheckoutRepository の InMemory/localStorage 実装
+- `data/linkself/linkself-checkout-repository.ts` — CheckoutRepository の MyDB(SQL) 実装（checkouts/checkout_invitations/visit_records/visit_record_edits。OPFS 永続 + ScopeNetwork）(→01,08)
 
 ## 06 網羅管理（網羅活動/進捗/予定）
 - `domain/models/coverage.ts` — 区域親番単位の網羅活動（進捗率/ステータス）モデル
 - `domain/repositories/coverage-repository.ts` — 網羅活動の永続化 IF
 - `data/inmemory/inmemory-coverage-repository.ts` — CoverageRepository の InMemory/localStorage 実装
+- `data/linkself/linkself-coverage-repository.ts` — CoverageRepository の MyDB(SQL) 実装（coverages。OPFS 永続 + ScopeNetwork）(→01)
 - 「チェックアウト可能期間（AvailablePeriod）」は 2026-07-13 廃止（旧 `available-period*` / `CoveragePage` は削除。網羅進捗参照画面は後続フェーズ）
 
 ## 07 通知と申請（通知/申請/監査ログ/データ保持）
@@ -149,6 +157,7 @@
 - `domain/models/audit.ts` — 重要操作（ロール変更/強制回収等）の監査ログモデル
 - `domain/repositories/notification-repository.ts` — 通知/申請/監査ログの永続化 IF
 - `data/inmemory/inmemory-notification-repository.ts` — NotificationRepository の InMemory/localStorage 実装
+- `data/linkself/linkself-notification-repository.ts` — NotificationRepository の MyDB(SQL) 実装（notifications/requests/audit_log。OPFS 永続 + ScopeNetwork）(→01)
 
 ## 08 活動メンバー向けアプリ（訪問記録/最新状況/場所データ）
 - `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定・区域内記録一覧
@@ -174,7 +183,7 @@
 - `lib/linkself/device-roster.ts` — デバイスロスターのローカル永続・自端末登録（`loadOrCreateRoster()`/`addDeviceToRoster()`/`setDeviceLabelInRoster()`=ラベル変更を rev+1 再署名/`removeDeviceFromRoster()`=失効を rev+1 再署名/`persistRoster()`/`consumePendingSiblingDevices()`=payload 由来の兄弟 DID を追加署名）。ロスターは rev + tombstone 付き（新規は rev1、変更毎に +1。高 rev が merge で全面採用されラベル変更が伝播、失効は tombstone=removed に明示記録され union でも復活しない）。ユーザー鍵署名の `userDID→[deviceDID+label]` を localStorage `hvs.deviceRoster` に marshal 保管し、永続のたび `hvs:roster-updated` を発火（UI 即時反映）。自端末を必ず登録し、別ユーザー/破損時は作り直す。兄弟端末の収束は接続時のロスター announce 統合（link-self `mergeSiblingRoster`。onRosterUpdated で永続）とペアリング payload 同梱で成立。link-self `roster.ts` と対
 - `lib/linkself/identity-bridge.ts` — アプリの identity（32byte Ed25519 シード, `identity-crypto.ts`）から @linkself/core の `Identity` を導出（`linkselfIdentityFromSeed`）。同一シード→同一 did:key で既存ユーザーの DID を保ったまま LinkSelf 統合へ移行（04節 identity-service と対）
 - `data/linkself/linkself-personal-repository.ts` — PersonalRepository の LinkSelf(MyDB SQL) 実装。アプリ設定(`my_settings`)・非表示tip(`hidden_tips`)を MyDB の SQL テーブル（ブラウザは OPFS SAHPool VFS の SQLite=リロード永続）に保存。書き込みは wireSqlSync が devicesync へミラー（ScopeDevice=将来の端末間同期に接続）。ノート/タグは当面 InMemory 委譲。※KV 面は MemDeviceStorage=インメモリで永続しないため設定は SQL 面に載せる（ScopeDevice フェーズ Slice-1）
-- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定 + **users/member_tags**（LinkSelfUserRepository。ScopeNetwork 配線 = networkId 確定時に setSyncScope、includeExisting は初回のみ（スロット名前空間の scopedTables）、受信適用と参加受理記録は `hvs:shared-applied` イベント発火＝テーブル単位 100ms 合流（開いている /users が自動更新・バースト時の再読込連発を防止）、旧 localStorage データの一度きり移行、userRepo 依存の auth/checkout/visit サービス再構築、既知メンバー + ロスター掲載兄弟端末（リレー circuit アドレス合成）への FastStart 接続、60 秒ポーリング=checkMailbox+未接続兄弟への再ダイヤル、onRosterUpdated でロスター永続=UI イベント発火・自分の tombstone を受理したら全初期化=wipeThisDevice（不在のみでは初期化しない=ペアリング未収束と区別。起動時にも残骸チェック）、DeviceDirectory 登録=ラベル変更/失効を rev+1 再署名し client.updateRoster で即時 announce・失効は対象端末宛に sendRosterTo=store-and-forward）を OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。**DB はグループ毎に分離**（個人設定=hvs-personal.db / グループ系=hvs-group-<slotId>.db。networkId・scopedTables・sharedRecords・membershipEpochs もスロット名前空間キー。既所属と異なる networkId の参加は新スロットを作って切替＝上書きしない追加参加ガード。docs/wants/01「グループ毎のローカル DB 分離」）。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。ネットワーク時はメールボックス（=リレー同一ノード）を配線し、成立待ち復元 + 起動時/60 秒間隔の checkMailbox ポーリング（管理者の無人受理・被招待者の結果受領）。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
+- `contexts/linkself-services.ts` — LinkSelf-backed のサービス束 `createLinkSelfServices()`（`{services, stop}` を返す）。個人設定 + **グループドメイン全テーブル**（users/member_tags=LinkSelfUserRepository、regions/places/checkouts/coverages/notifications/map_* = 各 LinkSelf*Repository + LinkSelfMapBinding。ScopeNetwork 配線 = networkId 確定時に GROUP_SYNC_TABLES を setSyncScope、includeExisting は初回のみ（スロット名前空間の scopedTables）、受信適用と参加受理記録は `hvs:shared-applied` イベント発火＝テーブル単位 100ms 合流（開いている画面が自動更新・バースト時の再読込連発を防止）、旧 localStorage データの一度きり移行（users + legacy-group-data-migration。昇格前に実行し初回一括配送へ載せる）、差し替えリポジトリ依存の auth/checkout/visit/place/regionBinding/mapBinding サービス再構築、既知メンバー + ロスター掲載兄弟端末（リレー circuit アドレス合成）への FastStart 接続、60 秒ポーリング=checkMailbox+未接続兄弟への再ダイヤル、onRosterUpdated でロスター永続=UI イベント発火・自分の tombstone を受理したら全初期化=wipeThisDevice（不在のみでは初期化しない=ペアリング未収束と区別。起動時にも残骸チェック）、DeviceDirectory 登録=ラベル変更/失効を rev+1 再署名し client.updateRoster で即時 announce・失効は対象端末宛に sendRosterTo=store-and-forward）を OPFS-backed MyDB(SQL) に永続し残りは `createInMemoryServices` 流用。**DB はグループ毎に分離**（個人設定=hvs-personal.db / グループ系=hvs-group-<slotId>.db。networkId・scopedTables・sharedRecords・membershipEpochs もスロット名前空間キー。既所属と異なる networkId の参加は新スロットを作って切替＝上書きしない追加参加ガード。docs/wants/01「グループ毎のローカル DB 分離」）。2 モード: **スタンドアロン**（リレー/identity 未指定=libp2p 起動なし・ローカル永続のみ）と**ネットワーク**（seed+relays 指定時=実 identity で `LinkSelfClient` 起動・`client.myDB` 使用・FastStart 接続・graceful stop）。ネットワーク配線失敗はスタンドアロンへフォールバック。ネットワーク時はメールボックス（=リレー同一ノード）を配線し、成立待ち復元 + 起動時/60 秒間隔の checkMailbox ポーリング（管理者の無人受理・被招待者の結果受領）。`parseRelays()` は `VITE_LINKSELF_RELAYS`(`did=multiaddr` カンマ区切り) を `KnownPeer[]` に解析。`VITE_LINKSELF` 有効時に `main.tsx` から動的 import（sqlite-wasm 遅延ロード）
 - `lib/linkself/linkself-wiring.test.ts` — @linkself/core が alias 経由で pwa のツールチェーン下に解決・トランスパイルできる配線確認（CP-A）
 - `lib/linkself/linkself-interop.test.ts` — client-factory から Go ノード（link-self/core `poc-wsnode`）へ実 WebSocket 接続・LinkSelf auth・echo 往復の自動 interop 検証（CP-B、`go` 無ければ skip）
 - 依存リンク: `@linkself/core` は姉妹リポジトリ `../../link-self/ts/linkself/src` の TS ソースを Vite `resolve.alias` + tsconfig `paths` で直接参照（build 不要）。libp2p 実行時依存は pwa 側に固定バージョンで導入し `resolve.dedupe` で単一化（`pwa/vite.config.ts` / `pwa/tsconfig.json`）

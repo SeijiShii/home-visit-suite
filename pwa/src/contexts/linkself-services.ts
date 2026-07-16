@@ -3,9 +3,10 @@
 // 現状スコープ:
 // - 個人設定（my_settings / hidden_tips）を LinkSelf MyDB の SQL 面（ブラウザでは
 //   OPFS SAHPool VFS の SQLite）に永続する。リロードをまたいで残る。
-// - それ以外（regions/places/checkouts 等 = ScopeNetwork）は暫定の InMemory+localStorage
-//   のまま。メンバー間共有は link-self Phase C（ScopeNetwork⇄groupshare）待ちのため
-//   ここでは差し替えない（docs/wants/01_共通基盤.md「同期スコープ」）。
+// - グループドメイン（users/member_tags + regions/parent_areas/areas/places/map_*/
+//   checkouts/visit_records/coverages/notifications 等）はグループ MyDB(SQL) に永続し、
+//   ネットワーク配線時は ScopeNetwork で全メンバー・全端末へ伝播する
+//   （docs/wants/01_共通基盤.md「同期スコープ」）。
 //
 // 2 つの配線モード:
 //  (1) スタンドアロン（既定）: リレー未設定 or identity 未作成のとき。libp2p を起動せず
@@ -31,10 +32,18 @@ import {
 } from "@linkself/core";
 import type { RoleDefs } from "@linkself/core";
 import { LinkSelfPersonalRepository } from "../data/linkself/linkself-personal-repository";
+import { LinkSelfUserRepository } from "../data/linkself/linkself-user-repository";
 import {
-  LinkSelfUserRepository,
-  USER_SYNC_TABLES,
-} from "../data/linkself/linkself-user-repository";
+  GROUP_SYNC_TABLES,
+  ensureGroupSchema,
+} from "../data/linkself/group-schema";
+import { LinkSelfRegionRepository } from "../data/linkself/linkself-region-repository";
+import { LinkSelfPlaceRepository } from "../data/linkself/linkself-place-repository";
+import { LinkSelfCheckoutRepository } from "../data/linkself/linkself-checkout-repository";
+import { LinkSelfCoverageRepository } from "../data/linkself/linkself-coverage-repository";
+import { LinkSelfNotificationRepository } from "../data/linkself/linkself-notification-repository";
+import { LinkSelfMapBinding } from "../data/linkself/linkself-map-binding";
+import { migrateLegacyGroupData } from "../data/linkself/legacy-group-data-migration";
 import { createLinkSelfClient } from "../lib/linkself/client-factory";
 import { loadKnownMembers } from "../lib/linkself/known-members";
 import {
@@ -83,6 +92,9 @@ import {
 import { markPersistenceDegraded } from "../lib/persistence-status";
 import { AuthServiceImpl } from "../services/auth-service";
 import { CheckoutServiceImpl } from "../services/checkout-service";
+import { PlaceService } from "../services/place-service";
+import { PlaceRepositoryBindingAdapter } from "../services/place-binding-adapter";
+import { RegionRepositoryBindingAdapter } from "../services/region-binding-adapter";
 import { PersonalRepositorySettingsAdapter } from "../services/settings-binding-adapter";
 import { SettingsService } from "../services/settings-service";
 import { VisitService } from "../services/visit-service";
@@ -370,7 +382,7 @@ export async function createLinkSelfServices(
         } catch {
           scoped = [];
         }
-        for (const table of USER_SYNC_TABLES) {
+        for (const table of GROUP_SYNC_TABLES) {
           const first = !scoped.includes(table);
           await client.myDB.setSyncScope(table, "network", {
             networkId,
@@ -553,20 +565,41 @@ export async function createLinkSelfServices(
   } catch (e) {
     console.warn("linkself: legacy user data migration failed", e);
   }
+  // グループドメイン（regions/places/checkouts/coverages/notifications/map_*）も
+  // グループ MyDB(SQL) リポジトリへ（両モード共通・OPFS 永続。ネットワーク配線時は
+  // ScopeNetwork で全メンバーへ伝播する）。旧 localStorage 実装（InMemory persist）
+  // からは SQL 側が空のとき一度だけ移行する。ScopeNetwork 初回昇格（includeExisting）
+  // より前に移行しておくことで、既存データが一括配送に乗る。
+  await ensureGroupSchema(myDB);
+  const storagePrefix = opts.persist
+    ? (opts.storagePrefix ?? "hvs")
+    : undefined;
+  await migrateLegacyGroupData(myDB, storagePrefix);
+  const regionRepo = new LinkSelfRegionRepository(myDB);
+  const placeRepo = new LinkSelfPlaceRepository(myDB);
+  const checkoutRepo = new LinkSelfCheckoutRepository(myDB);
+  const coverageRepo = new LinkSelfCoverageRepository(myDB);
+  const notificationRepo = new LinkSelfNotificationRepository(myDB);
+  const mapBinding = new LinkSelfMapBinding(myDB);
+
   // ScopeNetwork 初回配線（スキーマ・移行の後）。
   await initialScopeWiring?.();
 
-  // userRepo に依存するサービスを新リポジトリで作り直す。
+  // 差し替えたリポジトリに依存するサービスを作り直す。
   const authService = new AuthServiceImpl(userRepo);
   const checkoutService = new CheckoutServiceImpl(
-    base.checkoutRepo,
+    checkoutRepo,
     userRepo,
-    base.notificationRepo,
-    base.regionRepo,
+    notificationRepo,
+    regionRepo,
   );
   const visitService = new VisitService(
-    new VisitBindingAdapter(checkoutService, base.checkoutRepo),
+    new VisitBindingAdapter(checkoutService, checkoutRepo),
   );
+  const placeService = new PlaceService(
+    new PlaceRepositoryBindingAdapter(placeRepo),
+  );
+  const regionBindingApi = new RegionRepositoryBindingAdapter(regionRepo);
 
   return {
     services: {
@@ -574,9 +607,17 @@ export async function createLinkSelfServices(
       personalRepo,
       settingsService,
       userRepo,
+      regionRepo,
+      placeRepo,
+      checkoutRepo,
+      coverageRepo,
+      notificationRepo,
       authService,
       checkoutService,
       visitService,
+      placeService,
+      regionBindingApi,
+      mapBinding,
     },
     stop,
     groupNetwork,

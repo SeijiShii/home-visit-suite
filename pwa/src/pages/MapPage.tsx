@@ -2,6 +2,12 @@ import { useRef, useCallback, useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMapState, MapMode } from "../hooks/useMapState";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
+import { useSharedApplied } from "../hooks/useSharedApplied";
+import {
+  AREA_TREE_TABLES,
+  MAP_NETWORK_TABLES,
+  PLACE_TABLES,
+} from "../lib/linkself/shared-events";
 import { useI18n } from "../contexts/I18nContext";
 import { useTips } from "../contexts/TipsContext";
 
@@ -145,11 +151,21 @@ export function MapPage() {
     [placeService],
   );
 
+  // ScopeNetwork 受信追従（他メンバー・他端末の編集の取り込み）:
+  // map_* はエディタのメモリ内ネットワーク再初期化が必要（reloadKey 増分）、
+  // 区域ツリー・場所はリロードで足りる。
+  const [mapReloadKey, setMapReloadKey] = useState(0);
+  useSharedApplied(MAP_NETWORK_TABLES, () => setMapReloadKey((k) => k + 1));
+  useSharedApplied([...AREA_TREE_TABLES, ...PLACE_TABLES], () => {
+    void reloadPolygonsRef.current();
+    void treeRef.current?.reload();
+  });
+
   const {
     editor,
     polygonService,
     ready: editorReady,
-  } = usePolygonEditor(mapBinding, regionBindingApi);
+  } = usePolygonEditor(mapBinding, regionBindingApi, mapReloadKey);
 
   // --- AreaTreeからの変更通知 ---
 
