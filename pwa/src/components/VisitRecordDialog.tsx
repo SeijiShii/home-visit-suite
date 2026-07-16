@@ -192,9 +192,12 @@ export function VisitRecordDialog({
     setEditOpen(true);
   };
 
+  // 詳細テキストは原則必須。要削除のみ任意（仕様 docs/wants/08「編集をリクエスト」）
+  const editTextRequired = editKind !== "delete";
+
   const submitEdit = () => {
-    if (editText.trim().length === 0) return;
-    onPlaceEditRequest(editKind, editText);
+    if (editTextRequired && editText.trim().length === 0) return;
+    onPlaceEditRequest(editKind, editText.trim());
     setEditOpen(false);
     setEditText("");
   };
@@ -382,7 +385,10 @@ export function VisitRecordDialog({
               </select>
             </label>
             <label className="visit-record-edit-field">
-              <span>{t.visitRecord.placeEditTextLabel}</span>
+              <span>
+                {t.visitRecord.placeEditTextLabel}
+                {!editTextRequired && <>（{t.areaDetail.addPlaceOptional}）</>}
+              </span>
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
@@ -398,7 +404,7 @@ export function VisitRecordDialog({
               <button
                 type="button"
                 onClick={submitEdit}
-                disabled={editText.trim().length === 0}
+                disabled={editTextRequired && editText.trim().length === 0}
               >
                 {t.visitRecord.placeEditSubmit}
               </button>
