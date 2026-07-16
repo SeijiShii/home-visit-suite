@@ -26,7 +26,10 @@ function readLegacyEntries(key: string): Array<[string, unknown]> | null {
   }
 }
 
-async function tableIsEmpty(db: MyDB, table: GroupDomainTable): Promise<boolean> {
+async function tableIsEmpty(
+  db: MyDB,
+  table: GroupDomainTable,
+): Promise<boolean> {
   const rows = await db.query(`SELECT COUNT(*) AS n FROM ${table}`);
   return Number(rows[0]?.n ?? 0) === 0;
 }
@@ -45,6 +48,23 @@ const LEGACY_MAP_KEYS: ReadonlyArray<[string, GroupDomainTable]> = [
   ["notification:notifications", "notifications"],
   ["notification:requests", "requests"],
   ["notification:auditLogs", "audit_log"],
+];
+
+/**
+ * 旧データ移行のソースキー（storagePrefix 相対）の全一覧。
+ * 同期状態の自己修復（sync-state-heal）が食い違い検出時にまとめて破棄する:
+ * これらは失われた旧 DB と同世代の凍結データであり、残すと「テーブルが空なら
+ * 移行」判定が再発火し、includeExisting の新タイムスタンプ一括配送で他端末の
+ * 新しい状態＝グループ全体を巻き戻す（docs/wants/01「同期状態の自己修復」）。
+ * `user:users` / `user:tags` は linkself-services 側の users/member_tags 移行の
+ * ソース（InMemoryUserRepository の永続面）。SQL 未移行で localStorage が現役の
+ * リポジトリ（invitations / availablePeriod 系）は含めない。
+ */
+export const LEGACY_MIGRATION_SOURCE_SUFFIXES: readonly string[] = [
+  ...LEGACY_MAP_KEYS.map(([suffix]) => suffix),
+  "map.network",
+  "user:users",
+  "user:tags",
 ];
 
 /**

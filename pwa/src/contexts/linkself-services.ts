@@ -90,6 +90,7 @@ import {
   setActiveGroupSlot,
 } from "../lib/group-slots";
 import { markPersistenceDegraded } from "../lib/persistence-status";
+import { healDivergedSyncState } from "../lib/linkself/sync-state-heal";
 import { AuthServiceImpl } from "../services/auth-service";
 import { CheckoutServiceImpl } from "../services/checkout-service";
 import { PlaceService } from "../services/place-service";
@@ -218,6 +219,7 @@ export async function createLinkSelfServices(
   const openDb = async (
     filename: string,
     dedicatedPool: boolean,
+    onFallback?: () => void,
   ): Promise<SqliteWasmDatabase> => {
     try {
       return await SqliteWasmDatabase.open({
@@ -236,11 +238,27 @@ export async function createLinkSelfServices(
       // 無言のインメモリ化は永続喪失の見逃しに直結する（learnings L-010）。
       // Layout が警告バナーを出せるよう記録する。
       markPersistenceDegraded();
+      onFallback?.();
       return SqliteWasmDatabase.open({ filename: ":memory:" });
     }
   };
   const personalSqlDb = await openDb(personalFilename, false);
-  const groupSqlDb = await openDb(groupFilename, true);
+  let groupDbFellBack = false;
+  const groupSqlDb = await openDb(groupFilename, true, () => {
+    groupDbFellBack = true;
+  });
+  // 同期状態の自己修復（docs/wants/01「同期状態の自己修復」）: iOS「ホーム画面に
+  // 追加」等のストレージ部分コピーで「localStorage の同期フラグは残っているのに
+  // グループ DB（OPFS）は空」になると、includeExisting も catch-up も済み扱いで
+  // データが永遠に届かない。スキーマ適用前（= 新規 DB を判別できるうち）に
+  // 陳腐化フラグを破棄する。in-memory フォールバック時は実 DB が別タブで健在
+  // なので照合しない（誤破棄→データ入り DB への includeExisting 再実行を防ぐ）。
+  // healed 時は移行ソースの旧キーも破棄されるが、createInMemoryServices（base）は
+  // 構築時に旧キーを既にメモリへ読み込んでいるため、この起動のレガシー移行も
+  // 明示的にスキップする（陳腐データの base.userRepo 経由再インポート防止）。
+  const syncStateHealed = groupDbFellBack
+    ? false
+    : await healDivergedSyncState(groupSqlDb, slot.slotId);
   // 個人設定はクライアント（グループ DB）と切り離した個人 DB に常駐する。
   // ScopeDevice の devicesync ミラーは兄弟端末ダイヤル導入時に再配線する。
   const personalMyDB = await openStandaloneMyDB(personalSqlDb);
@@ -548,7 +566,7 @@ export async function createLinkSelfServices(
   // (1) 個人 DB（DB 分割前は users も hvs-personal.db に居た）
   // (2) 旧 localStorage 実装（InMemory persist）。
   try {
-    if ((await userRepo.listUsers()).length === 0) {
+    if (!syncStateHealed && (await userRepo.listUsers()).length === 0) {
       const personalDbUsers = new LinkSelfUserRepository(personalMyDB);
       await personalDbUsers.ensureSchema();
       const src =
@@ -574,7 +592,7 @@ export async function createLinkSelfServices(
   const storagePrefix = opts.persist
     ? (opts.storagePrefix ?? "hvs")
     : undefined;
-  await migrateLegacyGroupData(myDB, storagePrefix);
+  if (!syncStateHealed) await migrateLegacyGroupData(myDB, storagePrefix);
   const regionRepo = new LinkSelfRegionRepository(myDB);
   const placeRepo = new LinkSelfPlaceRepository(myDB);
   const checkoutRepo = new LinkSelfCheckoutRepository(myDB);

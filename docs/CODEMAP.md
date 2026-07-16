@@ -35,7 +35,7 @@
 - `lib/map-storage.ts` — ポリゴンネットワークの MapBindingAPI 抽象と localStorage 実装（非 LinkSelf 時・テスト用。LinkSelf 時は data/linkself/linkself-map-binding.ts が map_* テーブルに置換）(→03)
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/linkself/group-schema.ts` — グループドメイン全テーブル（regions/places/map_*/checkouts 等）の MyDB SQL スキーマと JSON 行 `(id, data)` の共通ヘルパ・GROUP_SYNC_TABLES（ScopeNetwork 対象一覧）(→02,03,05,06,07,11)
-- `data/linkself/legacy-group-data-migration.ts` — 旧 localStorage（PersistentMap/map.network blob）→ MyDB SQL の一度きり移行（SQL 空のときだけ・昇格前に実行し初回一括配送へ載せる）(→11)
+- `data/linkself/legacy-group-data-migration.ts` — 旧 localStorage（PersistentMap/map.network blob）→ MyDB SQL の一度きり移行（SQL 空のときだけ・昇格前に実行し初回一括配送へ載せる）。移行ソースキー一覧（LEGACY_MIGRATION_SOURCE_SUFFIXES）を export し sync-state-heal が食い違い検出時に破棄する (→01,11)
 - `hooks/useSharedApplied.ts` — ScopeNetwork 受信適用イベントの購読フック（指定テーブル群の受信で画面再読込）(→10)
 - `data/localstorage/localstorage-personal-repository.ts` — アプリ設定を localStorage 永続化（ドメインデータは InMemory へ委譲）(→08)
 - `scripts/deploy-oci.sh` — 本番デプロイ（OCI VM + Caddy, home-visit.givers.work へビルド→rsync）
@@ -112,6 +112,7 @@
 - `lib/linkself/group-network.ts` — グループ参加のアプリ向けファサード（GroupNetworkService）。起動中 LinkSelfClient を薄くラップし ensureFoundingNetwork（創設ネットワーク作成/永続。実体なし迷子 ID は作り直し回復）・issueInvite（管理者として3日招待発行）・setMemberRole/kickMember（ロール変更/除名の LinkSelf ネットワーク反映 + membership snapshot 配信。実体に無い対象は best-effort で素通り）・join（招待URL受理→requestJoin→networkId永続）・**非同期参加**（joinAsync=メールボックスへ封緘 deposit + pending 永続 `hvs.pendingJoin` / restorePendingJoin=起動時復元・失効判定 / resolveAsyncDecision=受理結果の確定・networkId 永続・`hvs:async-join-decision` イベント通知・持ち越し `hvs.asyncJoinResult` は App が consumeAsyncJoinResult でロール採用）を提供。networkId は localStorage `hvs.networkId`。clearGroupNetworkLocalState（別 DID への紐づけ直し時に networkId/pending/持ち越し結果を破棄。PairPage が使用）。upsertJoinedMember（onMemberJoined→UserRepository 記録。表示名は受理管理者のみ可視・既存メンバーと同名なら「(2)」からの連番付与）(→04,11)
 - `lib/linkself/network-store.ts` — ネットワーク実体（メンバー・ロール表）と使用済み招待ノンスの localStorage 永続ストア（LocalStorageNetworkStore / LocalStorageConsumedNonceStore）。in-memory だとリロードで消え招待が network_not_found 拒否になるのを防ぐ (→01,04)
 - `lib/linkself/shared-store.ts` — groupshare 共有レコード（LocalStorageSharedStorage、catch-up 高水位・LWW 判定材料の保持）と membership epoch（LocalStorageEpochStore、スナップショット巻き戻り防止）の localStorage 永続 (→01)
+- `lib/linkself/sync-state-heal.ts` — 同期状態の自己修復（healDivergedSyncState）。グループ DB が新規（sqlite_master 空）なのに同期フラグ（scopedTables/sharedRecords）が残る食い違い＝iOS「ホーム画面に追加」等の部分コピーを検出し、フラグ＋旧データ移行ソースキー（陳腐データの再インポート→includeExisting 新スタンプ配送での巻き戻し防止）を破棄して初回一括配送＋全量 catch-up をやり直させる。epochs/networkId/未移行現役リポジトリは保持。linkself-services が DB open 直後（in-memory フォールバック時を除く）に呼び、healed 起動はレガシー移行もスキップ (→01)
 - `lib/linkself/shared-events.ts` — ScopeNetwork 受信適用（`hvs:shared-applied`。UsersPage/IdentityContext + useSharedApplied 経由で区域一覧/ダッシュボード/領域管理/地図/訪問画面/申請一覧が購読）とロスター更新（`hvs:roster-updated`。SettingsPage デバイス一覧が購読）の window イベント定数・画面別購読テーブル群プリセット。重量級 linkself-services に依存しない軽量モジュール (→01,04)
 - `lib/linkself/known-members.ts` — 既知メンバー（招待発行者=管理者）到達アドレスのローカル永続（アクティブスロットの名前空間。未作成時は旧 `hvs.knownMembers`）。presence 未実装のため次回起動の FastStart で管理者へ再ダイヤルするハブ型トポロジの土台 (→01)
 - `data/linkself/linkself-user-repository.ts` — UserRepository の MyDB(SQL) 実装（users/member_tags。OPFS 永続 + ScopeNetwork でメンバー間同期。invitations は廃止フローのため InMemory 委譲。USER_SYNC_TABLES）(→01,04)
