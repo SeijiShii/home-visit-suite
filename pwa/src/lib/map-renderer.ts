@@ -286,6 +286,8 @@ export class MapRenderer {
   // 場所マーカー移動追従モード
   private placeMoveSession: {
     placeId: string;
+    /** 移動開始時のマーカー位置（キャンセル時に表示を戻すため）。 */
+    origLatLng: L.LatLng | null;
     onConfirm: (lat: number, lng: number) => void;
     onCancel: () => void;
     moveHandler: (e: L.LeafletMouseEvent) => void;
@@ -356,6 +358,10 @@ export class MapRenderer {
     if (callbacks.onContextMenu) {
       this.map.on("contextmenu", (e: L.LeafletMouseEvent) => {
         e.originalEvent.preventDefault();
+        // 場所移動セッション中はコンテキストメニューを開かない（タッチでは
+        // マーカーがカーソル追従しないため空白部の長押しがここへ到達し得る。
+        // 追加フローと移動セッションの並走を防ぐ）
+        if (this.placeMoveSession) return;
         callbacks.onContextMenu!(
           e.latlng.lat,
           e.latlng.lng,
@@ -884,6 +890,10 @@ export class MapRenderer {
         // スナップ判定（頂点/線分）に委ねる（docs/wants/03「ポリゴン描画のスナップ」）。
         if (this.editor?.getMode() === "drawing") return;
         L.DomEvent.stopPropagation(e);
+        // 場所移動セッション中の確定クリックはポリゴン上にも落ちる
+        // （特にタッチではマーカーがカーソル追従しないため常にこの経路）。
+        // 確定として処理し、ポリゴン選択は発火させない。
+        if (this.confirmPlaceMoveAt(e)) return;
         this.polygonClickCallback!(id);
       });
     }
@@ -1020,6 +1030,8 @@ export class MapRenderer {
       marker.on("contextmenu", (e: L.LeafletMouseEvent) => {
         e.originalEvent.preventDefault();
         L.DomEvent.stopPropagation(e);
+        // 移動セッション中は場所メニューを開かない（移動の確定/Esc を待つ）
+        if (this.placeMoveSession) return;
         this.placeContextMenuCallback?.(
           p.id,
           p.type,
@@ -1029,6 +1041,12 @@ export class MapRenderer {
       });
       marker.on("click", (e: L.LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(e);
+        // 移動セッション中のクリックは「移動の確定」。移動中のマーカーは
+        // カーソルに追従しており、確定クリックは自マーカー上に落ちるため、
+        // stopPropagation で地図の click（確定ハンドラ）が発火しない。ここで
+        // セッションの確定へ渡し、訪問ダイアログは開かない（仕様: 03「場所操作 /
+        // 移動」クリックで確定）。
+        if (this.confirmPlaceMoveAt(e)) return;
         this.placeClickCallback?.(p.id, p.type);
       });
       this.placeMarkers.set(p.id, marker);
@@ -1155,23 +1173,21 @@ export class MapRenderer {
     if (!this.map) return;
     if (this.placeMoveSession) this.cancelPlaceMove();
     const map = this.map;
-    const marker = this.placeMarkers.get(placeId);
     map.dragging.disable();
     map.getContainer().style.cursor = "crosshair";
 
+    // マーカーは閉包に捕捉せず毎回引く（セッション中に setPlaces が全マーカーを
+    // 再生成しても、新しいマーカーに追従が乗り移るように）。
     const moveHandler = (e: L.LeafletMouseEvent) => {
-      if (marker) marker.setLatLng(e.latlng);
+      this.placeMarkers.get(placeId)?.setLatLng(e.latlng);
     };
     const clickHandler = (e: L.LeafletMouseEvent) => {
       L.DomEvent.stop(e.originalEvent);
-      const { lat, lng } = e.latlng;
-      this.endPlaceMoveSession();
-      onConfirm(lat, lng);
+      this.confirmPlaceMoveAt(e);
     };
     const keyHandler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      this.endPlaceMoveSession();
-      onCancel();
+      this.cancelPlaceMove();
     };
 
     map.on("mousemove", moveHandler);
@@ -1180,12 +1196,29 @@ export class MapRenderer {
 
     this.placeMoveSession = {
       placeId,
+      origLatLng: this.placeMarkers.get(placeId)?.getLatLng() ?? null,
       onConfirm,
       onCancel,
       moveHandler,
       clickHandler,
       keyHandler,
     };
+  }
+
+  /**
+   * 場所移動セッション中のクリックを「移動の確定」として処理する（処理したら true）。
+   * 確定クリックは map・追従中の自マーカー・ポリゴン等どのレイヤーにも落ち得るため、
+   * 全経路がこの単一実装を通る（learnings L-018: 規則の複数実装を避ける）。
+   * e.latlng は半径 10px 以下の circleMarker 上ではそのマーカー座標に差し替えられる
+   * ため、originalEvent から実際のカーソル/タップ位置を取り直す。
+   */
+  private confirmPlaceMoveAt(e: L.LeafletMouseEvent): boolean {
+    const s = this.placeMoveSession;
+    if (!s || !this.map) return false;
+    const { lat, lng } = this.map.mouseEventToLatLng(e.originalEvent);
+    this.endPlaceMoveSession();
+    s.onConfirm(lat, lng);
+    return true;
   }
 
   /** 移動セッションを破棄してハンドラを外す (確定/キャンセル共通)。 */
@@ -1204,6 +1237,8 @@ export class MapRenderer {
     const s = this.placeMoveSession;
     if (!s) return;
     this.endPlaceMoveSession();
+    // 追従で動かした表示位置を元へ戻す（データは未変更のため表示のみの復元）
+    if (s.origLatLng) this.placeMarkers.get(s.placeId)?.setLatLng(s.origLatLng);
     s.onCancel();
   }
 
