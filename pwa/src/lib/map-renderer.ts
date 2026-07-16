@@ -95,19 +95,20 @@ export function getPolygonStyle(
     : { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
 }
 
-/** 親番境界線の専用 Leaflet ペイン名（overlayPane より上に固定描画） */
+/** 親番境界線の専用 Leaflet ペイン名（overlayPane より下に固定描画） */
 const PARENT_BOUNDARY_PANE = "parentBoundary";
 
 /**
- * 区域親番境界（親番グループの境目）の強調スタイル。ポリゴン輪郭より上層に
- * 実線の太線を描く（docs/wants/03「区域親番境界の強調表示」）。
+ * 区域親番境界（親番グループの境目）の強調スタイル。区域の境界線（ポリゴン
+ * 輪郭）より下層に実線の太線を描く（docs/wants/03「区域親番境界の強調表示」）。
  */
 export function getParentBoundaryStyle(): {
   color: string;
   weight: number;
   opacity: number;
 } {
-  return { color: "#334155", weight: 5, opacity: 0.9 };
+  // 区域境界線（最大 weight 4）を手前に重ねても両側に太線が見えるよう weight 8
+  return { color: "#334155", weight: 8, opacity: 0.9 };
 }
 
 export type AreaDetailPolygonRole = "target" | "neighbor";
@@ -306,10 +307,11 @@ export class MapRenderer {
       clickTolerance: 8,
     } as L.MapOptions).setView(center, zoom);
 
-    // 親番境界線の専用ペイン: overlayPane(400) より上・markerPane(600) より下。
-    // DOM 追加順に依存せず常にポリゴン輪郭より上層に描ける（wants/03「区域親番境界の強調表示」）。
+    // 親番境界線の専用ペイン: tilePane(200) より上・overlayPane(400) より下。
+    // 区域の境界線（ポリゴン輪郭）を太線より手前に見せるため下層に固定しつつ、
+    // DOM 追加順に依存しない重なり順を保つ（wants/03「区域親番境界の強調表示」）。
     const boundaryPane = this.map.createPane(PARENT_BOUNDARY_PANE);
-    boundaryPane.style.zIndex = "450";
+    boundaryPane.style.zIndex = "390";
     boundaryPane.style.pointerEvents = "none";
 
     this.setBaseMap(baseMap);
@@ -1548,8 +1550,8 @@ export class MapRenderer {
   // --- 区域親番境界の強調帯 ---
 
   /**
-   * 区域親番の境目にあたる辺へ、ポリゴン輪郭より上層に実線の太線を描く
-   * （docs/wants/03「区域親番境界の強調表示」）。
+   * 区域親番の境目にあたる辺へ、ポリゴン輪郭より下層に実線の太線を描く
+   * （区域境界線が太線の手前に見える。docs/wants/03「区域親番境界の強調表示」）。
    * 境目判定は全活性ポリゴンの紐付けで行い、描画は表示中ポリゴン
    * （polygonLayers。詳細モードでは対象＋隣接のみ）の辺に絞る。
    * 頂点ドラッグ中に毎フレーム呼ばれるため、既存ポリラインは位置更新で使い回す。
@@ -1604,7 +1606,7 @@ export class MapRenderer {
         existing.setLatLngs(latlngs);
         continue;
       }
-      // 専用ペイン（zIndex 450）に描くため、ポリゴン層の再追加でも埋もれない
+      // 専用ペイン（zIndex 390）に描くため、ポリゴン層の再追加でも順序が崩れない
       const line = L.polyline(latlngs, {
         ...style,
         pane: PARENT_BOUNDARY_PANE,

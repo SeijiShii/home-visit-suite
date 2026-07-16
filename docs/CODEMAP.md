@@ -75,7 +75,7 @@
 - `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
 ### lib（純ロジック/幾何/画像処理）
-- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル/親番境界の実線太線強調（輪郭より上層）の描画・ベース地図切替・描画モードのスナップ表示（頂点/線分）
+- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・ベース地図切替・描画モードのスナップ表示（頂点/線分）
 - `lib/parent-boundary.ts` — 区域親番の境目となる辺の判定（親番キー抽出・辺単位の境界集合算出）
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
