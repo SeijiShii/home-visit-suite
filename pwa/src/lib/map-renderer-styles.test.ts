@@ -58,7 +58,7 @@ describe("getAreaDetailPolygonStyle: 訪問記録画面の極薄塗り", () => {
 });
 
 // 仕様: docs/wants/03_地図機能.md「区域IDラベル表示」
-// ズームレベル 14 以上のときのみラベルを表示する（広域表示での重なり防止）
+// ズームレベル 15 以上のときのみラベルを表示する（広域表示での重なり防止）
 describe("isAreaIdLabelZoomVisible: 区域IDラベルのズーム閾値", () => {
   it("閾値以上のズームでは表示する", () => {
     expect(isAreaIdLabelZoomVisible(AREA_ID_LABEL_MIN_ZOOM)).toBe(true);
@@ -71,7 +71,7 @@ describe("isAreaIdLabelZoomVisible: 区域IDラベルのズーム閾値", () => 
     expect(isAreaIdLabelZoomVisible(5)).toBe(false);
   });
 
-  it("閾値は仕様どおり 14", () => {
-    expect(AREA_ID_LABEL_MIN_ZOOM).toBe(14);
+  it("閾値は仕様どおり 15", () => {
+    expect(AREA_ID_LABEL_MIN_ZOOM).toBe(15);
   });
 });
