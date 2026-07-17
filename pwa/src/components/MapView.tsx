@@ -6,6 +6,11 @@ import {
   type PlaceOverlayItem,
 } from "../lib/map-renderer";
 import { resolveBaseMapConfig } from "../lib/map-config";
+import {
+  queryGeolocationPermission,
+  watchCurrentLocation,
+} from "../lib/current-location";
+import { requestCurrentLocation } from "../lib/initial-map-view";
 import { useI18n } from "../contexts/I18nContext";
 import type {
   ChangeSet,
@@ -108,6 +113,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     map: t.map.baseMapRoadmap,
     aerial: t.map.baseMapAerial,
   });
+  const locateLabelRef = useRef(t.map.locateButton);
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
   // renderer が作り直されても失われないよう、外部から渡された editor と
@@ -280,7 +286,46 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (polygonAreaIdsRef.current) {
       renderer.setPolygonAreaIds(polygonAreaIdsRef.current);
     }
+
+    // 現在地: 表示中のみ watchPosition 購読しマーカーを追従させる。
+    // 自動購読は権限が既に許可済みのときだけ（未決定のユーザーに画面を
+    // 開いただけで許可プロンプトを出さない）。ボタンは既知の現在地へパン、
+    // 未取得なら単発取得（ここで権限プロンプトが出得る）→成功でパン＋購読開始
+    // （docs/wants/03「現在地マーカーと現在地への移動」）。
+    let lastLocation: { lat: number; lng: number } | null = null;
+    let stopWatch: (() => void) | null = null;
+    let disposed = false;
+    const geolocation =
+      typeof navigator !== "undefined" ? navigator.geolocation : undefined;
+    const startWatch = () => {
+      if (disposed || stopWatch) return;
+      stopWatch = watchCurrentLocation(geolocation, (lat, lng, acc) => {
+        lastLocation = { lat, lng };
+        renderer.setCurrentLocation(lat, lng, acc);
+      });
+    };
+    void queryGeolocationPermission(
+      typeof navigator !== "undefined" ? navigator.permissions : undefined,
+    ).then((state) => {
+      if (state === "granted") startWatch();
+    });
+    renderer.addLocateControl(locateLabelRef.current, () => {
+      if (lastLocation) {
+        renderer.panToLocation(lastLocation.lat, lastLocation.lng);
+        return;
+      }
+      requestCurrentLocation(geolocation, (lat, lng, acc) => {
+        if (disposed) return;
+        lastLocation = { lat, lng };
+        renderer.setCurrentLocation(lat, lng, acc);
+        renderer.panToLocation(lat, lng);
+        startWatch();
+      });
+    });
+
     return () => {
+      disposed = true;
+      stopWatch?.();
       renderer.unmount();
       rendererRef.current = null;
     };

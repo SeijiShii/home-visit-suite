@@ -64,7 +64,7 @@
 - `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。OPFS 永続 + ScopeNetwork）(→01)
 ### 画面/コンポーネント
 - `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合）(→10)
-- `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント
+- `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント。現在地 watch の購読ライフサイクルと「現在地へ移動」ボタン配線（未取得時は単発取得→パン）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（部屋行の追加・並替・削除）
 - `components/PlaceListPanel.tsx` — 場所一覧と訪問記録の一覧（直近記録併記/展開・D&D並替は権限ゲート・右ペイン/オーバーレイ両対応）(→08)
@@ -73,8 +73,9 @@
 - `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
 ### lib（純ロジック/幾何/画像処理）
-- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・読み取り専用の場所オーバーレイ（ズーム16以上・灰/赤灰）・ベース地図切替・描画モードのスナップ表示（頂点/線分）・初期表示位置（前回ビュー復元=moveend 毎に localStorage 保存 > 初回は GPS 現在地=表示が動いていたら上書きしない > 東京フォールバック）
+- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン/場所マーカー/区域IDラベル/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・読み取り専用の場所オーバーレイ（ズーム16以上・灰/赤灰）・ベース地図切替・描画モードのスナップ表示（頂点/線分）・初期表示位置（前回ビュー復元=moveend 毎に localStorage 保存 > 初回は GPS 現在地=表示が動いていたら上書きしない > 東京フォールバック）・現在地マーカー（青ドット＋精度円、専用ペイン・非対話）と「現在地へ移動」コントロール（パン時 zoom15 未満は引き上げ）
 - `lib/initial-map-view.ts` — 地図初期表示位置の解決純ロジック（保存ビュー優先/東京駅フォールバック/GPS 1回取得のラッパ）
+- `lib/current-location.ts` — 現在地のリアルタイム購読（watchPosition ラッパ・stop で解除。現在地マーカー/現在地パンの供給元）
 - `lib/parent-boundary.ts` — 区域親番の境目となる辺の判定（親番キー抽出・辺単位の境界集合算出）
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)

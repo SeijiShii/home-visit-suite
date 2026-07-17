@@ -107,6 +107,7 @@ const ja: Translations = {
     unlinkPolygon: "ポリゴン紐づけ解除",
     baseMapRoadmap: "地図",
     baseMapAerial: "航空写真",
+    locateButton: "現在地へ移動",
     contextMenu: {
       addVertex: "頂点の追加",
       deleteVertex: "頂点を削除",

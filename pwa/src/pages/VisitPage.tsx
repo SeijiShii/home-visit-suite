@@ -866,7 +866,7 @@ export function VisitPage({
       <div className="visit-page-body">
         <div
           ref={containerRef}
-          className={`visit-page-map${onBackToMap ? " with-back" : ""}`}
+          className={`visit-page-map${onBackToMap ? " with-back" : ""}${narrow ? " with-list" : ""}`}
           data-testid="visit-page-map"
         >
           {editor && polygonToArea && (

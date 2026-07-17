@@ -102,6 +102,7 @@ export interface Translations {
     unlinkPolygon: string;
     baseMapRoadmap: string;
     baseMapAerial: string;
+    locateButton: string;
     contextMenu: {
       addVertex: string;
       deleteVertex: string;

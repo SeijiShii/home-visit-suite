@@ -107,6 +107,7 @@ const en: Translations = {
     unlinkPolygon: "Unlink polygon",
     baseMapRoadmap: "Map",
     baseMapAerial: "Satellite",
+    locateButton: "Go to current location",
     contextMenu: {
       addVertex: "Add vertex",
       deleteVertex: "Delete vertex",

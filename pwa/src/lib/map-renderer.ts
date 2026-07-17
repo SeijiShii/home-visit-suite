@@ -161,6 +161,15 @@ export const PLACE_OVERLAY_MIN_ZOOM = 16;
 /** 場所オーバーレイの専用 Leaflet ペイン名（overlayPane より上に固定描画） */
 const PLACE_OVERLAY_PANE = "placeOverlay";
 
+/** 現在地マーカーの専用 Leaflet ペイン名（場所オーバーレイより上・非対話） */
+const CURRENT_LOCATION_PANE = "currentLocation";
+
+/** 現在地マーカー・精度円の色（青） */
+const CURRENT_LOCATION_COLOR = "#2563eb";
+
+/** 現在地パン時の最低ズーム（広域のままではパンの意味がないため引き上げる） */
+const LOCATE_MIN_ZOOM = 15;
+
 /** 読み取り専用（不活性）場所アイコンの塗り色（灰色）。 */
 export const PLACE_OVERLAY_COLOR = "#94a3b8";
 
@@ -256,6 +265,11 @@ export class MapRenderer {
   // 区域親番境界の強調帯（edgeId → 太線ポリライン）
   private parentBoundaryLayers = new Map<string, L.Polyline>();
 
+  // 現在地マーカー（青ドット）と測位精度円・「現在地へ移動」コントロール
+  private currentLocationMarker: L.CircleMarker | null = null;
+  private currentLocationAccuracyCircle: L.Circle | null = null;
+  private locateControl: L.Control | null = null;
+
   // ポリゴンメタデータ（区域紐付け、選択状態）
   private linkedPolygonIds: Set<string> = new Set();
   private selectedId: string | null = null;
@@ -348,6 +362,13 @@ export class MapRenderer {
     const overlayPane = this.map.createPane(PLACE_OVERLAY_PANE);
     overlayPane.style.zIndex = "450";
     overlayPane.style.pointerEvents = "none";
+
+    // 現在地マーカーの専用ペイン: 場所オーバーレイ(450)より上・markerPane(600)
+    // より下。ポリゴン・場所マーカーの操作を妨げないよう非対話
+    // （wants/03「現在地マーカーと現在地への移動」）。
+    const locationPane = this.map.createPane(CURRENT_LOCATION_PANE);
+    locationPane.style.zIndex = "460";
+    locationPane.style.pointerEvents = "none";
 
     this.setBaseMap(baseMap);
 
@@ -602,6 +623,10 @@ export class MapRenderer {
     this.baseMapControl = null;
     this.baseMapControlEl = null;
     this.baseLayer = null;
+    // map.remove() がレイヤー・コントロールごと破棄するため参照だけ落とす。
+    this.currentLocationMarker = null;
+    this.currentLocationAccuracyCircle = null;
+    this.locateControl = null;
     if (this.map) {
       this.map.remove();
       this.map = null;
@@ -1313,6 +1338,84 @@ export class MapRenderer {
   invalidateSize(): void {
     if (!this.map) return;
     this.map.invalidateSize();
+  }
+
+  // --- 現在地（wants/03「現在地マーカーと現在地への移動」） ---
+
+  /** 現在地マーカー（青ドット＋精度円）を作成/更新する。 */
+  setCurrentLocation(lat: number, lng: number, accuracyMeters: number): void {
+    if (!this.map) return;
+    const latlng: L.LatLngExpression = [lat, lng];
+    if (this.currentLocationMarker) {
+      this.currentLocationMarker.setLatLng(latlng);
+    } else {
+      this.currentLocationMarker = L.circleMarker(latlng, {
+        pane: CURRENT_LOCATION_PANE,
+        interactive: false,
+        radius: 7,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: CURRENT_LOCATION_COLOR,
+        fillOpacity: 1,
+      }).addTo(this.map);
+    }
+    if (this.currentLocationAccuracyCircle) {
+      this.currentLocationAccuracyCircle.setLatLng(latlng);
+      this.currentLocationAccuracyCircle.setRadius(accuracyMeters);
+    } else {
+      this.currentLocationAccuracyCircle = L.circle(latlng, {
+        pane: CURRENT_LOCATION_PANE,
+        interactive: false,
+        radius: accuracyMeters,
+        color: CURRENT_LOCATION_COLOR,
+        weight: 1,
+        opacity: 0.4,
+        fillColor: CURRENT_LOCATION_COLOR,
+        fillOpacity: 0.1,
+      }).addTo(this.map);
+    }
+  }
+
+  /** 現在地へパンする。ズームは現状維持（LOCATE_MIN_ZOOM 未満なら引き上げ）。 */
+  panToLocation(lat: number, lng: number): void {
+    if (!this.map) return;
+    const zoom = Math.max(this.map.getZoom(), LOCATE_MIN_ZOOM);
+    this.map.setView([lat, lng], zoom);
+  }
+
+  /** 「現在地へ移動」ボタン（Leaflet コントロール, 右上）を追加する。 */
+  addLocateControl(title: string, onClick: () => void): void {
+    if (!this.map || this.locateControl) return;
+    const control = new L.Control({ position: "topright" });
+    control.onAdd = () => {
+      const el = L.DomUtil.create(
+        "div",
+        "map-locate-control leaflet-bar",
+      ) as HTMLDivElement;
+      const btn = L.DomUtil.create(
+        "button",
+        "map-locate-btn",
+        el,
+      ) as HTMLButtonElement;
+      btn.type = "button";
+      btn.title = title;
+      btn.setAttribute("aria-label", title);
+      // 照準アイコン（クロスヘア）。外部アセットに依存しないインライン SVG
+      btn.innerHTML =
+        '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
+        '<circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2"/>' +
+        '<circle cx="12" cy="12" r="1.8" fill="currentColor"/>' +
+        '<path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+        "</svg>";
+      L.DomEvent.on(btn, "click", (e) => {
+        L.DomEvent.stop(e);
+        onClick();
+      });
+      L.DomEvent.disableClickPropagation(el);
+      return el;
+    };
+    control.addTo(this.map);
+    this.locateControl = control;
   }
 
   setLinkedPolygonIds(ids: Set<string>): void {

@@ -21,19 +21,19 @@ describe("resolveInitialMapView", () => {
 });
 
 describe("requestCurrentLocation", () => {
-  it("取得成功で onLocated に緯度経度を渡す", () => {
+  it("取得成功で onLocated に緯度経度と精度を渡す", () => {
     const onLocated = vi.fn();
     const geolocation = {
       getCurrentPosition: (
         success: (pos: {
-          coords: { latitude: number; longitude: number };
+          coords: { latitude: number; longitude: number; accuracy: number };
         }) => void,
       ) => {
-        success({ coords: { latitude: 35.1, longitude: 136.9 } });
+        success({ coords: { latitude: 35.1, longitude: 136.9, accuracy: 10 } });
       },
     };
     requestCurrentLocation(geolocation, onLocated);
-    expect(onLocated).toHaveBeenCalledWith(35.1, 136.9);
+    expect(onLocated).toHaveBeenCalledWith(35.1, 136.9, 10);
   });
 
   it("取得失敗では onLocated を呼ばない", () => {

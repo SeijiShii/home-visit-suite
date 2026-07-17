@@ -32,7 +32,9 @@ export function resolveInitialMapView(
 /** navigator.geolocation の最小サブセット（テストでフェイク差し替え可能に） */
 export interface GeolocationLike {
   getCurrentPosition(
-    success: (pos: { coords: { latitude: number; longitude: number } }) => void,
+    success: (pos: {
+      coords: { latitude: number; longitude: number; accuracy: number };
+    }) => void,
     error?: (err: unknown) => void,
     options?: { maximumAge?: number; timeout?: number },
   ): void;
@@ -44,11 +46,12 @@ export interface GeolocationLike {
  */
 export function requestCurrentLocation(
   geolocation: GeolocationLike | undefined,
-  onLocated: (lat: number, lng: number) => void,
+  onLocated: (lat: number, lng: number, accuracyMeters: number) => void,
 ): void {
   if (!geolocation) return;
   geolocation.getCurrentPosition(
-    (pos) => onLocated(pos.coords.latitude, pos.coords.longitude),
+    (pos) =>
+      onLocated(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
     () => {
       // 拒否・失敗時はフォールバック位置のまま
     },

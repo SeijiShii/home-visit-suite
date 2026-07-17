@@ -41,8 +41,9 @@
 
 ## L-008 新規オーバーレイがコンテンツ内の既存浮遊 UI に z-index で負ける
 - 初出: 2026-07-15 `style.css` サイドバーオーバーレイ（z:1000 で追加したが、`.tip-stack` z:9999・`.visit-page-list-button`/`.drawing-toolbar` z:1000 等がコンテンツ側に既存し、同値後勝ち/高値で前面に残った。独立レビューが commit 前に検出）
-- パターン: モーダル的なオーバーレイ/backdrop を追加するとき、リポジトリ内の既存 z-index の分布を確認せず低い値を割り当てる
-- 検査: オーバーレイ追加の diff では `grep -n "z-index" pwa/src/style.css | sort -t: -k3 -n` で既存最大値を確認し、モーダル層はそれより上に置く。backdrop より上に残ってよい UI か個別に判断
+- 再発（変種）: 2026-07-17 現在地へ移動ボタン（Leaflet topright に常設したが、狭幅の訪問記録画面では `.visit-page-list-button` が同じ右上アンカー（top:10 right:10 z:1000）に既存し、z ではなく**配置座標**で完全重畳→新ボタンが覆われ操作不能。独立レビューが commit 前に検出。修正= `.with-list` で右上コーナーに padding-top。左上には `.with-back` の同種対処が既存だった）
+- パターン: モーダル的なオーバーレイ/backdrop を追加するとき、リポジトリ内の既存 z-index の分布を確認せず低い値を割り当てる。**変種**: 地図の四隅等の固定アンカーに浮遊 UI を追加するとき、同じ隅に絶対配置される画面固有の既存ボタンとの重畳（z でなく座標の衝突）を見ない
+- 検査: オーバーレイ追加の diff では `grep -n "z-index" pwa/src/style.css | sort -t: -k3 -n` で既存最大値を確認し、モーダル層はそれより上に置く。backdrop より上に残ってよい UI か個別に判断。地図コントロール追加の diff では同じ隅の `position:absolute` 既存要素（grep: `top: 10px` / `right: 10px` 等）と全画面×全幅で重畳しないか突合する（`.with-back`/`.with-list` の padding 避けが先例）
 - status: active
 
 ## L-009 サイズ上限のある出力経路に可変長データを載せて無言破損

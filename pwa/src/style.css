@@ -748,6 +748,29 @@ section {
   color: #f1f5f9;
 }
 
+/* 現在地へ移動ボタン（右上の Leaflet コントロール） */
+.map-locate-control {
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+}
+.map-locate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  padding: 0;
+}
+.map-locate-btn:hover {
+  background: #f1f5f9;
+  color: #2563eb;
+}
+
 /* 場所マーカー中央に重ねる通し番号バッジ */
 /* iconSize=[0,0] の divIcon。lat/lng 位置に左上が来るので
    内部の span を transform で -50% ずらして中央に配置する。 */
@@ -1246,6 +1269,11 @@ section {
 }
 /* 戻るボタンと Leaflet ズームコントロールが重ならないよう下にずらす */
 .visit-page-map.with-back .leaflet-top.leaflet-left {
+  padding-top: 44px;
+}
+/* 狭幅時の場所一覧ボタンと右上 Leaflet コントロール
+   （現在地へ移動・地図/航空写真トグル）が重ならないよう下にずらす */
+.visit-page-map.with-list .leaflet-top.leaflet-right {
   padding-top: 44px;
 }
 /* 狭幅時の場所一覧オーバーレイ。
