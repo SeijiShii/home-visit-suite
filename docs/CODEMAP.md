@@ -26,7 +26,7 @@
 - `services/settings-binding-adapter.ts` — SettingsBindingAPI を PersonalRepository 上に実装する設定永続化アダプタ
 - `contexts/ServicesContext.tsx` — リポジトリ/サービス群をアプリ全体へ配線する DI コンテキスト（persist 時の localStorage プレフィクスは `storagePrefix` で差し替え可＝グループ名前空間）
 - `contexts/I18nContext.tsx` — ロケール選択/翻訳と永続化ストア注入の i18n コンテキスト
-- `contexts/TipsContext.tsx` — 操作ヒント(Tips)の表示キュー制御と非表示状態の永続化 (→10)
+- `contexts/TipsContext.tsx` — 操作ヒント(Tips)の表示キュー制御と非表示状態の永続化（非表示キーのロード完了まで表示要求を保留し「表示しない」決定を確実に尊重）(→10)
 - `components/Layout.tsx` — アプリ共通レイアウトとロール別ナビゲーション・サイドバー下部の自己情報（表示名+ロールバッジ）表示。狭幅では初期折りたたみ+オーバーレイ展開（backdrop タップ/遷移で閉じる）・区域編集/領域管理の項目は非表示（hideOnNarrow）(→10)
 - `components/AppBrand.tsx` — ロゴ+アプリ名の共通ブランド表示（初回系画面: オンボーディング/参加/ペアリングのカード先頭）(→04,10)
 - `components/RootErrorBoundary.tsx` — 起動診断用ルートエラーバウンダリ

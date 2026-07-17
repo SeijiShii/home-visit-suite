@@ -52,6 +52,11 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
   );
   const activeTipsRef = useRef<TipInstance[]>([]);
   const hiddenKeysRef = useRef<Set<string>>(new Set());
+  // 非表示キーのロード完了前に showTips された要求の保留バッファ。
+  // ロード前に表示すると保存済みの「表示しない」決定を無視してしまうため、
+  // 完了までは表示せず、完了時にフィルタして流す。
+  const hiddenLoadedRef = useRef(false);
+  const pendingKeysRef = useRef<string[]>([]);
 
   // 活性 tips とミラー参照を同期
   useEffect(() => {
@@ -60,22 +65,6 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
   useEffect(() => {
     hiddenKeysRef.current = hiddenKeys;
   }, [hiddenKeys]);
-
-  // 初回マウントで hidden キーをロード
-  useEffect(() => {
-    let cancelled = false;
-    service
-      .getHiddenTipKeys()
-      .then((keys) => {
-        if (!cancelled) setHiddenKeys(new Set(keys));
-      })
-      .catch(() => {
-        // 失敗時は空セットのまま
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [service]);
 
   const removeTip = useCallback((id: string) => {
     // まず exiting フラグを立てて CSS でフェードアウトを開始
@@ -137,7 +126,7 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
     }, TIP_INTERVAL_MS);
   }, [pushOne]);
 
-  const showTips = useCallback(
+  const enqueueKeys = useCallback(
     (keys: string[]) => {
       const filtered = keys.filter((key) => {
         if (hiddenKeysRef.current.has(key)) return false;
@@ -159,14 +148,58 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
     [pushOne, ensureInterval],
   );
 
+  const showTips = useCallback(
+    (keys: string[]) => {
+      // 保存済み非表示キーのロード前は表示せず保留する（ロード完了時に流す）
+      if (!hiddenLoadedRef.current) {
+        for (const key of keys) {
+          if (!pendingKeysRef.current.includes(key)) {
+            pendingKeysRef.current.push(key);
+          }
+        }
+        return;
+      }
+      enqueueKeys(keys);
+    },
+    [enqueueKeys],
+  );
+
+  // 初回マウントで hidden キーをロードし、保留中の表示要求を流す
+  useEffect(() => {
+    let cancelled = false;
+    // service 差し替え時は新しい非表示集合のロード完了まで再び保留に戻す
+    hiddenLoadedRef.current = false;
+    const flush = (keys: string[]) => {
+      if (cancelled) return;
+      hiddenKeysRef.current = new Set(keys);
+      setHiddenKeys(new Set(keys));
+      hiddenLoadedRef.current = true;
+      const pending = pendingKeysRef.current;
+      pendingKeysRef.current = [];
+      if (pending.length > 0) enqueueKeys(pending);
+    };
+    service
+      .getHiddenTipKeys()
+      .then(flush)
+      .catch(() => {
+        // 失敗時は空セット扱いでロード完了とする（tips が永久に出ないよりよい）
+        flush([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [service, enqueueKeys]);
+
   const hideTip = useCallback(
     async (key: string) => {
-      await service.setTipHidden(key, true);
+      // 決定は即時反映（表示から除去）し、その後で永続化する
+      hiddenKeysRef.current = new Set(hiddenKeysRef.current).add(key);
       setHiddenKeys((prev) => {
         const next = new Set(prev);
         next.add(key);
         return next;
       });
+      pendingKeysRef.current = pendingKeysRef.current.filter((k) => k !== key);
       // 活性・キューから即時除去
       setActiveTips((prev) => {
         const toRemove = prev.filter((t) => t.key === key);
@@ -180,6 +213,12 @@ export function TipsProvider({ service, children }: TipsProviderProps) {
         return prev.filter((t) => t.key !== key);
       });
       queueRef.current = queueRef.current.filter((k) => k !== key);
+      try {
+        await service.setTipHidden(key, true);
+      } catch (e) {
+        // 永続化失敗時もセッション中は非表示のまま。次回起動で再表示され得る
+        console.warn("[tips] failed to persist hidden tip", key, e);
+      }
     },
     [service],
   );
