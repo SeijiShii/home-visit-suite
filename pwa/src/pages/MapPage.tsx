@@ -30,6 +30,7 @@ let __mapTipsInitialShown = false;
 import { MapView, type MapViewHandle } from "../components/MapView";
 import { EdgeContextMenu } from "../components/EdgeContextMenu";
 import { VertexContextMenu } from "../components/VertexContextMenu";
+import { PolygonDeleteConfirmDialog } from "../components/PolygonDeleteConfirmDialog";
 import { AreaTree, type AreaTreeHandle } from "../components/AreaTree";
 import { PolygonList } from "../components/PolygonList";
 import { TipStack } from "../components/TipStack";
@@ -98,6 +99,15 @@ export function MapPage() {
     x: number;
     y: number;
     vertexId: VertexID;
+  } | null>(null);
+  // 頂点統合でポリゴンが消滅した操作の ChangeSet（確認ダイアログ表示中）。
+  // OK で保存＋紐付け補正、キャンセルで undo 復元（wants 03 削除の確認ダイアログ）。
+  // 発生時のエディタ instance を同梱し、確定/キャンセル時に世代照合する
+  // （受信起因の再構築を跨いで適用すると、削除されないポリゴンの紐付けだけ
+  // 解除する事故になるため。L-014 変種）。
+  const [pendingMergeDelete, setPendingMergeDelete] = useState<{
+    cs: ChangeSet;
+    editor: NetworkPolygonEditor;
   } | null>(null);
 
   const { regionBindingApi, mapBinding, placeService } = useServices();
@@ -361,6 +371,12 @@ export function MapPage() {
         const cs = ed.endDragWithSnap(thresholdDeg);
         mapRef.current?.applyChangeSet(cs);
         setPolygons(ed.getPolygons());
+        // 統合でポリゴンが消滅した場合は確認ダイアログを出し、保存・紐付け
+        // 補正は確定後に行う（キャンセルなら undo で復元）。
+        if (cs.polygons.removed.length > 0) {
+          setPendingMergeDelete({ cs, editor: ed });
+          return;
+        }
         ed.save().catch(console.error);
         applyBindingFixup(cs);
       },
@@ -503,6 +519,78 @@ export function MapPage() {
       // undo で消滅したポリゴンの紐付け解除（分割 undo 時の新 ID 側など）
       applyBindingFixup(cs);
     }
+  }, [applyBindingFixup]);
+
+  // --- ポリゴン削除の確認ダイアログ（頂点統合、wants 03） ---
+
+  // ダイアログ表示中に受信起因でエディタが再構築されたら保留を破棄する
+  // （未保存のドラッグ操作自体が消えているため、適用しても意味を成さない）。
+  useEffect(() => {
+    setPendingMergeDelete((prev) =>
+      prev && prev.editor !== editor ? null : prev,
+    );
+  }, [editor]);
+
+  const handleMergeDeleteConfirm = useCallback(() => {
+    if (!pendingMergeDelete) return;
+    setPendingMergeDelete(null);
+    if (editorRef.current !== pendingMergeDelete.editor) return; // 世代不一致
+    const { cs } = pendingMergeDelete;
+    // 編集中のポリゴン自体が消滅した場合は編集モードを終了する
+    if (
+      snapshot.selectedPolygonId != null &&
+      cs.polygons.removed.includes(snapshot.selectedPolygonId as PolygonID)
+    ) {
+      mapRef.current?.disableVertexDrag();
+      mapRef.current?.highlightPolygon(null);
+      actions.endEditing();
+    }
+    editorRef.current?.save().catch(console.error);
+    applyBindingFixup(cs);
+  }, [
+    pendingMergeDelete,
+    applyBindingFixup,
+    snapshot.selectedPolygonId,
+    actions,
+  ]);
+
+  const handleMergeDeleteCancel = useCallback(() => {
+    if (!pendingMergeDelete) return;
+    setPendingMergeDelete(null);
+    const ed = editorRef.current;
+    if (!ed || ed !== pendingMergeDelete.editor) return; // 世代不一致
+    const inv = ed.undo();
+    if (inv) {
+      mapRef.current?.applyChangeSet(inv);
+      setPolygons(ed.getPolygons());
+      ed.save().catch(console.error);
+    }
+  }, [pendingMergeDelete]);
+
+  // --- アンドゥ・リドゥボタン（区域編集画面の常設、wants 03） ---
+  // 描画モード中は描画ツールバーの「戻す」に譲る（描画セッションの整合のため
+  // 非表示）。undo/redo による分割・消滅にも紐付け補正を適用する。
+
+  const handleHistoryUndo = useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed?.canUndo()) return;
+    const cs = ed.undo();
+    if (!cs) return;
+    mapRef.current?.applyChangeSet(cs);
+    setPolygons(ed.getPolygons());
+    ed.save().catch(console.error);
+    applyBindingFixup(cs);
+  }, [applyBindingFixup]);
+
+  const handleHistoryRedo = useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed?.canRedo()) return;
+    const cs = ed.redo();
+    if (!cs) return;
+    mapRef.current?.applyChangeSet(cs);
+    setPolygons(ed.getPolygons());
+    ed.save().catch(console.error);
+    applyBindingFixup(cs);
   }, [applyBindingFixup]);
 
   const handleContextMenu = useCallback(
@@ -739,6 +827,9 @@ export function MapPage() {
 
   const isDrawing = snapshot.mode === MapMode.Drawing;
   const isEditing = snapshot.mode === MapMode.Editing;
+  // 各編集操作後の setPolygons による再レンダーで最新化される
+  const canUndo = editorRef.current?.canUndo() ?? false;
+  const canRedo = editorRef.current?.canRedo() ?? false;
 
   return (
     <div className="map-page">
@@ -766,6 +857,26 @@ export function MapPage() {
           onPolygonHover={handlePolygonHover}
         />
         <TipStack />
+        {!isDrawing && (
+          <div className="map-history-toolbar">
+            <button
+              className="drawing-btn"
+              onClick={handleHistoryUndo}
+              disabled={!canUndo}
+              title={t.map.undo}
+            >
+              ↶ {t.map.undo}
+            </button>
+            <button
+              className="drawing-btn"
+              onClick={handleHistoryRedo}
+              disabled={!canRedo}
+              title={t.map.redo}
+            >
+              ↷ {t.map.redo}
+            </button>
+          </div>
+        )}
       </div>
 
       {edgeMenu && (
@@ -785,6 +896,13 @@ export function MapPage() {
           label={t.map.contextMenu.deleteVertex}
           onDelete={handleVertexDelete}
           onClose={() => setVertexMenu(null)}
+        />
+      )}
+
+      {pendingMergeDelete && (
+        <PolygonDeleteConfirmDialog
+          onConfirm={handleMergeDeleteConfirm}
+          onCancel={handleMergeDeleteCancel}
         />
       )}
 

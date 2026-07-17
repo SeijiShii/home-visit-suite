@@ -91,6 +91,12 @@ const ja: Translations = {
     editingHint:
       "頂点をドラッグして編集。地図の空白クリックまたは「編集完了」で終了。",
     finishEditing: "編集完了",
+    mergeDeleteConfirm:
+      "この操作によりポリゴンが削除されます。よろしいですか？",
+    mergeDeleteOk: "削除する",
+    mergeDeleteCancel: "キャンセル",
+    undo: "元に戻す",
+    redo: "やり直す",
     pruneOrphans: "不要要素を削除",
     showPolygon: "表示",
     hidePolygon: "非表示",

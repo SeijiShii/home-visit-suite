@@ -67,7 +67,7 @@
 - `data/linkself/linkself-place-repository.ts` — PlaceRepository の MyDB(SQL) 実装（places。OPFS 永続 + ScopeNetwork）(→01,08)
 - `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。OPFS 永続 + ScopeNetwork）(→01)
 ### 画面/コンポーネント
-- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合・頂点マージ後の紐付け補正＝分割継承/消滅解除・ロード時の無効紐付き修復スキャン）(→10)
+- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合・頂点マージ後の紐付け補正＝分割継承/消滅解除・ロード時の無効紐付き修復スキャン・マージ削除の確認ダイアログ=キャンセルで undo 復元・常設アンドゥ/リドゥボタン=描画中は非表示）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント。現在地 watch の購読ライフサイクルと「現在地へ移動」ボタン配線（未取得時は単発取得→パン）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（名前/住所/補足＋部屋行は RoomRowsEditor・D&D 並替あり）
@@ -77,6 +77,7 @@
 - `components/EdgeContextMenu.tsx` — ポリゴン辺の右クリック（頂点追加）
 - `components/VertexContextMenu.tsx` — ポリゴン頂点の右クリック（頂点削除/dissolve）
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
+- `components/PolygonDeleteConfirmDialog.tsx` — 頂点統合でポリゴンが消滅するときの確認（OK=確定/キャンセル=undo 復元）
 ### lib（純ロジック/幾何/画像処理）
 - `lib/map-renderer.ts` — Leaflet による地図/ポリゴン（未紐付け=灰・紐付け済みは親番ごとに有彩色塗り分け・詳細モードは親番色の極薄塗り）/場所マーカー/区域IDラベル（ズーム15以上のみ表示）/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・読み取り専用の場所オーバーレイ（ズーム16以上・灰/赤灰）・ベース地図切替・描画モードのスナップ表示（頂点/線分）・初期表示位置（前回ビュー復元=moveend 毎に localStorage 保存 > 初回は GPS 現在地=表示が動いていたら上書きしない > 東京フォールバック）・現在地マーカー（青ドット＋精度円、専用ペイン・非対話）と「現在地へ移動」コントロール（パン時 zoom15 未満は引き上げ）
 - `lib/initial-map-view.ts` — 地図初期表示位置の解決純ロジック（保存ビュー優先/東京駅フォールバック/GPS 1回取得のラッパ）

@@ -87,6 +87,11 @@ export interface Translations {
     confirmDeletePolygon: string;
     editingHint: string;
     finishEditing: string;
+    mergeDeleteConfirm: string;
+    mergeDeleteOk: string;
+    mergeDeleteCancel: string;
+    undo: string;
+    redo: string;
     pruneOrphans: string;
     showPolygon: string;
     hidePolygon: string;

@@ -965,6 +965,7 @@ section {
 }
 .area-detail-context-menu,
 .delete-place-confirm-dialog,
+.polygon-delete-confirm-dialog,
 .area-detail-restore-dialog,
 .add-place-input-dialog,
 .building-edit-dialog {
@@ -1154,6 +1155,7 @@ section {
   background: #f3f4f6;
 }
 .delete-place-confirm-dialog,
+.polygon-delete-confirm-dialog,
 .area-detail-restore-dialog {
   top: 50%;
   left: 50%;
@@ -1165,16 +1167,19 @@ section {
   gap: 12px;
 }
 .delete-place-confirm-dialog p,
+.polygon-delete-confirm-dialog p,
 .area-detail-restore-dialog p {
   margin: 0;
   font-size: 14px;
 }
-.delete-place-confirm-dialog-actions {
+.delete-place-confirm-dialog-actions,
+.polygon-delete-confirm-dialog-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
 .delete-place-confirm-dialog-actions button,
+.polygon-delete-confirm-dialog-actions button,
 .area-detail-restore-dialog button {
   padding: 6px 14px;
   border-radius: 4px;
@@ -1184,15 +1189,18 @@ section {
   font: inherit;
 }
 .delete-place-confirm-dialog-actions button:hover,
+.polygon-delete-confirm-dialog-actions button:hover,
 .area-detail-restore-dialog button:hover {
   background: #f9fafb;
 }
-.delete-place-confirm-dialog-confirm {
+.delete-place-confirm-dialog-confirm,
+.polygon-delete-confirm-dialog-confirm {
   background: #dc2626 !important;
   color: #fff;
   border-color: #dc2626 !important;
 }
-.delete-place-confirm-dialog-confirm:hover {
+.delete-place-confirm-dialog-confirm:hover,
+.polygon-delete-confirm-dialog-confirm:hover {
   background: #b91c1c !important;
 }
 
@@ -2045,6 +2053,31 @@ section {
 
 .drawing-btn:hover {
   background: #475569;
+}
+
+.drawing-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.drawing-btn:disabled:hover {
+  background: #334155;
+}
+
+/* 区域編集画面のアンドゥ・リドゥ（地図パネル左下。
+   左上の tip-stack/ズームコントロール・中央上部の描画/編集ツールバー・
+   右上の Leaflet コントロール群・右下の帰属表示のいずれとも干渉しない） */
+.map-history-toolbar {
+  position: absolute;
+  bottom: 24px;
+  left: 12px;
+  z-index: 1000;
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(30, 41, 59, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .drawing-btn-close {
