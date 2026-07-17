@@ -2,6 +2,7 @@
 // 参照実装: shared/domain/notification_repository.go
 
 import type { AuditLog } from "../models/audit";
+import type { Feedback } from "../models/feedback";
 import type { Notification } from "../models/notification";
 import type { Request } from "../models/request";
 
@@ -17,6 +18,11 @@ export interface NotificationRepository {
   listAllRequests(): Promise<Request[]>;
   getRequest(id: string): Promise<Request | null>;
   saveRequest(req: Request): Promise<void>;
+
+  // Feedback（管理者宛。docs/wants/07「フィードバック」）
+  listFeedback(): Promise<Feedback[]>;
+  getFeedback(id: string): Promise<Feedback | null>;
+  saveFeedback(f: Feedback): Promise<void>;
 
   // AuditLog
   listAuditLogs(regionId: string): Promise<AuditLog[]>;

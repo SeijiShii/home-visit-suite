@@ -20,6 +20,7 @@ import {
 import { TipsProvider } from "./contexts/TipsContext";
 import { AreasPage } from "./pages/AreasPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { FeedbackPage } from "./pages/FeedbackPage";
 import { MapPage } from "./pages/MapPage";
 import { JoinPage } from "./pages/JoinPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
@@ -106,6 +107,7 @@ export default function App() {
             <Route path="/regions" element={<RegionManagementPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/requests" element={<RequestsPage />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>

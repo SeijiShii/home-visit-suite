@@ -4,6 +4,7 @@
 
 import type { MyDB } from "@linkself/core";
 import type { AuditLog } from "../../domain/models/audit";
+import type { Feedback } from "../../domain/models/feedback";
 import type { Notification } from "../../domain/models/notification";
 import type { Request } from "../../domain/models/request";
 import type { NotificationRepository } from "../../domain/repositories/notification-repository";
@@ -46,6 +47,18 @@ export class LinkSelfNotificationRepository implements NotificationRepository {
 
   saveRequest(req: Request): Promise<void> {
     return putRow(this.db, "requests", req.id, req);
+  }
+
+  listFeedback(): Promise<Feedback[]> {
+    return listRows<Feedback>(this.db, "feedback");
+  }
+
+  getFeedback(id: string): Promise<Feedback | null> {
+    return getRow<Feedback>(this.db, "feedback", id);
+  }
+
+  saveFeedback(f: Feedback): Promise<void> {
+    return putRow(this.db, "feedback", f.id, f);
   }
 
   async listAuditLogs(regionId: string): Promise<AuditLog[]> {

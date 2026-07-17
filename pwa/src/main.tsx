@@ -99,6 +99,31 @@ async function bootstrap() {
   // 実 identity は IdentityProvider 初期化時に loadIdentity() で復元される。
   const identityService = new LocalIdentityService(services.userRepo, devMode);
 
+  // 起動時のフィードバックメールボックス同期（docs/wants/07「双方向」）:
+  // 開発者からの返信（および開発者端末なら受信フィードバック）を取り込む。
+  // libp2p の短命接続を張るため fire-and-forget（失敗しても起動は妨げない）。
+  void (async () => {
+    const developerDID =
+      (import.meta.env.VITE_DEVELOPER_DID as string | undefined)?.trim() ||
+      null;
+    const seed = loadStoredSeed();
+    if (!developerDID || !seed) return;
+    const { parseRelays } = await import("./lib/linkself/relays");
+    const mailboxes = parseRelays(import.meta.env.VITE_LINKSELF_RELAYS);
+    if (mailboxes.length === 0) return;
+    const [{ linkselfIdentityFromSeed }, mailbox] = await Promise.all([
+      import("./lib/linkself/identity-bridge"),
+      import("./lib/linkself/feedback-mailbox"),
+    ]);
+    const identity = await linkselfIdentityFromSeed(seed);
+    await mailbox.syncFeedbackMailbox(
+      { identity, mailboxes, allowLocalDial: allowLocalDial() },
+      developerDID,
+    );
+  })().catch((e) =>
+    console.warn("[bootstrap] feedback mailbox sync failed", e),
+  );
+
   const container = document.getElementById("app")!;
 
   createRoot(container).render(

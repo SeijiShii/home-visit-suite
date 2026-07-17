@@ -158,6 +158,24 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    // フィードバック: 全ロール
+    // 仕様 docs/wants/07_通知と申請.md「フィードバック」/ 10_画面設計.md §8
+    to: "/feedback",
+    labelKey: "feedback",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
     to: "/settings",
     labelKey: "settings",
     icon: (

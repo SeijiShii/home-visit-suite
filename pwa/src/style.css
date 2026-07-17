@@ -4600,6 +4600,52 @@ section {
   gap: 6px;
 }
 
+/* フィードバック /feedback（送信フォーム・履歴・受信一覧。docs/wants/10 §8） */
+
+.feedback-body-field {
+  max-width: 560px;
+}
+
+.feedback-body-input {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.feedback-error {
+  font-size: 13px;
+  color: #b91c1c;
+  margin-top: 8px;
+}
+
+.feedback-destination {
+  font-size: 12px;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.feedback-reply {
+  margin-left: 16px;
+  padding: 6px 10px;
+  border-left: 3px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 0 6px 6px 0;
+}
+
+.feedback-reply-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.feedback-reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 /* 永続化デグレード（in-memory 起動）の警告バナー。 */
 .persistence-warning {
   margin: 12px 12px 0;

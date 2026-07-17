@@ -8,6 +8,7 @@ export interface Translations {
     users: string;
     requests: string;
     regions: string;
+    feedback: string;
     settings: string;
   };
   areas: {
@@ -312,6 +313,50 @@ export interface Translations {
       mapUpdate: string;
       doNotVisit: string;
     };
+  };
+  feedback: {
+    title: string;
+    sendSection: string;
+    sendDescription: string;
+    destinationLabel: string;
+    destinationAdmin: string;
+    destinationDeveloper: string;
+    kindLabel: string;
+    kinds: {
+      bugReport: string;
+      encouragement: string;
+      other: string;
+    };
+    bodyLabel: string;
+    bodyPlaceholder: string;
+    send: string;
+    sending: string;
+    sentAdmin: string;
+    sentDeveloper: string;
+    sendFailed: string;
+    noDestinationNote: string;
+    ttlNote: string;
+    historySection: string;
+    historyEmpty: string;
+    historyLoading: string;
+    replyFrom: string;
+    inboxSection: string;
+    inboxEmpty: string;
+    statusPending: string;
+    statusResolved: string;
+    setPending: string;
+    setResolved: string;
+    devInboxSection: string;
+    devInboxEmpty: string;
+    refresh: string;
+    refreshing: string;
+    refreshFailed: string;
+    reply: string;
+    replySend: string;
+    replySending: string;
+    replyPlaceholder: string;
+    replied: string;
+    replyFailed: string;
   };
   regionManagement: {
     title: string;

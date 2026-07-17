@@ -186,3 +186,9 @@
 - パターン: role=button な行/カードに interactive 子要素を入れ子にするとき、click の stopPropagation だけでは不十分。キーボード活性化（Enter/Space）は keydown として親へバブルし、親の preventDefault が子ボタンのデフォルト click 合成を抑止して親アクションだけが走る。L-019（レイヤー横取り）の DOM キーボード版
 - 検査: interactive 要素の入れ子を作る diff では、親の onKeyDown に e.target ガード（または子側 keydown の stopPropagation）があるか確認し、「Tab→子ボタンで Enter」のテストを click テストと対で要求する
 - status: active
+
+## L-030 ユーザー DID 宛メールボックスの ack が兄弟端末の受信を破壊する
+- 初出: 2026-07-17 フィードバック機能（開発者からの返信をユーザー DID 宛メールボックスへ封緘 deposit し、取り込み後に ack する実装だった。ユーザー DID 宛の箱は兄弟端末全員が同じ鍵で fetch/ack できるため、返信スレッドを持たない兄弟端末が起動時同期で先に ack すると、送信元端末には返信が永遠に届かない。独立レビューが commit 前に検出。修正=フィードバック封筒は ack せず TTL 満了任せ＋envelopeId のローカル重複排除＋返信は該当スレッドを持つ端末のみ取り込み）
+- パターン: ユーザー DID（抽象レイヤー DID）宛メールボックスは兄弟端末で共有される消費キューではない。「fetch → 取り込み → ack」の 1 消費者前提を持ち込むと、複数端末のうち最初に同期した端末が封筒を消費し、本来の受信端末が受け取れない。ロスターメールボックスが ack を「自分が supersede を確認した封筒のみ」に限定しているのと同じ配慮が要る
+- 検査: mailboxAck を呼ぶ diff では「同一ユーザーの端末 A/B が両方 fetch する」シナリオを構成し、ack する側が本当に全端末を代表できるか（全端末が既に内容を得ているか・supersede 済みか）を問う。代表できないなら ack せず TTL ＋ローカル重複排除にする
+- status: active

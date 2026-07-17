@@ -2,6 +2,7 @@
 // LinkSelf TS アダプタが完成するまでの開発・テスト用。
 
 import type { AuditLog } from "../../domain/models/audit";
+import type { Feedback } from "../../domain/models/feedback";
 import type { Notification } from "../../domain/models/notification";
 import type { Request } from "../../domain/models/request";
 import type { NotificationRepository } from "../../domain/repositories/notification-repository";
@@ -11,11 +12,13 @@ export class InMemoryNotificationRepository implements NotificationRepository {
   private notifications: Map<string, Notification>;
   private requests: Map<string, Request>;
   private auditLogs: Map<string, AuditLog>;
+  private feedback: Map<string, Feedback>;
 
   constructor(storagePrefix?: string) {
     this.notifications = backedMap(storagePrefix, "notifications");
     this.requests = backedMap(storagePrefix, "requests");
     this.auditLogs = backedMap(storagePrefix, "auditLogs");
+    this.feedback = backedMap(storagePrefix, "feedback");
   }
 
   async listNotifications(targetId: string): Promise<Notification[]> {
@@ -53,6 +56,19 @@ export class InMemoryNotificationRepository implements NotificationRepository {
 
   async saveRequest(req: Request): Promise<void> {
     this.requests.set(req.id, cloneRequest(req));
+  }
+
+  async listFeedback(): Promise<Feedback[]> {
+    return [...this.feedback.values()].map((f) => ({ ...f }));
+  }
+
+  async getFeedback(id: string): Promise<Feedback | null> {
+    const f = this.feedback.get(id);
+    return f ? { ...f } : null;
+  }
+
+  async saveFeedback(f: Feedback): Promise<void> {
+    this.feedback.set(f.id, { ...f });
   }
 
   async listAuditLogs(regionId: string): Promise<AuditLog[]> {

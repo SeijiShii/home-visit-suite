@@ -11,8 +11,9 @@
 import type { MyDB } from "@linkself/core";
 import { USER_SYNC_TABLES } from "./linkself-user-repository";
 
-/** JSON 行形式のグループドメインテーブル（users/member_tags 以外）。 */
-export const GROUP_DOMAIN_TABLES = [
+// version 3 で作成したテーブル集合（凍結。適用済み DB では v3 は再実行されない
+// ため、以後のテーブル追加はここに足さず新しい version のマイグレーションで行う）。
+const V3_TABLES = [
   "regions",
   "parent_areas",
   "areas",
@@ -30,6 +31,13 @@ export const GROUP_DOMAIN_TABLES = [
   "map_polygons",
 ] as const;
 
+/** JSON 行形式のグループドメインテーブル（users/member_tags 以外）。 */
+export const GROUP_DOMAIN_TABLES = [
+  ...V3_TABLES,
+  // v4: 管理者宛フィードバック（docs/wants/07「フィードバック」）
+  "feedback",
+] as const;
+
 export type GroupDomainTable = (typeof GROUP_DOMAIN_TABLES)[number];
 
 /** ScopeNetwork 化する全テーブル（docs/wants/01 同期スコープ表）。 */
@@ -38,12 +46,13 @@ export const GROUP_SYNC_TABLES: readonly string[] = [
   ...GROUP_DOMAIN_TABLES,
 ];
 
-const CREATE_TABLES_SQL = GROUP_DOMAIN_TABLES.map(
-  (t) =>
-    `CREATE TABLE IF NOT EXISTS ${t} (id TEXT PRIMARY KEY, data TEXT NOT NULL);`,
-).join("\n");
+const createTableSql = (t: string) =>
+  `CREATE TABLE IF NOT EXISTS ${t} (id TEXT PRIMARY KEY, data TEXT NOT NULL);`;
 
-const GROUP_DOMAIN_MIGRATIONS = [{ version: 3, sql: CREATE_TABLES_SQL }];
+const GROUP_DOMAIN_MIGRATIONS = [
+  { version: 3, sql: V3_TABLES.map(createTableSql).join("\n") },
+  { version: 4, sql: createTableSql("feedback") },
+];
 
 // MyDB インスタンス毎に一度だけ migrate する（各リポジトリ・MapBinding が共有）。
 const migrated = new WeakMap<MyDB, Promise<void>>();
@@ -59,7 +68,10 @@ export function ensureGroupSchema(db: MyDB): Promise<void> {
 }
 
 /** JSON 行テーブルの全行を読み、data をパースして返す（壊れた行は無視）。 */
-export async function listRows<V>(db: MyDB, table: GroupDomainTable): Promise<V[]> {
+export async function listRows<V>(
+  db: MyDB,
+  table: GroupDomainTable,
+): Promise<V[]> {
   await ensureGroupSchema(db);
   const rows = await db.query(`SELECT data FROM ${table}`);
   const out: V[] = [];

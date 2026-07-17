@@ -747,24 +747,6 @@ export async function createLinkSelfServices(
   };
 }
 
-/**
- * `did=multiaddr` をカンマ区切りで並べた文字列（VITE_LINKSELF_RELAYS）を
- * KnownPeer[] に解析する。同一 DID の複数アドレスはマージする。不正な要素は無視。
- * 例: "did:key:zAbc=/dns4/relay.example/tcp/443/wss/p2p/12D3.../p2p-circuit"
- */
-export function parseRelays(raw: string | undefined): KnownPeer[] {
-  const byDid = new Map<string, string[]>();
-  for (const part of (raw ?? "").split(",")) {
-    const entry = part.trim();
-    if (entry === "") continue;
-    const eq = entry.indexOf("=");
-    if (eq < 0) continue;
-    const did = entry.slice(0, eq).trim();
-    const addr = entry.slice(eq + 1).trim();
-    if (did === "" || addr === "") continue;
-    const addrs = byDid.get(did);
-    if (addrs) addrs.push(addr);
-    else byDid.set(did, [addr]);
-  }
-  return [...byDid].map(([did, addrs]) => ({ did, addrs }));
-}
+// parseRelays は lib/linkself/relays.ts へ移設（メールボックスのみ使う軽量経路と
+// 共用するため）。既存の import 元（main.tsx・テスト）互換のため再エクスポートする。
+export { parseRelays } from "../lib/linkself/relays";
