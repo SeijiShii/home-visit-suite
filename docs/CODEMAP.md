@@ -59,6 +59,7 @@
 - `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック）(→03)
 
 ## 03 地図機能（ポリゴン編集/紐付け/住宅情報）
+- ポリゴン編集コア（頂点/辺ネットワーク・スナップ・交差解決・面列挙・undo/redo）は外部 npm パッケージ `map-polygon-editor`（自作、ソース: `~/map-polygon-editor`、https://github.com/SeijiShii/map-polygon-editor ）。編集コアの不具合はライブラリ側で修正→patch 公開→`pwa` の依存更新で反映する
 ### サービス
 - `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea、1区域複数ポリゴン=飛地対応・個別/一括解除)・エリアマップ構築
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
