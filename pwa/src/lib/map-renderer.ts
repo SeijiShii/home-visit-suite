@@ -8,6 +8,11 @@ import type {
 } from "map-polygon-editor";
 import { polygonCenter } from "./area-detail-geo";
 import { computeParentBoundaryEdges } from "./parent-boundary";
+import {
+  requestCurrentLocation,
+  resolveInitialMapView,
+  TOKYO_FALLBACK_VIEW,
+} from "./initial-map-view";
 
 const GSI_TILE_URL = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png";
 const GSI_ATTRIBUTION =
@@ -191,9 +196,6 @@ export function getPlaceMarkerOpacity(selected: boolean): {
     : { fillOpacity: 0.55, opacity: 0.85 };
 }
 
-// 日本の中心付近（成田市）
-const DEFAULT_CENTER: L.LatLngExpression = [35.776, 140.318];
-const DEFAULT_ZOOM = 14;
 const VIEW_STORAGE_KEY = "map-view";
 
 export interface VertexDragCallbacks {
@@ -298,6 +300,10 @@ export class MapRenderer {
   // 頂点表示制御
   private verticesVisible = false;
 
+  // mount 後に表示位置が動いたか（ユーザー操作・区域フォーカス・GPS 適用のいずれか）。
+  // 非同期の GPS 現在地適用が後から表示を奪わないためのガード。
+  private viewTouched = false;
+
   // 頂点ドラッグ
   private vertexDragCallbacks: VertexDragCallbacks | null = null;
   // renderAll で頂点マーカーは作り直されるため、二重付与の判定は「頂点ID」ではなく
@@ -315,11 +321,9 @@ export class MapRenderer {
     callbacks: MapRendererCallbacks = {},
     baseMap: BaseMapConfig = DEFAULT_BASE_MAP,
   ): void {
-    const saved = this.loadView();
-    const center = saved
-      ? ([saved.lat, saved.lng] as L.LatLngExpression)
-      : DEFAULT_CENTER;
-    const zoom = saved ? saved.zoom : DEFAULT_ZOOM;
+    const resolved = resolveInitialMapView(this.loadView());
+    const center = [resolved.view.lat, resolved.view.lng] as L.LatLngExpression;
+    const zoom = resolved.view.zoom;
 
     this.map = L.map(container, {
       doubleClickZoom: false,
@@ -347,7 +351,29 @@ export class MapRenderer {
 
     this.setBaseMap(baseMap);
 
-    this.map.on("moveend", () => this.saveView());
+    // viewTouched は movestart で立てる: focusPolygons の flyToBounds や
+    // ユーザードラッグは完了（moveend）まで最大数秒かかり、その間に GPS
+    // 取得が完了すると表示を奪ってしまうため、移動「開始」時点でガードする
+    this.map.on("movestart", () => {
+      this.viewTouched = true;
+    });
+    this.map.on("moveend", () => {
+      this.viewTouched = true;
+      this.saveView();
+    });
+
+    if (resolved.shouldLocate) {
+      requestCurrentLocation(
+        typeof navigator !== "undefined" ? navigator.geolocation : undefined,
+        (lat, lng) => {
+          // 保存ビューなしの初回のみ現在地へ移動する。取得完了より先に
+          // ユーザー操作や区域フォーカスで表示が動いていたら上書きしない
+          // （docs/wants/03「地図の初期表示位置」）
+          if (!this.map || this.viewTouched) return;
+          this.map.setView([lat, lng], TOKYO_FALLBACK_VIEW.zoom);
+        },
+      );
+    }
 
     if (callbacks.onMapClick) {
       this.map.on("click", (e: L.LeafletMouseEvent) => {
