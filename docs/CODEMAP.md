@@ -167,8 +167,8 @@
 - `domain/repositories/notification-repository.ts` — 通知/申請/フィードバック/監査ログの永続化 IF
 - `data/inmemory/inmemory-notification-repository.ts` — NotificationRepository の InMemory/localStorage 実装
 - `data/linkself/linkself-notification-repository.ts` — NotificationRepository の MyDB(SQL) 実装（notifications/requests/feedback/audit_log。OPFS 永続 + ScopeNetwork）(→01)
-- `lib/feedback-store.ts` — 開発者宛フィードバックのローカル保存（送信スレッド+返信・開発者受信ボックス。envelopeId 重複排除・返信は該当スレッドを持つ端末=送信元のみ取り込み・`hvs:feedback-updated` イベント）
-- `lib/linkself/feedback-mailbox.ts` — 開発者宛フィードバックの封緘送受信（ユーザー鍵署名+seal→開発者 DID 宛 mailboxDeposit・自 DID 宛 fetch=検証済み封筒のみ取り込み=ロスター等と共存・**ack しない**=兄弟端末が全員読めるよう TTL 満了任せ・返信・syncFeedbackMailbox=起動時/画面表示時）(→11)
+- `lib/feedback-store.ts` — 開発者宛フィードバックのローカル保存（送信スレッド+返信・開発者受信ボックス。envelopeId 重複排除・ストア文書の union 統合 mergeFeedbackStoreSnapshot・`hvs:feedback-updated` イベント）
+- `lib/linkself/feedback-mailbox.ts` — 開発者宛フィードバックの封緘送受信と兄弟端末同期（ユーザー鍵署名+seal→開発者 DID 宛 mailboxDeposit・自 DID 宛 fetch=検証済み封筒のみ=ロスター等と共存・**ストア文書**=ローカルストアを新しい順 40KiB に刈り込み自 DID 宛に預けて兄弟端末が union 統合+TTL 更新（ノード封筒上限 64KiB 対策）・ack は文書に実際に載った封筒のみ=唯一写し保護・返信・syncFeedbackMailboxWith=transport 注入でテスト可能）(→11)
 
 ## 08 活動メンバー向けアプリ（訪問記録/最新状況/場所データ）
 - `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定・区域内記録一覧

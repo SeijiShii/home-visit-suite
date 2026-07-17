@@ -1,9 +1,11 @@
 // 開発者宛フィードバックのローカル保存（docs/wants/07「フィードバック」）。
-// - 送信スレッド: 自分が開発者へ送ったフィードバックと受信した返信（送信端末のみ・
-//   v1 では端末間同期しない）
+// - 送信スレッド: 自分が開発者へ送ったフィードバックと受信した返信
 // - 開発者受信ボックス: 開発者 DID の端末が受信したフィードバック
-// どちらも localStorage 保存。重い LinkSelf 依存を持たない軽量モジュールで、
-// 受信処理（lib/linkself/feedback-mailbox.ts）と画面（FeedbackPage）が共用する。
+// どちらも localStorage 保存。兄弟端末とは「ストア文書」（自己 DID 宛の封緘
+// deposit。lib/linkself/feedback-mailbox.ts）の union 統合で同期する
+// （docs/wants/07「兄弟端末への同期」）。
+// 重い LinkSelf 依存を持たない軽量モジュールで、受信処理（feedback-mailbox）と
+// 画面（FeedbackPage）が共用する。
 
 import type { FeedbackKind } from "../domain/models/feedback";
 
@@ -83,9 +85,10 @@ export function addSentFeedbackThread(
 
 /**
  * 受信した返信をスレッドへ取り込む。取り込んだら true。
- * - envelopeId 重複（封筒は ack せず TTL まで残るため再取得が常態）は捨てる
- * - 該当スレッドが無い返信は取り込まない（送信元でない兄弟端末のケース。
- *   封筒は残るので、スレッドを持つ送信元端末が後で取り込める）
+ * - envelopeId 重複（ack はストア文書 deposit 後のため再取得があり得る）は捨てる
+ * - 該当スレッドが無い返信は取り込まない（スレッドはストア文書の統合で先に
+ *   届く前提。文書が失効していた場合も封筒は非 ack で残り、スレッドを持つ
+ *   端末が後で取り込める）
  */
 export function addFeedbackReplyIfNew(
   feedbackId: string,
@@ -138,4 +141,94 @@ export function notifyFeedbackUpdated(): void {
   } catch {
     // 非ブラウザ環境（テスト等）では通知なしでよい
   }
+}
+
+// --- 兄弟端末同期（フィードバックストア文書。docs/wants/07「兄弟端末への同期」） ---
+
+/** ストア文書に載せるスナップショット（送信スレッド＋開発者受信ボックス）。 */
+export interface FeedbackStoreSnapshot {
+  threads: DeveloperFeedbackThread[];
+  inbox: DeveloperInboxItem[];
+}
+
+/** 現在のローカルストア全体（文書 deposit の元ネタ）。 */
+export function loadFeedbackStoreSnapshot(): FeedbackStoreSnapshot {
+  return {
+    threads: load<DeveloperFeedbackThread>(THREADS_KEY),
+    inbox: load<DeveloperInboxItem>(INBOX_KEY),
+  };
+}
+
+/** 返信が既にローカルに取り込まれているか（ack 可否の判定に使う）。 */
+export function hasFeedbackReply(
+  feedbackId: string,
+  envelopeId: string,
+): boolean {
+  return load<DeveloperFeedbackThread>(THREADS_KEY).some(
+    (t) =>
+      t.feedbackId === feedbackId &&
+      t.replies.some((r) => r.envelopeId === envelopeId),
+  );
+}
+
+/** 受信フィードバックが既にローカルに取り込まれているか（ack 可否の判定に使う）。 */
+export function hasDeveloperInboxItem(envelopeId: string): boolean {
+  return load<DeveloperInboxItem>(INBOX_KEY).some(
+    (x) => x.envelopeId === envelopeId,
+  );
+}
+
+/**
+ * 兄弟端末のストア文書を union 統合する（スレッド=feedbackId・返信/受信=
+ * envelopeId で重複排除。repliedAt は非 null を優先）。変化があれば true。
+ */
+export function mergeFeedbackStoreSnapshot(
+  incoming: FeedbackStoreSnapshot,
+): boolean {
+  let changed = false;
+
+  const threads = load<DeveloperFeedbackThread>(THREADS_KEY);
+  for (const inc of incoming.threads ?? []) {
+    if (!inc?.feedbackId) continue;
+    const mine = threads.find((t) => t.feedbackId === inc.feedbackId);
+    if (!mine) {
+      threads.push({
+        feedbackId: inc.feedbackId,
+        kind: inc.kind ?? "other",
+        body: inc.body ?? "",
+        sentAt: inc.sentAt ?? "",
+        replies: [...(inc.replies ?? [])],
+      });
+      changed = true;
+      continue;
+    }
+    for (const rep of inc.replies ?? []) {
+      if (!rep?.envelopeId) continue;
+      if (mine.replies.some((r) => r.envelopeId === rep.envelopeId)) continue;
+      mine.replies.push(rep);
+      mine.replies.sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+      changed = true;
+    }
+  }
+
+  const inbox = load<DeveloperInboxItem>(INBOX_KEY);
+  for (const inc of incoming.inbox ?? []) {
+    if (!inc?.envelopeId) continue;
+    const mine = inbox.find((x) => x.envelopeId === inc.envelopeId);
+    if (!mine) {
+      inbox.push({ ...inc });
+      changed = true;
+      continue;
+    }
+    if (mine.repliedAt == null && inc.repliedAt != null) {
+      mine.repliedAt = inc.repliedAt;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    store(THREADS_KEY, threads);
+    store(INBOX_KEY, inbox);
+  }
+  return changed;
 }

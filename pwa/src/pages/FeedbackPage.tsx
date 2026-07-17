@@ -23,8 +23,6 @@ import {
   FEEDBACK_UPDATED_EVENT,
   listDeveloperInbox,
   listFeedbackThreads,
-  addSentFeedbackThread,
-  notifyFeedbackUpdated,
   type DeveloperFeedbackThread,
   type DeveloperInboxItem,
 } from "../lib/feedback-store";
@@ -201,13 +199,12 @@ export function FeedbackPage() {
         setSendMessage(f.sentAdmin);
       } else {
         const { channel, mailbox } = await openDeveloperChannel();
-        const { feedbackId, sentAt } = await mailbox.sendFeedbackToDeveloper(
-          channel,
-          DEVELOPER_DID!,
-          { kind, body: text, senderName: currentName },
-        );
-        addSentFeedbackThread({ feedbackId, kind, body: text, sentAt });
-        notifyFeedbackUpdated();
+        // スレッド記録・ストア文書の預け直し・更新イベントは send 側が行う
+        await mailbox.sendFeedbackToDeveloper(channel, DEVELOPER_DID!, {
+          kind,
+          body: text,
+          senderName: currentName,
+        });
         setSendMessage(f.sentDeveloper);
       }
       setBody("");
@@ -356,6 +353,7 @@ export function FeedbackPage() {
                 id="feedback-body"
                 className="settings-input feedback-body-input"
                 rows={4}
+                maxLength={4000}
                 placeholder={f.bodyPlaceholder}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -533,6 +531,7 @@ export function FeedbackPage() {
                       <textarea
                         className="settings-input feedback-body-input"
                         rows={3}
+                        maxLength={4000}
                         placeholder={f.replyPlaceholder}
                         value={replyBody}
                         onChange={(e) => setReplyBody(e.target.value)}

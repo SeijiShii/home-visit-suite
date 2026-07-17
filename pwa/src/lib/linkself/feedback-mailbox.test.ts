@@ -8,9 +8,18 @@ import { generateIdentity, type MailboxTransport } from "@linkself/core";
 import { describe, expect, it } from "vitest";
 import {
   depositFeedbackMessage,
-  fetchFeedbackMessages,
+  fetchFeedbackMailbox,
   type FeedbackWireMessage,
 } from "./feedback-mailbox";
+import type { Identity } from "@linkself/core";
+
+/** メッセージ封筒だけを取り出す簡易ラッパ（本テストの主対象）。 */
+async function fetchFeedbackMessages(
+  transport: MailboxTransport,
+  self: Identity,
+) {
+  return (await fetchFeedbackMailbox(transport, self)).messages;
+}
 
 interface StoredEnvelope {
   id: string;
@@ -159,8 +168,8 @@ describe("feedback-mailbox", () => {
   });
 
   it("fetch is non-destructive: siblings can read the same envelope again", async () => {
-    // 兄弟端末対策で封筒は ack しない（feedback-mailbox.ts 冒頭）。
-    // 同一 DID で fetch を繰り返しても封筒は残り、同じ envelopeId が返る。
+    // fetch 自体は封筒を消さない（ack はストア文書 deposit 成功後に sync が行う。
+    // feedback-mailbox.ts 冒頭）。fetch を繰り返しても同じ envelopeId が返る。
     const user = await generateIdentity();
     const dev = await generateIdentity();
     const mb = fakeMailbox();
