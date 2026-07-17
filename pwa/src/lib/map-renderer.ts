@@ -184,6 +184,18 @@ export function getPlaceMarkerRadius(zoom: number): number {
  */
 export const PLACE_OVERLAY_MIN_ZOOM = 16;
 
+/**
+ * 区域IDラベルを表示する最小ズーム。これ未満の広域表示ではポリゴンが小さく
+ * なりラベル同士が重なって視認性を損なうため非表示にする。
+ * 仕様: docs/wants/03「区域IDラベル表示」（ズーム 14 以上で表示）。
+ */
+export const AREA_ID_LABEL_MIN_ZOOM = 14;
+
+/** 区域IDラベルを表示すべきズームかどうか。 */
+export function isAreaIdLabelZoomVisible(zoom: number): boolean {
+  return zoom >= AREA_ID_LABEL_MIN_ZOOM;
+}
+
 /** 場所オーバーレイの専用 Leaflet ペイン名（overlayPane より上に固定描画） */
 const PLACE_OVERLAY_PANE = "placeOverlay";
 
@@ -407,6 +419,12 @@ export class MapRenderer {
     this.map.on("moveend", () => {
       this.viewTouched = true;
       this.saveView();
+    });
+
+    // 区域IDラベルはズーム閾値未満で非表示にするため、ズーム変化に追従させる
+    // （wants/03「区域IDラベル表示」）。map.remove() が購読ごと破棄する。
+    this.map.on("zoomend", () => {
+      this.refreshAreaIdLabels();
     });
 
     if (resolved.shouldLocate) {
@@ -1477,7 +1495,8 @@ export class MapRenderer {
    * ものへ、ポリゴン中心（頂点平均）に非インタラクティブな divIcon を置く。
    * 頂点ドラッグ中に毎フレーム呼ばれるため、既存マーカーは位置更新で使い回す。
    * 詳細モード（訪問記録画面）でも表示する。表示中レイヤー＝対象＋隣接区域
-   * のみなので、対象範囲は polygonLayers への追従で自然に絞られる
+   * のみなので、対象範囲は polygonLayers への追従で自然に絞られる。
+   * ズームが AREA_ID_LABEL_MIN_ZOOM 未満の広域表示では全ラベルを消す
    * （docs/wants/03「区域IDラベル表示」）。
    */
   private refreshAreaIdLabels(): void {
@@ -1486,7 +1505,7 @@ export class MapRenderer {
       string,
       { lat: number; lng: number; text: string }
     >();
-    if (this.editor) {
+    if (this.editor && isAreaIdLabelZoomVisible(this.map.getZoom())) {
       for (const idStr of this.polygonLayers.keys()) {
         const text = this.polygonAreaIds.get(idStr);
         if (!text) continue;

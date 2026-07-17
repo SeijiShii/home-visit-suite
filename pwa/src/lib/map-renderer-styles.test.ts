@@ -4,7 +4,12 @@
 // ・訪問記録画面（詳細モード）: 輪郭は従来色のまま、親番色を極薄塗りで適用
 
 import { describe, expect, it } from "vitest";
-import { getAreaDetailPolygonStyle, getPolygonStyle } from "./map-renderer";
+import {
+  AREA_ID_LABEL_MIN_ZOOM,
+  getAreaDetailPolygonStyle,
+  getPolygonStyle,
+  isAreaIdLabelZoomVisible,
+} from "./map-renderer";
 import {
   parentAreaColorPair,
   PARENT_AREA_POLYGON_COLORS,
@@ -49,5 +54,24 @@ describe("getAreaDetailPolygonStyle: 訪問記録画面の極薄塗り", () => {
   it("区域ID未解決時は色0 の極薄塗りにフォールバックする", () => {
     const style = getAreaDetailPolygonStyle("neighbor");
     expect(style.fillColor).toBe(PARENT_AREA_POLYGON_COLORS[0].base);
+  });
+});
+
+// 仕様: docs/wants/03_地図機能.md「区域IDラベル表示」
+// ズームレベル 14 以上のときのみラベルを表示する（広域表示での重なり防止）
+describe("isAreaIdLabelZoomVisible: 区域IDラベルのズーム閾値", () => {
+  it("閾値以上のズームでは表示する", () => {
+    expect(isAreaIdLabelZoomVisible(AREA_ID_LABEL_MIN_ZOOM)).toBe(true);
+    expect(isAreaIdLabelZoomVisible(AREA_ID_LABEL_MIN_ZOOM + 0.25)).toBe(true);
+    expect(isAreaIdLabelZoomVisible(19)).toBe(true);
+  });
+
+  it("閾値未満のズームでは表示しない", () => {
+    expect(isAreaIdLabelZoomVisible(AREA_ID_LABEL_MIN_ZOOM - 0.25)).toBe(false);
+    expect(isAreaIdLabelZoomVisible(5)).toBe(false);
+  });
+
+  it("閾値は仕様どおり 14", () => {
+    expect(AREA_ID_LABEL_MIN_ZOOM).toBe(14);
   });
 });
