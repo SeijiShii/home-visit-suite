@@ -10,5 +10,11 @@ export interface PlaceRepository {
   /** 論理削除（deletedAt をセット）。 */
   deletePlace(id: string): Promise<void>;
   /** 指定座標から半径 radiusMeters メートル以内の削除済み場所を返す。 */
-  listDeletedPlacesNear(lat: number, lng: number, radiusMeters: number): Promise<Place[]>;
+  listDeletedPlacesNear(
+    lat: number,
+    lng: number,
+    radiusMeters: number,
+  ): Promise<Place[]>;
+  /** 指定 Building 配下の論理削除済み部屋を返す（部屋の同番号復元用）。 */
+  listDeletedRooms(buildingId: string): Promise<Place[]>;
 }

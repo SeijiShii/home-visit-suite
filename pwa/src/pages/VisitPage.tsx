@@ -31,7 +31,7 @@ import type {
   VisitService as VisitServiceClass,
 } from "../services/visit-service";
 import { nextSortOrder, reorderPlaces } from "../lib/place-sort-order";
-import { diffRoomRows } from "../lib/building-flow";
+import { applyRoomRowsSave, planRoomAdd } from "../lib/building-flow";
 import type { PolygonGeoSource } from "../lib/area-detail-controller";
 import {
   addPlaceFlowReducer,
@@ -54,8 +54,11 @@ import { useNarrowViewport } from "../hooks/useMediaQuery";
 
 /**
  * 直接作成に savePlace が必須（場所の直接追加。docs/wants/08）。
- * getPlace / deletePlace / listDeletedPlacesNear は直接編集（編集メンバー以上×
+ * getPlace / listDeletedPlacesNear は直接編集（編集メンバー以上×
  * 非タッチ端末）でのみ使用するため任意（docs/wants/07「場所操作の権限」）。
+ * deletePlace は直接編集に加え、部屋の削除（全メンバー・全端末）でも使用する。
+ * listDeletedRooms は部屋の同番号復元用（docs/wants/03。未提供なら復元なしで
+ * 常に新規作成にフォールバック）。
  */
 export type VisitPagePlaceServiceLike = UseAreaDetailMapPlaceService & {
   savePlace: (place: Place) => Promise<Place>;
@@ -66,6 +69,7 @@ export type VisitPagePlaceServiceLike = UseAreaDetailMapPlaceService & {
     lng: number,
     radiusM: number,
   ) => Promise<Place[]>;
+  listDeletedRooms?: (buildingId: string) => Promise<Place[]>;
 };
 
 export type VisitPageVisitServiceLike = Pick<
@@ -387,6 +391,62 @@ export function VisitPage({
       setDialog({ kind: "house", place: room, parent });
     },
     [visitService, actorId, places],
+  );
+
+  // --- 部屋の直接操作（追加/部屋番号編集/削除。全メンバー・全端末） ---
+  // 仕様 docs/wants/08「集合住宅訪問ダイアログ／部屋の追加・編集・削除」
+  // 追加は同一 Building 内の同番号削除済み Room を復元する
+  // （docs/wants/03「部屋（Room）の同番号復元」）。
+
+  const handleAddRoom = useCallback(
+    async (buildingId: string, displayName: string) => {
+      try {
+        const deletedRooms = placeService.listDeletedRooms
+          ? await placeService.listDeletedRooms(buildingId).catch(() => [])
+          : [];
+        const existingRooms = rooms.filter(
+          (r) => r.parentId === buildingId && !r.deletedAt,
+        );
+        await placeService.savePlace(
+          planRoomAdd({
+            deletedRooms,
+            existingRooms,
+            buildingId,
+            areaId,
+            displayName,
+          }),
+        );
+      } catch (err) {
+        console.error("[VisitPage] add room failed:", err);
+      }
+      bumpRefresh();
+    },
+    [placeService, rooms, areaId, bumpRefresh],
+  );
+
+  const handleRenameRoom = useCallback(
+    async (room: Place, displayName: string) => {
+      try {
+        await placeService.savePlace({ ...room, displayName });
+      } catch (err) {
+        console.error("[VisitPage] rename room failed:", err);
+      }
+      bumpRefresh();
+    },
+    [placeService, bumpRefresh],
+  );
+
+  const handleDeleteRoom = useCallback(
+    async (room: Place) => {
+      if (!placeService.deletePlace) return;
+      try {
+        await placeService.deletePlace(room.id);
+      } catch (err) {
+        console.error("[VisitPage] delete room failed:", err);
+      }
+      bumpRefresh();
+    },
+    [placeService, bumpRefresh],
   );
 
   const handleMapContextMenu = useCallback(
@@ -750,22 +810,12 @@ export function VisitPage({
           const existing = rooms.filter(
             (r) => r.parentId === buildingId && !r.deletedAt,
           );
-          const { toAdd, toUpdate, toDelete } = diffRoomRows(
-            existing,
-            args.rows,
+          await applyRoomRowsSave(placeService, {
+            existingRooms: existing,
+            rows: args.rows,
             buildingId,
-          );
-          for (const r of toAdd) {
-            await placeService.savePlace({ ...r, areaId });
-          }
-          for (const r of toUpdate) {
-            await placeService.savePlace(r);
-          }
-          if (placeService.deletePlace) {
-            for (const id of toDelete) {
-              await placeService.deletePlace(id);
-            }
-          }
+            areaId,
+          });
         }
       } catch (err) {
         console.error("[VisitPage] saveBuilding failed:", err);
@@ -951,9 +1001,16 @@ export function VisitPage({
           buildingLabel={dialog.place.label || t.areaDetail.noName}
           buildingAddress={dialog.place.address}
           buildingDescription={dialog.place.description}
-          rooms={rooms.filter((r) => r.parentId === dialog.place.id)}
+          rooms={rooms
+            .filter((r) => r.parentId === dialog.place.id)
+            .sort((a, b) => a.sortOrder - b.sortOrder)}
           roomLastVisitMap={new Map()}
           onSelectRoom={openRoomDialog}
+          onAddRoom={(displayName) =>
+            handleAddRoom(dialog.place.id, displayName)
+          }
+          onRenameRoom={handleRenameRoom}
+          onDeleteRoom={placeService.deletePlace ? handleDeleteRoom : undefined}
           onPlaceEditRequest={(kind, text) =>
             onPlaceEditRequest(dialog.place.id, kind, text)
           }

@@ -1542,11 +1542,25 @@ section {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 8px 12px;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   cursor: pointer;
   background: #fff;
+}
+.building-visit-room-row .building-visit-room-number {
+  flex: 1;
+}
+/* 部屋行の編集/削除ボタン（タッチ端末でも押しやすい最小サイズを確保） */
+.building-visit-room-action {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+.building-visit-room-add {
+  margin-top: 8px;
 }
 .building-visit-room-row:hover {
   background: #f9fafb;
@@ -1615,6 +1629,10 @@ section {
     0 10px 30px rgba(0, 0, 0, 0.3),
     0 0 0 100vmax rgba(15, 23, 42, 0.55);
   padding: 18px 22px;
+}
+/* 実バックドロップ（.dialog-backdrop）内では暗転と遮断はバックドロップが担う */
+.dialog-backdrop > .building-visit-edit-dialog {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   min-width: 360px;
   max-width: min(520px, calc(100vw - 32px));
   display: flex;

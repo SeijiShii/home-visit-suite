@@ -73,4 +73,12 @@ export class InMemoryPlaceRepository implements PlaceRepository {
       )
       .map(clonePlace);
   }
+
+  async listDeletedRooms(buildingId: string): Promise<Place[]> {
+    return [...this.places.values()]
+      .filter(
+        (p) => p.type === "room" && p.parentId === buildingId && !!p.deletedAt,
+      )
+      .map(clonePlace);
+  }
 }

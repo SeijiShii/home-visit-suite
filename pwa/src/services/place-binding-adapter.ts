@@ -79,7 +79,16 @@ export class PlaceRepositoryBindingAdapter implements PlaceBindingAPI {
     lng: number,
     radiusMeters: number,
   ): Promise<Place[] | null> {
-    const places = await this.repo.listDeletedPlacesNear(lat, lng, radiusMeters);
+    const places = await this.repo.listDeletedPlacesNear(
+      lat,
+      lng,
+      radiusMeters,
+    );
+    return places.map(toServicePlace);
+  }
+
+  async ListDeletedRooms(buildingId: string): Promise<Place[] | null> {
+    const places = await this.repo.listDeletedRooms(buildingId);
     return places.map(toServicePlace);
   }
 }

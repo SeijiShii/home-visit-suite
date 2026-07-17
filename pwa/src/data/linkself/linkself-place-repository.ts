@@ -68,4 +68,10 @@ export class LinkSelfPlaceRepository implements PlaceRepository {
           distanceMeters(lat, lng, p.coord.lat, p.coord.lng) <= radiusMeters,
       );
   }
+
+  async listDeletedRooms(buildingId: string): Promise<Place[]> {
+    return (await listRows<Place>(this.db, "places")).filter(
+      (p) => p.type === "room" && p.parentId === buildingId && !!p.deletedAt,
+    );
+  }
 }

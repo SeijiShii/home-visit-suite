@@ -74,6 +74,150 @@ export function reorderRoomRows(
 }
 
 /**
+ * 部屋番号一致で復元すべき論理削除済み Room を探す。
+ * 仕様: docs/wants/03「部屋（Room）の同番号復元」
+ * - 同一 Building（parentId 一致）・`type='room'`・削除済みのうち、
+ *   部屋番号（displayName、前後空白無視）が一致するもの
+ * - 空欄はマッチング対象外
+ * - 複数一致は deletedAt（ISO 文字列）が最新のもの
+ */
+export function findRestorableRoom(
+  deletedRooms: readonly Place[],
+  buildingId: string,
+  displayName: string,
+): Place | null {
+  const name = displayName.trim();
+  if (name.length === 0) return null;
+  const candidates = deletedRooms.filter(
+    (p) =>
+      p.type === "room" &&
+      p.parentId === buildingId &&
+      !!p.deletedAt &&
+      p.displayName.trim() === name,
+  );
+  if (candidates.length === 0) return null;
+  return candidates.reduce((latest, p) =>
+    (p.deletedAt ?? "") > (latest.deletedAt ?? "") ? p : latest,
+  );
+}
+
+/**
+ * 訪問ダイアログ「部屋を追加」で保存すべき Place を組み立てる。
+ * 仕様: docs/wants/08「集合住宅訪問ダイアログ／部屋の追加・編集・削除」
+ * - 部屋番号一致の削除済み Room があれば同一 PlaceID で復元（deletedAt 解除）
+ * - なければ新規 Room（id は保存時に採番）
+ * - いずれも SortOrder は既存 Room の最大値 + 1（末尾に追加）
+ */
+export function planRoomAdd(args: {
+  deletedRooms: readonly Place[];
+  existingRooms: readonly Place[];
+  buildingId: string;
+  areaId: string;
+  displayName: string;
+}): Place {
+  const name = args.displayName.trim();
+  const nextSortOrder =
+    args.existingRooms.length === 0
+      ? 0
+      : Math.max(...args.existingRooms.map((r) => r.sortOrder)) + 1;
+  const restorable = findRestorableRoom(
+    args.deletedRooms,
+    args.buildingId,
+    name,
+  );
+  if (restorable) {
+    return {
+      ...restorable,
+      displayName: name,
+      sortOrder: nextSortOrder,
+      deletedAt: null,
+    };
+  }
+  const now = new Date().toISOString();
+  return {
+    id: "",
+    areaId: args.areaId,
+    coord: { lat: 0, lng: 0 },
+    type: "room",
+    label: "",
+    displayName: name,
+    address: "",
+    description: "",
+    parentId: args.buildingId,
+    sortOrder: nextSortOrder,
+    languages: [],
+    doNotVisit: false,
+    doNotVisitNote: "",
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    restoredFromId: null,
+  };
+}
+
+/** applyRoomRowsSave が必要とする保存サービスの最小 IF。 */
+export interface RoomSaveService {
+  savePlace: (place: Place) => Promise<unknown>;
+  deletePlace?: (id: string) => Promise<void>;
+  listDeletedRooms?: (buildingId: string) => Promise<Place[]>;
+}
+
+/**
+ * 集合住宅編集ダイアログの行リストを差分適用で保存する。
+ * 仕様: docs/wants/03「集合住宅の追加・編集」「部屋（Room）の同番号復元」
+ *
+ * 削除を先に確定させてから復元候補（削除済み Room）を取得する。これにより
+ * 同一保存内の「行削除＋同番号再追加」でも旧 Room が復元マッチし、
+ * 訪問記録の紐付き（PlaceID）を失わない。
+ */
+export async function applyRoomRowsSave(
+  service: RoomSaveService,
+  args: {
+    existingRooms: readonly Place[];
+    rows: readonly RoomRow[];
+    buildingId: string;
+    areaId: string;
+  },
+): Promise<void> {
+  const { toAdd, toUpdate, toDelete } = diffRoomRows(
+    args.existingRooms,
+    args.rows,
+    args.buildingId,
+  );
+  if (service.deletePlace) {
+    for (const id of toDelete) {
+      await service.deletePlace(id);
+    }
+  }
+  // 追加行は同番号の削除済み Room があれば復元する。同番号行が複数ある場合に
+  // 同じ Room を二重復元しないよう、消費済みを除外していく。
+  let deletedRooms = service.listDeletedRooms
+    ? await service.listDeletedRooms(args.buildingId).catch(() => [])
+    : [];
+  for (const r of toAdd) {
+    const restorable = findRestorableRoom(
+      deletedRooms,
+      args.buildingId,
+      r.displayName,
+    );
+    if (restorable) {
+      deletedRooms = deletedRooms.filter((d) => d.id !== restorable.id);
+      await service.savePlace({
+        ...restorable,
+        displayName: r.displayName,
+        sortOrder: r.sortOrder,
+        deletedAt: null,
+      });
+    } else {
+      await service.savePlace({ ...r, areaId: args.areaId });
+    }
+  }
+  for (const r of toUpdate) {
+    await service.savePlace(r);
+  }
+}
+
+/**
  * 既存 Room と編集後の行リストを比較し、必要な保存アクションを返す。
  *
  * - toAdd: 新規作成する Place (`type='room'`, `parentId=buildingId`, `sortOrder=行index`)

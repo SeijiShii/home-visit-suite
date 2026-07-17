@@ -85,7 +85,7 @@
 - `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層
 - `lib/add-place-flow.ts` — 「家を追加」フローの純状態機械（削除済み場所の復元判定含む）
 - `lib/move-place-flow.ts` — 場所マーカー移動フローの純状態機械
-- `lib/building-flow.ts` — 集合住宅編集の部屋行モデルと保存差分計算
+- `lib/building-flow.ts` — 集合住宅編集の部屋行モデルと保存差分計算/差分適用（削除確定後に復元候補を評価）・部屋の同番号復元判定/追加プラン (→08)
 - `lib/place-sort-order.ts` — 場所一覧の初回並び順採番
 - `lib/place-renumber.ts` — SortOrder 重複の検出と幾何順（北→南・西→東）再採番の純ロジック
 ### hooks
@@ -97,8 +97,8 @@
 ### domain / data
 - `domain/models/geometry.ts` — 地理座標と GeoJSON ポリゴンの基礎型
 - `domain/models/place.ts` — 座標に紐づく場所（戸建/集合住宅/部屋）モデル (→08)
-- `domain/repositories/place-repository.ts` — 場所の取得/保存/論理削除・近傍削除済み検索 IF (→08)
-- `data/inmemory/inmemory-place-repository.ts` — PlaceRepository の InMemory 実装（論理削除除外・Haversine 近傍）(→08)
+- `domain/repositories/place-repository.ts` — 場所の取得/保存/論理削除・近傍削除済み検索・Building 配下の削除済み部屋検索 IF (→08)
+- `data/inmemory/inmemory-place-repository.ts` — PlaceRepository の InMemory 実装（論理削除除外・Haversine 近傍・削除済み部屋検索）(→08)
 
 ## 04 メンバー管理と権限（ロール/招待/承認）
 - `services/auth-service.ts` — ロール権限判定・メンバー編集（updateMember=表示名/ロール直接変更。自己ロール変更不可・同名は already_exists・最後の管理者降格ガード）・メンバー削除（removeMember=自己削除不可）。任命招待フローは 2026-07-14 廃止
@@ -167,10 +167,10 @@
 ## 08 活動メンバー向けアプリ（訪問記録/最新状況/場所データ）
 - `services/visit-service.ts` — 訪問結果5値・VisitRecord/VisitService 型・申請要否判定・区域内記録一覧
 - `services/visit-binding-adapter.ts` — VisitBindingAPI を CheckoutService/CheckoutRepository 上に実装
-- `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加/一覧＋直接編集〔編集メンバー×非タッチのみ〕・編集リクエスト）(→03,10)
+- `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加/一覧＋直接編集〔編集メンバー×非タッチのみ。部屋の追加/番号編集/削除は全メンバー・タッチ可＋同番号復元〕・編集リクエスト）(→03,10)
 - `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ（直接編集権限判定・活動メンバーのアクセス制御・?place= の初期場所選択）(→01)
 - `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・返却/招待管理導線〔担当者本人の招待一覧・取消・発行〕。チェックアウト可能一覧は活動メンバーのみ＝editor+ は /areas から）(→10)
-- `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択
+- `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択・部屋の直接追加/番号編集/削除（全メンバー・タッチ可）(→03,07)
 - `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定
 - `domain/models/personal.ts` — 端末内個人スコープの個人メモ/個人タグ/割当モデル
 - `domain/models/visit-edit.ts` — 訪問記録の編集履歴（変更前後スナップショット）モデル

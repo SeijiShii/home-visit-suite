@@ -42,6 +42,7 @@ export interface PlaceBindingAPI {
     lng: number,
     radiusMeters: number,
   ): Promise<Place[] | null>;
+  ListDeletedRooms(buildingId: string): Promise<Place[] | null>;
 }
 
 export class PlaceService {
@@ -69,5 +70,9 @@ export class PlaceService {
     radiusMeters: number,
   ): Promise<Place[]> {
     return (await this.api.ListDeletedPlacesNear(lat, lng, radiusMeters)) ?? [];
+  }
+
+  async listDeletedRooms(buildingId: string): Promise<Place[]> {
+    return (await this.api.ListDeletedRooms(buildingId)) ?? [];
   }
 }
