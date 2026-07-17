@@ -20,7 +20,14 @@ import {
   validatePairing,
   type PairingPayload,
 } from "../lib/pairing";
-import { collectPairingExtras } from "../lib/pairing-extras";
+import {
+  applyPairingExtras,
+  clearPendingSiblingDevices,
+  collectPairingExtras,
+} from "../lib/pairing-extras";
+import { purgeAllGroupSlots } from "../lib/group-slots";
+import { setGroupName } from "../lib/group-name";
+import { clearGroupNetworkLocalState } from "../lib/linkself/group-network";
 import { getDeviceDirectory } from "../lib/device-directory";
 import { ServiceError } from "./errors";
 
@@ -391,6 +398,20 @@ export class LocalIdentityService implements IdentityService {
     this.registerThisDevice(stored.did);
     const user = this.toUser(stored);
     await this.repo.saveUser(user);
+    // 残った旧グループ状態（前の identity の残骸）を破棄し、発行側の所属グループの
+    // 器（スロット + networkId + 合成実体）と兄弟デバイスの控えを引き継ぐ。
+    // サービス側で行うことで PairPage（URL 経路）とオンボーディングの手入力貼付
+    // 経路の挙動を一致させる（貼付経路だけ拡張が適用されず、networkId の無い端末が
+    // group catch-up を一度も要求できなかった）。呼び出し側は完了後に再読み込みして
+    // LinkSelf を配線し直すこと。
+    clearGroupNetworkLocalState();
+    purgeAllGroupSlots();
+    // purge 直後（アクティブスロット無し）の setGroupName("") はレガシー単一キー
+    // `hvs.groupName` の掃除になる。applyPairingExtras より前に呼ぶこと（後だと
+    // 引き継いだばかりの新グループ名を消してしまう）。
+    setGroupName("");
+    clearPendingSiblingDevices();
+    applyPairingExtras(payload);
     return user;
   }
 

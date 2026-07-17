@@ -100,7 +100,7 @@
 
 ## 04 メンバー管理と権限（ロール/招待/承認）
 - `services/auth-service.ts` — ロール権限判定・メンバー編集（updateMember=表示名/ロール直接変更。自己ロール変更不可・同名は already_exists・最後の管理者降格ガード）・メンバー削除（removeMember=自己削除不可）。任命招待フローは 2026-07-14 廃止
-- `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング=payload v2 拡張同梱・デバイス一覧=登録簿+ロスター由来兄弟端末でラベルはロスターが SoT・renameDevice はデバイス DID に解決して device-directory へ委譲=rev+1 再署名+announce・removeDevice はロスター行を device-directory の失効へ委譲=対象端末は全初期化・setName=表示名変更、ローカルメンバー表で同名は already_exists。loadIdentity はリポジトリ側レコードを正とし同期済みの名前/ロールを stomp しない）と DevIdentityService（dev 切替）。`loadStoredSeed()` は保存済みシードを返し LinkSelfClient のネットワーク配線に供給(→01,11)
+- `services/identity-service.ts` — アクター DID 解決の抽象。LocalIdentityService（実 identity 作成・localStorage 永続・URL 端末ペアリング=payload v2 拡張同梱、completePairing は identity 復元＋旧グループ状態の残骸破棄＋payload 拡張適用まで一括（URL 経路と手入力貼付経路の共通挙動）・デバイス一覧=登録簿+ロスター由来兄弟端末でラベルはロスターが SoT・renameDevice はデバイス DID に解決して device-directory へ委譲=rev+1 再署名+announce・removeDevice はロスター行を device-directory の失効へ委譲=対象端末は全初期化・setName=表示名変更、ローカルメンバー表で同名は already_exists。loadIdentity はリポジトリ側レコードを正とし同期済みの名前/ロールを stomp しない）と DevIdentityService（dev 切替）。`loadStoredSeed()` は保存済みシードを返し LinkSelfClient のネットワーク配線に供給(→01,11)
 - `contexts/IdentityContext.tsx` — actorID/ロール/表示名（currentName・renameSelf）/開発モードの一元管理・初回オンボーディングゲート・デバイス管理（hasIdentity/identityReady・createIdentity/completePairing・listDevices/renameDevice/removeDevice=自分以外）。`hvs:shared-applied`(users) で自分のロール・表示名を同期追従 (→10)
 - `lib/identity-crypto.ts` — Ed25519 鍵生成と did:key（LinkSelf 互換 0xed 形式）エンコード/デコード・シード base64 往復
 - `lib/pairing.ts` — 端末ペアリングのトークン/ペイロード(base64url)生成・ペアリング URL 組立/抽出・期限/形式検証（同一 DID コピー）。payload v2 拡張=鍵+最小ポインタのみ（発行側デバイス DID・所属グループの networkId/表示名。ロスター・実体は載せない）(→01)
@@ -122,7 +122,7 @@
 - `lib/device-directory.ts` — デバイスディレクトリ（ロスターのラベル更新 setLabel / 端末削除=失効 removeDevice）のサービスロケータ。linkself-services が実装（rev+1 再署名+announce+対象端末宛送信）を登録し、main バンドルの identity-service が @linkself/core 非依存で呼ぶ (→01)
 - `lib/full-reset.ts` — 端末の全初期化（デバイス失効の受理時）。graceful stop→OPFS 削除（best-effort）→localStorage/sessionStorage クリア→削除通知フラグ→再読込。オンボーディングが通知を消費表示 (→01)
 - `pages/OnboardingPage.tsx` — 初回オンボーディング（ID 作成=創設グループ名の設定込み / 既存端末から URL・コード引き継ぎ。AppBrand 表示。デバイス失効による初期化直後は削除通知を消費表示）(→01,10)
-- `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。DID 照合で分岐: 未登録は登録＋再読込で LinkSelf 再配線・同一 DID は冪等スルー・別 DID は確認のうえ切替=旧グループ状態/旧自己レコード破棄・失敗時は QR 再発行案内でオンボーディングへ誘導しない。成立時は payload 拡張を適用=グループの器とロスター引き継ぎ。フラグメント除去）(→01,10)
+- `pages/PairPage.tsx` — 端末ペアリング取り込み（`#/pair?d=…`。DID 照合で分岐: 未登録は登録＋再読込で LinkSelf 再配線（残骸破棄・拡張適用は completePairing＝サービス側）・同一 DID は冪等スルー＋欠けた器のみ取り込み・別 DID は確認のうえ切替=旧自己レコード削除→completePairing・失敗時は QR 再発行案内でオンボーディングへ誘導しない。フラグメント除去）(→01,10)
 - `pages/JoinPage.tsx` — グループ招待取り込み（`#/join?i=…`。別 DID が招待を受けて参加。AppBrand+「○○グループに招待されています」（`&g=`）+招待ロール表示。ID 未作成なら作成へ誘導・参加は GroupNetwork.join。管理者不達時は joinAsync で非同期参加へフォールバックし成立待ち表示、受理結果イベントで完了/失効へ遷移。成立/預け時にグループ名をローカル保存）(→10,11)
 - `components/GroupInviteSection.tsx` — グループ招待の発行 UI（管理者専用・admin 以外は非表示。参加ロール選択=既定活動メンバー・3 日期限の URL/QR 発行・コピー・グループ名同梱。メンバー管理画面 `/users` に配置）(→11)
 - `components/GroupNameSection.tsx` — グループ名の表示・変更 UI（管理者専用。`/users` に配置。見出し横に現在値プレビュー・未保存/保存済みの状態表示付きで、招待 URL に同梱される表示名を編集）

@@ -5,8 +5,10 @@ import { InMemoryUserRepository } from "../data/inmemory/inmemory-user-repositor
 import { registerDeviceDirectory } from "../lib/device-directory";
 import {
   generateIdentity as generateLocalIdentity,
+  identityFromSeed,
   seedToBase64,
 } from "../lib/identity-crypto";
+import { createGroupSlot, listGroupSlots, nsKey } from "../lib/group-slots";
 import { LocalIdentityService } from "./identity-service";
 
 beforeEach(() => {
@@ -72,6 +74,44 @@ describe("端末ペアリング（同一 DID の別端末追加）", () => {
     expect(phoneUser.name).toBe("佐藤");
     expect(await phone.hasIdentity()).toBe(true);
     expect(await phoneRepo.getUser(pcUser.id)).not.toBeNull();
+  });
+
+  it("取り込みは payload 拡張（グループの器・兄弟控え）も適用する（貼付経路と URL 経路の共通挙動）", async () => {
+    // 既存端末（PC）: グループ所属 + デバイス鍵あり。
+    const pc = new LocalIdentityService(new InMemoryUserRepository());
+    const pcUser = await pc.createIdentity("佐藤");
+    const deviceSeed = new Uint8Array(32);
+    crypto.getRandomValues(deviceSeed);
+    localStorage.setItem("hvs.deviceKeySeed", seedToBase64(deviceSeed));
+    const pcDeviceDid = (await identityFromSeed(deviceSeed)).did;
+    createGroupSlot({ networkId: "net-1", groupName: "第一" });
+    const { url } = await pc.createPairingToken();
+
+    // 新端末: オンボーディングの手入力貼付と同じく service.completePairing
+    // だけを呼ぶ（PairPage の追加処理に依存しない）。
+    localStorage.clear();
+    const phone = new LocalIdentityService(new InMemoryUserRepository());
+    await phone.completePairing(url);
+
+    // 所属グループの器（スロット + networkId キー）が作られている。
+    const slots = listGroupSlots();
+    expect(slots).toHaveLength(1);
+    expect(slots[0].networkId).toBe("net-1");
+    expect(slots[0].groupName).toBe("第一");
+    expect(localStorage.getItem(nsKey(slots[0].slotId, "networkId"))).toBe(
+      "net-1",
+    );
+    // ネットワーク実体が自分のメンバーシップで合成されている（これが無いと
+    // listForMember が空になり group catch-up が永遠に要求されない）。
+    const networks = JSON.parse(
+      localStorage.getItem("hvs.networks") ?? "{}",
+    ) as Record<string, { members?: string[] }>;
+    expect(networks["net-1"]?.members).toContain(pcUser.id);
+    // 発行側デバイスがロスター追加待ちに控えられている。
+    const pending = JSON.parse(
+      localStorage.getItem("hvs.pendingSiblingDevices") ?? "[]",
+    ) as Array<{ u: string; d: string }>;
+    expect(pending.map((e) => e.d)).toContain(pcDeviceDid);
   });
 
   it("壊れた入力は拒否する", async () => {

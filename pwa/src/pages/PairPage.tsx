@@ -15,17 +15,11 @@ import { AppBrand } from "../components/AppBrand";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
-import { setGroupName } from "../lib/group-name";
-import { purgeAllGroupSlots } from "../lib/group-slots";
-import {
-  applyPairingExtras,
-  applyPairingExtrasIfMissing,
-  clearPendingSiblingDevices,
-} from "../lib/pairing-extras";
-import { clearGroupNetworkLocalState } from "../lib/linkself/group-network";
+import { applyPairingExtrasIfMissing } from "../lib/pairing-extras";
 import {
   decodePairingPayload,
   extractPairingPayloadParam,
+  validatePairing,
   type PairingPayload,
 } from "../lib/pairing";
 
@@ -101,15 +95,11 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
       return;
     }
     // 未登録端末: そのまま同一 identity を復元して登録し、再読み込みで配線し直す。
+    // 残骸破棄と payload 拡張の適用は completePairing（サービス側）が行う
+    //（オンボーディングの手入力貼付経路と共通化）。
     void (async () => {
       try {
         await completePairing(window.location.hash);
-        // ID 無し端末に残ったグループ状態は前の identity の残骸なので破棄する。
-        clearGroupNetworkLocalState();
-        purgeAllGroupSlots();
-        clearPendingSiblingDevices();
-        // 発行側の所属グループの器と兄弟デバイスの控えを引き継ぐ（再読込後に catch-up）。
-        applyPairingExtras(payload);
         cleanUp();
         reload();
       } catch (e) {
@@ -127,19 +117,20 @@ export function PairPage({ onConsumed, reloadApp }: PairPageProps) {
     setBusy(true);
     const oldDid = realDID;
     try {
-      await completePairing(window.location.hash);
-      // 旧 ID のローカルなグループ状態を新 ID へ引き継がない（独立グループの残骸を破棄）。
+      // 期限切れ等はここで弾く（後続の deleteUser=旧自己レコードの配送付き削除を
+      // 実行してから completePairing が失敗する、を防ぐ）。
+      validatePairing(payload!, Date.now());
+      // 旧 ID の自己レコードを先に消す（completePairing が旧グループ状態を
+      // purge する前＝旧名前空間がまだ生きているうちに行う）。
       try {
         await userRepo.deleteUser(oldDid);
       } catch {
         // ignore
       }
-      clearGroupNetworkLocalState();
-      purgeAllGroupSlots();
-      clearPendingSiblingDevices();
-      setGroupName("");
-      // 発行側の所属グループの器と兄弟デバイスの控えを引き継ぐ（再読込後に catch-up）。
-      if (payload) applyPairingExtras(payload);
+      // 残骸破棄と payload 拡張の適用（新グループ名の器も含む）は
+      // completePairing（サービス側）が行う。ここで setGroupName("") を呼ぶと
+      // 引き継いだばかりの新グループ名を消してしまうため呼ばない。
+      await completePairing(window.location.hash);
       cleanUp();
       reload();
     } catch (e) {
