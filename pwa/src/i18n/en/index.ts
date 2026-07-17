@@ -195,6 +195,8 @@ const en: Translations = {
     buildingRoomAdd: "Add room",
     buildingRoomEdit: "Edit room number",
     buildingRoomDelete: "Delete room",
+    buildingRoomsEditLink: "Edit rooms",
+    buildingRoomsEditDone: "Done",
     close: "Close",
     pageTitle: "Visit Records",
     areaLabel: "Area: {area}",

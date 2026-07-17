@@ -186,6 +186,8 @@ export interface Translations {
     buildingRoomAdd: string;
     buildingRoomEdit: string;
     buildingRoomDelete: string;
+    buildingRoomsEditLink: string;
+    buildingRoomsEditDone: string;
     close: string;
     pageTitle: string;
     areaLabel: string;

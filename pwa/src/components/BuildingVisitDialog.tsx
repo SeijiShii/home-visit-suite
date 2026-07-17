@@ -63,6 +63,9 @@ export function BuildingVisitDialog({
   const [roomEditor, setRoomEditor] = useState<RoomEditorState | null>(null);
   const [roomNumberInput, setRoomNumberInput] = useState("");
   const [roomDeleteTarget, setRoomDeleteTarget] = useState<Place | null>(null);
+  // 部屋編集モード（通常表示と分離。仕様 docs/wants/08「部屋の追加・編集・削除」）
+  const [roomEditMode, setRoomEditMode] = useState(false);
+  const roomOpsAvailable = !!(onAddRoom || onRenameRoom || onDeleteRoom);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -146,23 +149,29 @@ export function BuildingVisitDialog({
             <ul className="building-visit-room-list" role="list">
               {rooms.map((room) => {
                 const lastVisit = roomLastVisitMap.get(room.id) ?? null;
+                // 編集モードでは行タップ（部屋訪問ダイアログ）を無効化し
+                // ✎/× ボタンのみ受け付ける（記録フローとの誤操作分離）
+                const rowInteractive = !roomEditMode;
                 return (
                   <li
                     key={room.id}
                     data-testid="room-row"
-                    className="building-visit-room-row"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onSelectRoom(room)}
-                    onKeyDown={(e) => {
-                      // 行内の編集/削除ボタンからのバブリングは行タップ扱いに
-                      // しない（preventDefault がボタンの click 発火を殺すため）
-                      if (e.target !== e.currentTarget) return;
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onSelectRoom(room);
-                      }
-                    }}
+                    className={`building-visit-room-row${roomEditMode ? " editing" : ""}`}
+                    role={rowInteractive ? "button" : undefined}
+                    tabIndex={rowInteractive ? 0 : undefined}
+                    onClick={
+                      rowInteractive ? () => onSelectRoom(room) : undefined
+                    }
+                    onKeyDown={
+                      rowInteractive
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onSelectRoom(room);
+                            }
+                          }
+                        : undefined
+                    }
                   >
                     <span className="building-visit-room-number">
                       {room.displayName || "—"}
@@ -175,28 +184,22 @@ export function BuildingVisitDialog({
                         {formatDate(lastVisit)}
                       </span>
                     )}
-                    {onRenameRoom && (
+                    {roomEditMode && onRenameRoom && (
                       <button
                         type="button"
                         className="btn btn-sm building-visit-room-action"
                         aria-label={t.visitRecord.buildingRoomEdit}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openRoomEdit(room);
-                        }}
+                        onClick={() => openRoomEdit(room)}
                       >
                         ✎
                       </button>
                     )}
-                    {onDeleteRoom && (
+                    {roomEditMode && onDeleteRoom && (
                       <button
                         type="button"
                         className="btn btn-sm building-visit-room-action"
                         aria-label={t.visitRecord.buildingRoomDelete}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRoomDeleteTarget(room);
-                        }}
+                        onClick={() => setRoomDeleteTarget(room)}
                       >
                         ×
                       </button>
@@ -206,14 +209,34 @@ export function BuildingVisitDialog({
               })}
             </ul>
           )}
-          {onAddRoom && (
+          {roomOpsAvailable && !roomEditMode && (
             <button
               type="button"
-              className="btn btn-sm building-visit-room-add"
-              onClick={openRoomAdd}
+              className="building-visit-rooms-edit-link"
+              onClick={() => setRoomEditMode(true)}
             >
-              {t.visitRecord.buildingRoomAdd}
+              {t.visitRecord.buildingRoomsEditLink}
             </button>
+          )}
+          {roomEditMode && (
+            <div className="building-visit-room-edit-actions">
+              {onAddRoom && (
+                <button
+                  type="button"
+                  className="btn btn-sm building-visit-room-add"
+                  onClick={openRoomAdd}
+                >
+                  {t.visitRecord.buildingRoomAdd}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-sm btn-primary building-visit-room-edit-done"
+                onClick={() => setRoomEditMode(false)}
+              >
+                {t.visitRecord.buildingRoomsEditDone}
+              </button>
+            </div>
           )}
         </section>
 

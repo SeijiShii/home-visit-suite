@@ -193,6 +193,8 @@ const ja: Translations = {
     buildingRoomAdd: "部屋を追加",
     buildingRoomEdit: "部屋番号を編集",
     buildingRoomDelete: "部屋を削除",
+    buildingRoomsEditLink: "部屋を編集",
+    buildingRoomsEditDone: "確定",
     close: "閉じる",
     pageTitle: "訪問記録",
     areaLabel: "区域: {area}",

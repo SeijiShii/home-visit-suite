@@ -1559,8 +1559,32 @@ section {
   padding: 2px 8px;
   flex-shrink: 0;
 }
-.building-visit-room-add {
+/* 部屋編集モード中の行は行タップ無効（押せる affordance を消す） */
+.building-visit-room-row.editing,
+.building-visit-room-row.editing:hover {
+  cursor: default;
+  background: #fff;
+  border-color: #e5e7eb;
+}
+/* 通常表示 → 部屋編集モードへのリンクボタン（visit-record-edit-request と同系） */
+.building-visit-rooms-edit-link {
   margin-top: 8px;
+  background: none;
+  border: none;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px;
+}
+/* 部屋編集モード下部の「部屋を追加」「確定」行 */
+.building-visit-room-edit-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 .building-visit-room-row:hover {
   background: #f9fafb;

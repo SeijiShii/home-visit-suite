@@ -180,6 +180,7 @@
 
 ## L-029 入れ子 interactive 要素のキーボード操作が親の role=button ハンドラに横取りされる
 - 初出: 2026-07-17 部屋の直接操作（部屋行 li が role=button + onKeyDown(Enter/Space→preventDefault＋行タップ) を持つ構造に行内の編集/削除ボタンを追加した際、click には stopPropagation を付けたが keydown が未ガード。Tab でボタンにフォーカスして Enter を押すと keydown が親 li へバブルし、preventDefault がボタン自身の click 発火を殺した上で行タップ（部屋訪問ダイアログ）が発火した。独立レビューが commit 前に検出。修正=親の onKeyDown に `e.target !== e.currentTarget` ガード）
+- 追記: 2026-07-17 同日の部屋編集モード分離で interactive な行と入れ子ボタンが同時に存在しない構造になり、ガードは削除（構造的解消。独立レビューで正当性確認済み）。将来この入れ子構造を復活させる diff では本パターンを再適用する
 - パターン: role=button な行/カードに interactive 子要素を入れ子にするとき、click の stopPropagation だけでは不十分。キーボード活性化（Enter/Space）は keydown として親へバブルし、親の preventDefault が子ボタンのデフォルト click 合成を抑止して親アクションだけが走る。L-019（レイヤー横取り）の DOM キーボード版
 - 検査: interactive 要素の入れ子を作る diff では、親の onKeyDown に e.target ガード（または子側 keydown の stopPropagation）があるか確認し、「Tab→子ボタンで Enter」のテストを click テストと対で要求する
 - status: active
