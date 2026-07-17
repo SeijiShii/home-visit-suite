@@ -173,6 +173,9 @@ export function MapPage() {
     const areaMap = buildPolygonAreaMap(tree);
     setPolygonAreaMap(areaMap);
     setAreaTree(tree);
+    // 紐付け集合も同時に更新する（setPolygonAreaIds が表示中レイヤーを
+    // 再スタイルするため、古い紐付け集合のままだと解除済みが緑に残る）
+    mapRef.current?.setLinkedPolygonIds(new Set(areaMap.keys()));
     mapRef.current?.setPolygonAreaIds(toPolygonAreaIds(areaMap));
   }, []);
 

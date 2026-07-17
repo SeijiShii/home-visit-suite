@@ -8,6 +8,7 @@ import type {
 } from "map-polygon-editor";
 import { polygonCenter } from "./area-detail-geo";
 import { computeParentBoundaryEdges } from "./parent-boundary";
+import { parentAreaColorPair } from "./parent-area-color";
 import {
   requestCurrentLocation,
   resolveInitialMapView,
@@ -84,20 +85,28 @@ export interface PolygonStyle {
   color: string;
   weight: number;
   fillOpacity: number;
+  /** 塗り色を輪郭色と分けるとき指定（省略時は Leaflet 既定で color と同色） */
+  fillColor?: string;
 }
 
 export function getPolygonStyle(
   isLinked: boolean,
   isSelected: boolean,
+  areaId?: string,
 ): PolygonStyle {
   if (isLinked) {
+    // 紐付け済みは区域親番ごとに緑系数色を塗り分ける
+    // （docs/wants/03「区域親番ごとのポリゴン塗り分け」）
+    const pair = parentAreaColorPair(areaId);
     return isSelected
-      ? { color: "#166534", weight: 3, fillOpacity: 0.35 }
-      : { color: "#22c55e", weight: 2, fillOpacity: 0.15 };
+      ? { color: pair.selected, weight: 3, fillOpacity: 0.35 }
+      : { color: pair.base, weight: 2, fillOpacity: 0.15 };
   }
+  // 未紐付けは灰色（無彩色）。紐付くと色彩（緑系パレット）がつく
+  // （docs/wants/03「区域親番ごとのポリゴン塗り分け」）
   return isSelected
-    ? { color: "#1e40af", weight: 3, fillOpacity: 0.35 }
-    : { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
+    ? { color: "#475569", weight: 3, fillOpacity: 0.35 }
+    : { color: "#94a3b8", weight: 2, fillOpacity: 0.15 };
 }
 
 /** 親番境界線の専用 Leaflet ペイン名（overlayPane より下に固定描画） */
@@ -118,18 +127,35 @@ export function getParentBoundaryStyle(): {
 
 export type AreaDetailPolygonRole = "target" | "neighbor";
 
+/** 訪問記録画面（詳細モード）の親番色極薄塗りの不透明度 */
+const AREA_DETAIL_FILL_OPACITY = 0.08;
+
 /**
- * 訪問記録画面（詳細モード）用ポリゴンスタイル。塗りつぶしなし、
+ * 訪問記録画面（詳細モード）用ポリゴンスタイル。輪郭は
  * 対象=オレンジ太線/その他=水色細線（緑系はベース地図と紛れるため不採用）。
- * 仕様: docs/wants/03_地図機能.md「場所の直接編集」描画ルール。
+ * 塗りは区域親番ごとの塗り分け色を極薄で敷く。
+ * 仕様: docs/wants/03_地図機能.md「場所の直接編集」描画ルール・
+ * 「区域親番ごとのポリゴン塗り分け」。
  */
 export function getAreaDetailPolygonStyle(
   role: AreaDetailPolygonRole,
+  areaId?: string,
 ): PolygonStyle {
+  const fillColor = parentAreaColorPair(areaId).base;
   if (role === "target") {
-    return { color: "#f97316", weight: 4, fillOpacity: 0 };
+    return {
+      color: "#f97316",
+      weight: 4,
+      fillOpacity: AREA_DETAIL_FILL_OPACITY,
+      fillColor,
+    };
   }
-  return { color: "#38bdf8", weight: 2, fillOpacity: 0 };
+  return {
+    color: "#38bdf8",
+    weight: 2,
+    fillOpacity: AREA_DETAIL_FILL_OPACITY,
+    fillColor,
+  };
 }
 
 export type PlaceType = "house" | "building" | "room";
@@ -901,17 +927,27 @@ export class MapRenderer {
     const idStr = id as string;
     if (this.detailMode) {
       if (this.detailMode.targetIds.has(idStr)) {
-        return getAreaDetailPolygonStyle("target");
+        return getAreaDetailPolygonStyle(
+          "target",
+          this.polygonAreaIds.get(idStr),
+        );
       }
       if (this.detailMode.neighborIds.has(idStr)) {
-        return getAreaDetailPolygonStyle("neighbor");
+        return getAreaDetailPolygonStyle(
+          "neighbor",
+          this.polygonAreaIds.get(idStr),
+        );
       }
       // detail モード中は対象/隣接以外を非表示
       return null;
     }
     const isLinked = this.linkedPolygonIds.has(idStr);
     const isSelected = this.selectedId === idStr;
-    return getPolygonStyle(isLinked, isSelected);
+    return getPolygonStyle(
+      isLinked,
+      isSelected,
+      this.polygonAreaIds.get(idStr),
+    );
   }
 
   private addPolygonLayer(id: PolygonID): void {
@@ -1429,6 +1465,11 @@ export class MapRenderer {
     this.polygonAreaIds = new Map(ids);
     this.refreshAreaIdLabels();
     this.refreshParentBoundaries();
+    // 親番ごとの塗り分け色は区域ID対応に依存するため、表示中レイヤーを再スタイル
+    for (const [layerId, layer] of this.polygonLayers) {
+      const style = this.computePolygonStyle(layerId as PolygonID);
+      if (style) layer.setStyle(style);
+    }
   }
 
   /**
