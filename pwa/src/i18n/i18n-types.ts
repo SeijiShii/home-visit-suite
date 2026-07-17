@@ -404,6 +404,30 @@ export interface Translations {
     languageJa: string;
     languageEn: string;
   };
+  terms: {
+    title: string;
+    versionLabel: (version: string) => string;
+    gateHint: string;
+    agree: string;
+    aboutHeading: string;
+    aboutBody: string;
+    licenseHeading: string;
+    licenseBody: string;
+    dataHeading: string;
+    dataItem1: string;
+    dataItem2: string;
+    dataItem3: string;
+    disclaimerHeading: string;
+    disclaimerItem1: string;
+    disclaimerItem2: string;
+    disclaimerItem3: string;
+    revisionHeading: string;
+    revisionBody: string;
+    settingsSection: string;
+    settingsShow: string;
+    settingsHide: string;
+    settingsAccepted: (version: string) => string;
+  };
   onboarding: {
     title: string;
     subtitle: string;

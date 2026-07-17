@@ -4,6 +4,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCode } from "../components/QrCode";
+import { TermsDocument } from "../components/TermsDocument";
+import { TERMS_VERSION } from "../lib/terms";
 import { useI18n } from "../contexts/I18nContext";
 import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
@@ -46,6 +48,8 @@ export function SettingsPage() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileErr, setProfileErr] = useState<string>("");
   const [orphanMsg, setOrphanMsg] = useState<string>("");
+  // 使用許諾・免責事項の全文表示トグル（docs/wants/01「使用許諾と免責事項」）
+  const [showTerms, setShowTerms] = useState(false);
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
   const [pairingExpiresAt, setPairingExpiresAt] = useState<number>(0);
   const [pairingRemainingMs, setPairingRemainingMs] = useState<number>(0);
@@ -293,6 +297,25 @@ export function SettingsPage() {
             {t.settings.languageEn}
           </label>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <h2>{t.terms.settingsSection}</h2>
+        <p className="settings-section-description">
+          {t.terms.settingsAccepted(TERMS_VERSION)}
+        </p>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => setShowTerms((v) => !v)}
+        >
+          {showTerms ? t.terms.settingsHide : t.terms.settingsShow}
+        </button>
+        {showTerms && (
+          <div className="terms-document-scroll">
+            <TermsDocument />
+          </div>
+        )}
       </section>
 
       {hasIdentity && (

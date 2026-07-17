@@ -13,8 +13,11 @@ import {
   DEV_SEED_USERS,
   DevIdentityService,
 } from "./services/identity-service";
+import { TERMS_ACCEPTED_KEY, TERMS_VERSION, acceptTerms } from "./lib/terms";
 
-async function renderApp() {
+async function renderApp(opts: { termsAccepted?: boolean } = {}) {
+  // 大半のテストは同意ゲートの先の画面を対象とするため、既定で同意済みにする
+  if (opts.termsAccepted !== false) acceptTerms();
   const services = createInMemoryServices();
   for (const u of DEV_SEED_USERS) {
     await services.userRepo.saveUser(u);
@@ -84,6 +87,43 @@ describe("App", () => {
       await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
     expect(localStorage.getItem("ui.locale.mirror")).toBe("en");
+  });
+
+  it("未同意の初回起動では同意ゲートが表示され、同意すると通常画面へ進む", async () => {
+    await renderApp({ termsAccepted: false });
+    expect(
+      await screen.findByRole("heading", { name: "使用許諾および免責事項" }),
+    ).toBeInTheDocument();
+    // 同意前は通常画面（サイドバー等）を描画しない
+    expect(screen.queryByText("Home Visit")).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "同意して利用を開始" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "ダッシュボード" }),
+    ).toBeInTheDocument();
+    expect(localStorage.getItem(TERMS_ACCEPTED_KEY)).toBe(TERMS_VERSION);
+  });
+
+  it("旧バージョンにのみ同意済みの場合は再同意を求める", async () => {
+    localStorage.setItem(TERMS_ACCEPTED_KEY, "2000-01-01");
+    await renderApp({ termsAccepted: false });
+    expect(
+      await screen.findByRole("heading", { name: "使用許諾および免責事項" }),
+    ).toBeInTheDocument();
+  });
+
+  it("設定画面に使用許諾・免責事項の閲覧セクションがある", async () => {
+    await renderApp();
+    await userEvent.click(await screen.findByRole("link", { name: /設定/ }));
+    expect(
+      await screen.findByRole("heading", { name: "使用許諾・免責事項" }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "全文を表示" }));
+    expect(
+      screen.getByRole("heading", { name: "4. 免責事項" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/SeijiShii/)).toBeInTheDocument();
   });
 
   it("設定画面でアイデンティティを member に切替えるとメニューが絞られる", async () => {

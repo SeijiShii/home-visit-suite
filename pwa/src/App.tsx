@@ -28,8 +28,10 @@ import { PairPage } from "./pages/PairPage";
 import { RegionManagementPage } from "./pages/RegionManagementPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { TermsGatePage } from "./pages/TermsGatePage";
 import { UsersPage } from "./pages/UsersPage";
 import { VisitPageContainer } from "./pages/VisitPageContainer";
+import { isTermsAccepted } from "./lib/terms";
 
 /** 旧・区域詳細編集 URL を訪問記録画面へリダイレクトする（ブックマーク救済）。 */
 function RedirectAreaDetailToVisits() {
@@ -41,6 +43,9 @@ export default function App() {
   const { settingsService } = useServices();
   const { identityReady, hasIdentity, adoptRole } = useIdentity();
   const [hash, setHash] = useState<string>(() => window.location.hash);
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(() =>
+    isTermsAccepted(),
+  );
 
   useEffect(() => {
     const onHashChange = () => setHash(window.location.hash);
@@ -63,6 +68,13 @@ export default function App() {
     return () => window.removeEventListener(ASYNC_JOIN_EVENT, onDecision);
   }, [adoptRole]);
 
+  // 使用許諾・免責事項の同意ゲート。未同意（規約改定後を含む）なら全ルートに
+  // 優先して表示する。ハッシュ URL は消費しないため、同意後は下の分岐
+  // （ペアリング・参加・オンボーディング・通常画面）へそのまま進む。
+  // 仕様: docs/wants/01_共通基盤.md「使用許諾と免責事項」
+  if (!termsAccepted) {
+    return <TermsGatePage onAccept={() => setTermsAccepted(true)} />;
+  }
   // 起動時の identity 判定が済むまでは何も描画しない（オンボーディングのちらつき防止）。
   if (!identityReady) return null;
   // ペアリング URL（`#/pair?d=...`）はカメラアプリ/URL 入力からの起動。

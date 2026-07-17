@@ -425,6 +425,40 @@ const ja: Translations = {
     orphanButton: "孤立頂点を削除",
     orphanDone: (n: number) => `孤立頂点を ${n} 個削除しました`,
   },
+  terms: {
+    title: "使用許諾および免責事項",
+    versionLabel: (version: string) => `${version} 版`,
+    gateHint:
+      "ご利用の前に、以下の使用許諾および免責事項をお読みのうえ同意してください。",
+    agree: "同意して利用を開始",
+    aboutHeading: "1. 本アプリについて",
+    aboutBody:
+      "Home Visit Suite（以下「本アプリ」）は、開発者 SeijiShii（以下「開発者」）が無償で提供する訪問活動支援アプリです。ソースコードは Apache License 2.0 のもとで公開されています。",
+    licenseHeading: "2. 使用許諾",
+    licenseBody:
+      "本アプリは、本文書に同意した場合に限り、無償で使用できます。ソースコードの利用・改変・再配布は Apache License 2.0 に従ってください。",
+    dataHeading: "3. データの取扱い",
+    dataItem1:
+      "本アプリで作成されたデータは、あなたの端末と、同じグループに属するメンバーの端末にのみ保存されます。開発者がデータを収集することはありません。",
+    dataItem2:
+      "端末間の通信はエンドツーエンドで暗号化され、中継サーバーは内容を読むことができません。",
+    dataItem3:
+      "訪問記録などに含まれる個人情報は、利用者グループの責任において、法令に従って適切に取得・管理・削除してください。",
+    disclaimerHeading: "4. 免責事項",
+    disclaimerItem1:
+      "本アプリは現状有姿で提供され、動作・品質・特定目的への適合性について一切の保証をしません。",
+    disclaimerItem2:
+      "データの消失・同期の不具合・中継サーバーの停止など、本アプリの利用または利用不能から生じたいかなる損害についても、開発者は責任を負いません。",
+    disclaimerItem3:
+      "利用者が法令（個人情報の保護に関する法令を含む）に違反したことによる結果について、開発者は責任を負いません。",
+    revisionHeading: "5. 本文書の改定",
+    revisionBody:
+      "本文書は改定されることがあります。改定後は、次回起動時にあらためて同意をお願いします。",
+    settingsSection: "使用許諾・免責事項",
+    settingsShow: "全文を表示",
+    settingsHide: "閉じる",
+    settingsAccepted: (version: string) => `同意済み: ${version} 版`,
+  },
   onboarding: {
     title: "ようこそ",
     subtitle: "まず自分の ID を作成するか、既存の端末から引き継ぎます",

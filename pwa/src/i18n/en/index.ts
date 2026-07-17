@@ -424,6 +424,40 @@ const en: Translations = {
     orphanButton: "Delete orphan vertices",
     orphanDone: (n: number) => `Deleted ${n} orphan vertices`,
   },
+  terms: {
+    title: "License and Disclaimer",
+    versionLabel: (version: string) => `Version ${version}`,
+    gateHint:
+      "Before using the app, please read and agree to the following license and disclaimer.",
+    agree: "Agree and start",
+    aboutHeading: "1. About this app",
+    aboutBody:
+      'Home Visit Suite ("the app") is a visit-activity support app provided free of charge by its developer, SeijiShii ("the developer"). The source code is published under the Apache License 2.0.',
+    licenseHeading: "2. License",
+    licenseBody:
+      "You may use the app free of charge only if you agree to this document. Use, modification, and redistribution of the source code are governed by the Apache License 2.0.",
+    dataHeading: "3. Data handling",
+    dataItem1:
+      "Data created in the app is stored only on your devices and on the devices of members in your group. The developer does not collect your data.",
+    dataItem2:
+      "Communication between devices is end-to-end encrypted; relay servers cannot read its contents.",
+    dataItem3:
+      "Personal information contained in visit records and similar data must be collected, managed, and deleted lawfully, under the responsibility of your group.",
+    disclaimerHeading: "4. Disclaimer",
+    disclaimerItem1:
+      'The app is provided "as is", without warranty of any kind, including warranties of operation, quality, or fitness for a particular purpose.',
+    disclaimerItem2:
+      "The developer is not liable for any damages arising from use of, or inability to use, the app, including data loss, synchronization failures, and relay server outages.",
+    disclaimerItem3:
+      "The developer is not liable for the consequences of users violating laws, including laws on the protection of personal information.",
+    revisionHeading: "5. Revisions to this document",
+    revisionBody:
+      "This document may be revised. After a revision, you will be asked to agree again at the next launch.",
+    settingsSection: "License & Disclaimer",
+    settingsShow: "Show full text",
+    settingsHide: "Close",
+    settingsAccepted: (version: string) => `Agreed: version ${version}`,
+  },
   onboarding: {
     title: "Welcome",
     subtitle: "Create your ID, or carry it over from an existing device",
