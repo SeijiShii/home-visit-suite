@@ -80,7 +80,7 @@ function renderWithRoomOps(rooms: Place[]) {
 }
 
 function openEditRequest() {
-  fireEvent.click(screen.getByText("編集をリクエスト"));
+  fireEvent.click(screen.getByText("建物の編集をリクエスト"));
 }
 
 beforeEach(() => {
@@ -123,6 +123,25 @@ describe("BuildingVisitDialog の部屋の直接操作（部屋編集モード�
     expect(screen.queryByRole("button", { name: "部屋を追加" })).toBeNull();
     expect(screen.queryByRole("button", { name: "部屋番号を編集" })).toBeNull();
     expect(screen.queryByRole("button", { name: "部屋を削除" })).toBeNull();
+  });
+
+  it("下部アクション行は 閉じる → 部屋を編集 → 建物の編集をリクエスト の並び", () => {
+    renderWithRoomOps([]);
+    const actions = document.querySelector(".building-visit-actions")!;
+    const labels = Array.from(actions.querySelectorAll("button")).map(
+      (b) => b.textContent,
+    );
+    expect(labels).toEqual(["閉じる", "部屋を編集", "建物の編集をリクエスト"]);
+  });
+
+  it("編集モードでは「部屋を編集」の位置が「確定」に切り替わる", () => {
+    renderWithRoomOps([]);
+    enterRoomEditMode();
+    const actions = document.querySelector(".building-visit-actions")!;
+    const labels = Array.from(actions.querySelectorAll("button")).map(
+      (b) => b.textContent,
+    );
+    expect(labels).toEqual(["閉じる", "確定", "建物の編集をリクエスト"]);
   });
 
   it("通常表示では ✎/× を表示せず、行タップで部屋訪問ダイアログを開く", () => {

@@ -209,26 +209,40 @@ export function BuildingVisitDialog({
               })}
             </ul>
           )}
-          {roomOpsAvailable && !roomEditMode && (
+          {roomEditMode && onAddRoom && (
+            <div className="building-visit-room-edit-actions">
+              <button
+                type="button"
+                className="btn btn-sm building-visit-room-add"
+                onClick={openRoomAdd}
+              >
+                {t.visitRecord.buildingRoomAdd}
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* 下部アクション行: 閉じる →「部屋を編集」（編集モード中は「確定」）→
+            右端に「建物の編集をリクエスト」（仕様 docs/wants/08） */}
+        <div className="building-visit-actions">
+          <div className="building-visit-actions-left">
             <button
               type="button"
-              className="building-visit-rooms-edit-link"
-              onClick={() => setRoomEditMode(true)}
+              className="building-visit-cancel"
+              onClick={onCancel}
             >
-              {t.visitRecord.buildingRoomsEditLink}
+              {t.visitRecord.close}
             </button>
-          )}
-          {roomEditMode && (
-            <div className="building-visit-room-edit-actions">
-              {onAddRoom && (
-                <button
-                  type="button"
-                  className="btn btn-sm building-visit-room-add"
-                  onClick={openRoomAdd}
-                >
-                  {t.visitRecord.buildingRoomAdd}
-                </button>
-              )}
+            {roomOpsAvailable && !roomEditMode && (
+              <button
+                type="button"
+                className="building-visit-rooms-edit-link"
+                onClick={() => setRoomEditMode(true)}
+              >
+                {t.visitRecord.buildingRoomsEditLink}
+              </button>
+            )}
+            {roomEditMode && (
               <button
                 type="button"
                 className="btn btn-sm btn-primary building-visit-room-edit-done"
@@ -236,24 +250,14 @@ export function BuildingVisitDialog({
               >
                 {t.visitRecord.buildingRoomsEditDone}
               </button>
-            </div>
-          )}
-        </section>
-
-        <div className="building-visit-actions">
-          <button
-            type="button"
-            className="building-visit-cancel"
-            onClick={onCancel}
-          >
-            {t.visitRecord.close}
-          </button>
+            )}
+          </div>
           <button
             type="button"
             className="building-visit-edit-request"
             onClick={openEdit}
           >
-            {t.visitRecord.placeEditRequestButton}
+            {t.visitRecord.buildingEditRequestButton}
           </button>
         </div>
 

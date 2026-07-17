@@ -195,6 +195,7 @@ const ja: Translations = {
     buildingRoomDelete: "部屋を削除",
     buildingRoomsEditLink: "部屋を編集",
     buildingRoomsEditDone: "確定",
+    buildingEditRequestButton: "建物の編集をリクエスト",
     close: "閉じる",
     pageTitle: "訪問記録",
     areaLabel: "区域: {area}",

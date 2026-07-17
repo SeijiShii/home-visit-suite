@@ -1566,9 +1566,9 @@ section {
   background: #fff;
   border-color: #e5e7eb;
 }
-/* 通常表示 → 部屋編集モードへのリンクボタン（visit-record-edit-request と同系） */
+/* 通常表示 → 部屋編集モードへのリンクボタン（visit-record-edit-request と同系。
+   下部アクション行の「閉じる」の隣に置く） */
 .building-visit-rooms-edit-link {
-  margin-top: 8px;
   background: none;
   border: none;
   color: #2563eb;
@@ -1578,11 +1578,16 @@ section {
   font-size: 12px;
   padding: 4px;
 }
-/* 部屋編集モード下部の「部屋を追加」「確定」行 */
+/* 部屋編集モードで一覧下に出す「部屋を追加」行 */
 .building-visit-room-edit-actions {
   margin-top: 8px;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+/* 下部アクション行の左グループ（閉じる＋部屋を編集/確定） */
+.building-visit-actions-left {
+  display: flex;
   align-items: center;
   gap: 8px;
 }
