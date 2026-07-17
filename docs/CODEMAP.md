@@ -67,7 +67,7 @@
 - `data/linkself/linkself-place-repository.ts` — PlaceRepository の MyDB(SQL) 実装（places。OPFS 永続 + ScopeNetwork）(→01,08)
 - `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。OPFS 永続 + ScopeNetwork）(→01)
 ### 画面/コンポーネント
-- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合）(→10)
+- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合・頂点マージ後の紐付け補正＝分割継承/消滅解除・ロード時の無効紐付き修復スキャン）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント。現在地 watch の購読ライフサイクルと「現在地へ移動」ボタン配線（未取得時は単発取得→パン）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（名前/住所/補足＋部屋行は RoomRowsEditor・D&D 並替あり）
@@ -86,6 +86,8 @@
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
 - `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）
+- `lib/polygon-binding-fixup.ts` — 頂点マージ後の ChangeSet から区域紐付けの補正を算出する純ロジック（分割で新 ID が出たら分割元の区域へ bind・消滅したポリゴンは unbind）
+- `lib/area-binding-heal.ts` — 区域に紐付いたままの無効ポリゴンID（削除済み/面積ほぼ0）の検出純ロジック（地図画面ロード時の修復スキャンが使用）
 - `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群（飛地=複数対象ポリゴン・外接範囲中心）
 - `lib/area-detail-geo.ts` — 幾何計算基盤（重心/haversine/点内包/近傍削除場所探索）
 - `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層

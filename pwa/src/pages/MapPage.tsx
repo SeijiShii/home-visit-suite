@@ -39,6 +39,8 @@ import {
   buildPolygonAreaMap,
   toPolygonAreaIds,
 } from "../services/polygon-service";
+import { computeBindingFixup } from "../lib/polygon-binding-fixup";
+import { findStaleBindings } from "../lib/area-binding-heal";
 import {
   hasDuplicateSortOrder,
   renumberByGeometry,
@@ -52,6 +54,7 @@ import type {
   VertexID,
   PolygonSnapshot,
   NetworkPolygonEditor,
+  ChangeSet,
 } from "map-polygon-editor";
 import type { PolygonAreaInfo } from "../services/polygon-service";
 import type { AreaTreeNode } from "../services/region-service";
@@ -79,6 +82,10 @@ export function MapPage() {
   const [polygonAreaMap, setPolygonAreaMap] = useState<
     Map<string, PolygonAreaInfo>
   >(new Map());
+  // ドラッグ終了コールバックは編集モード開始時に固定されるため、
+  // 紐付け参照は ref 経由で常に最新を引く。
+  const polygonAreaMapRef = useRef(polygonAreaMap);
+  polygonAreaMapRef.current = polygonAreaMap;
   const [areaTree, setAreaTree] = useState<AreaTreeNode[]>([]);
   const [edgeMenu, setEdgeMenu] = useState<{
     x: number;
@@ -167,6 +174,41 @@ export function MapPage() {
     ready: editorReady,
   } = usePolygonEditor(mapBinding, regionBindingApi, mapReloadKey);
 
+  // ローカル編集の ChangeSet に対する区域紐付けの補正（wants 03「頂点ドラッグ
+  // での頂点統合」）: 分割で新 ID が出たら分割元の区域へ紐付け、消滅した紐付け
+  // 済みポリゴンは解除する。分割・消滅は頂点マージに限らず弦の描画・交差解決
+  // でも起きるため、ChangeSet を生むすべてのローカル編集経路から呼ぶ。
+  const applyBindingFixup = useCallback(
+    (cs: ChangeSet) => {
+      const fixup = computeBindingFixup(
+        cs,
+        (pid) => polygonAreaMapRef.current.get(pid)?.areaId,
+      );
+      if (fixup.bind.length === 0 && fixup.unbind.length === 0) return;
+      void (async () => {
+        try {
+          for (const b of fixup.bind) {
+            await polygonService?.bindPolygonToArea(
+              b.polygonId as PolygonID,
+              b.areaId,
+            );
+          }
+          for (const u of fixup.unbind) {
+            await polygonService?.unbindPolygonFromArea(
+              u.areaId,
+              u.polygonId as PolygonID,
+            );
+          }
+          await reloadPolygonsRef.current();
+          await treeRef.current?.reload();
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    },
+    [polygonService],
+  );
+
   // --- AreaTreeからの変更通知 ---
 
   const handleTreeChanged = useCallback((tree: AreaTreeNode[]) => {
@@ -197,13 +239,48 @@ export function MapPage() {
   }, [polygonService, editor, regionService, refreshPlaceOverlay]);
   reloadPolygonsRef.current = reloadPolygons;
 
-  // エディタ準備完了時に初期描画
+  // エディタ準備完了時に初期描画 + 無効ポリゴンID紐付きの修復スキャン
+  // （wants 03「区域紐付けの無効ポリゴン ID 修復」。削除済み・面積ほぼ0の
+  // ポリゴンIDが紐付いたまま残っていたらサイレントに解除する）。
+  // 解除は共有ストアへの書き込みとして全メンバーへ伝播するため保護を掛ける:
+  // - 実行はマウントごとに 1 回のみ（受信追従のエディタ再初期化では再実行しない）
+  // - 「存在しない ID」(missing) の解除はローカルにポリゴンが 1 件以上ある場合
+  //   のみ（P2P 同期の未着端末が全紐付けを誤解除しないため）。面積ほぼ0
+  //   (degenerate) は実データで破綻を確認できるため常に解除
+  // - 非同期の途中でエディタが差し替わったら中断（世代ガード）
+  const healDoneRef = useRef(false);
   useEffect(() => {
     if (!editorReady || !editor) return;
     editorRef.current = editor;
     mapRef.current?.setEditor(editor);
-    reloadPolygons();
-  }, [editorReady, editor, reloadPolygons]);
+    void (async () => {
+      await reloadPolygons();
+      if (!polygonService || healDoneRef.current) return;
+      healDoneRef.current = true;
+      try {
+        const tree = await regionService.loadTree();
+        if (editorRef.current !== editor) return;
+        const hasLocalPolygons = editor.getPolygons().length > 0;
+        const stale = findStaleBindings(tree, (pid) =>
+          editor.getPolygonGeoJSON(pid as PolygonID),
+        ).filter((s) => s.reason === "degenerate" || hasLocalPolygons);
+        if (stale.length === 0) return;
+        for (const s of stale) {
+          if (editorRef.current !== editor) return;
+          await polygonService.unbindPolygonFromArea(
+            s.areaId,
+            s.polygonId as PolygonID,
+          );
+        }
+        // ref 経由で常に最新の reload を呼ぶ（unbind 中にエディタが差し
+        // 替わった場合、旧クロージャの reload が新表示を上書きしないように）
+        await reloadPolygonsRef.current();
+        await treeRef.current?.reload();
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [editorReady, editor, polygonService, regionService, reloadPolygons]);
 
   // 地図データロード完了後、セッション中 1 回だけポリゴン描画ヘルプを流す
   useEffect(() => {
@@ -285,6 +362,7 @@ export function MapPage() {
         mapRef.current?.applyChangeSet(cs);
         setPolygons(ed.getPolygons());
         ed.save().catch(console.error);
+        applyBindingFixup(cs);
       },
     });
   };
@@ -374,6 +452,8 @@ export function MapPage() {
       }
 
       mapRef.current?.applyChangeSet(cs);
+      // 弦の描画（既存頂点/線分への接続）でもポリゴン分割・消滅は起き得る
+      applyBindingFixup(cs);
 
       // 既存頂点にスナップして描画継続（開始時）→ ラバーバンド起点を設定
       if (nearVertex && ed.getMode() === "drawing") {
@@ -396,7 +476,7 @@ export function MapPage() {
         setPolygons(ed.getPolygons());
       }
     },
-    [actions, snapshot.mode],
+    [actions, snapshot.mode, applyBindingFixup],
   );
 
   // --- ツールバーアクション ---
@@ -411,16 +491,19 @@ export function MapPage() {
     if (!editorRef.current) return;
     const cs = editorRef.current.endDrawing();
     mapRef.current?.applyChangeSet(cs);
+    applyBindingFixup(cs);
     actions.endDrawing();
-  }, [actions]);
+  }, [actions, applyBindingFixup]);
 
   const handleUndoDrawing = useCallback(() => {
     if (!editorRef.current) return;
     const cs = editorRef.current.undo();
     if (cs) {
       mapRef.current?.applyChangeSet(cs);
+      // undo で消滅したポリゴンの紐付け解除（分割 undo 時の新 ID 側など）
+      applyBindingFixup(cs);
     }
-  }, []);
+  }, [applyBindingFixup]);
 
   const handleContextMenu = useCallback(
     (lat: number, lng: number, containerX: number, containerY: number) => {
@@ -470,9 +553,10 @@ export function MapPage() {
       edgeMenu.lng,
     );
     mapRef.current?.applyChangeSet(cs);
+    applyBindingFixup(cs);
     editorRef.current.save().catch(console.error);
     setEdgeMenu(null);
-  }, [edgeMenu]);
+  }, [edgeMenu, applyBindingFixup]);
 
   const handleVertexDelete = useCallback(() => {
     if (!vertexMenu || !editorRef.current) return;
@@ -481,19 +565,21 @@ export function MapPage() {
     const cs = editorRef.current.dissolveVertex(vertexMenu.vertexId);
     if (cs.vertices.removed.length > 0) {
       mapRef.current?.applyChangeSet(cs);
+      applyBindingFixup(cs);
       editorRef.current.save().catch(console.error);
       setPolygons(editorRef.current.getPolygons());
     }
     setVertexMenu(null);
-  }, [vertexMenu]);
+  }, [vertexMenu, applyBindingFixup]);
 
   const handlePruneOrphans = useCallback(() => {
     if (!editorRef.current) return;
     const cs = editorRef.current.pruneOrphans();
     mapRef.current?.applyChangeSet(cs);
+    applyBindingFixup(cs);
     editorRef.current.save().catch(console.error);
     setPolygons(editorRef.current.getPolygons());
-  }, []);
+  }, [applyBindingFixup]);
 
   const handleFinishEditing = useCallback(() => {
     mapRef.current?.disableVertexDrag();
