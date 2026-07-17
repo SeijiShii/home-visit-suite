@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 import type { Place } from "../services/place-service";
 import {
   applyRoomRowsSave,
+  buildRoomRows,
   findRestorableRoom,
-  planRoomAdd,
+  roomRowsUnchanged,
 } from "./building-flow";
 
 function makeRoom(overrides: Partial<Place>): Place {
@@ -104,61 +105,38 @@ describe("findRestorableRoom", () => {
   });
 });
 
-describe("planRoomAdd", () => {
-  const base = {
-    buildingId: "bldg-1",
-    areaId: "NRT-001-01",
-  };
-
-  it("削除済み一致がなければ新規 Room を末尾 SortOrder で作る", () => {
-    const existing = [
-      makeRoom({ id: "r1", sortOrder: 0 }),
-      makeRoom({ id: "r2", sortOrder: 3 }),
+describe("buildRoomRows / roomRowsUnchanged（部屋編集モードの行構築と変更判定）", () => {
+  it("既存 Room を sortOrder 昇順で行にする（existingId 付与）", () => {
+    const rooms = [
+      makeRoom({ id: "r2", displayName: "102", sortOrder: 1 }),
+      makeRoom({ id: "r1", displayName: "101", sortOrder: 0 }),
     ];
-    const place = planRoomAdd({
-      ...base,
-      deletedRooms: [],
-      existingRooms: existing,
-      displayName: " 205 ",
-    });
-    expect(place.id).toBe(""); // 新規（id は保存時に採番）
-    expect(place.type).toBe("room");
-    expect(place.parentId).toBe("bldg-1");
-    expect(place.areaId).toBe("NRT-001-01");
-    expect(place.displayName).toBe("205");
-    expect(place.sortOrder).toBe(4);
-    expect(place.coord).toEqual({ lat: 0, lng: 0 });
-    expect(place.deletedAt).toBeNull();
+    expect(buildRoomRows(rooms)).toEqual([
+      { key: "existing-r1", existingId: "r1", displayName: "101" },
+      { key: "existing-r2", existingId: "r2", displayName: "102" },
+    ]);
   });
 
-  it("既存部屋がなければ SortOrder は 0", () => {
-    const place = planRoomAdd({
-      ...base,
-      deletedRooms: [],
-      existingRooms: [],
-      displayName: "101",
-    });
-    expect(place.sortOrder).toBe(0);
+  it("Room が 0 件なら空の新規行を 1 つ作る", () => {
+    const rows = buildRoomRows([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].existingId).toBeNull();
+    expect(rows[0].displayName).toBe("");
   });
 
-  it("部屋番号一致の削除済み Room があれば同一 ID で復元する", () => {
-    const deleted = makeRoom({
-      id: "room-restored",
-      displayName: "101",
-      sortOrder: 1,
-      deletedAt: "2026-07-01T00:00:00.000Z",
-    });
-    const existing = [makeRoom({ id: "r1", sortOrder: 5 })];
-    const place = planRoomAdd({
-      ...base,
-      deletedRooms: [deleted],
-      existingRooms: existing,
-      displayName: "101",
-    });
-    expect(place.id).toBe("room-restored");
-    expect(place.deletedAt).toBeNull();
-    expect(place.sortOrder).toBe(6); // 末尾に追加
-    expect(place.displayName).toBe("101");
+  it("roomRowsUnchanged は番号変更・行追加・行削除を変更として検出する", () => {
+    const base = buildRoomRows([makeRoom({ id: "r1", displayName: "101" })]);
+    expect(roomRowsUnchanged(base, [...base])).toBe(true);
+    expect(roomRowsUnchanged(base, [{ ...base[0], displayName: "202" }])).toBe(
+      false,
+    );
+    expect(
+      roomRowsUnchanged(base, [
+        ...base,
+        { key: "new-1", existingId: null, displayName: "" },
+      ]),
+    ).toBe(false);
+    expect(roomRowsUnchanged(base, [])).toBe(false);
   });
 });
 
@@ -195,6 +173,7 @@ describe("applyRoomRowsSave（集合住宅編集ダイアログの差分保存�
     const svc = makeFakeService([room101]);
     await applyRoomRowsSave(svc, {
       existingRooms: [room101],
+      baseExistingIds: ["room-101"],
       rows: [{ key: "k1", existingId: null, displayName: "101" }],
       buildingId: "bldg-1",
       areaId: "NRT-001-01",
@@ -216,6 +195,7 @@ describe("applyRoomRowsSave（集合住宅編集ダイアログの差分保存�
     const svc = makeFakeService([room101, room102]);
     await applyRoomRowsSave(svc, {
       existingRooms: [room101, room102],
+      baseExistingIds: ["room-101", "room-102"],
       rows: [
         { key: "k1", existingId: "room-101", displayName: "101A" },
         { key: "k2", existingId: null, displayName: "201" },
@@ -240,6 +220,7 @@ describe("applyRoomRowsSave（集合住宅編集ダイアログの差分保存�
     const svc = makeFakeService([deleted]);
     await applyRoomRowsSave(svc, {
       existingRooms: [],
+      baseExistingIds: [],
       rows: [{ key: "k1", existingId: null, displayName: "301" }],
       buildingId: "bldg-1",
       areaId: "NRT-001-01",
@@ -257,6 +238,7 @@ describe("applyRoomRowsSave（集合住宅編集ダイアログの差分保存�
     const svc = makeFakeService([deleted]);
     await applyRoomRowsSave(svc, {
       existingRooms: [],
+      baseExistingIds: [],
       rows: [
         { key: "k1", existingId: null, displayName: "101" },
         { key: "k2", existingId: null, displayName: "101" },
@@ -267,5 +249,45 @@ describe("applyRoomRowsSave（集合住宅編集ダイアログの差分保存�
     // 1 行目は復元、2 行目は新規作成
     expect(svc.store.get("room-old")?.deletedAt).toBeNull();
     expect(svc.store.size).toBe(2);
+  });
+
+  it("編集開始後に同期受信で増えた部屋（base に無い）は削除・変更の対象にしない", async () => {
+    const room101 = makeRoom({ id: "room-101", displayName: "101" });
+    // 編集モード進入後に他端末から同期された部屋（行としては提示されていない）
+    const roomSynced = makeRoom({
+      id: "room-synced",
+      displayName: "103",
+      sortOrder: 2,
+    });
+    const svc = makeFakeService([room101, roomSynced]);
+    await applyRoomRowsSave(svc, {
+      existingRooms: [room101, roomSynced],
+      baseExistingIds: ["room-101"],
+      rows: [{ key: "k1", existingId: "room-101", displayName: "101A" }],
+      buildingId: "bldg-1",
+      areaId: "NRT-001-01",
+    });
+    expect(svc.store.get("room-101")?.displayName).toBe("101A");
+    // 行に無いが base 外なので巻き添え削除しない
+    expect(svc.store.get("room-synced")?.deletedAt).toBeFalsy();
+    expect(svc.saved.find((p) => p.id === "room-synced")).toBeUndefined();
+  });
+
+  it("部屋番号は前後空白を除去して保存する", async () => {
+    const room101 = makeRoom({ id: "room-101", displayName: "101" });
+    const svc = makeFakeService([room101]);
+    await applyRoomRowsSave(svc, {
+      existingRooms: [room101],
+      baseExistingIds: ["room-101"],
+      rows: [
+        { key: "k1", existingId: "room-101", displayName: " 101A " },
+        { key: "k2", existingId: null, displayName: " 205 " },
+      ],
+      buildingId: "bldg-1",
+      areaId: "NRT-001-01",
+    });
+    expect(svc.store.get("room-101")?.displayName).toBe("101A");
+    const added = [...svc.store.values()].find((p) => p.id.startsWith("gen-"));
+    expect(added?.displayName).toBe("205");
   });
 });

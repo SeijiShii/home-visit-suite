@@ -1030,6 +1030,10 @@ section {
   gap: 6px;
   cursor: move;
 }
+/* D&D 並び替え無効時（訪問ダイアログの部屋編集モード） */
+.building-room-row.static {
+  cursor: default;
+}
 .building-room-row input {
   flex: 1;
   padding: 4px 6px;
@@ -1552,20 +1556,6 @@ section {
 .building-visit-room-row .building-visit-room-number {
   flex: 1;
 }
-/* 部屋行の編集/削除ボタン（タッチ端末でも押しやすい最小サイズを確保） */
-.building-visit-room-action {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 2px 8px;
-  flex-shrink: 0;
-}
-/* 部屋編集モード中の行は行タップ無効（押せる affordance を消す） */
-.building-visit-room-row.editing,
-.building-visit-room-row.editing:hover {
-  cursor: default;
-  background: #fff;
-  border-color: #e5e7eb;
-}
 /* 通常表示 → 部屋編集モードへのリンクボタン（visit-record-edit-request と同系。
    下部アクション行の「閉じる」の隣に置く） */
 .building-visit-rooms-edit-link {
@@ -1578,14 +1568,7 @@ section {
   font-size: 12px;
   padding: 4px;
 }
-/* 部屋編集モードで一覧下に出す「部屋を追加」行 */
-.building-visit-room-edit-actions {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-/* 下部アクション行の左グループ（閉じる＋部屋を編集/確定） */
+/* 下部アクション行の左グループ（閉じる/キャンセル＋部屋を編集/確定） */
 .building-visit-actions-left {
   display: flex;
   align-items: center;

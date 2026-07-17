@@ -3,6 +3,12 @@ import { useI18n } from "../contexts/I18nContext";
 import { lastVisitColorClass } from "../lib/visit-date-color";
 import type { Place } from "../services/place-service";
 import {
+  buildRoomRows,
+  roomRowsUnchanged,
+  type RoomRow,
+} from "../lib/building-flow";
+import { RoomRowsEditor } from "./RoomRowsEditor";
+import {
   PLACE_EDIT_REQUEST_KINDS,
   editKindLabel,
   type PlaceEditRequestKind,
@@ -18,23 +24,21 @@ export interface BuildingVisitDialogProps {
   roomLastVisitMap: ReadonlyMap<string, Date | null>;
   onSelectRoom: (room: Place) => void;
   /**
-   * 部屋の直接操作（追加/部屋番号編集/削除）。全メンバー・全端末（タッチ含む）が
-   * editable モードで利用できる。未指定なら操作 UI を表示しない（read-only 等）。
-   * 仕様 docs/wants/08「集合住宅訪問ダイアログ／部屋の追加・編集・削除」
+   * 部屋編集モードの「確定」時に編集後の行リストを一括保存する。
+   * baseExistingIds は編集開始時に行として提示した Room の ID 集合で、
+   * 差分適用の削除・変更をこの範囲に限定する（編集中の同期受信分を
+   * 巻き添えにしない。docs/wants/08）。
+   * 全メンバー・全端末（タッチ含む）が editable モードで利用できる。
+   * 未指定なら「部屋を編集」リンクを表示しない（read-only 等）。
    */
-  onAddRoom?: (displayName: string) => void;
-  onRenameRoom?: (room: Place, displayName: string) => void;
-  onDeleteRoom?: (room: Place) => void;
+  onSaveRooms?: (rows: RoomRow[], baseExistingIds: string[]) => void;
   /**
-   * 「編集をリクエスト」送信時。種別（要削除/要移動/その他）と詳細テキスト。
+   * 「建物の編集をリクエスト」送信時。種別（要削除/要移動/その他）と詳細テキスト。
    * 仕様 docs/wants/07_通知と申請.md「場所操作の権限 / 申請種別」
    */
   onPlaceEditRequest: (kind: PlaceEditRequestKind, text: string) => void;
   onCancel: () => void;
 }
-
-/** 部屋番号入力の小ダイアログの状態（追加 or 既存部屋の番号編集） */
-type RoomEditorState = { mode: "add" } | { mode: "edit"; room: Place };
 
 function formatDate(d: Date): string {
   const y = d.getFullYear();
@@ -50,9 +54,7 @@ export function BuildingVisitDialog({
   rooms,
   roomLastVisitMap,
   onSelectRoom,
-  onAddRoom,
-  onRenameRoom,
-  onDeleteRoom,
+  onSaveRooms,
   onPlaceEditRequest,
   onCancel,
 }: BuildingVisitDialogProps) {
@@ -60,53 +62,71 @@ export function BuildingVisitDialog({
   const [editOpen, setEditOpen] = useState(false);
   const [editKind, setEditKind] = useState<PlaceEditRequestKind>("other");
   const [editText, setEditText] = useState("");
-  const [roomEditor, setRoomEditor] = useState<RoomEditorState | null>(null);
-  const [roomNumberInput, setRoomNumberInput] = useState("");
-  const [roomDeleteTarget, setRoomDeleteTarget] = useState<Place | null>(null);
-  // 部屋編集モード（通常表示と分離。仕様 docs/wants/08「部屋の追加・編集・削除」）
-  const [roomEditMode, setRoomEditMode] = useState(false);
-  const roomOpsAvailable = !!(onAddRoom || onRenameRoom || onDeleteRoom);
+  // 部屋編集モード（通常表示と分離。UI は集合住宅編集ダイアログと共通の
+  // RoomRowsEditor、保存は「確定」で一括適用。仕様 docs/wants/08）
+  const [roomRows, setRoomRows] = useState<RoomRow[] | null>(null);
+  const [initialRoomRows, setInitialRoomRows] = useState<RoomRow[]>([]);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+
+  const roomEditMode = roomRows !== null;
+  const roomsDirty =
+    roomRows !== null && !roomRowsUnchanged(initialRoomRows, roomRows);
+
+  const enterRoomEditMode = () => {
+    const rows = buildRoomRows(rooms);
+    setInitialRoomRows(rows);
+    setRoomRows(rows);
+  };
+
+  const exitRoomEditMode = () => {
+    setRoomRows(null);
+    setDiscardConfirmOpen(false);
+  };
+
+  const submitRoomEdit = () => {
+    if (roomRows === null) return;
+    if (roomsDirty) {
+      const baseExistingIds = initialRoomRows
+        .map((r) => r.existingId)
+        .filter((id): id is string => id !== null);
+      onSaveRooms?.(roomRows, baseExistingIds);
+    }
+    exitRoomEditMode();
+  };
+
+  const requestCancelRoomEdit = () => {
+    if (roomsDirty) {
+      setDiscardConfirmOpen(true);
+      return;
+    }
+    exitRoomEditMode();
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
+      if (e.key !== "Escape") return;
+      if (editOpen) {
+        setEditOpen(false);
+        return;
+      }
+      if (discardConfirmOpen) {
+        setDiscardConfirmOpen(false);
+        return;
+      }
+      if (roomEditMode) {
+        requestCancelRoomEdit();
+        return;
+      }
+      onCancel();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  });
 
   const openEdit = () => {
     setEditKind("other");
     setEditText("");
     setEditOpen(true);
-  };
-
-  const openRoomAdd = () => {
-    setRoomNumberInput("");
-    setRoomEditor({ mode: "add" });
-  };
-
-  const openRoomEdit = (room: Place) => {
-    setRoomNumberInput(room.displayName);
-    setRoomEditor({ mode: "edit", room });
-  };
-
-  // 部屋番号は必須（空欄の部屋行が必要な場合は集合住宅編集ダイアログで扱う）
-  const roomNumberTrimmed = roomNumberInput.trim();
-
-  const submitRoomEditor = () => {
-    if (!roomEditor || roomNumberTrimmed.length === 0) return;
-    if (roomEditor.mode === "add") {
-      onAddRoom?.(roomNumberTrimmed);
-    } else {
-      onRenameRoom?.(roomEditor.room, roomNumberTrimmed);
-    }
-    setRoomEditor(null);
-  };
-
-  const confirmRoomDelete = () => {
-    if (roomDeleteTarget) onDeleteRoom?.(roomDeleteTarget);
-    setRoomDeleteTarget(null);
   };
 
   // 詳細テキストは原則必須。要削除のみ任意（仕様 docs/wants/08「編集をリクエスト」）
@@ -141,7 +161,13 @@ export function BuildingVisitDialog({
 
         <section className="building-visit-rooms">
           <h4>{t.visitRecord.buildingRoomsTitle}</h4>
-          {rooms.length === 0 ? (
+          {roomEditMode ? (
+            <RoomRowsEditor
+              rows={roomRows}
+              onRowsChange={setRoomRows}
+              allowReorder={false}
+            />
+          ) : rooms.length === 0 ? (
             <p className="building-visit-rooms-empty">
               {t.visitRecord.buildingRoomsEmpty}
             </p>
@@ -149,29 +175,20 @@ export function BuildingVisitDialog({
             <ul className="building-visit-room-list" role="list">
               {rooms.map((room) => {
                 const lastVisit = roomLastVisitMap.get(room.id) ?? null;
-                // 編集モードでは行タップ（部屋訪問ダイアログ）を無効化し
-                // ✎/× ボタンのみ受け付ける（記録フローとの誤操作分離）
-                const rowInteractive = !roomEditMode;
                 return (
                   <li
                     key={room.id}
                     data-testid="room-row"
-                    className={`building-visit-room-row${roomEditMode ? " editing" : ""}`}
-                    role={rowInteractive ? "button" : undefined}
-                    tabIndex={rowInteractive ? 0 : undefined}
-                    onClick={
-                      rowInteractive ? () => onSelectRoom(room) : undefined
-                    }
-                    onKeyDown={
-                      rowInteractive
-                        ? (e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              onSelectRoom(room);
-                            }
-                          }
-                        : undefined
-                    }
+                    className="building-visit-room-row"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelectRoom(room)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectRoom(room);
+                      }
+                    }}
                   >
                     <span className="building-visit-room-number">
                       {room.displayName || "—"}
@@ -184,60 +201,40 @@ export function BuildingVisitDialog({
                         {formatDate(lastVisit)}
                       </span>
                     )}
-                    {roomEditMode && onRenameRoom && (
-                      <button
-                        type="button"
-                        className="btn btn-sm building-visit-room-action"
-                        aria-label={t.visitRecord.buildingRoomEdit}
-                        onClick={() => openRoomEdit(room)}
-                      >
-                        ✎
-                      </button>
-                    )}
-                    {roomEditMode && onDeleteRoom && (
-                      <button
-                        type="button"
-                        className="btn btn-sm building-visit-room-action"
-                        aria-label={t.visitRecord.buildingRoomDelete}
-                        onClick={() => setRoomDeleteTarget(room)}
-                      >
-                        ×
-                      </button>
-                    )}
                   </li>
                 );
               })}
             </ul>
           )}
-          {roomEditMode && onAddRoom && (
-            <div className="building-visit-room-edit-actions">
-              <button
-                type="button"
-                className="btn btn-sm building-visit-room-add"
-                onClick={openRoomAdd}
-              >
-                {t.visitRecord.buildingRoomAdd}
-              </button>
-            </div>
-          )}
         </section>
 
-        {/* 下部アクション行: 閉じる →「部屋を編集」（編集モード中は「確定」）→
-            右端に「建物の編集をリクエスト」（仕様 docs/wants/08） */}
+        {/* 下部アクション行: 閉じる（編集モード中はキャンセル）→
+            部屋を編集（編集モード中は確定）→ 右端に建物の編集をリクエスト
+            （仕様 docs/wants/08） */}
         <div className="building-visit-actions">
           <div className="building-visit-actions-left">
-            <button
-              type="button"
-              className="building-visit-cancel"
-              onClick={onCancel}
-            >
-              {t.visitRecord.close}
-            </button>
-            {roomOpsAvailable && !roomEditMode && (
+            {roomEditMode ? (
+              <button
+                type="button"
+                className="building-visit-cancel"
+                onClick={requestCancelRoomEdit}
+              >
+                {t.areaDetail.cancel}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="building-visit-cancel"
+                onClick={onCancel}
+              >
+                {t.visitRecord.close}
+              </button>
+            )}
+            {onSaveRooms && !roomEditMode && (
               <button
                 type="button"
                 className="building-visit-rooms-edit-link"
-                onClick={() => setRoomEditMode(true)}
+                onClick={enterRoomEditMode}
               >
                 {t.visitRecord.buildingRoomsEditLink}
               </button>
@@ -246,7 +243,7 @@ export function BuildingVisitDialog({
               <button
                 type="button"
                 className="btn btn-sm btn-primary building-visit-room-edit-done"
-                onClick={() => setRoomEditMode(false)}
+                onClick={submitRoomEdit}
               >
                 {t.visitRecord.buildingRoomsEditDone}
               </button>
@@ -316,64 +313,24 @@ export function BuildingVisitDialog({
           </div>
         )}
 
-        {roomEditor && (
-          // 実バックドロップで背後の行操作を遮断する（対象すり替え防止）
+        {discardConfirmOpen && (
+          // 実バックドロップで背後の行操作を遮断する
           <div className="dialog-backdrop">
             <div
               role="dialog"
-              aria-label={
-                roomEditor.mode === "add"
-                  ? t.visitRecord.buildingRoomAdd
-                  : t.visitRecord.buildingRoomEdit
-              }
+              aria-label={t.visitRecord.buildingRoomsDiscardConfirm}
               className="building-visit-edit-dialog"
             >
-              <h4>
-                {roomEditor.mode === "add"
-                  ? t.visitRecord.buildingRoomAdd
-                  : t.visitRecord.buildingRoomEdit}
-              </h4>
-              <label className="building-visit-edit-field">
-                <span>{t.areaDetail.buildingRoomNumberPlaceholder}</span>
-                <input
-                  type="text"
-                  value={roomNumberInput}
-                  onChange={(e) => setRoomNumberInput(e.target.value)}
-                  placeholder={t.areaDetail.buildingRoomNumberPlaceholder}
-                  autoFocus
-                />
-              </label>
+              <p>{t.visitRecord.buildingRoomsDiscardConfirm}</p>
               <div className="building-visit-edit-actions">
-                <button type="button" onClick={() => setRoomEditor(null)}>
-                  {t.areaDetail.cancel}
-                </button>
                 <button
                   type="button"
-                  onClick={submitRoomEditor}
-                  disabled={roomNumberTrimmed.length === 0}
+                  onClick={() => setDiscardConfirmOpen(false)}
                 >
-                  {t.areaDetail.save}
+                  {t.areaDetail.no}
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {roomDeleteTarget && (
-          // 実バックドロップで背後の行操作を遮断する（対象すり替え防止）
-          <div className="dialog-backdrop">
-            <div
-              role="dialog"
-              aria-label={t.areaDetail.buildingConfirmRemoveExistingRoom}
-              className="building-visit-edit-dialog"
-            >
-              <p>{t.areaDetail.buildingConfirmRemoveExistingRoom}</p>
-              <div className="building-visit-edit-actions">
-                <button type="button" onClick={() => setRoomDeleteTarget(null)}>
-                  {t.areaDetail.cancel}
-                </button>
-                <button type="button" onClick={confirmRoomDelete}>
-                  {t.areaDetail.deletePlace}
+                <button type="button" onClick={exitRoomEditMode}>
+                  {t.areaDetail.yes}
                 </button>
               </div>
             </div>

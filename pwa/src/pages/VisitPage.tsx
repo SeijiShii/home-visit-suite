@@ -31,7 +31,7 @@ import type {
   VisitService as VisitServiceClass,
 } from "../services/visit-service";
 import { nextSortOrder, reorderPlaces } from "../lib/place-sort-order";
-import { applyRoomRowsSave, planRoomAdd } from "../lib/building-flow";
+import { applyRoomRowsSave, type RoomRow } from "../lib/building-flow";
 import type { PolygonGeoSource } from "../lib/area-detail-controller";
 import {
   addPlaceFlowReducer,
@@ -393,60 +393,34 @@ export function VisitPage({
     [visitService, actorId, places],
   );
 
-  // --- 部屋の直接操作（追加/部屋番号編集/削除。全メンバー・全端末） ---
-  // 仕様 docs/wants/08「集合住宅訪問ダイアログ／部屋の追加・編集・削除」
-  // 追加は同一 Building 内の同番号削除済み Room を復元する
+  // --- 部屋の直接編集（部屋編集モードの「確定」で一括保存。全メンバー・全端末） ---
+  // 仕様 docs/wants/08「集合住宅訪問ダイアログ／部屋の追加・編集・削除」。
+  // 差分適用と同番号削除済み Room の復元は applyRoomRowsSave に共通化
   // （docs/wants/03「部屋（Room）の同番号復元」）。
 
-  const handleAddRoom = useCallback(
-    async (buildingId: string, displayName: string) => {
+  const handleSaveRooms = useCallback(
+    async (
+      buildingId: string,
+      rows: readonly RoomRow[],
+      baseExistingIds: readonly string[],
+    ) => {
       try {
-        const deletedRooms = placeService.listDeletedRooms
-          ? await placeService.listDeletedRooms(buildingId).catch(() => [])
-          : [];
         const existingRooms = rooms.filter(
           (r) => r.parentId === buildingId && !r.deletedAt,
         );
-        await placeService.savePlace(
-          planRoomAdd({
-            deletedRooms,
-            existingRooms,
-            buildingId,
-            areaId,
-            displayName,
-          }),
-        );
+        await applyRoomRowsSave(placeService, {
+          existingRooms,
+          baseExistingIds,
+          rows,
+          buildingId,
+          areaId,
+        });
       } catch (err) {
-        console.error("[VisitPage] add room failed:", err);
+        console.error("[VisitPage] save rooms failed:", err);
       }
       bumpRefresh();
     },
     [placeService, rooms, areaId, bumpRefresh],
-  );
-
-  const handleRenameRoom = useCallback(
-    async (room: Place, displayName: string) => {
-      try {
-        await placeService.savePlace({ ...room, displayName });
-      } catch (err) {
-        console.error("[VisitPage] rename room failed:", err);
-      }
-      bumpRefresh();
-    },
-    [placeService, bumpRefresh],
-  );
-
-  const handleDeleteRoom = useCallback(
-    async (room: Place) => {
-      if (!placeService.deletePlace) return;
-      try {
-        await placeService.deletePlace(room.id);
-      } catch (err) {
-        console.error("[VisitPage] delete room failed:", err);
-      }
-      bumpRefresh();
-    },
-    [placeService, bumpRefresh],
   );
 
   const handleMapContextMenu = useCallback(
@@ -812,6 +786,7 @@ export function VisitPage({
           );
           await applyRoomRowsSave(placeService, {
             existingRooms: existing,
+            baseExistingIds: args.baseRoomIds,
             rows: args.rows,
             buildingId,
             areaId,
@@ -1006,11 +981,9 @@ export function VisitPage({
             .sort((a, b) => a.sortOrder - b.sortOrder)}
           roomLastVisitMap={new Map()}
           onSelectRoom={openRoomDialog}
-          onAddRoom={(displayName) =>
-            handleAddRoom(dialog.place.id, displayName)
+          onSaveRooms={(rows, baseExistingIds) =>
+            handleSaveRooms(dialog.place.id, rows, baseExistingIds)
           }
-          onRenameRoom={handleRenameRoom}
-          onDeleteRoom={placeService.deletePlace ? handleDeleteRoom : undefined}
           onPlaceEditRequest={(kind, text) =>
             onPlaceEditRequest(dialog.place.id, kind, text)
           }

@@ -183,11 +183,9 @@ export interface Translations {
     buildingDialogTitle: string;
     buildingRoomsTitle: string;
     buildingRoomsEmpty: string;
-    buildingRoomAdd: string;
-    buildingRoomEdit: string;
-    buildingRoomDelete: string;
     buildingRoomsEditLink: string;
     buildingRoomsEditDone: string;
+    buildingRoomsDiscardConfirm: string;
     buildingEditRequestButton: string;
     close: string;
     pageTitle: string;

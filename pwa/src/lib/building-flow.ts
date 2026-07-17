@@ -102,57 +102,34 @@ export function findRestorableRoom(
 }
 
 /**
- * 訪問ダイアログ「部屋を追加」で保存すべき Place を組み立てる。
- * 仕様: docs/wants/08「集合住宅訪問ダイアログ／部屋の追加・編集・削除」
- * - 部屋番号一致の削除済み Room があれば同一 PlaceID で復元（deletedAt 解除）
- * - なければ新規 Room（id は保存時に採番）
- * - いずれも SortOrder は既存 Room の最大値 + 1（末尾に追加）
+ * 既存 Room 一覧から編集用の行リストを作る（0 件なら空行 1 つ）。
+ * 集合住宅編集ダイアログと訪問ダイアログの部屋編集モードで共用する。
  */
-export function planRoomAdd(args: {
-  deletedRooms: readonly Place[];
-  existingRooms: readonly Place[];
-  buildingId: string;
-  areaId: string;
-  displayName: string;
-}): Place {
-  const name = args.displayName.trim();
-  const nextSortOrder =
-    args.existingRooms.length === 0
-      ? 0
-      : Math.max(...args.existingRooms.map((r) => r.sortOrder)) + 1;
-  const restorable = findRestorableRoom(
-    args.deletedRooms,
-    args.buildingId,
-    name,
+export function buildRoomRows(rooms: readonly Place[] | undefined): RoomRow[] {
+  if (!rooms || rooms.length === 0) return [makeRoomRow()];
+  return [...rooms]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((r) => ({
+      key: `existing-${r.id}`,
+      existingId: r.id,
+      displayName: r.displayName,
+    }));
+}
+
+/**
+ * 行リストが編集開始時から変化していないか（existingId と displayName の
+ * 並びで比較）。部屋編集モードの「変更なしなら保存しない／破棄確認を出さない」
+ * 判定に使う（仕様 docs/wants/08）。
+ */
+export function roomRowsUnchanged(
+  a: readonly RoomRow[],
+  b: readonly RoomRow[],
+): boolean {
+  if (a.length !== b.length) return false;
+  return a.every(
+    (r, i) =>
+      r.existingId === b[i].existingId && r.displayName === b[i].displayName,
   );
-  if (restorable) {
-    return {
-      ...restorable,
-      displayName: name,
-      sortOrder: nextSortOrder,
-      deletedAt: null,
-    };
-  }
-  const now = new Date().toISOString();
-  return {
-    id: "",
-    areaId: args.areaId,
-    coord: { lat: 0, lng: 0 },
-    type: "room",
-    label: "",
-    displayName: name,
-    address: "",
-    description: "",
-    parentId: args.buildingId,
-    sortOrder: nextSortOrder,
-    languages: [],
-    doNotVisit: false,
-    doNotVisitNote: "",
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-    restoredFromId: null,
-  };
 }
 
 /** applyRoomRowsSave が必要とする保存サービスの最小 IF。 */
@@ -163,24 +140,34 @@ export interface RoomSaveService {
 }
 
 /**
- * 集合住宅編集ダイアログの行リストを差分適用で保存する。
+ * 集合住宅編集ダイアログ／訪問ダイアログ部屋編集モードの行リストを
+ * 差分適用で保存する。
  * 仕様: docs/wants/03「集合住宅の追加・編集」「部屋（Room）の同番号復元」
+ *      docs/wants/08「集合住宅訪問ダイアログ」
  *
- * 削除を先に確定させてから復元候補（削除済み Room）を取得する。これにより
- * 同一保存内の「行削除＋同番号再追加」でも旧 Room が復元マッチし、
- * 訪問記録の紐付き（PlaceID）を失わない。
+ * - 削除・変更の対象は baseExistingIds（編集開始時に行として提示した部屋）に
+ *   限定する。編集中に同期受信で増えた部屋を「行に無い＝削除」と誤判定して
+ *   巻き添え削除しないため（L-014）
+ * - 削除を先に確定させてから復元候補（削除済み Room）を取得する。これにより
+ *   同一保存内の「行削除＋同番号再追加」でも旧 Room が復元マッチし、
+ *   訪問記録の紐付き（PlaceID）を失わない
  */
 export async function applyRoomRowsSave(
   service: RoomSaveService,
   args: {
+    /** 保存時点の当該 Building の未削除 Room（同期受信分を含んでよい） */
     existingRooms: readonly Place[];
+    /** 編集開始時に行として提示した Room の ID 集合（差分適用のスコープ） */
+    baseExistingIds: readonly string[];
     rows: readonly RoomRow[];
     buildingId: string;
     areaId: string;
   },
 ): Promise<void> {
+  const base = new Set(args.baseExistingIds);
+  const scopedExisting = args.existingRooms.filter((r) => base.has(r.id));
   const { toAdd, toUpdate, toDelete } = diffRoomRows(
-    args.existingRooms,
+    scopedExisting,
     args.rows,
     args.buildingId,
   );
@@ -241,6 +228,8 @@ export function diffRoomRows(
   const toUpdate: Place[] = [];
 
   rows.forEach((row, idx) => {
+    // 部屋番号は前後空白を除去して保存する（表示・復元マッチングとも trim 基準）
+    const name = row.displayName.trim();
     const existing = row.existingId ? byId.get(row.existingId) : undefined;
     if (!existing) {
       const now = new Date().toISOString();
@@ -250,7 +239,7 @@ export function diffRoomRows(
         coord: { lat: 0, lng: 0 },
         type: "room",
         label: "",
-        displayName: row.displayName,
+        displayName: name,
         address: "",
         description: "",
         parentId: buildingId,
@@ -266,12 +255,11 @@ export function diffRoomRows(
       return;
     }
     keptIds.add(existing.id);
-    const changed =
-      existing.displayName !== row.displayName || existing.sortOrder !== idx;
+    const changed = existing.displayName !== name || existing.sortOrder !== idx;
     if (changed) {
       toUpdate.push({
         ...existing,
-        displayName: row.displayName,
+        displayName: name,
         sortOrder: idx,
       });
     }

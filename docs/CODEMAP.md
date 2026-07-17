@@ -66,7 +66,8 @@
 - `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント。現在地 watch の購読ライフサイクルと「現在地へ移動」ボタン配線（未取得時は単発取得→パン）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
-- `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（部屋行の追加・並替・削除）
+- `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（名前/住所/補足＋部屋行は RoomRowsEditor・D&D 並替あり）
+- `components/RoomRowsEditor.tsx` — 部屋番号一覧の行エディタ共通コンポーネント（行=入力欄＋×確認付き削除・[+1][+5][+10]・D&D は allowReorder 時のみ。編集ダイアログ/訪問ダイアログ部屋編集モードで共用）(→08)
 - `components/PlaceListPanel.tsx` — 場所一覧と訪問記録の一覧（直近記録併記/展開・D&D並替は権限ゲート・右ペイン/オーバーレイ両対応）(→08)
 - `components/AreaDetailContextMenu.tsx` — 場所直接編集/追加の右クリックメニュー（訪問記録画面で使用）
 - `components/EdgeContextMenu.tsx` — ポリゴン辺の右クリック（頂点追加）
@@ -85,7 +86,7 @@
 - `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層
 - `lib/add-place-flow.ts` — 「家を追加」フローの純状態機械（削除済み場所の復元判定含む）
 - `lib/move-place-flow.ts` — 場所マーカー移動フローの純状態機械
-- `lib/building-flow.ts` — 集合住宅編集の部屋行モデルと保存差分計算/差分適用（削除確定後に復元候補を評価）・部屋の同番号復元判定/追加プラン (→08)
+- `lib/building-flow.ts` — 集合住宅編集の部屋行モデル（構築/変更判定含む）と保存差分計算/差分適用（削除確定後に復元候補を評価）・部屋の同番号復元判定 (→08)
 - `lib/place-sort-order.ts` — 場所一覧の初回並び順採番
 - `lib/place-renumber.ts` — SortOrder 重複の検出と幾何順（北→南・西→東）再採番の純ロジック
 ### hooks
@@ -170,7 +171,7 @@
 - `pages/VisitPage.tsx` — 訪問記録画面（記録入力・場所の直接追加/一覧＋直接編集〔編集メンバー×非タッチのみ。部屋の追加/番号編集/削除は全メンバー・タッチ可＋同番号復元〕・編集リクエスト）(→03,10)
 - `pages/VisitPageContainer.tsx` — 訪問記録画面の DI 組立ラッパ（直接編集権限判定・活動メンバーのアクセス制御・?place= の初期場所選択）(→01)
 - `pages/DashboardPage.tsx` — ダッシュボード（アクセス可能区域一覧・返却/招待管理導線〔担当者本人の招待一覧・取消・発行〕。チェックアウト可能一覧は活動メンバーのみ＝editor+ は /areas から）(→10)
-- `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択・部屋編集モード（「部屋を編集」リンクで切替、編集中は行タップ無効・追加/番号編集/削除、全メンバー・タッチ可）(→03,07)
+- `components/BuildingVisitDialog.tsx` — 集合住宅の部屋一覧と訪問対象部屋選択・部屋編集モード（「部屋を編集」で RoomRowsEditor に切替＝編集ダイアログと共通 UI・確定で一括保存・キャンセル/Esc は破棄確認、全メンバー・タッチ可）(→03,07)
 - `lib/visit-date-color.ts` — 最終訪問日の経過日数による色分け CSS クラス判定
 - `domain/models/personal.ts` — 端末内個人スコープの個人メモ/個人タグ/割当モデル
 - `domain/models/visit-edit.ts` — 訪問記録の編集履歴（変更前後スナップショット）モデル

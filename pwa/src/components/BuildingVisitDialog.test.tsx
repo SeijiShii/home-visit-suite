@@ -55,9 +55,7 @@ function renderDialog() {
 function renderWithRoomOps(rooms: Place[]) {
   const handlers = {
     onSelectRoom: vi.fn(),
-    onAddRoom: vi.fn(),
-    onRenameRoom: vi.fn(),
-    onDeleteRoom: vi.fn(),
+    onSaveRooms: vi.fn(),
   };
   render(
     <I18nProvider>
@@ -68,9 +66,7 @@ function renderWithRoomOps(rooms: Place[]) {
         rooms={rooms}
         roomLastVisitMap={new Map()}
         onSelectRoom={handlers.onSelectRoom}
-        onAddRoom={handlers.onAddRoom}
-        onRenameRoom={handlers.onRenameRoom}
-        onDeleteRoom={handlers.onDeleteRoom}
+        onSaveRooms={handlers.onSaveRooms}
         onPlaceEditRequest={vi.fn()}
         onCancel={vi.fn()}
       />
@@ -116,13 +112,10 @@ function enterRoomEditMode() {
   fireEvent.click(screen.getByRole("button", { name: "部屋を編集" }));
 }
 
-describe("BuildingVisitDialog の部屋の直接操作（部屋編集モード）", () => {
-  it("部屋操作ハンドラ未指定なら「部屋を編集」リンクを表示しない", () => {
+describe("BuildingVisitDialog の部屋編集モード（集合住宅編集ダイアログと共通 UI・確定で一括保存）", () => {
+  it("onSaveRooms 未指定なら「部屋を編集」リンクを表示しない", () => {
     renderDialog();
     expect(screen.queryByRole("button", { name: "部屋を編集" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "部屋を追加" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "部屋番号を編集" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "部屋を削除" })).toBeNull();
   });
 
   it("下部アクション行は 閉じる → 部屋を編集 → 建物の編集をリクエスト の並び", () => {
@@ -134,107 +127,130 @@ describe("BuildingVisitDialog の部屋の直接操作（部屋編集モード�
     expect(labels).toEqual(["閉じる", "部屋を編集", "建物の編集をリクエスト"]);
   });
 
-  it("編集モードでは「部屋を編集」の位置が「確定」に切り替わる", () => {
+  it("編集モードでは 閉じる→キャンセル・部屋を編集→確定 に切り替わる", () => {
     renderWithRoomOps([]);
     enterRoomEditMode();
     const actions = document.querySelector(".building-visit-actions")!;
     const labels = Array.from(actions.querySelectorAll("button")).map(
       (b) => b.textContent,
     );
-    expect(labels).toEqual(["閉じる", "確定", "建物の編集をリクエスト"]);
+    expect(labels).toEqual(["キャンセル", "確定", "建物の編集をリクエスト"]);
   });
 
-  it("通常表示では ✎/× を表示せず、行タップで部屋訪問ダイアログを開く", () => {
+  it("通常表示では入力欄を出さず、行タップで部屋訪問ダイアログを開く", () => {
     const room = makeRoom({ id: "room-a", displayName: "101" });
     const h = renderWithRoomOps([room]);
-    expect(screen.queryByRole("button", { name: "部屋番号を編集" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "部屋を削除" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "部屋を追加" })).toBeNull();
+    expect(screen.queryByPlaceholderText("部屋番号")).toBeNull();
     fireEvent.click(screen.getByTestId("room-row"));
     expect(h.onSelectRoom).toHaveBeenCalledWith(room);
   });
 
-  it("「部屋を編集」で編集モードへ。行に ✎/×・下部に「部屋を追加」「確定」が現れ、行タップでは部屋訪問ダイアログを開かない", () => {
+  it("編集モードは編集ダイアログと同じ行 UI（入力欄＋×＋[+1][+5][+10]）で、行タップでは部屋訪問ダイアログを開かない", () => {
     const room = makeRoom({ id: "room-a", displayName: "101" });
     const h = renderWithRoomOps([room]);
     enterRoomEditMode();
+    const input = screen.getByPlaceholderText("部屋番号") as HTMLInputElement;
+    expect(input.value).toBe("101");
     expect(
-      screen.getByRole("button", { name: "部屋番号を編集" }),
+      screen.getByRole("button", { name: "行を削除" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "部屋を削除" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "部屋を追加" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "確定" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+5" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+10" })).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("room-row"));
     expect(h.onSelectRoom).not.toHaveBeenCalled();
   });
 
-  it("「確定」で通常表示へ戻り、行タップの訪問フローが再び使える", () => {
+  it("番号を変更して「確定」すると onSaveRooms が編集後の行リストで呼ばれ、通常表示へ戻る", () => {
+    const room = makeRoom({ id: "room-a", displayName: "101" });
+    const h = renderWithRoomOps([room]);
+    enterRoomEditMode();
+    fireEvent.change(screen.getByPlaceholderText("部屋番号"), {
+      target: { value: "202" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "確定" }));
+    expect(h.onSaveRooms).toHaveBeenCalledWith(
+      [{ key: "existing-room-a", existingId: "room-a", displayName: "202" }],
+      ["room-a"], // 編集開始時に提示した部屋（差分適用のスコープ）
+    );
+    expect(screen.queryByPlaceholderText("部屋番号")).toBeNull();
+  });
+
+  it("[+1] で空行を追加し番号を入力して「確定」すると新規行が渡る", () => {
+    const room = makeRoom({ id: "room-a", displayName: "101" });
+    const h = renderWithRoomOps([room]);
+    enterRoomEditMode();
+    fireEvent.click(screen.getByRole("button", { name: "+1" }));
+    const inputs = screen.getAllByPlaceholderText(
+      "部屋番号",
+    ) as HTMLInputElement[];
+    expect(inputs).toHaveLength(2);
+    fireEvent.change(inputs[1], { target: { value: "205" } });
+    fireEvent.click(screen.getByRole("button", { name: "確定" }));
+    const rows = h.onSaveRooms.mock.calls[0][0];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ existingId: "room-a" });
+    expect(rows[1]).toMatchObject({ existingId: null, displayName: "205" });
+  });
+
+  it("変更がなければ「確定」は onSaveRooms を呼ばずモードを終了する", () => {
     const room = makeRoom({ id: "room-a", displayName: "101" });
     const h = renderWithRoomOps([room]);
     enterRoomEditMode();
     fireEvent.click(screen.getByRole("button", { name: "確定" }));
-    expect(screen.queryByRole("button", { name: "部屋番号を編集" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "部屋を追加" })).toBeNull();
-    fireEvent.click(screen.getByTestId("room-row"));
-    expect(h.onSelectRoom).toHaveBeenCalledWith(room);
+    expect(h.onSaveRooms).not.toHaveBeenCalled();
+    expect(screen.queryByPlaceholderText("部屋番号")).toBeNull();
   });
 
-  it("「部屋を追加」→ 部屋番号入力 → 保存で onAddRoom が呼ばれる（trim 済み）", () => {
-    const h = renderWithRoomOps([]);
+  it("既存行の × は確認ダイアログ → はい で行が消え、確定で削除が渡る", () => {
+    const roomA = makeRoom({ id: "room-a", displayName: "101" });
+    const roomB = makeRoom({ id: "room-b", displayName: "102", sortOrder: 1 });
+    const h = renderWithRoomOps([roomA, roomB]);
     enterRoomEditMode();
-    fireEvent.click(screen.getByRole("button", { name: "部屋を追加" }));
-    fireEvent.change(screen.getByPlaceholderText("部屋番号"), {
-      target: { value: " 205 " },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    expect(h.onAddRoom).toHaveBeenCalledWith("205");
-  });
-
-  it("部屋番号が空欄のままでは保存できない", () => {
-    const h = renderWithRoomOps([]);
-    enterRoomEditMode();
-    fireEvent.click(screen.getByRole("button", { name: "部屋を追加" }));
-    const save = screen.getByRole("button", { name: "保存" });
-    expect(save).toBeDisabled();
-    fireEvent.click(save);
-    expect(h.onAddRoom).not.toHaveBeenCalled();
-  });
-
-  it("行の編集ボタン → 既存番号を初期表示 → 保存で onRenameRoom が呼ばれる", () => {
-    const room = makeRoom({ id: "room-a", displayName: "101" });
-    const h = renderWithRoomOps([room]);
-    enterRoomEditMode();
-    fireEvent.click(screen.getByRole("button", { name: "部屋番号を編集" }));
-    const input = screen.getByPlaceholderText("部屋番号") as HTMLInputElement;
-    expect(input.value).toBe("101");
-    fireEvent.change(input, { target: { value: "202" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    expect(h.onRenameRoom).toHaveBeenCalledWith(room, "202");
-    expect(h.onSelectRoom).not.toHaveBeenCalled();
-  });
-
-  it("行の削除ボタン → 確認ダイアログ → 削除で onDeleteRoom が呼ばれる", () => {
-    const room = makeRoom({ id: "room-a", displayName: "101" });
-    const h = renderWithRoomOps([room]);
-    enterRoomEditMode();
-    fireEvent.click(screen.getByRole("button", { name: "部屋を削除" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "行を削除" })[1]);
     expect(screen.getByText("この部屋を削除しますか？")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "削除" }));
-    expect(h.onDeleteRoom).toHaveBeenCalledWith(room);
-    expect(h.onSelectRoom).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "はい" }));
+    expect(screen.getAllByPlaceholderText("部屋番号")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "確定" }));
+    const rows = h.onSaveRooms.mock.calls[0][0];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ existingId: "room-a" });
   });
 
-  it("削除確認をキャンセルすると onDeleteRoom は呼ばれない", () => {
+  it("変更ありでキャンセルすると破棄確認 → はい で保存せず通常表示へ戻る", () => {
     const room = makeRoom({ id: "room-a", displayName: "101" });
     const h = renderWithRoomOps([room]);
     enterRoomEditMode();
-    fireEvent.click(screen.getByRole("button", { name: "部屋を削除" }));
+    fireEvent.change(screen.getByPlaceholderText("部屋番号"), {
+      target: { value: "202" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
-    expect(h.onDeleteRoom).not.toHaveBeenCalled();
-    expect(screen.queryByText("この部屋を削除しますか？")).toBeNull();
+    expect(screen.getByText("部屋の変更を破棄しますか？")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "はい" }));
+    expect(h.onSaveRooms).not.toHaveBeenCalled();
+    expect(screen.queryByPlaceholderText("部屋番号")).toBeNull();
+  });
+
+  it("変更ありでキャンセル → 破棄確認で いいえ なら編集モードに留まる", () => {
+    const room = makeRoom({ id: "room-a", displayName: "101" });
+    renderWithRoomOps([room]);
+    enterRoomEditMode();
+    fireEvent.change(screen.getByPlaceholderText("部屋番号"), {
+      target: { value: "202" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+    fireEvent.click(screen.getByRole("button", { name: "いいえ" }));
+    expect(screen.queryByText("部屋の変更を破棄しますか？")).toBeNull();
+    const input = screen.getByPlaceholderText("部屋番号") as HTMLInputElement;
+    expect(input.value).toBe("202");
+  });
+
+  it("変更なしのキャンセルは確認なしで通常表示へ戻る", () => {
+    const room = makeRoom({ id: "room-a", displayName: "101" });
+    renderWithRoomOps([room]);
+    enterRoomEditMode();
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(screen.queryByText("部屋の変更を破棄しますか？")).toBeNull();
+    expect(screen.queryByPlaceholderText("部屋番号")).toBeNull();
   });
 });
