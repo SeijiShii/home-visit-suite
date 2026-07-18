@@ -190,9 +190,9 @@ export const PLACE_OVERLAY_MIN_ZOOM = 16;
 /**
  * 区域IDラベルを表示する最小ズーム。これ未満の広域表示ではポリゴンが小さく
  * なりラベル同士が重なって視認性を損なうため非表示にする。
- * 仕様: docs/wants/03「区域IDラベル表示」（ズーム 15 以上で表示）。
+ * 仕様: docs/wants/03「区域IDラベル表示」（ズーム 16 以上で表示）。
  */
-export const AREA_ID_LABEL_MIN_ZOOM = 15;
+export const AREA_ID_LABEL_MIN_ZOOM = 16;
 
 /** 区域IDラベルを表示すべきズームかどうか。 */
 export function isAreaIdLabelZoomVisible(zoom: number): boolean {
