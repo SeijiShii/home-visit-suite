@@ -54,9 +54,9 @@
 - `data/inmemory/inmemory-region-repository.ts` — RegionRepository の InMemory 実装（論理削除フィルタ）
 - `data/linkself/linkself-region-repository.ts` — RegionRepository の MyDB(SQL) 実装（regions/parent_areas/areas。OPFS 永続 + ScopeNetwork でメンバー間同期）(→01)
 - `pages/RegionManagementPage.tsx` — 領域記号・区域番号の CRUD 画面 (→10)
-- `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け）(→03)
+- `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け・選択ポリゴン行への祖先自動展開＋スクロール）(→03)
 - `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ（紐付け済み区域には飛地追加ボタン）(→03)
-- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック）(→03)
+- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック・選択ポリゴン行への自動スクロール）(→03)
 
 ## 03 地図機能（ポリゴン編集/紐付け/住宅情報）
 - ポリゴン編集コア（頂点/辺ネットワーク・スナップ・交差解決・面列挙・undo/redo）は外部 npm パッケージ `map-polygon-editor`（自作、ソース: `~/map-polygon-editor`、https://github.com/SeijiShii/map-polygon-editor ）。編集コアの不具合はライブラリ側で修正→patch 公開→`pwa` の依存更新で反映する
@@ -89,6 +89,7 @@
 - `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）
 - `lib/polygon-binding-fixup.ts` — 頂点マージ後の ChangeSet から区域紐付けの補正を算出する純ロジック（分割で新 ID が出たら分割元の区域へ bind・消滅したポリゴンは unbind）
 - `lib/vertex-attract.ts` — ドラッグ中の頂点吸着（磁着）の純ロジック（しきい値内の最近傍他頂点を返す。しきい値=12px は map-renderer 定数）
+- `lib/area-tree-path.ts` — 選択ポリゴンが紐付く区域のツリー祖先パス（領域/区域親番/区域）解決の純ロジック（区域一覧の自動展開＋スクロールが使用）
 - `lib/area-binding-heal.ts` — 区域に紐付いたままの無効ポリゴンID（削除済み/面積ほぼ0）の検出純ロジック（地図画面ロード時の修復スキャンが使用）
 - `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群（飛地=複数対象ポリゴン・外接範囲中心）
 - `lib/area-detail-geo.ts` — 幾何計算基盤（重心/haversine/点内包/近傍削除場所探索）

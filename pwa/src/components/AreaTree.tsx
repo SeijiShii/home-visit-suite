@@ -15,6 +15,7 @@ import type {
   RegionBindingAPI,
   AreaTreeNode,
 } from "../services/region-service";
+import { findAreaPathForPolygon } from "../lib/area-tree-path";
 
 export interface AreaTreeHandle {
   reload(): Promise<void>;
@@ -29,6 +30,8 @@ interface AreaTreeProps {
   onTreeChanged?: (tree: AreaTreeNode[]) => void;
   /** 区域詳細編集モードへ遷移する際のハンドラ。指定時は行 dblclick / 三点メニューに表示。 */
   onOpenAreaDetail?: (areaId: string) => void;
+  /** タブ表示中か（display:none 中はスクロールできないため、表示化時に選択行へスクロールし直す） */
+  visible?: boolean;
 }
 
 export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
@@ -41,6 +44,7 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
       selectedPolygonId,
       onTreeChanged,
       onOpenAreaDetail,
+      visible = true,
     },
     ref,
   ) {
@@ -83,6 +87,41 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
     useEffect(() => {
       reload();
     }, [reload]);
+
+    // 選択ポリゴンの区域行が畳まれていたら祖先（領域・区域親番）を展開する。
+    // 展開は選択ごとに一度だけ（ツリー再ロードでユーザーが畳み直したノードを再展開しない）
+    const expandedForPolygonRef = useRef<string | null>(null);
+    useEffect(() => {
+      if (selectedPolygonId == null) {
+        expandedForPolygonRef.current = null;
+        return;
+      }
+      if (expandedForPolygonRef.current === selectedPolygonId) return;
+      const path = findAreaPathForPolygon(tree, selectedPolygonId);
+      if (!path) return;
+      expandedForPolygonRef.current = selectedPolygonId;
+      setExpanded((prev) => {
+        if (prev.has(path.regionId) && prev.has(path.parentAreaId)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(path.regionId);
+        next.add(path.parentAreaId);
+        return next;
+      });
+    }, [selectedPolygonId, tree]);
+
+    // 選択行を一覧の可視範囲へスクロール（展開直後のマウント時は ref callback 側が担う）
+    const selectedRowRef = useRef<HTMLDivElement | null>(null);
+    const attachSelectedRow = useCallback((node: HTMLDivElement | null) => {
+      selectedRowRef.current = node;
+      node?.scrollIntoView({ block: "nearest" });
+    }, []);
+    useEffect(() => {
+      if (visible) {
+        selectedRowRef.current?.scrollIntoView({ block: "nearest" });
+      }
+    }, [visible, selectedPolygonId]);
 
     const toggle = (id: string) => {
       setExpanded((prev) => {
@@ -213,17 +252,18 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                       ap.areas.map((area) => {
                         const polygonIds = area.polygonIds ?? [];
                         const hasPolygon = polygonIds.length > 0;
+                        const isSelected =
+                          selectedPolygonId != null &&
+                          polygonIds.includes(selectedPolygonId);
                         return (
                           <div
                             key={area.id}
                             className="tree-node tree-indent-2"
                           >
                             <div
+                              ref={isSelected ? attachSelectedRow : undefined}
                               className={`tree-row tree-row-area${
-                                selectedPolygonId != null &&
-                                polygonIds.includes(selectedPolygonId)
-                                  ? " tree-row-selected"
-                                  : ""
+                                isSelected ? " tree-row-selected" : ""
                               }`}
                               onClick={() => {
                                 // 複数飛地は先頭ポリゴンへフォーカスする

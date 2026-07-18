@@ -23,6 +23,8 @@ interface PolygonListProps {
   onPruneOrphans?: () => void;
   /** 編集モード中はツールバーのボタンを非活性にする */
   isEditing?: boolean;
+  /** タブ表示中か（display:none 中はスクロールできないため、表示化時に選択行へスクロールし直す） */
+  visible?: boolean;
 }
 
 export function PolygonList({
@@ -40,6 +42,7 @@ export function PolygonList({
   onStartDrawing,
   onPruneOrphans,
   isEditing = false,
+  visible = true,
 }: PolygonListProps) {
   const { t } = useI18n();
   const [pendingDelete, setPendingDelete] = useState<PolygonSnapshot | null>(
@@ -71,6 +74,18 @@ export function PolygonList({
     const timer = setTimeout(() => setToastMessage(null), 3000);
     return () => clearTimeout(timer);
   }, [toastMessage]);
+
+  // 選択行を一覧の可視範囲へスクロール
+  const selectedItemRef = useRef<HTMLDivElement | null>(null);
+  const attachSelectedItem = useCallback((node: HTMLDivElement | null) => {
+    selectedItemRef.current = node;
+    node?.scrollIntoView({ block: "nearest" });
+  }, []);
+  useEffect(() => {
+    if (visible) {
+      selectedItemRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [visible, selectedPolygonId]);
 
   const openDialog = useCallback((snapshot: PolygonSnapshot) => {
     setPendingDelete(snapshot);
@@ -191,6 +206,7 @@ export function PolygonList({
           return (
             <div
               key={polyId}
+              ref={isSelected ? attachSelectedItem : undefined}
               className={itemClasses}
               onClick={() => onPolygonClick(poly.id)}
             >

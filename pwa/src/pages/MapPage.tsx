@@ -1033,6 +1033,7 @@ export function MapPage() {
                       state: { from: "map-editor" },
                     })
                   }
+                  visible={activeTab === "areas"}
                 />
               </div>
               <div
@@ -1054,6 +1055,7 @@ export function MapPage() {
                   isEditing={isEditing}
                   onStartDrawing={handleStartFreeDrawing}
                   onPruneOrphans={handlePruneOrphans}
+                  visible={activeTab === "polygons"}
                 />
               </div>
             </div>
