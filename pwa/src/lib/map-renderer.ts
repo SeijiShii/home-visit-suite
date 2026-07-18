@@ -20,6 +20,9 @@ const GSI_ATTRIBUTION =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>';
 
 const SNAP_THRESHOLD_PX = 20;
+// 頂点吸着（ドラッグ中の磁着＋確定時の頂点統合）のしきい値。通常スナップより
+// 狭くし、他頂点の近くへの繊細な配置を許容する（wants 03「ドラッグ中の吸着」）
+const VERTEX_ATTRACT_THRESHOLD_PX = 12;
 
 /** ベース地図プロバイダ設定。GSI はキー不要、Google は API キー必須。 */
 export interface BaseMapConfig {
@@ -247,7 +250,15 @@ const VIEW_STORAGE_KEY = "map-view";
 
 export interface VertexDragCallbacks {
   onDragStart: (vertexId: VertexID) => void;
-  onDragMove: (vertexId: VertexID, lat: number, lng: number) => void;
+  /**
+   * 戻り値で位置を返すと、マーカーをその位置へ表示する（頂点吸着プレビュー。
+   * wants 03「ドラッグ中の吸着」）。void ならカーソル位置のまま。
+   */
+  onDragMove: (
+    vertexId: VertexID,
+    lat: number,
+    lng: number,
+  ) => { lat: number; lng: number } | void;
   onDragEnd: (vertexId: VertexID, lat: number, lng: number) => void;
 }
 
@@ -900,8 +911,13 @@ export class MapRenderer {
 
       const onMouseMove = (ev: L.LeafletMouseEvent) => {
         if (!dragging) return;
-        marker.setLatLng(ev.latlng);
-        this.vertexDragCallbacks?.onDragMove(id, ev.latlng.lat, ev.latlng.lng);
+        // 吸着があれば戻り値の位置へマーカーを表示する（無ければカーソル位置）
+        const adjusted = this.vertexDragCallbacks?.onDragMove(
+          id,
+          ev.latlng.lat,
+          ev.latlng.lng,
+        );
+        marker.setLatLng(adjusted ? [adjusted.lat, adjusted.lng] : ev.latlng);
       };
 
       const onMouseUp = (ev: L.LeafletMouseEvent) => {
@@ -1762,5 +1778,9 @@ export class MapRenderer {
 
   getSnapThresholdPx(): number {
     return SNAP_THRESHOLD_PX;
+  }
+
+  getVertexAttractThresholdPx(): number {
+    return VERTEX_ATTRACT_THRESHOLD_PX;
   }
 }

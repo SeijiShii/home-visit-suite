@@ -42,6 +42,7 @@ import {
 } from "../services/polygon-service";
 import { computeBindingFixup } from "../lib/polygon-binding-fixup";
 import { findStaleBindings } from "../lib/area-binding-heal";
+import { findAttractTarget } from "../lib/vertex-attract";
 import {
   hasDuplicateSortOrder,
   renumberByGeometry,
@@ -87,6 +88,9 @@ export function MapPage() {
   // 紐付け参照は ref 経由で常に最新を引く。
   const polygonAreaMapRef = useRef(polygonAreaMap);
   polygonAreaMapRef.current = polygonAreaMap;
+  // ドラッグ中の吸着候補から除外するロック済みポリゴンの頂点集合
+  // （ドラッグ開始時に算出）
+  const lockedVertexIdsRef = useRef<Set<string>>(new Set());
   const [areaTree, setAreaTree] = useState<AreaTreeNode[]>([]);
   const [edgeMenu, setEdgeMenu] = useState<{
     x: number;
@@ -351,24 +355,61 @@ export function MapPage() {
     // 頂点ドラッグを有効化（ドラッグ中もポリゴン形状がリアルタイム更新）
     mapRef.current?.enableVertexDrag({
       onDragStart: (vertexId) => {
-        editorRef.current?.beginDrag(vertexId);
+        const ed = editorRef.current;
+        if (!ed) return;
+        ed.beginDrag(vertexId);
+        // ロック済みポリゴンの頂点は統合できない（snapVertex が拒否する）ため
+        // 吸着候補から除外する。プレビューだけ吸着して確定時に統合されないと、
+        // 完全同座標の重複頂点が残る（レビュー指摘）。ドラッグ中は不変なので
+        // 開始時に一度だけ算出する。
+        const locked = new Set<string>();
+        for (const p of ed.getPolygons()) {
+          if (!ed.isPolygonLocked(p.id)) continue;
+          for (const vid of p.vertexIds) locked.add(vid as string);
+        }
+        lockedVertexIdsRef.current = locked;
       },
-      onDragMove: (_vertexId, lat, lng) => {
+      onDragMove: (vertexId, lat, lng) => {
         if (!editorRef.current) return;
-        const cs = editorRef.current.dragTo(lat, lng);
+        // 吸着しきい値（通常スナップより狭い）内に他の頂点があれば、
+        // プレビュー位置をその頂点へ吸着させる（wants 03 ドラッグ中の吸着）
+        const attractDeg =
+          mapRef.current?.pixelsToDegrees(
+            mapRef.current.getVertexAttractThresholdPx(),
+          ) ?? 0;
+        const target = findAttractTarget(
+          editorRef.current
+            .getVertices()
+            .filter((v) => !lockedVertexIdsRef.current.has(v.id as string)),
+          vertexId as string,
+          lat,
+          lng,
+          attractDeg,
+        );
+        const pos = target
+          ? { lat: target.lat, lng: target.lng }
+          : { lat, lng };
+        const cs = editorRef.current.dragTo(pos.lat, pos.lng);
         mapRef.current?.applyChangeSet(cs);
         setPolygons(editorRef.current.getPolygons());
+        return pos;
       },
       onDragEnd: () => {
         const ed = editorRef.current;
         if (!ed) return;
         // 終点近傍に別の頂点/辺があれば融合して境界を共有する（スナップ付き確定）。
         // 対象が無ければ endDragWithSnap 内部で従来の交差解決 moveVertex にフォールバックする。
+        // 頂点統合の判定半径は吸着しきい値に揃える（吸着していないのに離した
+        // 瞬間に統合される齟齬を防ぐ。辺スナップは従来の広い半径のまま）。
         const thresholdDeg =
           mapRef.current?.pixelsToDegrees(
             mapRef.current.getSnapThresholdPx(),
           ) ?? 0.001;
-        const cs = ed.endDragWithSnap(thresholdDeg);
+        const attractDeg =
+          mapRef.current?.pixelsToDegrees(
+            mapRef.current.getVertexAttractThresholdPx(),
+          ) ?? thresholdDeg;
+        const cs = ed.endDragWithSnap(thresholdDeg, attractDeg);
         mapRef.current?.applyChangeSet(cs);
         setPolygons(ed.getPolygons());
         // 統合でポリゴンが消滅した場合は確認ダイアログを出し、保存・紐付け

@@ -40,6 +40,7 @@ export interface MapViewHandle {
   hideVertices(): void;
   pixelsToDegrees(px: number): number;
   getSnapThresholdPx(): number;
+  getVertexAttractThresholdPx(): number;
   // --- 区域詳細編集モード ---
   setDetailMode(
     targetIds: readonly PolygonID[],
@@ -204,6 +205,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     getSnapThresholdPx() {
       return rendererRef.current?.getSnapThresholdPx() ?? 20;
+    },
+    getVertexAttractThresholdPx() {
+      return rendererRef.current?.getVertexAttractThresholdPx() ?? 12;
     },
     setDetailMode(targetIds, neighborIds) {
       rendererRef.current?.setDetailMode(targetIds, neighborIds);
