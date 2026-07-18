@@ -7,5 +7,6 @@ declare module "leaflet.gridlayer.googlemutant/dist/Leaflet.GoogleMutant.js";
 
 interface Window {
   // Google Maps JS API 読み込み後に生える global。存在確認のみに使う。
-  google?: { maps?: unknown };
+  // maps.Map は bootstrap 読了後さらに遅れて生えるため個別に判定する。
+  google?: { maps?: { Map?: unknown } };
 }

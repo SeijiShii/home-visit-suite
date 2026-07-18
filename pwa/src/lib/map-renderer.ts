@@ -7,6 +7,7 @@ import type {
   NetworkPolygonEditor,
 } from "map-polygon-editor";
 import { polygonCenter } from "./area-detail-geo";
+import { loadGoogleMapsApi } from "./google-maps-loader";
 import { computeParentBoundaryEdges } from "./parent-boundary";
 import { parentAreaColorPair } from "./parent-area-color";
 import {
@@ -40,35 +41,9 @@ export interface BaseMapConfig {
 
 const DEFAULT_BASE_MAP: BaseMapConfig = { provider: "gsi" };
 
-// Google Maps JS API は 1 度だけ読み込む。読み込み中/完了の Promise を使い回す。
-let googleMapsLoader: Promise<void> | null = null;
-
-/**
- * Google Maps JavaScript API を <script> 動的挿入で読み込む。
- * GoogleMutant プラグインが window.google.maps を参照するため、レイヤー生成前に解決させる。
- */
-function loadGoogleMapsApi(apiKey: string): Promise<void> {
-  if (typeof window !== "undefined" && window.google?.maps) {
-    return Promise.resolve();
-  }
-  if (googleMapsLoader) return googleMapsLoader;
-  googleMapsLoader = new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src =
-      "https://maps.googleapis.com/maps/api/js?key=" +
-      encodeURIComponent(apiKey) +
-      "&loading=async";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      googleMapsLoader = null; // 失敗時は次回リトライできるようにする
-      reject(new Error("Google Maps API の読み込みに失敗しました"));
-    };
-    document.head.appendChild(script);
-  });
-  return googleMapsLoader;
-}
+// Google Maps JS API の読み込みは lib/google-maps-loader.ts に分離
+// （loading=async のタイミング仕様と GoogleMutant の 10 秒ポーリング制限のため、
+//  API が完全に使える時点まで resolve を遅らせる実装。テストもそちらに）。
 
 // GoogleMutant プラグインは bare な global `L` を参照するため、動的 import 前に window.L を注入する。
 let googleMutantLoader: Promise<void> | null = null;

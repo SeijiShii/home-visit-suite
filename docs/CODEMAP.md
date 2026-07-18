@@ -86,6 +86,7 @@
 - `lib/parent-area-color.ts` — 区域親番ごとのポリゴン塗り分け（有彩色8色パレット・親番号の mod で色割り当て・非数値識別子は文字コード和で代替。区域編集画面の輪郭/塗りと訪問記録画面の極薄塗りが共用）
 - `lib/map-state.ts` — 地図モード（描画/編集/詳細編集）と選択ポリゴンの状態ストア
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
+- `lib/google-maps-loader.ts` — Google Maps JS API の script 動的読み込み（loading=async では onload 時点で google.maps.Map 未定義のため、公式 callback パラメータで API 完全準備後に resolve。single-flight・失敗時リトライ可）
 - `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）
 - `lib/polygon-binding-fixup.ts` — 頂点マージ後の ChangeSet から区域紐付けの補正を算出する純ロジック（分割で新 ID が出たら分割元の区域へ bind・消滅したポリゴンは unbind）
 - `lib/vertex-attract.ts` — ドラッグ中の頂点吸着（磁着）の純ロジック（しきい値内の最近傍他頂点を返す。しきい値=12px は map-renderer 定数）
