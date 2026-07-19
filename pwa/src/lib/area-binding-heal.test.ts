@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { Polygon } from "geojson";
-import { findStaleBindings } from "./area-binding-heal";
+import {
+  findStaleBindings,
+  selectPropagatingUnbinds,
+} from "./area-binding-heal";
 import type { AreaTreeNode } from "../services/region-service";
 
 function makeTree(
@@ -83,6 +86,34 @@ describe("findStaleBindings", () => {
     );
     expect(stale).toEqual([
       { areaId: "NRT-001-01", polygonId: "gone", reason: "missing" },
+    ]);
+  });
+});
+
+describe("selectPropagatingUnbinds", () => {
+  // 2026-07-19 紐付け全消失インシデントの是正の核心を固定する:
+  // missing（未着と区別不能）は伝播 unbind の対象にせず、degenerate のみ残す。
+  it("missing は伝播 unbind の対象から除外する", () => {
+    const stale = [
+      { areaId: "A", polygonId: "gone", reason: "missing" as const },
+    ];
+    expect(selectPropagatingUnbinds(stale)).toEqual([]);
+  });
+
+  it("degenerate は残す", () => {
+    const stale = [
+      { areaId: "A", polygonId: "thin", reason: "degenerate" as const },
+    ];
+    expect(selectPropagatingUnbinds(stale)).toEqual(stale);
+  });
+
+  it("混在時は degenerate だけを返す", () => {
+    const stale = [
+      { areaId: "A", polygonId: "gone", reason: "missing" as const },
+      { areaId: "A", polygonId: "thin", reason: "degenerate" as const },
+    ];
+    expect(selectPropagatingUnbinds(stale)).toEqual([
+      { areaId: "A", polygonId: "thin", reason: "degenerate" },
     ]);
   });
 });

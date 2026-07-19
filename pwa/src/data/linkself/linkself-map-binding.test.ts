@@ -112,6 +112,43 @@ describe("LinkSelfMapBinding (map_* via MyDB SQL)", () => {
     ]);
   });
 
+  it("MarkNotServed: サニタイズ除外行は保存で削除されない（除外だけの行の墓石化防止）", async () => {
+    const { myDB } = await newMyDB(sqlDb);
+    const binding = new LinkSelfMapBinding(myDB);
+    await binding.SaveNetworkJSON(JSON.stringify(NETWORK));
+    await binding.GetNetworkJSON(); // servedIds = {v1,v2,e1,p1}
+    // アダプタが e1/p1 をサニタイズ除外（頂点欠け等）としてエディタに渡さず、
+    // その旨を通知した状況を再現する。
+    binding.MarkNotServed({ edges: ["e1"], polygons: ["p1"] });
+
+    // エディタは e1/p1 を知らないので保存スナップショットに含めない。
+    await binding.SaveNetworkJSON(
+      JSON.stringify({ vertices: NETWORK.vertices, edges: [], polygons: [] }),
+    );
+    const loaded = JSON.parse(await binding.GetNetworkJSON());
+    // 除外しただけの e1/p1 は削除されず DB に残る。
+    expect(loaded.edges.map((e: { id: string }) => e.id)).toEqual(["e1"]);
+    expect(loaded.polygons.map((p: { id: string }) => p.id)).toEqual(["p1"]);
+  });
+
+  it("MarkNotServed: 除外行の墓石が届いたら保存で復活しない（resurrection なし）", async () => {
+    const { myDB } = await newMyDB(sqlDb);
+    const binding = new LinkSelfMapBinding(myDB);
+    await binding.SaveNetworkJSON(JSON.stringify(NETWORK));
+    await binding.GetNetworkJSON();
+    binding.MarkNotServed({ edges: ["e1"], polygons: ["p1"] });
+
+    // 別端末が e1 を正当に削除した墓石が届く（SQL から消える）。
+    await myDB.exec("DELETE FROM map_edges WHERE id = ?", ["e1"]);
+
+    // エディタが e1 を含まないスナップショットで保存しても e1 は復活しない。
+    await binding.SaveNetworkJSON(
+      JSON.stringify({ vertices: NETWORK.vertices, edges: [], polygons: [] }),
+    );
+    const loaded = JSON.parse(await binding.GetNetworkJSON());
+    expect(loaded.edges).toEqual([]);
+  });
+
   it("deletes rows that disappeared from the saved network", async () => {
     const { myDB } = await newMyDB(sqlDb);
     const binding = new LinkSelfMapBinding(myDB);

@@ -41,8 +41,10 @@ import {
   toPolygonAreaIds,
 } from "../services/polygon-service";
 import { computeBindingFixup } from "../lib/polygon-binding-fixup";
-import { findStaleBindings } from "../lib/area-binding-heal";
-import { getLastNetworkSanitizeReport } from "../lib/map-storage";
+import {
+  findStaleBindings,
+  selectPropagatingUnbinds,
+} from "../lib/area-binding-heal";
 import { findAttractTarget } from "../lib/vertex-attract";
 import {
   hasDuplicateSortOrder,
@@ -254,14 +256,14 @@ export function MapPage() {
   }, [polygonService, editor, regionService, refreshPlaceOverlay]);
   reloadPolygonsRef.current = reloadPolygons;
 
-  // エディタ準備完了時に初期描画 + 無効ポリゴンID紐付きの修復スキャン
-  // （wants 03「区域紐付けの無効ポリゴン ID 修復」。削除済み・面積ほぼ0の
-  // ポリゴンIDが紐付いたまま残っていたらサイレントに解除する）。
-  // 解除は共有ストアへの書き込みとして全メンバーへ伝播するため保護を掛ける:
+  // エディタ準備完了時に初期描画 + 破綻ポリゴン紐付きの修復スキャン
+  // （wants 03「区域紐付けの無効ポリゴン ID 修復」）。解除は共有ストアへの
+  // 書き込みとして全メンバーへ伝播するため保護を掛ける:
   // - 実行はマウントごとに 1 回のみ（受信追従のエディタ再初期化では再実行しない）
-  // - 「存在しない ID」(missing) の解除はローカルにポリゴンが 1 件以上ある場合
-  //   のみ（P2P 同期の未着端末が全紐付けを誤解除しないため）。面積ほぼ0
-  //   (degenerate) は実データで破綻を確認できるため常に解除
+  // - 伝播する解除は degenerate（面積ほぼ0＝実データで破綻を確認できる）に限定。
+  //   missing（不在）は P2P の未着と区別できず、部分同期中の端末が他端末の正当な
+  //   紐付けを誤解除し全員へ伝播するため対象にしない（2026-07-19 実障害の是正。
+  //   下記フィルタと wants 03）
   // - 非同期の途中でエディタが差し替わったら中断（世代ガード）
   const healDoneRef = useRef(false);
   useEffect(() => {
@@ -275,19 +277,17 @@ export function MapPage() {
       try {
         const tree = await regionService.loadTree();
         if (editorRef.current !== editor) return;
-        const hasLocalPolygons = editor.getPolygons().length > 0;
-        // ロード時サニタイズで除外しただけの面は「削除済み」ではない
-        // （不整合行の未着の可能性）ため、missing 扱いの解除対象から外す
-        // （docs/wants/03「ロード時のネットワーク整合性サニタイズ」）。
-        const sanitizedDropped = new Set(
-          getLastNetworkSanitizeReport()?.droppedPolygonIds ?? [],
-        );
-        const stale = findStaleBindings(tree, (pid) =>
-          editor.getPolygonGeoJSON(pid as PolygonID),
-        ).filter(
-          (s) =>
-            s.reason === "degenerate" ||
-            (hasLocalPolygons && !sanitizedDropped.has(s.polygonId)),
+        // 「エディタに存在しない（missing）」ポリゴンの紐付き自動解除は行わない。
+        // P2P の未着と削除済みを区別できず、部分同期中の端末が他端末の正当な
+        // 紐付けを消して全員へ伝播する（実障害: 2026-07-19 リレー転送制限による
+        // 部分同期中に、PC が前日作成した区域⇔ポリゴンの紐付けが全端末から
+        // 喪失。ポリゴン行が届けば紐付きは自然に有効化するため放置してよい）。
+        // 伝播する自動解除は、実データで破綻を確認できる degenerate（面積ほぼ 0）
+        // に限定する（docs/wants/03「区域紐付けの無効ポリゴン ID 修復」）。
+        const stale = selectPropagatingUnbinds(
+          findStaleBindings(tree, (pid) =>
+            editor.getPolygonGeoJSON(pid as PolygonID),
+          ),
         );
         if (stale.length === 0) return;
         for (const s of stale) {

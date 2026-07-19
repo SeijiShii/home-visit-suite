@@ -35,7 +35,7 @@
 - `components/TermsDocument.tsx` — 使用許諾・免責事項の全文表示（i18n `terms.*` が SoT。同意ゲートと設定画面で共用）(→01,10)
 - `pages/TermsGatePage.tsx` — 使用許諾・免責事項の同意ゲート画面（未同意起動時に全ルートへ優先表示。ハッシュ URL は消費しない）(→01,10)
 - `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/使用許諾・免責事項の全文閲覧/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末・ラベルは全行改名可=ロスター同期・削除は自分以外の全行=失効+対象端末の全初期化(ロスター行はネットワーク配線時のみ)・`hvs:roster-updated` 購読で一覧が再読込なしで追従)/地図メンテナンス/アプリ情報=ビルド日時+コミット表示（最新ビルド確認用））(→01,04,10)
-- `lib/map-storage.ts` — ポリゴンネットワークの MapBindingAPI 抽象と localStorage 実装（非 LinkSelf 時・テスト用。LinkSelf 時は data/linkself/linkself-map-binding.ts が map_* テーブルに置換）。ロード時に network-sanitize で不整合を非破壊除外し直近レポートを保持・除外検出時は完全 catch-up の即時リペアを要求（`hvs:sync-repair-requested`）(→03)
+- `lib/map-storage.ts` — ポリゴンネットワークの MapBindingAPI 抽象と localStorage 実装（非 LinkSelf 時・テスト用。LinkSelf 時は data/linkself/linkself-map-binding.ts が map_* テーブルに置換）。ロード時に network-sanitize で不整合を非破壊除外＋除外行 ID を binding.MarkNotServed で通知（差分保存の削除墓石化を防止・resurrection なし）・除外検出時は完全 catch-up の即時リペアを要求（`hvs:sync-repair-requested`）(→03)
 - `lib/build-info.ts` — ビルド情報（Vite define の `__BUILD_TIME__`/`__BUILD_COMMIT__` を安全に参照・表示整形。設定画面「アプリ情報」が使用）
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/linkself/group-schema.ts` — グループドメイン全テーブル（regions/places/map_*/checkouts/feedback 等）の MyDB SQL スキーマ（v3=初期集合・v4=feedback）と JSON 行 `(id, data)` の共通ヘルパ・GROUP_SYNC_TABLES（ScopeNetwork 対象一覧）(→02,03,05,06,07,11)
@@ -67,7 +67,7 @@
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
 - `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
 - `data/linkself/linkself-place-repository.ts` — PlaceRepository の MyDB(SQL) 実装（places。OPFS 永続 + ScopeNetwork）(→01,08)
-- `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。OPFS 永続 + ScopeNetwork）(→01)
+- `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。削除は「エディタへ提供済み（servedIds）だが保存スナップショットに不在」の行のみ＝受信済み他端末行やサニタイズ除外行の墓石化を防ぐ・MarkNotServed で除外行を served から外す。OPFS 永続 + ScopeNetwork）(→01)
 ### 画面/コンポーネント
 - `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合・頂点マージ後の紐付け補正＝分割継承/消滅解除・ロード時の無効紐付き修復スキャン・マージ削除の確認ダイアログ=キャンセルで undo 復元・常設アンドゥ/リドゥボタン=描画中は非表示）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント。現在地 watch の購読ライフサイクルと「現在地へ移動」ボタン配線（未取得時は単発取得→パン）
@@ -94,7 +94,7 @@
 - `lib/vertex-attract.ts` — ドラッグ中の頂点吸着（磁着）の純ロジック（しきい値内の最近傍他頂点を返す。しきい値=12px は map-renderer 定数）
 - `lib/network-sanitize.ts` — ロード時ネットワーク整合性サニタイズの純ロジック（欠落頂点を参照する辺・欠落辺/頂点を参照する面をメモリ上でのみ除外＝非破壊。修復スキャンの missing 誤解除の抑止元データ）
 - `lib/area-tree-path.ts` — 選択ポリゴンが紐付く区域のツリー祖先パス（領域/区域親番/区域）解決の純ロジック（区域一覧の自動展開＋スクロールが使用）
-- `lib/area-binding-heal.ts` — 区域に紐付いたままの無効ポリゴンID（削除済み/面積ほぼ0）の検出純ロジック（地図画面ロード時の修復スキャンが使用）
+- `lib/area-binding-heal.ts` — 区域に紐付いたままの無効ポリゴンID（missing=不在/degenerate=面積ほぼ0）の検出純ロジック（地図画面ロード時の修復スキャンが使用。missing は P2P 未着と区別不能のため伝播する自動解除は degenerate のみ＝MapPage 側でフィルタ）
 - `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群（飛地=複数対象ポリゴン・外接範囲中心）
 - `lib/area-detail-geo.ts` — 幾何計算基盤（重心/haversine/点内包/近傍削除場所探索）
 - `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層

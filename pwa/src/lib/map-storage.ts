@@ -12,10 +12,7 @@ import type {
   Edge,
   PolygonSnapshot,
 } from "map-polygon-editor";
-import {
-  sanitizeNetworkSnapshot,
-  type NetworkSanitizeReport,
-} from "./network-sanitize";
+import { sanitizeNetworkSnapshot } from "./network-sanitize";
 import { requestSyncRepair } from "./linkself/shared-events";
 // 一時診断（原因特定後に削除）
 import { mapDebugLog } from "./map-debug";
@@ -24,6 +21,14 @@ import { mapDebugLog } from "./map-debug";
 export interface MapBindingAPI {
   GetNetworkJSON(): Promise<string>;
   SaveNetworkJSON(json: string): Promise<void>;
+  /**
+   * ロード時サニタイズで除外した辺・面 ID を「エディタに提供していない行」
+   * として通知する（任意実装）。差分保存で削除候補（＝提供済みなのに保存
+   * スナップショットに無い行）から外し、除外行を墓石化しないため（docs/wants/03
+   * 「ロード時のネットワーク整合性サニタイズ」）。localStorage 実装は単一端末
+   * のため no-op でよい。
+   */
+  MarkNotServed?(dropped: { edges: string[]; polygons: string[] }): void;
 }
 
 const EMPTY_NETWORK = JSON.stringify({ vertices: [], edges: [], polygons: [] });
@@ -49,15 +54,6 @@ export class LocalStorageMapBinding implements MapBindingAPI {
   }
 }
 
-// 直近ロードのサニタイズ結果。区域編集画面の無効紐付き修復スキャンが
-// 「サニタイズで除外しただけの面」を削除済みと誤認して unbind を全端末へ
-// 伝播させないための参照（docs/wants/03「ロード時のネットワーク整合性サニタイズ」）。
-let lastSanitizeReport: NetworkSanitizeReport | null = null;
-
-export function getLastNetworkSanitizeReport(): NetworkSanitizeReport | null {
-  return lastSanitizeReport;
-}
-
 /** MapBindingAPI を map-polygon-editor の StorageAdapter に適合させる。 */
 export class NetworkStorageAdapter implements StorageAdapter {
   constructor(private readonly binding: MapBindingAPI) {}
@@ -76,7 +72,15 @@ export class NetworkStorageAdapter implements StorageAdapter {
     // ローカル DB の不整合（P2P 同期の部分適用等）でエディタ初期化ごと
     // 落ちないよう、整合しない辺・面をメモリ上でのみ除外する（書き戻さない）。
     const result = sanitizeNetworkSnapshot(raw);
-    lastSanitizeReport = result;
+    // 除外行を「エディタに提供していない行」として binding に通知する。差分
+    // 保存の削除候補から外し、除外しただけの行を墓石化しないため（エディタは
+    // 知らないだけで削除の意図ではない。実障害: 2026-07-19 スマホの不完全
+    // データ保存が PC の完全な行を墓石化しかけた）。DB へは触れないため、
+    // 除外行の墓石が別途届けば正しく削除され、resurrection も起きない。
+    this.binding.MarkNotServed?.({
+      edges: result.droppedEdgeIds,
+      polygons: result.droppedPolygonIds,
+    });
     if (
       result.droppedEdgeIds.length > 0 ||
       result.droppedPolygonIds.length > 0

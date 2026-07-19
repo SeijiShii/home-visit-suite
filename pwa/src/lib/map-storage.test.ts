@@ -59,3 +59,48 @@ describe("NetworkStorageAdapter.loadAll と同期リペア要求", () => {
     expect(fired).toBe(1);
   });
 });
+
+describe("NetworkStorageAdapter.loadAll の MarkNotServed 通知", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("除外した辺・面 ID を binding.MarkNotServed へ渡す（差分保存の削除候補から外すため）", async () => {
+    const marked: Array<{ edges: string[]; polygons: string[] }> = [];
+    const binding: MapBindingAPI = {
+      GetNetworkJSON: async () =>
+        JSON.stringify({
+          vertices: [{ id: "a", lat: 35, lng: 139 }],
+          edges: [{ id: "bad", v1: "a", v2: "MISSING" }],
+          polygons: [{ id: "P_bad", edgeIds: ["bad"], vertexIds: ["a"] }],
+        }),
+      SaveNetworkJSON: async () => {},
+      MarkNotServed: (d) => marked.push(d),
+    };
+    await new NetworkStorageAdapter(binding).loadAll();
+    expect(marked).toEqual([{ edges: ["bad"], polygons: ["P_bad"] }]);
+  });
+
+  it("除外が無ければ空配列で通知する（未実装 binding でも落ちない）", async () => {
+    const marked: Array<{ edges: string[]; polygons: string[] }> = [];
+    const binding: MapBindingAPI = {
+      GetNetworkJSON: async () =>
+        JSON.stringify({
+          vertices: [{ id: "a", lat: 35, lng: 139 }],
+          edges: [],
+          polygons: [],
+        }),
+      SaveNetworkJSON: async () => {},
+      MarkNotServed: (d) => marked.push(d),
+    };
+    await new NetworkStorageAdapter(binding).loadAll();
+    expect(marked).toEqual([{ edges: [], polygons: [] }]);
+    // MarkNotServed 未実装の binding でも例外にならない
+    await expect(
+      new NetworkStorageAdapter(
+        bindingWith({ vertices: [], edges: [], polygons: [] }),
+      ).loadAll(),
+    ).resolves.toBeDefined();
+  });
+});

@@ -11,9 +11,12 @@ export interface StaleBinding {
   areaId: string;
   polygonId: string;
   /**
-   * missing: エディタにポリゴンが存在しない（削除済み — ただし P2P 同期の
-   * 未着とは区別できないため、呼び出し側は同期状態を考慮して扱うこと）。
-   * degenerate: ポリゴンは存在するが外周面積がほぼ 0（破綻の名残）。
+   * missing: エディタにポリゴンが存在しない。**P2P 同期の未着と削除済みを
+   * 区別できない**ため、これを根拠にした紐付き解除は共有ストアへ伝播させて
+   * はならない（部分同期中の端末が他端末の正当な紐付けを全消去する。
+   * docs/wants/03「区域紐付けの無効ポリゴン ID 修復」の誤解除保護）。
+   * degenerate: ポリゴンは存在するが外周面積がほぼ 0（破綻の名残・実データで
+   * 確認できるため伝播する解除の対象にしてよい）。
    */
   reason: "missing" | "degenerate";
 }
@@ -61,4 +64,17 @@ export function findStaleBindings(
     }
   }
   return stale;
+}
+
+/**
+ * {@link findStaleBindings} の結果のうち、**共有ストアへ伝播させてよい自動解除**
+ * だけを返す。missing（エディタに不在）は P2P 同期の未着と区別できないため
+ * 除外し、degenerate（実データで面積ほぼ 0 と確認できる破綻）のみを残す。
+ * この一点が 2026-07-19 の紐付け全消失インシデントの是正の核心のため、純関数に
+ * 切り出して回帰テストで固定する（docs/wants/03「区域紐付けの無効ポリゴン ID 修復」）。
+ */
+export function selectPropagatingUnbinds(
+  stale: readonly StaleBinding[],
+): StaleBinding[] {
+  return stale.filter((s) => s.reason === "degenerate");
 }

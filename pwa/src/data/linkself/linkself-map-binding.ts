@@ -39,6 +39,24 @@ export class LinkSelfMapBinding implements MapBindingAPI {
 
   constructor(private readonly db: MyDB) {}
 
+  /**
+   * ロード時サニタイズで除外した辺・面を servedIds から取り除く。除外行は
+   * DB には存在するがエディタには渡っていないため、保存スナップショットに
+   * 現れなくても「削除」ではない。served から外すことで savePartDiff の削除
+   * 候補（served かつ nextIds に無い）から除外され、墓石化を防ぐ。DB 行自体
+   * には触れないので、当該行の墓石が別途届けば正しく削除される（除外行を
+   * 保存で書き戻す方式と違い resurrection を生まない。docs/wants/03）。
+   */
+  MarkNotServed(dropped: { edges: string[]; polygons: string[] }): void {
+    const remove = (table: GroupDomainTable, ids: string[]) => {
+      const set = this.servedIds.get(table);
+      if (!set) return;
+      for (const id of ids) set.delete(id);
+    };
+    remove("map_edges", dropped.edges);
+    remove("map_polygons", dropped.polygons);
+  }
+
   async GetNetworkJSON(): Promise<string> {
     await ensureGroupSchema(this.db);
     const network: NetworkJson = { vertices: [], edges: [], polygons: [] };
