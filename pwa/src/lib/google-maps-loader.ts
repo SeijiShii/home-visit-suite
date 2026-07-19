@@ -15,9 +15,6 @@ const READY_CALLBACK = "__hvsGoogleMapsReady";
  */
 export const LOAD_TIMEOUT_MS = 30_000;
 
-// 一時診断ログ（原因特定後に削除）
-import { mapDebugLog } from "./map-debug";
-
 // 1 度だけ読み込む。読み込み中/完了の Promise を使い回す（single-flight）。
 let googleMapsLoader: Promise<void> | null = null;
 
@@ -34,9 +31,6 @@ function isApiReady(): boolean {
  * 失敗時は reject し、次回呼び出しで再試行できる。
  */
 export function loadGoogleMapsApi(apiKey: string): Promise<void> {
-  mapDebugLog(
-    `loader: called (ready=${isApiReady()} inflight=${!!googleMapsLoader} keyLen=${apiKey.length})`,
-  );
   if (isApiReady()) return Promise.resolve();
   if (googleMapsLoader) return googleMapsLoader;
   googleMapsLoader = new Promise<void>((resolve, reject) => {
@@ -53,9 +47,6 @@ export function loadGoogleMapsApi(apiKey: string): Promise<void> {
       reject(new Error(message));
     };
     w[READY_CALLBACK] = () => {
-      mapDebugLog(
-        `loader: ready callback fired (Map=${typeof window.google?.maps?.Map})`,
-      );
       cleanup();
       resolve();
     };
@@ -67,22 +58,12 @@ export function loadGoogleMapsApi(apiKey: string): Promise<void> {
       READY_CALLBACK;
     script.async = true;
     script.defer = true;
-    script.onload = () =>
-      mapDebugLog(
-        `loader: script onload (Map=${typeof window.google?.maps?.Map})`,
-      );
-    script.onerror = () => {
-      mapDebugLog("loader: script onerror");
-      fail("Google Maps API の読み込みに失敗しました");
-    };
-    timer = setTimeout(() => {
-      mapDebugLog(
-        `loader: timeout ${LOAD_TIMEOUT_MS}ms (Map=${typeof window.google?.maps?.Map})`,
-      );
-      fail("Google Maps API の読み込みがタイムアウトしました");
-    }, LOAD_TIMEOUT_MS);
+    script.onerror = () => fail("Google Maps API の読み込みに失敗しました");
+    timer = setTimeout(
+      () => fail("Google Maps API の読み込みがタイムアウトしました"),
+      LOAD_TIMEOUT_MS,
+    );
     document.head.appendChild(script);
-    mapDebugLog("loader: script inserted");
   });
   return googleMapsLoader;
 }

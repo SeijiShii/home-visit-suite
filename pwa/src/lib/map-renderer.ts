@@ -8,8 +8,6 @@ import type {
 } from "map-polygon-editor";
 import { polygonCenter } from "./area-detail-geo";
 import { loadGoogleMapsApi } from "./google-maps-loader";
-// 一時診断ログ（原因特定後に削除）
-import { mapDebugLog } from "./map-debug";
 import { computeParentBoundaryEdges } from "./parent-boundary";
 import { parentAreaColorPair } from "./parent-area-color";
 import {
@@ -467,9 +465,6 @@ export class MapRenderer {
    * ポリゴン・マーカー等の上位レイヤーは別 pane のため差し替えても保持される。
    */
   setBaseMap(config: BaseMapConfig): void {
-    mapDebugLog(
-      `renderer: setBaseMap provider=${config.provider} hasKey=${!!config.googleApiKey} mounted=${!!this.map}`,
-    );
     if (!this.map) return;
     const prev = this.baseMapConfig;
     this.baseMapConfig = config;
@@ -596,11 +591,7 @@ export class MapRenderer {
   ): Promise<void> {
     try {
       await loadGoogleMapsApi(config.googleApiKey!);
-      mapDebugLog("renderer: gmaps api ready, loading mutant plugin");
       await loadGoogleMutantPlugin();
-      mapDebugLog(
-        `renderer: mutant plugin loaded (gen ok=${generation === this.baseMapGeneration} mounted=${!!this.map})`,
-      );
       // 読み込み中にさらに切替要求が来ていたら、この結果は破棄する。
       if (generation !== this.baseMapGeneration || !this.map) return;
       // プラグインは untyped のため L.gridLayer.googleMutant をキャストして呼ぶ。
@@ -624,12 +615,8 @@ export class MapRenderer {
         this.addBaseMapToggle(config.googleTypeLabels);
       }
       this.updateBaseMapToggleActive();
-      mapDebugLog("renderer: google layer applied");
     } catch (e) {
       // 失敗時は GSI のまま（applyGsiLayer は setBaseMap 側で既に適用済み）。
-      mapDebugLog(
-        `renderer: applyGoogleLayer FAILED: ${String(e).slice(0, 200)}`,
-      );
       console.error("Google Maps ベース地図の適用に失敗しました:", e);
     }
   }

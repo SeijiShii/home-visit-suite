@@ -6,8 +6,6 @@ import {
   type PlaceOverlayItem,
 } from "../lib/map-renderer";
 import { resolveBaseMapConfig } from "../lib/map-config";
-// 一時診断（原因特定後に削除）
-import { mapDebugLog } from "../lib/map-debug";
 import {
   queryGeolocationPermission,
   watchCurrentLocation,
@@ -259,13 +257,6 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   useEffect(() => {
     if (!containerRef.current) return;
-    // 一時診断（原因特定後に削除）
-    {
-      const c = resolveBaseMapConfig();
-      mapDebugLog(
-        `mapview: mount, resolved provider=${c.provider} keyLen=${c.googleApiKey?.length ?? 0}`,
-      );
-    }
     const renderer = new MapRenderer();
     renderer.mount(
       containerRef.current,

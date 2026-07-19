@@ -14,8 +14,6 @@ import type {
 } from "map-polygon-editor";
 import { sanitizeNetworkSnapshot } from "./network-sanitize";
 import { requestSyncRepair } from "./linkself/shared-events";
-// 一時診断（原因特定後に削除）
-import { mapDebugLog } from "./map-debug";
 
 /** ネットワーク JSON の読み書き抽象（旧 Wails MapBinding 相当）。 */
 export interface MapBindingAPI {
@@ -89,9 +87,6 @@ export class NetworkStorageAdapter implements StorageAdapter {
         "[map-storage] ネットワーク不整合を検出し除外しました（非破壊）:",
         result.droppedEdgeIds,
         result.droppedPolygonIds,
-      );
-      mapDebugLog(
-        `storage: sanitized edges=[${result.droppedEdgeIds.join(",")}] polygons=[${result.droppedPolygonIds.join(",")}]`,
       );
       // 不整合＝ライブ配送の取りこぼし疑い。差分 catch-up では高水位の下に
       // 埋まった欠落行を取り返せないため、完全 catch-up の即時リペアを要求

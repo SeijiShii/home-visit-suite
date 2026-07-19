@@ -7,8 +7,6 @@ import type { MapBindingAPI } from "../lib/map-storage";
 import { NetworkStorageAdapter } from "../lib/map-storage";
 import { PolygonService } from "../services/polygon-service";
 import type { PolygonBindingAPI } from "../services/polygon-service";
-// 一時診断（原因特定後に削除）
-import { mapDebugLog } from "../lib/map-debug";
 
 export function usePolygonEditor(
   mapBinding: MapBindingAPI,
@@ -28,13 +26,11 @@ export function usePolygonEditor(
     let cancelled = false;
 
     const init = async () => {
-      mapDebugLog("editor: init start");
       const adapter = new NetworkStorageAdapter(mapBinding);
       const editor = new NetworkPolygonEditor(adapter);
       await editor.init();
 
       if (cancelled) return;
-      mapDebugLog("editor: init done");
 
       setWired({
         editor,
@@ -43,7 +39,6 @@ export function usePolygonEditor(
     };
 
     init().catch((err) => {
-      mapDebugLog(`editor: init FAILED ${String(err).slice(0, 200)}`);
       console.error("NetworkPolygonEditor initialization failed:", err);
     });
 

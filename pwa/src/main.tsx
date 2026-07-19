@@ -23,8 +23,8 @@ import {
 import type { AppServices } from "./contexts/ServicesContext";
 import "leaflet/dist/leaflet.css";
 import "./style.css";
-// 一時診断（原因特定後に削除）
-import { initMapDebug, mapDebugLog } from "./lib/map-debug";
+// 実機診断オーバーレイ（lib/map-debug.ts）は後日のデバッグ用に残置。既定は無効。
+// 有効化するには initMapDebug() を bootstrap 冒頭で呼ぶ（起動段階から可視化される）。
 
 // データ配線の切替:
 // - 既定（暫定）: インメモリ + localStorage 永続。個人設定は localStorage 永続版で保持する。
@@ -55,15 +55,11 @@ function devIdentityEnabled(): boolean {
 }
 
 async function bootstrap() {
-  // 一時診断（原因特定後に削除）
-  initMapDebug();
-  mapDebugLog("boot: start");
   // グループ毎のローカル DB 分離（docs/wants/01）: 旧単一グループデータを
   // 一度だけスロット名前空間へ移行し、アクティブスロットを確定する。
   migrateLegacyGroupData();
   const activeSlot = ensureActiveSlot();
   const storagePrefix = repoPrefix(activeSlot.slotId);
-  mapDebugLog(`boot: slot ready, linkself=${linkSelfEnabled()}`);
 
   let services: AppServices;
   // ネットワーク配線を有効化したときの graceful stop（既定は no-op）。
@@ -85,7 +81,6 @@ async function bootstrap() {
     services = bundle.services;
     stopLinkSelf = bundle.stop;
     groupNetwork = bundle.groupNetwork ?? null;
-    mapDebugLog("boot: linkself services ready");
     // ページ破棄（タブを閉じる/遷移）で libp2p を graceful に停止する（docs/wants/11 §2）。
     // 注意: visibilitychange(hidden) では停止しない。デスクトップでは別ウィンドウに
     // 隠れただけで hidden になり（Chrome のオクルージョン検出）、招待の受理待ち
@@ -133,7 +128,6 @@ async function bootstrap() {
 
   const container = document.getElementById("app")!;
 
-  mapDebugLog("boot: rendering app");
   createRoot(container).render(
     <React.StrictMode>
       <RootErrorBoundary>
@@ -153,7 +147,6 @@ async function bootstrap() {
 
 // 起動時例外を画面に可視化する（真っ白のまま無反応になるのを防ぐ）。
 void bootstrap().catch((err) => {
-  mapDebugLog(`boot: FAILED ${String(err).slice(0, 200)}`);
   console.error("[bootstrap] failed", err);
   const container = document.getElementById("app");
   if (container) {

@@ -14,8 +14,6 @@ import { RegionService } from "../services/region-service";
 import { isRoleAtLeast, useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import { usePolygonEditor } from "../hooks/usePolygonEditor";
-// 一時診断（原因特定後に削除）
-import { mapDebugLog } from "../lib/map-debug";
 import { useSharedApplied } from "../hooks/useSharedApplied";
 import {
   AREA_TREE_TABLES,
@@ -148,13 +146,6 @@ export function VisitPageContainer() {
   }, [isEditorOrAbove, actorId, areaId, checkoutService]);
 
   const editorReady = ready && editor;
-
-  // 一時診断（原因特定後に削除）
-  useEffect(() => {
-    mapDebugLog(
-      `visit: area=${areaId} ready=${ready} p2a=${polygonToArea.size} denied=${accessDenied} role=${currentRole}`,
-    );
-  }, [areaId, ready, polygonToArea, accessDenied, currentRole]);
 
   // 活動メンバーは「自分の active チェックアウト or 有効な区域招待」がある区域のみ
   // アクセス可。満たさない場合はルートをブロックしダッシュボードへ戻す。
