@@ -5,7 +5,10 @@ import type { AreaTreeNode } from "../services/region-service";
 interface AreaPickerDialogProps {
   open: boolean;
   tree: AreaTreeNode[];
+  /** いずれかのポリゴンに紐付け済みの区域（行を不活性化し飛地追加ボタンを出す） */
   linkedAreaIds: Set<string>;
+  /** 対象ポリゴン自身が既に紐付いている区域（重複紐付けを作らせないため完全に不活性） */
+  boundAreaIds?: Set<string>;
   onSelect: (areaId: string, areaLabel: string) => void;
   onClose: () => void;
 }
@@ -14,6 +17,7 @@ export function AreaPickerDialog({
   open,
   tree,
   linkedAreaIds,
+  boundAreaIds,
   onSelect,
   onClose,
 }: AreaPickerDialogProps) {
@@ -65,12 +69,18 @@ export function AreaPickerDialog({
                     {expanded.has(pa.id) &&
                       pa.areas.map((area) => {
                         const isLinked = linkedAreaIds.has(area.id);
+                        // このポリゴン自身が既に紐付いている区域は飛地追加も不可
+                        const isBoundHere = boundAreaIds?.has(area.id) ?? false;
                         return (
                           <div
                             key={area.id}
                             className={`area-picker-item${isLinked ? " area-picker-item-disabled" : ""}`}
                             title={
-                              isLinked ? t.map.areaAlreadyLinked : undefined
+                              isBoundHere
+                                ? t.map.areaAlreadyLinkedHere
+                                : isLinked
+                                  ? t.map.areaAlreadyLinked
+                                  : undefined
                             }
                             onClick={() => {
                               if (!isLinked) onSelect(area.id, area.id);
@@ -79,7 +89,7 @@ export function AreaPickerDialog({
                             <span className="area-picker-item-label">
                               {area.id}
                             </span>
-                            {isLinked && (
+                            {isLinked && !isBoundHere && (
                               <button
                                 type="button"
                                 className="area-picker-exclave-btn"

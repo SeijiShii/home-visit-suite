@@ -85,8 +85,12 @@ export function MapPage() {
   const [activeTab, setActiveTab] = useState<SidebarTab>("areas");
   const [polygons, setPolygons] = useState<PolygonSnapshot[]>([]);
   const [polygonAreaMap, setPolygonAreaMap] = useState<
-    Map<string, PolygonAreaInfo>
+    Map<string, PolygonAreaInfo[]>
   >(new Map());
+  // 複数区域が紐付くポリゴンのダブルクリック時、訪問記録を開く区域の選択候補
+  const [visitAreaPicker, setVisitAreaPicker] = useState<
+    PolygonAreaInfo[] | null
+  >(null);
   // ドラッグ終了コールバックは編集モード開始時に固定されるため、
   // 紐付け参照は ref 経由で常に最新を引く。
   const polygonAreaMapRef = useRef(polygonAreaMap);
@@ -197,24 +201,34 @@ export function MapPage() {
   // でも起きるため、ChangeSet を生むすべてのローカル編集経路から呼ぶ。
   const applyBindingFixup = useCallback(
     (cs: ChangeSet) => {
-      const fixup = computeBindingFixup(
-        cs,
-        (pid) => polygonAreaMapRef.current.get(pid)?.areaId,
+      const fixup = computeBindingFixup(cs, (pid) =>
+        polygonAreaMapRef.current.get(pid)?.map((i) => i.areaId),
       );
       if (fixup.bind.length === 0 && fixup.unbind.length === 0) return;
       void (async () => {
         try {
+          // 1 件の失敗で残りを道連れにしない（複数区域紐付けでは補正対象が
+          // 増えるため、1 区域の not_found 等で他区域の補正が飛ぶと紐付けが
+          // 中途半端な状態で残る）。
           for (const b of fixup.bind) {
-            await polygonService?.bindPolygonToArea(
-              b.polygonId as PolygonID,
-              b.areaId,
-            );
+            try {
+              await polygonService?.bindPolygonToArea(
+                b.polygonId as PolygonID,
+                b.areaId,
+              );
+            } catch (e) {
+              console.error("binding fixup bind failed:", b, e);
+            }
           }
           for (const u of fixup.unbind) {
-            await polygonService?.unbindPolygonFromArea(
-              u.areaId,
-              u.polygonId as PolygonID,
-            );
+            try {
+              await polygonService?.unbindPolygonFromArea(
+                u.areaId,
+                u.polygonId as PolygonID,
+              );
+            } catch (e) {
+              console.error("binding fixup unbind failed:", u, e);
+            }
           }
           await reloadPolygonsRef.current();
           await treeRef.current?.reload();
@@ -811,9 +825,13 @@ export function MapPage() {
     async (snapshot: PolygonSnapshot) => {
       if (!polygonService) return;
       try {
-        const areaInfo = polygonAreaMap.get(snapshot.id as string);
-        if (areaInfo) {
-          await polygonService.deletePolygonForArea(snapshot, areaInfo.areaId);
+        const areaInfos = polygonAreaMap.get(snapshot.id as string) ?? [];
+        if (areaInfos.length > 0) {
+          // 紐付く全区域から解除して削除する（N:M）
+          await polygonService.deletePolygonForAreas(
+            snapshot,
+            areaInfos.map((i) => i.areaId),
+          );
         } else {
           polygonService.deletePolygonEdges(snapshot);
         }
@@ -893,13 +911,18 @@ export function MapPage() {
           onMapClick={handleMapClick}
           onPolygonClick={handlePolygonClick}
           onPolygonDoubleClick={(id) => {
-            const info = polygonAreaMap.get(id as string);
+            const infos = polygonAreaMap.get(id as string) ?? [];
             // ポリゴンダブルクリック → 当該区域の訪問記録画面（場所編集を兼ねる）へ
             // 遷移する（docs/wants/03「ポリゴンクリック操作」2026-07-14 改訂）。
             // 区域編集からの遷移であることを伝え、訪問記録画面に
             // 「区域編集に戻る」ボタンを出す（docs/wants/03「場所の直接編集」）。
-            if (info)
-              navigate(`/visits/${info.areaId}`, {
+            // 複数区域が紐付くポリゴンは遷移先が一意に決まらないため選択させる。
+            if (infos.length > 1) {
+              setVisitAreaPicker(infos);
+              return;
+            }
+            if (infos.length === 1)
+              navigate(`/visits/${infos[0].areaId}`, {
                 state: { from: "map-editor" },
               });
           }}
@@ -956,6 +979,41 @@ export function MapPage() {
           onConfirm={handleMergeDeleteConfirm}
           onCancel={handleMergeDeleteCancel}
         />
+      )}
+
+      {/* 複数区域が紐付くポリゴンのダブルクリック: 開く区域を選ばせる（wants 03） */}
+      {visitAreaPicker && (
+        <div className="modal-overlay" onClick={() => setVisitAreaPicker(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">{t.map.selectVisitArea}</h3>
+            <ul className="visit-area-picker-list">
+              {visitAreaPicker.map((info) => (
+                <li key={info.areaId}>
+                  <button
+                    type="button"
+                    className="btn visit-area-picker-btn"
+                    onClick={() => {
+                      setVisitAreaPicker(null);
+                      navigate(`/visits/${info.areaId}`, {
+                        state: { from: "map-editor" },
+                      });
+                    }}
+                  >
+                    {info.areaLabel}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="modal-actions">
+              <button
+                className="modal-btn"
+                onClick={() => setVisitAreaPicker(null)}
+              >
+                {t.common.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {isEditing && (

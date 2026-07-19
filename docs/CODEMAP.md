@@ -57,19 +57,19 @@
 - `data/linkself/linkself-region-repository.ts` — RegionRepository の MyDB(SQL) 実装（regions/parent_areas/areas。OPFS 永続 + ScopeNetwork でメンバー間同期）(→01)
 - `pages/RegionManagementPage.tsx` — 領域記号・区域番号の CRUD 画面 (→10)
 - `components/AreaTree.tsx` — 区域ツリーの表示/編集（Undo/Redo・ポリゴン紐付け・選択ポリゴン行への祖先自動展開＋スクロール）(→03)
-- `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ（紐付け済み区域には飛地追加ボタン）(→03)
-- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け/解除・有効/ロック・選択ポリゴン行への自動スクロール）(→03)
+- `components/AreaPickerDialog.tsx` — ポリゴン紐付け先区域のツリー選択ダイアログ（他ポリゴン紐付け済み区域には飛地追加ボタン・対象ポリゴン自身が紐付く区域は完全不活性＝重複紐付け防止）(→03)
+- `components/PolygonList.tsx` — ポリゴン一覧管理（区域紐付け追加=プラスボタン常設／解除=鋏ボタン・複数区域紐付け時は解除対象選択ダイアログ・区域ラベルは0件/1件/複数で切替・有効/ロック・選択ポリゴン行への自動スクロール）(→03)
 
 ## 03 地図機能（ポリゴン編集/紐付け/住宅情報）
 - ポリゴン編集コア（頂点/辺ネットワーク・スナップ・交差解決・面列挙・undo/redo）は外部 npm パッケージ `map-polygon-editor`（自作、ソース: `~/map-polygon-editor`、https://github.com/SeijiShii/map-polygon-editor ）。編集コアの不具合はライブラリ側で修正→patch 公開→`pwa` の依存更新で反映する
 ### サービス
-- `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea、1区域複数ポリゴン=飛地対応・個別/一括解除)・エリアマップ構築
+- `services/polygon-service.ts` — ポリゴン編集と区域紐付け(BindPolygonToArea、区域⇔ポリゴンは N:M＝1区域複数ポリゴン(飛地)／1ポリゴン複数区域・個別/一括解除・削除時は紐付く全区域から解除)・エリアマップ構築(ポリゴンID→区域一覧。先頭が代表区域)
 - `services/place-service.ts` — Place型/PlaceBindingAPI と場所(住宅情報)の CRUD・並び順・論理削除 (→08)
 - `services/place-binding-adapter.ts` — PlaceBindingAPI を PlaceRepository 上に実装するアダプタ
 - `data/linkself/linkself-place-repository.ts` — PlaceRepository の MyDB(SQL) 実装（places。OPFS 永続 + ScopeNetwork）(→01,08)
 - `data/linkself/linkself-map-binding.ts` — MapBindingAPI の MyDB(SQL) 実装（map_vertices/map_edges/map_polygons のエンティティ行・保存は差分行のみ upsert/delete。削除は「エディタへ提供済み（servedIds）だが保存スナップショットに不在」の行のみ＝受信済み他端末行やサニタイズ除外行の墓石化を防ぐ・MarkNotServed で除外行を served から外す。OPFS 永続 + ScopeNetwork）(→01)
 ### 画面/コンポーネント
-- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合・頂点マージ後の紐付け補正＝分割継承/消滅解除・ロード時の無効紐付き修復スキャン・マージ削除の確認ダイアログ=キャンセルで undo 復元・常設アンドゥ/リドゥボタン=描画中は非表示）(→10)
+- `pages/MapPage.tsx` — 地図画面（ポリゴン描画/区域ツリー/ポリゴン一覧/ポリゴンダブルクリックで訪問記録へ遷移＝複数区域紐付け時は区域選択ダイアログ/場所の読み取り専用オーバーレイ＝灰色・区域外は赤灰色・SortOrder 重複の幾何順再採番の統合・頂点マージ後の紐付け補正＝分割継承/消滅解除・ロード時の無効紐付き修復スキャン・マージ削除の確認ダイアログ=キャンセルで undo 復元・常設アンドゥ/リドゥボタン=描画中は非表示）(→10)
 - `components/MapView.tsx` — 地図レンダリングとポリゴン編集操作の描画コンポーネント。現在地 watch の購読ライフサイクルと「現在地へ移動」ボタン配線（未取得時は単発取得→パン）
 - `components/AddPlaceInputDialog.tsx` — 家追加・場所編集の入力ダイアログ
 - `components/BuildingEditDialog.tsx` — 集合住宅の作成/編集（名前/住所/補足＋部屋行は RoomRowsEditor・D&D 並替あり）
@@ -81,7 +81,7 @@
 - `components/DeletePlaceConfirmDialog.tsx` — 場所削除（論理削除）の確認
 - `components/PolygonDeleteConfirmDialog.tsx` — 頂点統合でポリゴンが消滅するときの確認（OK=確定/キャンセル=undo 復元）
 ### lib（純ロジック/幾何/画像処理）
-- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン（未紐付け=灰・紐付け済みは親番ごとに有彩色塗り分け・詳細モードは親番色の極薄塗り）/場所マーカー/区域IDラベル（ズーム16以上のみ表示）/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・読み取り専用の場所オーバーレイ（ズーム16以上・灰/赤灰）・ベース地図切替・描画モードのスナップ表示（頂点/線分）・頂点ドラッグの吸着マーカー表示（onDragMove 戻り値の位置へ）・初期表示位置（前回ビュー復元=moveend 毎に localStorage 保存 > 初回は GPS 現在地=表示が動いていたら上書きしない > 東京フォールバック）・現在地マーカー（青ドット＋精度円、専用ペイン・非対話）と「現在地へ移動」コントロール（パン時 zoom15 未満は引き上げ）
+- `lib/map-renderer.ts` — Leaflet による地図/ポリゴン（未紐付け=灰・紐付け済みは親番ごとに有彩色塗り分け＝複数区域紐付け時は代表区域(先頭)の親番色へ寄せる・詳細モードは親番色の極薄塗り）/場所マーカー/区域IDラベル（ズーム16以上のみ表示・複数区域が紐付くポリゴンは改行して縦に並べる）/親番境界の実線太線強調（区域境界線＝輪郭が手前）の描画・読み取り専用の場所オーバーレイ（ズーム16以上・灰/赤灰）・ベース地図切替・描画モードのスナップ表示（頂点/線分）・頂点ドラッグの吸着マーカー表示（onDragMove 戻り値の位置へ）・初期表示位置（前回ビュー復元=moveend 毎に localStorage 保存 > 初回は GPS 現在地=表示が動いていたら上書きしない > 東京フォールバック）・現在地マーカー（青ドット＋精度円、専用ペイン・非対話）と「現在地へ移動」コントロール（パン時 zoom15 未満は引き上げ）
 - `lib/initial-map-view.ts` — 地図初期表示位置の解決純ロジック（保存ビュー優先/東京駅フォールバック/GPS 1回取得のラッパ）
 - `lib/current-location.ts` — 現在地のリアルタイム購読（watchPosition ラッパ・stop で解除。現在地マーカー/現在地パンの供給元）
 - `lib/parent-boundary.ts` — 区域親番の境目となる辺の判定（親番キー抽出・辺単位の境界集合算出）
@@ -90,12 +90,12 @@
 - `lib/map-config.ts` — 環境変数からベース地図プロバイダ設定(GSI/Google)を解決 (→01)
 - `lib/google-maps-loader.ts` — Google Maps JS API の script 動的読み込み（loading=async では onload 時点で google.maps.Map 未定義のため、公式 callback パラメータで API 完全準備後に resolve。single-flight・失敗時リトライ可）
 - `lib/map-maintenance.ts` — 孤立頂点の一括削除（開発用保守）
-- `lib/polygon-binding-fixup.ts` — 頂点マージ後の ChangeSet から区域紐付けの補正を算出する純ロジック（分割で新 ID が出たら分割元の区域へ bind・消滅したポリゴンは unbind）
+- `lib/polygon-binding-fixup.ts` — 頂点マージ後の ChangeSet から区域紐付けの補正を算出する純ロジック（分割で新 ID が出たら分割元の全区域へ bind・消滅したポリゴンは全区域から unbind）
 - `lib/vertex-attract.ts` — ドラッグ中の頂点吸着（磁着）の純ロジック（しきい値内の最近傍他頂点を返す。しきい値=12px は map-renderer 定数）
 - `lib/network-sanitize.ts` — ロード時ネットワーク整合性サニタイズの純ロジック（欠落頂点を参照する辺・欠落辺/頂点を参照する面をメモリ上でのみ除外＝非破壊。修復スキャンの missing 誤解除の抑止元データ）
 - `lib/area-tree-path.ts` — 選択ポリゴンが紐付く区域のツリー祖先パス（領域/区域親番/区域）解決の純ロジック（区域一覧の自動展開＋スクロールが使用）
 - `lib/area-binding-heal.ts` — 区域に紐付いたままの無効ポリゴンID（missing=不在/degenerate=面積ほぼ0）の検出純ロジック（地図画面ロード時の修復スキャンが使用。missing は P2P 未着と区別不能のため伝播する自動解除は degenerate のみ＝MapPage 側でフィルタ）
-- `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群（飛地=複数対象ポリゴン・外接範囲中心）
+- `lib/area-detail-controller.ts` — 活性ポリゴン中心/近隣/詳細ビューモデルを算出する純関数群（飛地=複数対象ポリゴン・外接範囲中心・N:M 対応＝複数区域が紐付くポリゴンはそのどの区域から開いても対象になる）
 - `lib/area-detail-geo.ts` — 幾何計算基盤（重心/haversine/点内包/近傍削除場所探索）
 - `lib/area-detail-map-integration.ts` — 詳細ビューモデルを MapView ハンドルへ適用する統合層
 - `lib/add-place-flow.ts` — 「家を追加」フローの純状態機械（削除済み場所の復元判定含む）

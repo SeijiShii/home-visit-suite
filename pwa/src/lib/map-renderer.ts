@@ -280,7 +280,8 @@ export class MapRenderer {
   private snapIndicator: L.CircleMarker | null = null;
 
   // 区域IDラベル（紐付け済みポリゴンの中心にテキスト表示）
-  private polygonAreaIds = new Map<string, string>();
+  /** ポリゴンID → 紐付く区域ID（N:M。先頭が代表区域。wants 03） */
+  private polygonAreaIds = new Map<string, string[]>();
   private areaIdLabelMarkers = new Map<
     string,
     { marker: L.Marker; text: string }
@@ -932,31 +933,30 @@ export class MapRenderer {
     this.edgeLayers.set(id as string, line);
   }
 
+  /**
+   * 代表区域ID（紐付く区域のうちツリー順で最初の 1 件）。塗り分け色・親番境界の
+   * 判定に使う。面は 1 つしかないため複数区域が紐付く場合はどちらかへ寄せる
+   * （wants 03「区域親番ごとのポリゴン塗り分け」2026-07-19）。
+   */
+  private primaryAreaId(idStr: string): string | undefined {
+    return this.polygonAreaIds.get(idStr)?.[0];
+  }
+
   private computePolygonStyle(id: PolygonID): PolygonStyle | null {
     const idStr = id as string;
     if (this.detailMode) {
       if (this.detailMode.targetIds.has(idStr)) {
-        return getAreaDetailPolygonStyle(
-          "target",
-          this.polygonAreaIds.get(idStr),
-        );
+        return getAreaDetailPolygonStyle("target", this.primaryAreaId(idStr));
       }
       if (this.detailMode.neighborIds.has(idStr)) {
-        return getAreaDetailPolygonStyle(
-          "neighbor",
-          this.polygonAreaIds.get(idStr),
-        );
+        return getAreaDetailPolygonStyle("neighbor", this.primaryAreaId(idStr));
       }
       // detail モード中は対象/隣接以外を非表示
       return null;
     }
     const isLinked = this.linkedPolygonIds.has(idStr);
     const isSelected = this.selectedId === idStr;
-    return getPolygonStyle(
-      isLinked,
-      isSelected,
-      this.polygonAreaIds.get(idStr),
-    );
+    return getPolygonStyle(isLinked, isSelected, this.primaryAreaId(idStr));
   }
 
   private addPolygonLayer(id: PolygonID): void {
@@ -1469,9 +1469,12 @@ export class MapRenderer {
 
   // --- 区域IDラベル ---
 
-  /** ポリゴンID→区域ID の対応を設定し、区域IDラベルと親番境界を描画し直す。 */
-  setPolygonAreaIds(ids: ReadonlyMap<string, string>): void {
-    this.polygonAreaIds = new Map(ids);
+  /**
+   * ポリゴンID→区域ID配列の対応を設定し、区域IDラベルと親番境界を描画し直す。
+   * 塗り分け色・親番境界の判定は代表区域（配列の先頭）で行う。
+   */
+  setPolygonAreaIds(ids: ReadonlyMap<string, readonly string[]>): void {
+    this.polygonAreaIds = new Map([...ids].map(([pid, a]) => [pid, [...a]]));
     this.refreshAreaIdLabels();
     this.refreshParentBoundaries();
     // 親番ごとの塗り分け色は区域ID対応に依存するため、表示中レイヤーを再スタイル
@@ -1498,7 +1501,9 @@ export class MapRenderer {
     >();
     if (this.editor && isAreaIdLabelZoomVisible(this.map.getZoom())) {
       for (const idStr of this.polygonLayers.keys()) {
-        const text = this.polygonAreaIds.get(idStr);
+        // 複数区域が紐付くポリゴンは区域IDを改行で縦に並べる
+        // （wants 03「区域IDラベル表示」2026-07-19）。
+        const text = this.polygonAreaIds.get(idStr)?.join("\n");
         if (!text) continue;
         const ring = this.editor.getPolygonGeoJSON(idStr as PolygonID)
           ?.coordinates[0];
@@ -1560,7 +1565,12 @@ export class MapRenderer {
           // 穴の辺も境目判定に含める（穴の内側に別親番の区域が入り得るため）
           edgeIds: [...p.edgeIds, ...p.holes.flat()] as string[],
         })),
-        this.polygonAreaIds,
+        // 親番の境目判定は代表区域（先頭）で行う（塗り分け色と同じ寄せ方）
+        new Map(
+          [...this.polygonAreaIds]
+            .filter(([, areaIds]) => areaIds.length > 0)
+            .map(([pid, areaIds]) => [pid, areaIds[0]]),
+        ),
       );
       const visibleEdges = new Set<string>();
       for (const p of polygons) {

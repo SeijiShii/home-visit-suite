@@ -94,7 +94,7 @@ export interface VisitPageProps {
   /** ポリゴンエディタ。テスト用に PolygonGeoSource でも可。 */
   editor?: NetworkPolygonEditor | PolygonGeoSource;
   /** polygonId → areaId の紐付け表 */
-  polygonToArea?: ReadonlyMap<string, string>;
+  polygonToArea?: ReadonlyMap<string, readonly string[]>;
   /** 区域に紐づく polygonId 集合 */
   linkedPolygonIds?: Set<string>;
   /** 半径取得 (任意) */
@@ -343,8 +343,8 @@ export function VisitPage({
   const targetPolygonIds = useMemo(() => {
     if (!polygonToArea) return [];
     const ids: string[] = [];
-    for (const [polygonId, mappedAreaId] of polygonToArea) {
-      if (mappedAreaId === areaId) ids.push(polygonId);
+    for (const [polygonId, mappedAreaIds] of polygonToArea) {
+      if (mappedAreaIds.includes(areaId)) ids.push(polygonId);
     }
     return ids;
   }, [polygonToArea, areaId]);

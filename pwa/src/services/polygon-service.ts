@@ -13,21 +13,26 @@ export interface PolygonAreaInfo {
   areaLabel: string;
 }
 
+/**
+ * ポリゴンID → 紐付く区域の一覧を構築する。区域⇔ポリゴンは N:M
+ * （1 区域に複数の飛地ポリゴン／1 ポリゴンに複数区域。wants 03
+ * 「1 つのポリゴンへの複数区域紐付け」）。並びは区域ツリー順で安定させ、
+ * 先頭を代表区域（塗り分け色・親番境界判定・ツリー展開先）として扱う。
+ */
 export function buildPolygonAreaMap(
   tree: AreaTreeNode[],
-): Map<string, PolygonAreaInfo> {
-  const map = new Map<string, PolygonAreaInfo>();
+): Map<string, PolygonAreaInfo[]> {
+  const map = new Map<string, PolygonAreaInfo[]>();
   for (const region of tree) {
     for (const pa of region.parentAreas) {
       for (const area of pa.areas) {
         // 区域親番に名前があれば「ID 名前」で併記する（空名は ID のみ）。
-        // 飛地対応: 同一区域の全ポリゴンが同じ区域情報へマップされる。
         const areaLabel = pa.name ? `${area.id} ${pa.name}` : area.id;
         for (const polygonId of area.polygonIds ?? []) {
-          map.set(polygonId, {
-            areaId: area.id,
-            areaLabel,
-          });
+          const infos = map.get(polygonId);
+          const info = { areaId: area.id, areaLabel };
+          if (infos) infos.push(info);
+          else map.set(polygonId, [info]);
         }
       }
     }
@@ -35,11 +40,13 @@ export function buildPolygonAreaMap(
   return map;
 }
 
-/** buildPolygonAreaMap の結果から、地図の区域IDラベル用に ポリゴンID→区域ID を取り出す。 */
+/** buildPolygonAreaMap の結果から、地図の区域IDラベル用に ポリゴンID→区域ID配列 を取り出す。 */
 export function toPolygonAreaIds(
-  areaMap: ReadonlyMap<string, PolygonAreaInfo>,
-): Map<string, string> {
-  return new Map([...areaMap].map(([pid, info]) => [pid, info.areaId]));
+  areaMap: ReadonlyMap<string, PolygonAreaInfo[]>,
+): Map<string, string[]> {
+  return new Map(
+    [...areaMap].map(([pid, infos]) => [pid, infos.map((i) => i.areaId)]),
+  );
 }
 
 export interface PolygonBindingAPI {
@@ -113,13 +120,26 @@ export class PolygonService {
     return lastCs ?? emptyChangeSet();
   }
 
-  async deletePolygonForArea(
+  /** 紐付く全区域（N:M）から当該ポリゴンの紐付けだけ外してポリゴンを削除する。 */
+  async deletePolygonForAreas(
     snapshot: PolygonSnapshot,
-    areaId: string,
+    areaIds: readonly string[],
   ): Promise<void> {
     this.deletePolygonEdges(snapshot);
     // 削除したポリゴンの紐付けだけ外す（同一区域の他の飛地は維持）。
-    await this.regionAPI.UnbindPolygonFromArea(areaId, snapshot.id as string);
+    // 1 区域の解除失敗（他メンバーによる区域削除等で not_found）で残りを
+    // 打ち切ると、ポリゴン行が消えた後に UI から外せない紐付けが残るため、
+    // 個別に握りつぶして全区域を試す。
+    for (const areaId of areaIds) {
+      try {
+        await this.regionAPI.UnbindPolygonFromArea(
+          areaId,
+          snapshot.id as string,
+        );
+      } catch (e) {
+        console.error("unbind polygon failed:", areaId, snapshot.id, e);
+      }
+    }
   }
 
   async save(): Promise<void> {

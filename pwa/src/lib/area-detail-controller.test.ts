@@ -9,11 +9,7 @@ import {
   type PolygonGeoSource,
 } from "./area-detail-controller";
 
-function square(
-  lat: number,
-  lng: number,
-  size = 0.002,
-): GeoPolygon {
+function square(lat: number, lng: number, size = 0.002): GeoPolygon {
   return {
     type: "Polygon",
     coordinates: [
@@ -43,11 +39,12 @@ describe("buildAreaDetailViewModel の飛地対応", () => {
     "poly-far": square(36.5, 141.5), // 遠方（隣接外）
   });
   const centers = polygonCentersFromEditor(editor);
-  const polygonToArea = new Map([
-    ["poly-a", "NRT-001-05"],
-    ["poly-b", "NRT-001-05"],
-    ["poly-n", "NRT-001-06"],
-    ["poly-far", "NRT-999-01"],
+  const polygonToArea = new Map<string, string[]>([
+    ["poly-a", ["NRT-001-05"]],
+    ["poly-b", ["NRT-001-05"]],
+    // poly-n は 2 区域で分担するポリゴン（N:M）。対象区域からも隣接からも見える
+    ["poly-n", ["NRT-001-06", "NRT-001-07"]],
+    ["poly-far", ["NRT-999-01"]],
   ]);
 
   const vm = buildAreaDetailViewModel({
@@ -76,6 +73,20 @@ describe("buildAreaDetailViewModel の飛地対応", () => {
     expect(vm!.neighborIds.has("poly-far")).toBe(false);
     expect(vm!.neighborIds.has("poly-a")).toBe(false);
     expect(vm!.neighborIds.has("poly-b")).toBe(false);
+  });
+
+  it("複数区域が紐付くポリゴンは、そのどの区域から開いても対象になる", () => {
+    for (const areaId of ["NRT-001-06", "NRT-001-07"]) {
+      const vmN = buildAreaDetailViewModel({
+        polygonCenters: centers,
+        polygonToArea,
+        targetAreaId: areaId,
+        places: [],
+        radiusKm: 2.5,
+        viewportPx: 800,
+      });
+      expect([...vmN!.targetPolygonIds]).toEqual(["poly-n"]);
+    }
   });
 
   it("対象区域にポリゴンが無ければ null", () => {

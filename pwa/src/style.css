@@ -816,8 +816,10 @@ section {
   color: #14532d;
   font-weight: 700;
   font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
+  line-height: 1.15;
+  /* 複数区域が紐付くポリゴンは区域IDを改行して縦に並べる（wants 03） */
+  white-space: pre;
+  text-align: center;
   letter-spacing: 0.02em;
   text-shadow:
     0 0 3px #fff,
@@ -2268,6 +2270,45 @@ section {
 .area-picker-exclave-btn:hover {
   background: #e2e8f0;
   border-color: #94a3b8;
+}
+
+/* 複数区域が紐付くポリゴンの解除対象選択（wants 03「1 つのポリゴンへの複数区域紐付け」） */
+.polygon-unlink-picker-list,
+.visit-area-picker-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.polygon-unlink-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.polygon-unlink-picker-label {
+  flex: 1;
+  font-size: 13px;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 訪問記録を開く区域の選択ボタン（ダブルクリックの遷移先が複数のとき） */
+.visit-area-picker-btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 /* トースト */

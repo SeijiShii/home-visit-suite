@@ -79,7 +79,7 @@ export function VisitPageContainer() {
     regionBindingApi,
     mapReloadKey,
   );
-  const [polygonToArea, setPolygonToArea] = useState<Map<string, string>>(
+  const [polygonToArea, setPolygonToArea] = useState<Map<string, string[]>>(
     new Map(),
   );
   const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(
@@ -108,8 +108,12 @@ export function VisitPageContainer() {
     regionService.loadTree().then((tree) => {
       if (cancelled) return;
       const areaMap = buildPolygonAreaMap(tree);
-      const m = new Map<string, string>();
-      for (const [polyId, info] of areaMap) m.set(polyId, info.areaId);
+      // 1 ポリゴンに複数区域が紐付き得る（N:M。wants 03）。対象/隣接判定は
+      // 全区域を見る（分担している区域のどちらから開いても対象になる）。
+      const m = new Map<string, string[]>();
+      for (const [polyId, infos] of areaMap) {
+        m.set(polyId, infos.map((i) => i.areaId));
+      }
       setPolygonToArea(m);
       setLinkedPolygonIds(new Set(m.keys()));
       // 対象区域の表示名（区域親番の名前）を解決する

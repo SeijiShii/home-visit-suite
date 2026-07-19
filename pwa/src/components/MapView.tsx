@@ -30,7 +30,7 @@ export interface MapViewHandle {
   /** 指定ポリゴン群（飛地含む）が全て収まる範囲へフォーカスする。 */
   focusPolygons(ids: readonly PolygonID[]): void;
   setLinkedPolygonIds(ids: Set<string>): void;
-  setPolygonAreaIds(ids: ReadonlyMap<string, string>): void;
+  setPolygonAreaIds(ids: ReadonlyMap<string, readonly string[]>): void;
   enableRubberBand(): void;
   disableRubberBand(): void;
   setRubberBandOrigin(vertexId: VertexID): void;
@@ -129,7 +129,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const placeClickHandlerRef = useRef<
     ((placeId: string, type: PlaceType) => void) | null
   >(null);
-  const polygonAreaIdsRef = useRef<ReadonlyMap<string, string> | null>(null);
+  const polygonAreaIdsRef = useRef<ReadonlyMap<
+    string,
+    readonly string[]
+  > | null>(null);
   const callbacksRef = useRef({
     onMapClick,
     onPolygonClick,

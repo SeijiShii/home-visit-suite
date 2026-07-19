@@ -104,7 +104,11 @@ export interface Translations {
     linkedToArea: string;
     selectArea: string;
     areaAlreadyLinked: string;
+    areaAlreadyLinkedHere: string;
     addExclavePolygon: string;
+    multipleAreas: string;
+    selectAreaToUnlink: string;
+    selectVisitArea: string;
     unlinkPolygon: string;
     baseMapRoadmap: string;
     baseMapAerial: string;

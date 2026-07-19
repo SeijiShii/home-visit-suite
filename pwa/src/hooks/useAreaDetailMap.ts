@@ -36,7 +36,8 @@ export interface UseAreaDetailMapOptions {
   mapRef: MutableRefObject<MapViewHandle | null>;
   containerRef: MutableRefObject<HTMLDivElement | null>;
   editor: NetworkPolygonEditor | PolygonGeoSource | undefined;
-  polygonToArea: ReadonlyMap<string, string> | undefined;
+  /** ポリゴンID → 紐付く区域ID群（N:M。wants 03） */
+  polygonToArea: ReadonlyMap<string, readonly string[]> | undefined;
   areaId: string;
   placeService?: UseAreaDetailMapPlaceService;
   settingsService?: UseAreaDetailMapSettingsService;

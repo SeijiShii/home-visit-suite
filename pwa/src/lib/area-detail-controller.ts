@@ -57,7 +57,8 @@ export interface AreaDetailInputs {
   /** 全 (活性) ポリゴンの中心座標 */
   polygonCenters: readonly PolygonCenter[];
   /** polygonId → areaId */
-  polygonToArea: ReadonlyMap<string, string>;
+  /** ポリゴンID → 紐付く区域ID群（1 ポリゴンが複数区域に属し得る。wants 03） */
+  polygonToArea: ReadonlyMap<string, readonly string[]>;
   /** 詳細編集対象の区域 ID */
   targetAreaId: string;
   /** 対象区域の場所一覧 (論理削除済みを含む) */
@@ -108,8 +109,8 @@ export function buildAreaDetailViewModel(
 
   // areaId → polygonId 群の逆引き（飛地対応）
   const targetIdSet = new Set<string>();
-  for (const [polyId, areaId] of polygonToArea) {
-    if (areaId === targetAreaId) targetIdSet.add(polyId);
+  for (const [polyId, areaIds] of polygonToArea) {
+    if (areaIds.includes(targetAreaId)) targetIdSet.add(polyId);
   }
   const targets = polygonCenters.filter((p) => targetIdSet.has(p.id));
   if (targets.length === 0) return null;
