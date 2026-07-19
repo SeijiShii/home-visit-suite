@@ -1,14 +1,14 @@
-// groupshare 共有レコードと membership epoch の localStorage 永続ストア。
+// membership epoch の localStorage 永続ストア（と旧・共有レコードストア）。
 //
-// - LocalStorageSharedStorage: 既定の MemSharedStorage はリロードで消え、
-//   catch-up（group_sync_req）の高水位タイムスタンプが 0 に戻る。すると全量再送
-//   になるうえ、LWW の判定材料（既存タイムスタンプ）を失い、ピアの古いレコードが
-//   ローカルの新しい状態を上書きし得る。users/member_tags 程度の規模なので
-//   localStorage に丸ごと永続する（大容量データは MyDB-backed へ移行予定）。
 // - LocalStorageEpochStore: NetworkMetaTracker の適用済み epoch。リロードで 0 に
-//   戻ると古い membership スナップショットが巻き戻りとして適用され得る。
+//   戻ると古い membership スナップショットが巻き戻りとして適用され得る。現役。
+// - LocalStorageSharedStorage: **2026-07-19 に data/linkself/sql-shared-storage.ts
+//   （グループ DB 永続）へ置換済み**。localStorage 全量 JSON 保存は quota 超過を
+//   握りつぶし、map_* 全面移行後に応答側の共有レコード集合が欠損した
+//   （docs/wants/01「共有レコードストアの SQL 化」）。旧キーの一度きり移行の
+//   読み取り形式（StoredShared/SharedMap）の定義元として残置。新規使用は不可。
 //
-// docs/wants/01_共通基盤.md「同期スコープ」/「暫定ブリッジ」
+// docs/wants/01_共通基盤.md「同期スコープ」/「共有レコードストアの SQL 化」
 
 import type { EpochStore, SharedRecord, SharedStorage } from "@linkself/core";
 

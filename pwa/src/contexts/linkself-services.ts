@@ -54,10 +54,8 @@ import {
   type SharedAppliedDetail,
 } from "../lib/linkself/shared-events";
 import { FullSyncSchedule } from "../lib/linkself/full-sync-schedule";
-import {
-  LocalStorageEpochStore,
-  LocalStorageSharedStorage,
-} from "../lib/linkself/shared-store";
+import { LocalStorageEpochStore } from "../lib/linkself/shared-store";
+import { SqlSharedStorage } from "../data/linkself/sql-shared-storage";
 import { loadOrCreateDeviceTransportKey } from "../lib/linkself/device-key";
 import {
   consumePendingSiblingDevices,
@@ -393,11 +391,19 @@ export async function createLinkSelfServices(
         // 再送・membership 巻き戻りが起きる）。
         networkStore: new LocalStorageNetworkStore(),
         consumedNonces: new LocalStorageConsumedNonceStore(),
-        // 共有レコード（catch-up 高水位・LWW 材料）と membership epoch は
-        // グループ名前空間に分離する（脱退/紐づけ直しの purge で一緒に消えるように。
-        // docs/wants/01「グループ毎のローカル DB 分離」）。
-        sharedStorage: new LocalStorageSharedStorage(
-          nsKey(slot.slotId, "sharedRecords"),
+        // 共有レコード（catch-up 高水位・LWW 材料・catch-up 応答の再送元）は
+        // グループ DB（SQL）に保存する。旧 localStorage 実装は quota 超過を
+        // 黙殺し応答側の集合が欠損した（map_* 全面移行後の実害。docs/wants/01
+        // 「共有レコードストアの SQL 化」）。旧キーは一度きり移行して解放する。
+        // in-memory フォールバック時は移行しない（捨て DB へ移行してソースキー
+        // を破棄すると、次の健常起動で LWW 判定材料を失い、バックフィル TS=1 が
+        // ピアの陳腐コピーに負けて最新編集が巻き戻る。heal を skip するのと同じ
+        // 理由付け）。
+        sharedStorage: new SqlSharedStorage(
+          groupSqlDb,
+          groupDbFellBack
+            ? {}
+            : { legacyLocalStorageKey: nsKey(slot.slotId, "sharedRecords") },
         ),
         epochStore: new LocalStorageEpochStore(
           nsKey(slot.slotId, "membershipEpochs"),
@@ -465,9 +471,27 @@ export async function createLinkSelfServices(
           // ignore
         }
         // チャネル登録（setSyncScope）が済んだ時点で完全 catch-up 可能になる。
-        // フラグは後続の差分 catch-up の await より前に立てる（送信の一過性失敗で
+        // フラグは後続の失敗し得る await より前に立てる（送信の一過性失敗で
         // 完全 catch-up の全契機がセッション中無効化されないように）。
         networkScopesWired = true;
+        // 共有レコードの欠損補充（バックフィル）: 旧 localStorage ストアの
+        // quota 欠損等で「SQL 行はあるのに共有レコードが無い」行を合成
+        // タイムスタンプ 1 で再生成し、catch-up 応答で再送可能にする
+        // （LWW で絶対に勝たないため実レコード・墓石は上書きされない。
+        // docs/wants/01「共有レコードストアの SQL 化」）。
+        try {
+          let backfilled = 0;
+          for (const table of GROUP_SYNC_TABLES) {
+            backfilled += await client.myDB.backfillScopedTable(table);
+          }
+          if (backfilled > 0) {
+            console.info(
+              `linkself: backfilled ${backfilled} shared records from SQL rows`,
+            );
+          }
+        } catch (e) {
+          console.warn("linkself: shared record backfill failed", e);
+        }
         await client.requestGroupSync(networkId);
         // 起動時の完全 catch-up（契機 (a)）。上の差分 catch-up は store-and-forward
         // で不在ピアにも届く軽量経路として残し、完全版は接続中ピアのみに送る。
