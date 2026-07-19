@@ -42,6 +42,7 @@ import {
 } from "../services/polygon-service";
 import { computeBindingFixup } from "../lib/polygon-binding-fixup";
 import { findStaleBindings } from "../lib/area-binding-heal";
+import { getLastNetworkSanitizeReport } from "../lib/map-storage";
 import { findAttractTarget } from "../lib/vertex-attract";
 import {
   hasDuplicateSortOrder,
@@ -275,9 +276,19 @@ export function MapPage() {
         const tree = await regionService.loadTree();
         if (editorRef.current !== editor) return;
         const hasLocalPolygons = editor.getPolygons().length > 0;
+        // ロード時サニタイズで除外しただけの面は「削除済み」ではない
+        // （不整合行の未着の可能性）ため、missing 扱いの解除対象から外す
+        // （docs/wants/03「ロード時のネットワーク整合性サニタイズ」）。
+        const sanitizedDropped = new Set(
+          getLastNetworkSanitizeReport()?.droppedPolygonIds ?? [],
+        );
         const stale = findStaleBindings(tree, (pid) =>
           editor.getPolygonGeoJSON(pid as PolygonID),
-        ).filter((s) => s.reason === "degenerate" || hasLocalPolygons);
+        ).filter(
+          (s) =>
+            s.reason === "degenerate" ||
+            (hasLocalPolygons && !sanitizedDropped.has(s.polygonId)),
+        );
         if (stale.length === 0) return;
         for (const s of stale) {
           if (editorRef.current !== editor) return;

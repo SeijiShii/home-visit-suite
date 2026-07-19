@@ -11,6 +11,10 @@ const linkselfRoot = fileURLToPath(
 );
 
 export default defineConfig({
+  // 一時診断用のビルド時刻スタンプ（PWA の SW 更新が実機へ届いているかの確認。原因特定後に削除）
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   // WSL2 では localhost フォワーディング（Windows→WSL 中継）が
   // 他プロセスの localhost 大量 LISTEN 等で空応答（ERR_EMPTY_RESPONSE）に
   // なることがある。0.0.0.0 にバインドし WSL の IP で直アクセスすれば中継を回避できる。

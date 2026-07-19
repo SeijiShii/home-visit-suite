@@ -6,7 +6,18 @@
 // PWA 構成: LinkSelf TS アダプタ完成までの暫定として localStorage に保存する
 // （地図データもグループ共有対象なので、最終的には LinkSelf 側へ移す）。
 
-import type { StorageAdapter, Vertex, Edge, PolygonSnapshot } from "map-polygon-editor";
+import type {
+  StorageAdapter,
+  Vertex,
+  Edge,
+  PolygonSnapshot,
+} from "map-polygon-editor";
+import {
+  sanitizeNetworkSnapshot,
+  type NetworkSanitizeReport,
+} from "./network-sanitize";
+// 一時診断（原因特定後に削除）
+import { mapDebugLog } from "./map-debug";
 
 /** ネットワーク JSON の読み書き抽象（旧 Wails MapBinding 相当）。 */
 export interface MapBindingAPI {
@@ -37,6 +48,15 @@ export class LocalStorageMapBinding implements MapBindingAPI {
   }
 }
 
+// 直近ロードのサニタイズ結果。区域編集画面の無効紐付き修復スキャンが
+// 「サニタイズで除外しただけの面」を削除済みと誤認して unbind を全端末へ
+// 伝播させないための参照（docs/wants/03「ロード時のネットワーク整合性サニタイズ」）。
+let lastSanitizeReport: NetworkSanitizeReport | null = null;
+
+export function getLastNetworkSanitizeReport(): NetworkSanitizeReport | null {
+  return lastSanitizeReport;
+}
+
 /** MapBindingAPI を map-polygon-editor の StorageAdapter に適合させる。 */
 export class NetworkStorageAdapter implements StorageAdapter {
   constructor(private readonly binding: MapBindingAPI) {}
@@ -47,11 +67,29 @@ export class NetworkStorageAdapter implements StorageAdapter {
     polygons: PolygonSnapshot[];
   }> {
     const json = await this.binding.GetNetworkJSON();
-    return JSON.parse(json) as {
+    const raw = JSON.parse(json) as {
       vertices: Vertex[];
       edges: Edge[];
       polygons: PolygonSnapshot[];
     };
+    // ローカル DB の不整合（P2P 同期の部分適用等）でエディタ初期化ごと
+    // 落ちないよう、整合しない辺・面をメモリ上でのみ除外する（書き戻さない）。
+    const result = sanitizeNetworkSnapshot(raw);
+    lastSanitizeReport = result;
+    if (
+      result.droppedEdgeIds.length > 0 ||
+      result.droppedPolygonIds.length > 0
+    ) {
+      console.warn(
+        "[map-storage] ネットワーク不整合を検出し除外しました（非破壊）:",
+        result.droppedEdgeIds,
+        result.droppedPolygonIds,
+      );
+      mapDebugLog(
+        `storage: sanitized edges=[${result.droppedEdgeIds.join(",")}] polygons=[${result.droppedPolygonIds.join(",")}]`,
+      );
+    }
+    return result.data;
   }
 
   async saveAll(data: {
