@@ -4779,3 +4779,201 @@ section {
   margin: 12px 0;
   background: #f8fafc;
 }
+
+/* ===== 操作マニュアル（docs/wants/12_操作マニュアル.md） ===== */
+
+.sidebar-help {
+  color: #94a3b8;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  border: 1px solid #475569;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.sidebar-help:hover {
+  color: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.sidebar.collapsed .sidebar-help {
+  display: none;
+}
+
+.manual-page {
+  max-width: 760px;
+}
+
+.manual-back {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #475569;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.manual-back:hover {
+  color: #1e293b;
+  text-decoration: underline;
+}
+
+.manual-index {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.manual-index-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.manual-index-link {
+  flex: 1;
+  padding: 12px 4px;
+  color: #1e293b;
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.manual-index-link:hover {
+  color: #2563eb;
+}
+
+.manual-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.manual-badge-draft {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.manual-notice {
+  background: #f1f5f9;
+  border-left: 3px solid #94a3b8;
+  color: #475569;
+  font-size: 13px;
+  padding: 10px 12px;
+  margin: 12px 0;
+}
+
+.manual-notice-stale {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.manual-body {
+  color: #1e293b;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+.manual-body h2 {
+  font-size: 18px;
+  margin: 32px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.manual-body h3 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+}
+
+.manual-body p {
+  margin: 12px 0;
+}
+
+.manual-body ul,
+.manual-body ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.manual-body li {
+  margin: 6px 0;
+}
+
+.manual-body code {
+  background: #f1f5f9;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.manual-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.manual-body th,
+.manual-body td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.manual-body th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.manual-inline-link,
+.manual-link {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.manual-inline-link:hover,
+.manual-link:hover {
+  text-decoration: underline;
+}
+
+.manual-shot {
+  margin: 20px 0;
+}
+
+.manual-shot img {
+  max-width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: block;
+}
+
+.manual-shot figcaption {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* 未撮影のスクリーンショット。撮影すると自動で実画像に置き換わる。 */
+.manual-shot-placeholder {
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 32px 12px;
+  text-align: center;
+}

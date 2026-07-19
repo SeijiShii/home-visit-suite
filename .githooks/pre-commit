@@ -1,16 +1,29 @@
 #!/bin/sh
-# CODEMAP 反映チェック（2段構え）
-#   docs/CODEMAP.md = 仕様テーマ↔実装ファイルの対応索引（維持ルールは CLAUDE.md 開発方針）
-#
-# [1] 構造変更（.ts/.tsx の 追加/削除/リネーム）で CODEMAP 未更新 → コミットを止める（索引漏れは機械判定可能）
-# [2] 既存 .ts/.tsx の修正のみで CODEMAP 未更新 → 止めずにリマインド（責務が変わったなら直して、の促し）
-#   ※ 意味的ドリフト（責務説明の陳腐化）は機械判定できないため [2] はブロックしない
+# コミット前チェック（CODEMAP 索引 + 操作マニュアルの陳腐化）
+#   docs/CODEMAP.md   = 仕様テーマ↔実装ファイルの対応索引（維持ルールは CLAUDE.md 開発方針）
+#   docs/manual/      = 操作マニュアル本文（docs/wants/12_操作マニュアル.md）
 #
 # 緊急回避: git commit --no-verify
 
 is_target='\.(ts|tsx)$'
 not_test='\.test\.(ts|tsx)$'
 
+# ---------------------------------------------------------------- マニュアル
+# マニュアルの frontmatter `sources` に載っているファイルを変更したら、
+# 該当ページが古くなり得るので指摘する（非ブロック。本文が実際に古くなったかは
+# 機械判定できないため、「見に行く先」を示すところまでを機械の仕事にする）。
+manual_staged=$(git diff --cached --name-only --diff-filter=ACMR || true)
+if [ -n "$manual_staged" ] && [ -f pwa/scripts/manual/check.mjs ]; then
+  # shellcheck disable=SC2086
+  impact=$(node pwa/scripts/manual/check.mjs --impact $manual_staged 2>&1)
+  if [ -n "$impact" ]; then
+    echo "ⓘ マニュアル確認: 変更したファイルを参照している操作マニュアルがあります。" >&2
+    echo "$impact" >&2
+    echo "  更新する場合: /manual-sync → npm run manual:seal（不要ならこのまま OK）" >&2
+  fi
+fi
+
+# ------------------------------------------------------------------ CODEMAP
 structural=$(git diff --cached --name-only --diff-filter=ADR -- pwa/src \
   | grep -E "$is_target" | grep -vE "$not_test" || true)
 

@@ -21,6 +21,43 @@ function buildCommit(): string {
   }
 }
 
+/**
+ * 操作マニュアル（docs/wants/12_操作マニュアル.md）の生成を dev サーバーに組み込む。
+ * docs/manual/**.md を書き換えると再生成され、HMR でそのまま反映される
+ * （執筆のたびに手でコマンドを叩かなくてよいようにするのが目的）。
+ */
+function manualPlugin() {
+  const manualDir = fileURLToPath(new URL("../docs/manual", import.meta.url));
+  const run = async () => {
+    const { buildManual } = await import("./scripts/manual/build.mjs");
+    try {
+      buildManual({ quiet: true });
+    } catch (err) {
+      console.error(`✖ マニュアル生成に失敗: ${(err as Error).message}`);
+    }
+  };
+  return {
+    name: "home-visit-manual",
+    async buildStart() {
+      await run();
+    },
+    configureServer(server: {
+      watcher: {
+        add: (p: string) => void;
+        on: (e: string, cb: (p: string) => void) => void;
+      };
+    }) {
+      server.watcher.add(manualDir);
+      server.watcher.on("change", (file: string) => {
+        if (file.startsWith(manualDir)) void run();
+      });
+      server.watcher.on("add", (file: string) => {
+        if (file.startsWith(manualDir)) void run();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   define: {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
@@ -72,6 +109,7 @@ export default defineConfig({
     exclude: ["@sqlite.org/sqlite-wasm"],
   },
   plugins: [
+    manualPlugin(),
     react(),
     VitePWA({
       registerType: "autoUpdate",

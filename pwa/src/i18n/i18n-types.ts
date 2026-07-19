@@ -466,6 +466,15 @@ export interface Translations {
   system: {
     persistenceDegraded: string;
   };
+  manual: {
+    title: string;
+    help: string;
+    draft: string;
+    draftNotice: string;
+    staleNotice: string;
+    backToIndex: string;
+    notFound: string;
+  };
   pair: {
     title: string;
     pending: string;

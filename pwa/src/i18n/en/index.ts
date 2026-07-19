@@ -502,6 +502,16 @@ const en: Translations = {
     persistenceDegraded:
       "This tab could not open the local storage area, so changes will NOT be saved (is the app open in another tab? Close other tabs and reload)",
   },
+  manual: {
+    title: "User manual",
+    help: "How to use this screen",
+    draft: "Draft",
+    draftNotice: "This page is still being written.",
+    staleNotice:
+      "This content may not reflect the latest changes to the app (shown in development builds only).",
+    backToIndex: "← Back to contents",
+    notFound: "The requested manual page was not found",
+  },
   pair: {
     title: "Carrying over device",
     pending: "Registering…",

@@ -23,6 +23,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
 import { MapPage } from "./pages/MapPage";
 import { JoinPage } from "./pages/JoinPage";
+import { ManualPage } from "./pages/ManualPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { PairPage } from "./pages/PairPage";
 import { RegionManagementPage } from "./pages/RegionManagementPage";
@@ -121,6 +122,9 @@ export default function App() {
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            {/* 操作マニュアル（docs/wants/12_操作マニュアル.md）。目次と各トピック。 */}
+            <Route path="/manual" element={<ManualPage />} />
+            <Route path="/manual/:topic" element={<ManualPage />} />
           </Route>
         </Routes>
       </TipsProvider>

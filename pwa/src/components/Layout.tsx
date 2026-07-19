@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { topicForRoute } from "../manual";
 import { useI18n } from "../contexts/I18nContext";
 import {
   useIdentity,
@@ -200,6 +201,8 @@ export function Layout() {
   // 狭幅（スマホ等）ではサイドバーを初期折りたたみにし、展開時はコンテンツを
   // 狭めずオーバーレイで重ねる（docs/wants/10「共通レイアウト」）。
   const narrow = useNarrowViewport();
+  const { pathname } = useLocation();
+  const helpTopic = topicForRoute(pathname);
   const [collapsed, setCollapsed] = useState<boolean>(
     () =>
       typeof window !== "undefined" &&
@@ -234,6 +237,19 @@ export function Layout() {
       >
         <div className="sidebar-header">
           <h3 className="app-title">Home Visit</h3>
+          {/* 現在の画面に対応する操作マニュアルへの導線。対応ページが無い画面では
+              目次へ落とす（docs/wants/12_操作マニュアル.md「アプリ内での閲覧」）。 */}
+          <Link
+            className="sidebar-help"
+            to={helpTopic ? `/manual/${helpTopic}` : "/manual"}
+            title={t.manual.help}
+            aria-label={t.manual.help}
+            onClick={() => {
+              if (narrow) setCollapsed(true);
+            }}
+          >
+            ?
+          </Link>
           <button
             className="sidebar-toggle"
             onClick={() => setCollapsed((c) => !c)}

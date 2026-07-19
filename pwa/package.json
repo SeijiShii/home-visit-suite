@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run manual:build",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "pretest": "npm run manual:build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "manual:build": "node scripts/manual/build.mjs",
+    "manual:seal": "node scripts/manual/build.mjs --seal",
+    "manual:check": "node scripts/manual/check.mjs"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^17.0.0",

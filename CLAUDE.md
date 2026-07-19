@@ -36,6 +36,7 @@
 - **コード編集・テスト**: WSL2 (Ubuntu) — Claude Code、VSCode Remote-WSL、vitest
 - **PWA 実行（開発）**: `cd pwa && npm install && npm run dev`（Vite dev サーバー、ブラウザで http://localhost:5173/）
 - **PWA テスト**: `cd pwa && npm test`（vitest）
+- **操作マニュアル**: `cd pwa && npm run manual:check`（陳腐化・参照切れの検査）／`npm run manual:seal`（本文更新後に digest を固定）。本文は `docs/manual/ja/`、アプリ内では `/manual` で閲覧
 - **Go 参照実装のテスト**: `cd shared && go test ./...`
 - ブラウザで動作するため IME（日本語入力）制約はなし。プラットフォーム別の起動手順も不要
 - **git hook 有効化（クローン後に一度だけ）**: `git config core.hooksPath .githooks`
@@ -52,6 +53,11 @@
   - 仕様の追記・改訂が必要なら `docs/wants/` 該当ファイルへ直接反映する
 - **仕様変更は `/spec-change` スキルで進める**: 仕様追加・機能改修・挙動変更の依頼では、`.claude/skills/spec-change` の一貫フロー（wants 改訂→CODEMAP 参照で実装→CODEMAP 同期→i18n レビュー→学習型独立レビュー→同一コミット）に沿う。中間ドキュメントは作らない軽量版。
 - **コミット前レビューは学習型独立エージェント**（`.claude/skills/learned-review`）: 実装コンテキストを持たない独立エージェントが、実際に起きた不具合パターンの台帳 `learnings.md` と照合してレビューする。レビュー後の台帳更新（新パターン追記・retire）まで必須。
+- **操作マニュアルを最新に保つ**（`docs/wants/12_操作マニュアル.md`）:
+  - 本文の SoT は `docs/manual/ja/*.md`。アプリの画面・挙動を変えたら、frontmatter の `sources` に載っているページを見直す
+  - pre-commit フックが「今の変更で古くなり得るマニュアルページ」を提示する（非ブロック）
+  - 本文を更新したら `npm run manual:seal` で digest を固定し、`npm run manual:check` を通す
+  - アプリからマニュアルへのリンクは必ず `<ManualLink topic="..." />` 経由にする（URL 手書き禁止。トピック ID が消えると tsc で落ちる仕組みのため）
 - **CODEMAP を索引として維持する**（上記「補助ドキュメントを作らない」の唯一の例外）:
   - `docs/CODEMAP.md` = 仕様テーマ（`docs/wants/NN`）↔ 実装ファイルの対応索引。仕様複製ではなくナビゲーション補助のため例外扱い
   - **仕様変更に着手するとき**: まず該当テーマ節だけを読み記載ファイルへ直行する。コードベース全体の Grep/Glob 探索はしない（コンテキスト節約が目的）

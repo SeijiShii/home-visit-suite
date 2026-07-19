@@ -213,3 +213,15 @@
 - `lib/linkself/linkself-wiring.test.ts` — @linkself/core が alias 経由で pwa のツールチェーン下に解決・トランスパイルできる配線確認（CP-A）
 - `lib/linkself/linkself-interop.test.ts` — client-factory から Go ノード（link-self/core `poc-wsnode`）へ実 WebSocket 接続・LinkSelf auth・echo 往復の自動 interop 検証（CP-B、`go` 無ければ skip）
 - 依存リンク: `@linkself/core` は姉妹リポジトリ `../../link-self/ts/linkself/src` の TS ソースを Vite `resolve.alias` + tsconfig `paths` で直接参照（build 不要）。libp2p 実行時依存は pwa 側に固定バージョンで導入し `resolve.dedupe` で単一化（`pwa/vite.config.ts` / `pwa/tsconfig.json`）
+
+## 12 操作マニュアル（本文 SoT・生成・アプリ内ビューア）
+- 本文の SoT は `docs/manual/<locale>/NN-<topic>.md`（Markdown + frontmatter。`pwa/src` 外）。スクリーンショットは `pwa/public/manual/shots/<id>.png`
+- `scripts/manual/build.mjs` — 本文 md → `src/manual/generated/manual-data.ts` 生成（トピック ID の union 型・HTML・ルート対応表・stale 判定）。`--seal` で digest を現状固定
+- `scripts/manual/markdown.mjs` — 依存なしの厳格な Markdown レンダラ（解釈できない記法は例外にする）。型定義は同階層の `markdown.d.mts`
+- `scripts/manual/check.mjs` — 健全性検査（sources 実在・`{{topic:}}`/`{{route:}}` 参照切れ・stale・draft・マニュアル未整備ルート・孤児スクショ）。`--impact <files>` は pre-commit 用の影響ページ列挙
+- `manual/index.ts` — トピック取得・ルート→トピック解決のアクセサ（`getManualPage`/`topicForRoute`/`isManualTopic`）
+- `manual/generated/manual-data.ts` — 自動生成（直接編集しない）
+- `components/ManualLink.tsx` — アプリ内からマニュアルへ飛ぶ唯一の導線。`topic` は `ManualTopic` 型なのでページ削除・改名時に tsc で落ちる (→10)
+- `pages/ManualPage.tsx` — アプリ内ビューア（`/manual` 目次・`/manual/:topic` 本文。draft/stale バッジ、stale は dev のみ）(→10)
+- `components/Layout.tsx`（01節）— サイドバーヘッダの「？」ボタンが現在ルートに対応するトピックへ直行する
+- `vite.config.ts` の `manualPlugin()` — dev サーバー起動時とマニュアル md 変更時に再生成する
