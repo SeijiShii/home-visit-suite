@@ -32,3 +32,17 @@ export const REQUEST_TABLES = ["requests"] as const;
  * 「ロスター更新の即時 UI 反映」）。
  */
 export const ROSTER_UPDATED_EVENT = "hvs:roster-updated";
+
+/**
+ * 同期リペア要求イベント名（detail なし）。ロード時サニタイズ等がローカル DB の
+ * 不整合（欠落行参照＝ライブ配送の取りこぼし疑い）を検出したときに発火し、
+ * linkself-services がクールダウン付きで完全 catch-up（アンチエントロピー）を
+ * 即時実行する（docs/wants/01「同期完全性の補完＝完全 catch-up」契機 (c)）。
+ */
+export const SYNC_REPAIR_REQUESTED_EVENT = "hvs:sync-repair-requested";
+
+/** 同期リペアを要求する（LinkSelf 未配線時は購読者がおらず無害）。 */
+export function requestSyncRepair(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(SYNC_REPAIR_REQUESTED_EVENT));
+}

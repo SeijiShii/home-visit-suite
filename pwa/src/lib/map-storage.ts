@@ -16,6 +16,7 @@ import {
   sanitizeNetworkSnapshot,
   type NetworkSanitizeReport,
 } from "./network-sanitize";
+import { requestSyncRepair } from "./linkself/shared-events";
 // 一時診断（原因特定後に削除）
 import { mapDebugLog } from "./map-debug";
 
@@ -88,6 +89,10 @@ export class NetworkStorageAdapter implements StorageAdapter {
       mapDebugLog(
         `storage: sanitized edges=[${result.droppedEdgeIds.join(",")}] polygons=[${result.droppedPolygonIds.join(",")}]`,
       );
+      // 不整合＝ライブ配送の取りこぼし疑い。差分 catch-up では高水位の下に
+      // 埋まった欠落行を取り返せないため、完全 catch-up の即時リペアを要求
+      // する（docs/wants/03「即時リペア要求」）。
+      requestSyncRepair();
     }
     return result.data;
   }

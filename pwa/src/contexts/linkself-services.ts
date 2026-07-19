@@ -50,8 +50,10 @@ import { createLinkSelfClient } from "../lib/linkself/client-factory";
 import { loadKnownMembers } from "../lib/linkself/known-members";
 import {
   SHARED_APPLIED_EVENT,
+  SYNC_REPAIR_REQUESTED_EVENT,
   type SharedAppliedDetail,
 } from "../lib/linkself/shared-events";
+import { FullSyncSchedule } from "../lib/linkself/full-sync-schedule";
 import {
   LocalStorageEpochStore,
   LocalStorageSharedStorage,
@@ -418,6 +420,27 @@ export async function createLinkSelfServices(
       // （毎起動で行うと新タイムスタンプの再配送で他端末の新しい状態を
       // 上書きし得るため）。配線後に catch-up を要求する。
       const client = session.client;
+      // 完全 catch-up（アンチエントロピー）: 差分 catch-up は高水位の下に埋まった
+      // 取りこぼし行を二度と要求できないため、(a) 起動配線後 (b) 約 10 分周期
+      // (c) 不整合検出リペア要求時 に since 全チャネル 0 の catch-up を接続中ピア
+      // のみへ送る（docs/wants/01「同期完全性の補完＝完全 catch-up」）。
+      const fullSyncSchedule = new FullSyncSchedule();
+      // ScopeNetwork 配線完了前は完全 catch-up しない（チャネル未登録だと応答
+      // レコードが unknown channel として捨てられ、全量転送が無駄になるため）。
+      let networkScopesWired = false;
+      const runFullSync = () => {
+        const networkId = idStore.get();
+        if (!networkId || !networkScopesWired || wiping) return;
+        fullSyncSchedule.markRun(Date.now());
+        void client
+          .requestGroupSync(networkId, { full: true, queueOffline: false })
+          .catch((err) => {
+            console.warn("linkself: full catch-up request failed", err);
+          });
+      };
+      const onSyncRepairRequested = () => {
+        if (fullSyncSchedule.shouldRunOnRepair(Date.now())) runFullSync();
+      };
       const wireNetworkScopes = async (networkId: string) => {
         const flagKey = nsKey(slot.slotId, "scopedTables");
         let scoped: string[] = [];
@@ -441,7 +464,14 @@ export async function createLinkSelfServices(
         } catch {
           // ignore
         }
+        // チャネル登録（setSyncScope）が済んだ時点で完全 catch-up 可能になる。
+        // フラグは後続の差分 catch-up の await より前に立てる（送信の一過性失敗で
+        // 完全 catch-up の全契機がセッション中無効化されないように）。
+        networkScopesWired = true;
         await client.requestGroupSync(networkId);
+        // 起動時の完全 catch-up（契機 (a)）。上の差分 catch-up は store-and-forward
+        // で不在ピアにも届く軽量経路として残し、完全版は接続中ピアのみに送る。
+        runFullSync();
       };
 
       // networkId は (a) 既に永続済み（起動時） (b) 創設/参加で新規確定、の
@@ -632,11 +662,24 @@ export async function createLinkSelfServices(
           .catch((err) => {
             console.warn("linkself: sibling redial failed", err);
           });
+        // 定期の完全 catch-up（契機 (b)。約 10 分周期＝ tick 10 回に 1 回）。
+        // 開きっぱなしの長時間セッションでもライブ配送の取りこぼしが治癒する。
+        if (fullSyncSchedule.shouldRunOnTick(Date.now())) runFullSync();
       };
+      // 不整合検出リペア（契機 (c)）: ロード時サニタイズが欠落行参照を検出した
+      // 画面から要求される。クールダウンは FullSyncSchedule が担う。
+      window.addEventListener(
+        SYNC_REPAIR_REQUESTED_EVENT,
+        onSyncRepairRequested,
+      );
       poll();
       const pollTimer = setInterval(poll, 60_000);
       stop = async () => {
         registerDeviceDirectory(null);
+        window.removeEventListener(
+          SYNC_REPAIR_REQUESTED_EVENT,
+          onSyncRepairRequested,
+        );
         clearInterval(pollTimer);
         if (rosterDepositTimer != null) clearTimeout(rosterDepositTimer);
         await session.stop();
