@@ -34,8 +34,9 @@
 - `lib/terms.ts` — 使用許諾・免責事項の同意状態（TERMS_VERSION/localStorage `hvs.termsAcceptedVersion`、旧バージョン同意は未同意扱い=改定時再同意）(→01,10)
 - `components/TermsDocument.tsx` — 使用許諾・免責事項の全文表示（i18n `terms.*` が SoT。同意ゲートと設定画面で共用）(→01,10)
 - `pages/TermsGatePage.tsx` — 使用許諾・免責事項の同意ゲート画面（未同意起動時に全ルートへ優先表示。ハッシュ URL は消費しない）(→01,10)
-- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/使用許諾・免責事項の全文閲覧/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末・ラベルは全行改名可=ロスター同期・削除は自分以外の全行=失効+対象端末の全初期化(ロスター行はネットワーク配線時のみ)・`hvs:roster-updated` 購読で一覧が再読込なしで追従)/地図メンテナンス）(→01,04,10)
+- `pages/SettingsPage.tsx` — 設定画面（プロフィール=表示名変更(同名はエラー)/言語/使用許諾・免責事項の全文閲覧/ID切替(dev)/デバイス管理(端末追加QR・一覧=登録簿+ロスター由来兄弟端末・ラベルは全行改名可=ロスター同期・削除は自分以外の全行=失効+対象端末の全初期化(ロスター行はネットワーク配線時のみ)・`hvs:roster-updated` 購読で一覧が再読込なしで追従)/地図メンテナンス/アプリ情報=ビルド日時+コミット表示（最新ビルド確認用））(→01,04,10)
 - `lib/map-storage.ts` — ポリゴンネットワークの MapBindingAPI 抽象と localStorage 実装（非 LinkSelf 時・テスト用。LinkSelf 時は data/linkself/linkself-map-binding.ts が map_* テーブルに置換）。ロード時に network-sanitize で不整合を非破壊除外し直近レポートを保持・除外検出時は完全 catch-up の即時リペアを要求（`hvs:sync-repair-requested`）(→03)
+- `lib/build-info.ts` — ビルド情報（Vite define の `__BUILD_TIME__`/`__BUILD_COMMIT__` を安全に参照・表示整形。設定画面「アプリ情報」が使用）
 - `data/localstorage/persistent-map.ts` — localStorage write-through 永続化 Map 基盤（各 InMemory リポジトリの共通バックエンド）
 - `data/linkself/group-schema.ts` — グループドメイン全テーブル（regions/places/map_*/checkouts/feedback 等）の MyDB SQL スキーマ（v3=初期集合・v4=feedback）と JSON 行 `(id, data)` の共通ヘルパ・GROUP_SYNC_TABLES（ScopeNetwork 対象一覧）(→02,03,05,06,07,11)
 - `data/linkself/legacy-group-data-migration.ts` — 旧 localStorage（PersistentMap/map.network blob）→ MyDB SQL の一度きり移行（SQL 空のときだけ・昇格前に実行し初回一括配送へ載せる）。移行ソースキー一覧（LEGACY_MIGRATION_SOURCE_SUFFIXES）を export し sync-state-heal が食い違い検出時に破棄する (→01,11)

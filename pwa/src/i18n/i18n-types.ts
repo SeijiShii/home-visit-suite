@@ -408,6 +408,9 @@ export interface Translations {
     language: string;
     languageJa: string;
     languageEn: string;
+    appInfoSection: string;
+    appInfoDescription: string;
+    appInfoBuild: (time: string, commit: string) => string;
   };
   terms: {
     title: string;

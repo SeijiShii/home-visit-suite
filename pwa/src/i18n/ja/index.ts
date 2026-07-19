@@ -412,6 +412,11 @@ const ja: Translations = {
     language: "言語",
     languageJa: "日本語",
     languageEn: "English",
+    appInfoSection: "アプリ情報",
+    appInfoDescription:
+      "最新のビルドが読み込まれているかの確認に使えます。古い場合は再読み込みしてください。",
+    appInfoBuild: (time: string, commit: string) =>
+      `ビルド: ${time}（${commit}）`,
   },
   settingsDev: {
     title: "開発用",

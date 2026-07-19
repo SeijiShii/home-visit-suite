@@ -411,6 +411,11 @@ const en: Translations = {
     language: "Language",
     languageJa: "日本語",
     languageEn: "English",
+    appInfoSection: "About this app",
+    appInfoDescription:
+      "Use this to check that the latest build is loaded. Reload the app if it looks outdated.",
+    appInfoBuild: (time: string, commit: string) =>
+      `Build: ${time} (${commit})`,
   },
   settingsDev: {
     title: "Developer",

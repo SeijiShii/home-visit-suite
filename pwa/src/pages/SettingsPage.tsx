@@ -11,6 +11,7 @@ import { useIdentity } from "../contexts/IdentityContext";
 import { useServices } from "../contexts/ServicesContext";
 import type { Device } from "../domain/models/device";
 import { removeOrphanVertices } from "../lib/map-maintenance";
+import { BUILD_COMMIT, BUILD_TIME, formatBuildTime } from "../lib/build-info";
 import { getDeviceDirectory } from "../lib/device-directory";
 import { ROSTER_UPDATED_EVENT } from "../lib/linkself/shared-events";
 import { isCode } from "../services/errors";
@@ -565,6 +566,16 @@ export function SettingsPage() {
           )}
         </section>
       )}
+
+      <section className="settings-section">
+        <h2>{t.settings.appInfoSection}</h2>
+        <p className="settings-section-description">
+          {t.settings.appInfoDescription}
+        </p>
+        <p className="settings-build-info">
+          {t.settings.appInfoBuild(formatBuildTime(BUILD_TIME), BUILD_COMMIT)}
+        </p>
+      </section>
     </div>
   );
 }

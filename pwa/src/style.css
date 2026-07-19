@@ -3484,6 +3484,13 @@ section {
   margin-top: 8px;
 }
 
+/* 設定画面: アプリ情報（ビルド日時＋コミット。デプロイ版の確認用） */
+.settings-build-info {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #475569;
+}
+
 /* 設定画面: AI 地図取込セクション（プロバイダ選択 + API キー入力） */
 
 .settings-field {

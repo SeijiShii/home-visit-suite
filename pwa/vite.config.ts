@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -10,10 +11,20 @@ const linkselfRoot = fileURLToPath(
   new URL("../../link-self/ts/linkself", import.meta.url),
 );
 
+// ビルド情報（設定画面「アプリ情報」と診断オーバーレイが表示。docs/wants/01
+// 「アプリ情報」）。コミットハッシュは git 外ビルド環境でも落ちないようフォールバック。
+function buildCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 export default defineConfig({
-  // 一時診断用のビルド時刻スタンプ（PWA の SW 更新が実機へ届いているかの確認。原因特定後に削除）
   define: {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __BUILD_COMMIT__: JSON.stringify(buildCommit()),
   },
   // WSL2 では localhost フォワーディング（Windows→WSL 中継）が
   // 他プロセスの localhost 大量 LISTEN 等で空応答（ERR_EMPTY_RESPONSE）に
