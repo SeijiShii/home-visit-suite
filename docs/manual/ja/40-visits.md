@@ -16,7 +16,7 @@ sources:
   - pwa/src/components/DeletePlaceConfirmDialog.tsx
   - pwa/src/lib/visit-date-color.ts
   - docs/wants/08_活動メンバー向けアプリ.md
-digest: dfb042c7b706b7e9
+digest: 98cb625fac0feb36
 ---
 
 区域の地図を開き、その区域の家を回りながら訪問の結果を記録する画面です（{{route:/visits/:areaId}}）。

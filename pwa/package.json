@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "manual:build": "node scripts/manual/build.mjs",
     "manual:seal": "node scripts/manual/build.mjs --seal",
-    "manual:check": "node scripts/manual/check.mjs"
+    "manual:check": "node scripts/manual/check.mjs",
+    "manual:shots": "node scripts/manual/shots.mjs"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^17.0.0",
@@ -42,6 +43,7 @@
     "uint8arrays": "^6.1.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

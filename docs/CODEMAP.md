@@ -225,3 +225,5 @@
 - `pages/ManualPage.tsx` — アプリ内ビューア（`/manual` 目次・`/manual/:topic` 本文。draft/stale バッジ、stale は dev のみ）(→10)
 - `components/Layout.tsx`（01節）— サイドバーヘッダの「？」ボタンが現在ルートに対応するトピックへ直行する
 - `vite.config.ts` の `manualPlugin()` — dev サーバー起動時とマニュアル md 変更時に再生成する
+- `scripts/manual/seed.mjs` — スクリーンショット用デモデータ（localStorage の key→value を組み立てる。アプリ側にシード用コードは置かない）
+- `scripts/manual/shots.mjs` — Playwright 撮影。宣言的なショット定義（到達手順・アサート文言）。`--only` で個別撮影、`--headed` で目視

@@ -11,7 +11,7 @@ sources:
   - pwa/src/components/AreaPickerDialog.tsx
   - pwa/src/components/PolygonDeleteConfirmDialog.tsx
   - docs/wants/03_地図機能.md
-digest: 1b7788ab2f1282e1
+digest: db9aa2c4ee009318
 ---
 
 地図上にポリゴンを描いて区域の範囲を決め、区域と紐づける画面です（{{route:/map}}）。編集メンバー以上が使います。
