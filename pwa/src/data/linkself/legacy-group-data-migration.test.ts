@@ -11,6 +11,7 @@ import {
 } from "@linkself/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrateLegacyGroupData } from "./legacy-group-data-migration";
+import { LinkSelfNotificationRepository } from "./linkself-notification-repository";
 import { LinkSelfRegionRepository } from "./linkself-region-repository";
 import { LinkSelfMapBinding } from "./linkself-map-binding";
 
@@ -91,6 +92,37 @@ describe("migrateLegacyGroupData", () => {
     );
     await migrateLegacyGroupData(myDB, PREFIX);
     expect((await repo.listRegions()).map((r) => r.id)).toEqual(["NRT"]);
+  });
+
+  // 回帰: feedback は SQL テーブルもリポジトリもあるのに移行対象から漏れており、
+  // 旧実装で送受信したフィードバックが移行時に無言で消えていた。
+  it("migrates legacy feedback rows", async () => {
+    localStorage.setItem(
+      `${PREFIX}:notification:feedback`,
+      JSON.stringify([
+        [
+          "fb-1",
+          {
+            id: "fb-1",
+            kind: "bug_report",
+            body: "部屋の並び順が入れ替わる",
+            senderId: "did:example:member",
+            createdAt: "2026-07-11T02:00:00.000Z",
+            status: "pending",
+            resolvedAt: null,
+            resolvedBy: "",
+          },
+        ],
+      ]),
+    );
+
+    const myDB = await newMyDB(sqlDb);
+    await migrateLegacyGroupData(myDB, PREFIX);
+
+    const repo = new LinkSelfNotificationRepository(myDB);
+    const rows = await repo.listFeedback();
+    expect(rows.map((f) => f.id)).toEqual(["fb-1"]);
+    expect(rows[0].body).toBe("部屋の並び順が入れ替わる");
   });
 
   it("splits the legacy map network blob into entity rows", async () => {

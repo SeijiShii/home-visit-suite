@@ -48,6 +48,10 @@ const LEGACY_MAP_KEYS: ReadonlyArray<[string, GroupDomainTable]> = [
   ["notification:notifications", "notifications"],
   ["notification:requests", "requests"],
   ["notification:auditLogs", "audit_log"],
+  // feedback は SQL テーブルも LinkSelfNotificationRepository の読み書きも
+  // あるのに、ここだけ抜けていた（2026-07-20 修正）。抜けていた間は、旧実装で
+  // 送受信したフィードバックが LinkSelf 版への移行時に無言で消えていた。
+  ["notification:feedback", "feedback"],
 ];
 
 /**
