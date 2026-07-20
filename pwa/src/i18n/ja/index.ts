@@ -514,6 +514,8 @@ const ja: Translations = {
       "この内容はアプリの最新の変更を反映していない可能性があります（開発ビルドのみ表示）。",
     backToIndex: "← 目次へ戻る",
     notFound: "指定されたマニュアルページが見つかりません",
+    closeImage: "拡大表示を閉じる",
+    expandHint: "画像を拡大",
   },
   pair: {
     title: "端末の引き継ぎ",

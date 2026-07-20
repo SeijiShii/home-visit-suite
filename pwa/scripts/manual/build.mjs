@@ -201,9 +201,13 @@ export function renderBody(page, titleById, shotIds) {
         );
       }
       return tokens.add(
-        `<figure class="manual-shot"><img src="/manual/shots/${id}.png" alt="${escapeHtml(
-          caption || page.title,
-        )}" loading="lazy" />${figcaption}</figure>`,
+        // 拡大表示のために button で包む（役割を img に持たせるのではなく
+        // button にすることで、Enter/Space・フォーカスリングが素で効く）。
+        // 押下の処理は ManualPage 側がイベント委譲で受ける。
+        `<figure class="manual-shot"><button type="button" class="manual-shot-zoom">` +
+          `<img src="/manual/shots/${id}.png" alt="${escapeHtml(
+            caption || page.title,
+          )}" loading="lazy" /></button>${figcaption}</figure>`,
         "block",
       );
     }

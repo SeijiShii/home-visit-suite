@@ -4961,6 +4961,71 @@ section {
   display: block;
 }
 
+/* 図の拡大表示（docs/wants/12）。img を包む button から見た目を取り除く。 */
+.manual-shot-zoom {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  width: 100%;
+  text-align: left;
+}
+
+.manual-shot-zoom:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.manual-shot-zoom:hover img {
+  border-color: #94a3b8;
+}
+
+.manual-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.85);
+  cursor: zoom-out;
+}
+
+.manual-lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.manual-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(241, 245, 249, 0.9);
+  color: #1e293b;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.manual-lightbox-close:hover {
+  background: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .manual-lightbox {
+    padding: 8px;
+  }
+}
+
 .manual-shot figcaption {
   color: #64748b;
   font-size: 12px;

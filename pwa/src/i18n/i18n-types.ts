@@ -474,6 +474,8 @@ export interface Translations {
     staleNotice: string;
     backToIndex: string;
     notFound: string;
+    closeImage: string;
+    expandHint: string;
   };
   pair: {
     title: string;

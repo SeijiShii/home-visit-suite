@@ -511,6 +511,8 @@ const en: Translations = {
       "This content may not reflect the latest changes to the app (shown in development builds only).",
     backToIndex: "← Back to contents",
     notFound: "The requested manual page was not found",
+    closeImage: "Close enlarged image",
+    expandHint: "Enlarge image",
   },
   pair: {
     title: "Carrying over device",

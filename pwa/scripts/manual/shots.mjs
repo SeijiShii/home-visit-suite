@@ -5,6 +5,10 @@
 //   npm run manual:shots -- --only map-overview,map-drawing
 //   npm run manual:shots -- --headed  ブラウザを表示して挙動を目視する
 //
+// 前提: Google Maps の API キーの HTTP リファラ許可リストに
+// http://localhost:5199/* が入っていること（入っていないと地図だけ白抜けになる。
+// waitForMapTiles がそれを検知して撮影を失敗させる）。
+//
 // dev サーバーは本スクリプトが専用ポートで起動する（BASE_URL を渡した場合はそちらを使う）。
 // 専用サーバーは **VITE_LINKSELF=0** で起動する。理由は 2 つ:
 //   1. デモデータが localStorage のリポジトリへ直接効く（LinkSelf 有効時は SQL 側が正で、
@@ -241,6 +245,40 @@ async function dismissTips(page) {
   }
 }
 
+/**
+ * 地図タイルが実際に描画されるまで待つ。
+ *
+ * 固定時間の待ちでは足りないことがある（撮影用サーバーは起動直後で Vite の
+ * 変換キャッシュが冷たく、networkidle が地図の初期化前に発火する）。タイルが
+ * 無いまま撮ると、ポリゴンだけが白地に浮いた図になり、しかも文言アサートは
+ * 通ってしまうため無言で壊れた図が残る。実際にそれを一度出しているので、
+ * 枚数が増えなくなるまで待ち、1 枚も来なければ撮影を失敗させる。
+ */
+async function waitForMapTiles(page) {
+  const tiles = page.locator(".leaflet-tile-loaded");
+  let stable = 0;
+  let last = -1;
+  for (let i = 0; i < 40; i++) {
+    const n = await tiles.count();
+    if (n > 0 && n === last) {
+      if (++stable >= 3) return;
+    } else {
+      stable = 0;
+    }
+    last = n;
+    await settle(page, 400);
+  }
+  if ((await tiles.count()) === 0) {
+    throw new Error(
+      "地図タイルが読み込まれませんでした" +
+        `（Google Maps の API キーは HTTP リファラ制限があり、撮影用の ` +
+        `localhost:${SHOT_PORT} が許可されていない可能性が高い。` +
+        "ブラウザのコンソールに RefererNotAllowedMapError が出ていれば、" +
+        `Google Cloud Console でキーの許可リストに http://localhost:${SHOT_PORT}/* を追加する）`,
+    );
+  }
+}
+
 /** 区域ツリーを領域→区域親番→区域まで開く（畳んだ図は説明にならない）。 */
 async function expandAreaTree(page) {
   for (let depth = 0; depth < 2; depth++) {
@@ -311,6 +349,11 @@ async function capture(browser, baseUrl, shot) {
     await probe.waitFor({ state: "visible", timeout: 15000 });
 
     if (shot.prepare) await shot.prepare(page);
+
+    // 地図を含む画面はタイルの描画完了まで待つ（ショットごとの指定は不要）。
+    if ((await page.locator(".leaflet-container").count()) > 0) {
+      await waitForMapTiles(page);
+    }
 
     // フォント読み込み前に撮ると文字が抜けた画像になる（DOM には文言があるので
     // アサートは通ってしまい、静かに壊れた図が残る）。必ず待つ。
@@ -406,6 +449,13 @@ async function main() {
 
   const browser = await chromium.launch({ headless: !HEADED });
   const results = [];
+  // 起動直後の Vite は変換キャッシュが冷たく、初回ページだけ極端に遅い。
+  // 1 回空読みして温めておく（撮影中の待ち時間のばらつきを減らす）。
+  {
+    const warm = await browser.newPage();
+    await warm.goto(`${baseUrl}/`, { waitUntil: "networkidle" }).catch(() => {});
+    await warm.close();
+  }
   try {
     for (const shot of targets) {
       const r = await capture(browser, baseUrl, shot);
