@@ -36,8 +36,13 @@ export interface UseAreaDetailMapOptions {
   mapRef: MutableRefObject<MapViewHandle | null>;
   containerRef: MutableRefObject<HTMLDivElement | null>;
   editor: NetworkPolygonEditor | PolygonGeoSource | undefined;
-  /** ポリゴンID → 紐付く区域ID群（N:M。wants 03） */
+  /** ポリゴンID → 紐付く区域ID群（N:M。wants 03）。処理用の内部 ID。 */
   polygonToArea: ReadonlyMap<string, readonly string[]> | undefined;
+  /**
+   * ポリゴンID → 地図に描く区域識別子群（wants 02）。省略時は polygonToArea を
+   * そのまま描くが、それは内部 ID が画面に出る状態なので通常は必ず渡す。
+   */
+  polygonAreaLabels?: ReadonlyMap<string, readonly string[]>;
   areaId: string;
   placeService?: UseAreaDetailMapPlaceService;
   settingsService?: UseAreaDetailMapSettingsService;
@@ -69,6 +74,7 @@ export function useAreaDetailMap({
   containerRef,
   editor,
   polygonToArea,
+  polygonAreaLabels,
   areaId,
   placeService,
   settingsService,
@@ -95,7 +101,7 @@ export function useAreaDetailMap({
       handle.setEditor(editor as NetworkPolygonEditor);
       // 区域IDラベル: 対象＋隣接区域のポリゴン中心に区域IDを表示する
       // （docs/wants/03「区域IDラベル表示」）
-      handle.setPolygonAreaIds(polygonToArea);
+      handle.setPolygonAreaIds(polygonAreaLabels ?? polygonToArea);
       const centers = polygonCentersFromEditor(editor);
       const radiusKm =
         (await settingsService?.getAreaDetailRadiusKm().catch(() => 2.5)) ??
@@ -194,6 +200,7 @@ export function useAreaDetailMap({
     containerRef,
     editor,
     polygonToArea,
+    polygonAreaLabels,
     areaId,
     placeService,
     settingsService,

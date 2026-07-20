@@ -16,6 +16,7 @@ import type {
   AreaTreeNode,
 } from "../services/region-service";
 import { findAreaPathForPolygon } from "../lib/area-tree-path";
+import { areaIdentifier } from "../domain/models/region";
 
 export interface AreaTreeHandle {
   reload(): Promise<void>;
@@ -327,7 +328,13 @@ export const AreaTree = forwardRef<AreaTreeHandle, AreaTreeProps>(
                                                   setMenuTarget(null);
                                                   setUnlinkConfirm({
                                                     areaId: area.id,
-                                                    areaLabel: area.id,
+                                                    // 確認文は利用者が読むので
+                                                    // 識別子で示す（wants 02）
+                                                    areaLabel: areaIdentifier(
+                                                      region.symbol,
+                                                      ap.number,
+                                                      area.number,
+                                                    ),
                                                     polygonCount:
                                                       polygonIds.length,
                                                   });

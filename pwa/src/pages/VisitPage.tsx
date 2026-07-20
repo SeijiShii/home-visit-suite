@@ -93,8 +93,10 @@ export interface VisitPageProps {
   visitService: VisitPageVisitServiceLike;
   /** ポリゴンエディタ。テスト用に PolygonGeoSource でも可。 */
   editor?: NetworkPolygonEditor | PolygonGeoSource;
-  /** polygonId → areaId の紐付け表 */
+  /** polygonId → areaId の紐付け表（処理用） */
   polygonToArea?: ReadonlyMap<string, readonly string[]>;
+  /** polygonId → 区域識別子の表（地図に描く文字。wants 02） */
+  polygonAreaLabels?: ReadonlyMap<string, readonly string[]>;
   /** 区域に紐づく polygonId 集合 */
   linkedPolygonIds?: Set<string>;
   /** 半径取得 (任意) */
@@ -148,6 +150,7 @@ export function VisitPage({
   visitService,
   editor,
   polygonToArea,
+  polygonAreaLabels,
   linkedPolygonIds,
   settingsService,
   onPlaceEditRequest,
@@ -217,6 +220,7 @@ export function VisitPage({
     containerRef,
     editor,
     polygonToArea,
+    polygonAreaLabels,
     areaId,
     placeService,
     settingsService,
@@ -875,7 +879,11 @@ export function VisitPage({
     <div className="visit-page">
       <header className="visit-page-header">
         <h2>
-          {t.visitRecord.areaLabel.replace("{area}", areaLabel ?? areaId)}
+          {/* 区域ツリー未着などで識別子を組み立てられないときは、内部 ID を
+              出さずに画面名だけにする（wants 02: 利用者向け表示は識別子）。 */}
+          {areaLabel
+            ? t.visitRecord.areaLabel.replace("{area}", areaLabel)
+            : t.visitRecord.pageTitle}
         </h2>
         {targetPolygonIds.length > 0 && (
           <button

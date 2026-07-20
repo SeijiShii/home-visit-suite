@@ -20,9 +20,13 @@ import {
   MAP_NETWORK_TABLES,
 } from "../lib/linkself/shared-events";
 import { useTouchPrimary } from "../hooks/useMediaQuery";
-import { buildPolygonAreaMap } from "../services/polygon-service";
+import {
+  buildPolygonAreaMap,
+  toPolygonAreaLabels,
+} from "../services/polygon-service";
 import { newId } from "../services/id";
 import type { Request, RequestType } from "../domain/models/request";
+import { areaDisplayLabel, areaIdentifier } from "../domain/models/region";
 import type { PlaceEditRequestKind } from "../components/VisitRecordDialog";
 
 /** 編集リクエストの種別 → RequestType（docs/wants/07「場所操作の権限」） */
@@ -85,6 +89,10 @@ export function VisitPageContainer() {
   const [linkedPolygonIds, setLinkedPolygonIds] = useState<Set<string>>(
     new Set(),
   );
+  // 地図に描く区域ラベル（識別子）。上の polygonToArea は内部 ID なので分ける。
+  const [polygonAreaLabels, setPolygonAreaLabels] = useState<
+    Map<string, string[]>
+  >(new Map());
   // ヘッダー表示用「{区域ID} {区域親番名}」（名前が空なら ID のみ）
   const [areaLabel, setAreaLabel] = useState<string | null>(null);
 
@@ -112,16 +120,36 @@ export function VisitPageContainer() {
       // 全区域を見る（分担している区域のどちらから開いても対象になる）。
       const m = new Map<string, string[]>();
       for (const [polyId, infos] of areaMap) {
-        m.set(polyId, infos.map((i) => i.areaId));
+        m.set(
+          polyId,
+          infos.map((i) => i.areaId),
+        );
       }
       setPolygonToArea(m);
+      setPolygonAreaLabels(toPolygonAreaLabels(areaMap));
       setLinkedPolygonIds(new Set(m.keys()));
       // 対象区域の表示名（区域親番の名前）を解決する
       for (const region of tree) {
         for (const pa of region.parentAreas) {
           for (const area of pa.areas) {
             if (area.id === areaId) {
-              setAreaLabel(pa.name ? `${area.id} ${pa.name}` : area.id);
+              // 表示は内部 ID ではなく識別子「領域-区域親番-区域」で行う
+              // （docs/wants/02_領域と区域.md）。区域親番名が空なら識別子のみ。
+              const identifier = areaIdentifier(
+                region.symbol,
+                pa.number,
+                area.number,
+              );
+              setAreaLabel(
+                pa.name
+                  ? areaDisplayLabel(
+                      region.symbol,
+                      pa.number,
+                      area.number,
+                      pa.name,
+                    )
+                  : identifier,
+              );
             }
           }
         }
@@ -167,6 +195,7 @@ export function VisitPageContainer() {
       visitService={visitService}
       editor={editorReady ? editor : undefined}
       polygonToArea={editorReady ? polygonToArea : undefined}
+      polygonAreaLabels={editorReady ? polygonAreaLabels : undefined}
       linkedPolygonIds={editorReady ? linkedPolygonIds : undefined}
       settingsService={settingsService}
       onPlaceEditRequest={(placeId, kind, text) => {

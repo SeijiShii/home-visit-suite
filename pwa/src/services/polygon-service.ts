@@ -7,9 +7,14 @@ import {
 } from "map-polygon-editor";
 import type { Polygon } from "geojson";
 import type { AreaTreeNode } from "./region-service";
+import { areaDisplayLabel, areaIdentifier } from "../domain/models/region";
 
 export interface PolygonAreaInfo {
+  /** 内部 ID。紐付け操作・突合にのみ使い、画面には出さない。 */
   areaId: string;
+  /** 利用者向けの識別子「領域-区域親番-区域」（wants 02）。例: NRT-001-05 */
+  areaIdentifier: string;
+  /** 識別子 + 区域親番名。例: NRT-001-05 加良部1丁目 */
   areaLabel: string;
 }
 
@@ -26,11 +31,23 @@ export function buildPolygonAreaMap(
   for (const region of tree) {
     for (const pa of region.parentAreas) {
       for (const area of pa.areas) {
-        // 区域親番に名前があれば「ID 名前」で併記する（空名は ID のみ）。
-        const areaLabel = pa.name ? `${area.id} ${pa.name}` : area.id;
+        // 画面に出すのは内部 ID ではなく識別子（wants 02）。区域親番に名前が
+        // あれば「識別子 名前」で併記する（空名は識別子のみ）。
+        const identifier = areaIdentifier(
+          region.symbol,
+          pa.number,
+          area.number,
+        );
+        const areaLabel = pa.name
+          ? areaDisplayLabel(region.symbol, pa.number, area.number, pa.name)
+          : identifier;
         for (const polygonId of area.polygonIds ?? []) {
           const infos = map.get(polygonId);
-          const info = { areaId: area.id, areaLabel };
+          const info = {
+            areaId: area.id,
+            areaIdentifier: identifier,
+            areaLabel,
+          };
           if (infos) infos.push(info);
           else map.set(polygonId, [info]);
         }
@@ -40,7 +57,23 @@ export function buildPolygonAreaMap(
   return map;
 }
 
-/** buildPolygonAreaMap の結果から、地図の区域IDラベル用に ポリゴンID→区域ID配列 を取り出す。 */
+/**
+ * buildPolygonAreaMap の結果から、地図に描く区域ラベル用に
+ * ポリゴンID→識別子配列 を取り出す。地図上の文字は利用者が読むものなので
+ * 内部 ID ではなく識別子を渡す（wants 02 / 03「区域IDラベル表示」）。
+ */
+export function toPolygonAreaLabels(
+  areaMap: ReadonlyMap<string, PolygonAreaInfo[]>,
+): Map<string, string[]> {
+  return new Map(
+    [...areaMap].map(([pid, infos]) => [
+      pid,
+      infos.map((i) => i.areaIdentifier),
+    ]),
+  );
+}
+
+/** buildPolygonAreaMap の結果から、処理用に ポリゴンID→区域ID配列 を取り出す。 */
 export function toPolygonAreaIds(
   areaMap: ReadonlyMap<string, PolygonAreaInfo[]>,
 ): Map<string, string[]> {

@@ -10,6 +10,7 @@ import {
   PolygonService,
   buildPolygonAreaMap,
   toPolygonAreaIds,
+  toPolygonAreaLabels,
   type PolygonBindingAPI,
 } from "./polygon-service";
 import type { AreaTreeNode } from "./region-service";
@@ -142,52 +143,68 @@ describe("PolygonService.deletePolygonForAreas（N:M の削除）", () => {
 });
 
 describe("buildPolygonAreaMap のラベル生成", () => {
+  // 内部 ID は識別子と無関係な不透明値にする。ここを "NRT-001-05" のような
+  // 識別子そのものにすると、内部 ID を画面に出すバグが検出できなくなる
+  // （実際に 2026-07-20 まで見逃していた）。
   const tree = (parentName: string): AreaTreeNode[] => [
     {
-      id: "NRT",
+      id: "rg-1",
       name: "成田市",
       symbol: "NRT",
       parentAreas: [
         {
-          id: "NRT-001",
+          id: "pa-1",
           number: "001",
           name: parentName,
-          areas: [{ id: "NRT-001-05", number: "05", polygonIds: ["poly-1"] }],
+          areas: [{ id: "ar-1", number: "05", polygonIds: ["poly-1"] }],
         },
       ],
     },
   ];
 
-  it("区域親番に名前があれば ID と名前を併記する", () => {
+  it("区域親番に名前があれば識別子と名前を併記する", () => {
     const infos = buildPolygonAreaMap(tree("加良部1丁目")).get("poly-1");
     expect(infos?.[0].areaLabel).toBe("NRT-001-05 加良部1丁目");
+    expect(infos?.[0].areaIdentifier).toBe("NRT-001-05");
   });
 
-  it("区域親番名が空なら ID のみを表示する", () => {
+  it("区域親番名が空なら識別子のみを表示する", () => {
     const infos = buildPolygonAreaMap(tree("")).get("poly-1");
     expect(infos?.[0].areaLabel).toBe("NRT-001-05");
   });
 
-  it("toPolygonAreaIds は区域IDラベル用にポリゴンID→区域ID配列を取り出す", () => {
+  it("表示用の値に内部 ID を混ぜない", () => {
+    const infos = buildPolygonAreaMap(tree("加良部1丁目")).get("poly-1");
+    expect(infos?.[0].areaId).toBe("ar-1");
+    expect(infos?.[0].areaLabel).not.toContain("ar-1");
+    expect(infos?.[0].areaIdentifier).not.toContain("ar-1");
+  });
+
+  it("toPolygonAreaIds は処理用にポリゴンID→内部区域ID配列を取り出す", () => {
     const ids = toPolygonAreaIds(buildPolygonAreaMap(tree("加良部1丁目")));
-    expect(ids.get("poly-1")).toEqual(["NRT-001-05"]);
+    expect(ids.get("poly-1")).toEqual(["ar-1"]);
     expect(ids.size).toBe(1);
+  });
+
+  it("toPolygonAreaLabels は地図表示用に識別子配列を取り出す", () => {
+    const labels = toPolygonAreaLabels(buildPolygonAreaMap(tree("加良部1丁目")));
+    expect(labels.get("poly-1")).toEqual(["NRT-001-05"]);
   });
 
   it("複数の飛地ポリゴンはすべて同一区域へマップされる", () => {
     const multi: AreaTreeNode[] = [
       {
-        id: "NRT",
+        id: "rg-1",
         name: "成田市",
         symbol: "NRT",
         parentAreas: [
           {
-            id: "NRT-001",
+            id: "pa-1",
             number: "001",
             name: "加良部1丁目",
             areas: [
               {
-                id: "NRT-001-05",
+                id: "ar-1",
                 number: "05",
                 polygonIds: ["poly-1", "poly-2"],
               },
@@ -197,11 +214,11 @@ describe("buildPolygonAreaMap のラベル生成", () => {
       },
     ];
     const map = buildPolygonAreaMap(multi);
-    expect(map.get("poly-1")?.[0].areaId).toBe("NRT-001-05");
-    expect(map.get("poly-2")?.[0].areaId).toBe("NRT-001-05");
+    expect(map.get("poly-1")?.[0].areaId).toBe("ar-1");
+    expect(map.get("poly-2")?.[0].areaId).toBe("ar-1");
     expect(map.get("poly-1")?.[0].areaLabel).toBe("NRT-001-05 加良部1丁目");
     const ids = toPolygonAreaIds(map);
-    expect(ids.get("poly-2")).toEqual(["NRT-001-05"]);
+    expect(ids.get("poly-2")).toEqual(["ar-1"]);
     expect(ids.size).toBe(2);
   });
 
@@ -209,32 +226,29 @@ describe("buildPolygonAreaMap のラベル生成", () => {
   it("同一ポリゴンを参照する複数区域はツリー順に並べて保持する", () => {
     const shared: AreaTreeNode[] = [
       {
-        id: "NRT",
+        id: "rg-1",
         name: "成田市",
         symbol: "NRT",
         parentAreas: [
           {
-            id: "NRT-001",
+            id: "pa-1",
             number: "001",
             name: "加良部1丁目",
-            areas: [{ id: "NRT-001-05", number: "05", polygonIds: ["poly-1"] }],
+            areas: [{ id: "ar-1", number: "05", polygonIds: ["poly-1"] }],
           },
           {
-            id: "NRT-002",
+            id: "pa-2",
             number: "002",
             name: "加良部2丁目",
-            areas: [{ id: "NRT-002-03", number: "03", polygonIds: ["poly-1"] }],
+            areas: [{ id: "ar-2", number: "03", polygonIds: ["poly-1"] }],
           },
         ],
       },
     ];
     const map = buildPolygonAreaMap(shared);
-    expect(map.get("poly-1")?.map((i) => i.areaId)).toEqual([
-      "NRT-001-05",
-      "NRT-002-03",
-    ]);
+    expect(map.get("poly-1")?.map((i) => i.areaId)).toEqual(["ar-1", "ar-2"]);
     expect(map.get("poly-1")?.[1].areaLabel).toBe("NRT-002-03 加良部2丁目");
-    expect(toPolygonAreaIds(map).get("poly-1")).toEqual([
+    expect(toPolygonAreaLabels(map).get("poly-1")).toEqual([
       "NRT-001-05",
       "NRT-002-03",
     ]);

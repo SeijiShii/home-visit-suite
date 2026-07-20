@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../contexts/I18nContext";
 import type { AreaTreeNode } from "../services/region-service";
+import { areaIdentifier } from "../domain/models/region";
 
 interface AreaPickerDialogProps {
   open: boolean;
@@ -68,6 +69,12 @@ export function AreaPickerDialog({
                     </div>
                     {expanded.has(pa.id) &&
                       pa.areas.map((area) => {
+                        // 画面に出すのは内部 ID ではなく識別子（wants 02）
+                        const identifier = areaIdentifier(
+                          region.symbol,
+                          pa.number,
+                          area.number,
+                        );
                         const isLinked = linkedAreaIds.has(area.id);
                         // このポリゴン自身が既に紐付いている区域は飛地追加も不可
                         const isBoundHere = boundAreaIds?.has(area.id) ?? false;
@@ -83,11 +90,12 @@ export function AreaPickerDialog({
                                   : undefined
                             }
                             onClick={() => {
-                              if (!isLinked) onSelect(area.id, area.id);
+                              if (!isLinked)
+                                onSelect(area.id, identifier);
                             }}
                           >
                             <span className="area-picker-item-label">
-                              {area.id}
+                              {identifier}
                             </span>
                             {isLinked && !isBoundHere && (
                               <button
@@ -99,7 +107,7 @@ export function AreaPickerDialog({
                                   // 紐付け済み区域へ飛地ポリゴンとして追加紐付けする
                                   // （行自体は不活性のままボタンだけ活性）。
                                   e.stopPropagation();
-                                  onSelect(area.id, area.id);
+                                  onSelect(area.id, identifier);
                                 }}
                               >
                                 {"➕"}

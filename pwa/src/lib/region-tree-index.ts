@@ -3,7 +3,7 @@
 // （親番→区域の俯瞰）が共用する読み取り専用インデックス。
 // 仕様: docs/wants/10_画面設計.md「5. ダッシュボード」「区域一覧 /areas」
 
-import { areaPolygonIds } from "../domain/models/region";
+import { areaIdentifier, areaPolygonIds } from "../domain/models/region";
 import type { RegionRepository } from "../domain/repositories/region-repository";
 
 /**
@@ -63,7 +63,7 @@ export async function buildRegionTreeIndex(
         })),
       );
       for (const a of areas) {
-        displayIndex.set(a.id, `${r.symbol}-${pa.number}-${a.number}`);
+        displayIndex.set(a.id, areaIdentifier(r.symbol, pa.number, a.number));
         areaMeta.set(a.id, { regionId: r.id, parentAreaId: pa.id });
       }
     }

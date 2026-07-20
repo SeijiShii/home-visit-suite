@@ -38,7 +38,7 @@ import { useServices } from "../contexts/ServicesContext";
 import { RegionService } from "../services/region-service";
 import {
   buildPolygonAreaMap,
-  toPolygonAreaIds,
+  toPolygonAreaLabels,
 } from "../services/polygon-service";
 import { computeBindingFixup } from "../lib/polygon-binding-fixup";
 import {
@@ -249,7 +249,7 @@ export function MapPage() {
     // 紐付け集合も同時に更新する（setPolygonAreaIds が表示中レイヤーを
     // 再スタイルするため、古い紐付け集合のままだと解除済みが緑に残る）
     mapRef.current?.setLinkedPolygonIds(new Set(areaMap.keys()));
-    mapRef.current?.setPolygonAreaIds(toPolygonAreaIds(areaMap));
+    mapRef.current?.setPolygonAreaIds(toPolygonAreaLabels(areaMap));
   }, []);
 
   // --- ポリゴンリロード ---
@@ -264,7 +264,7 @@ export function MapPage() {
     setPolygonAreaMap(areaMap);
     setAreaTree(tree);
     mapRef.current?.setLinkedPolygonIds(linkedIds);
-    mapRef.current?.setPolygonAreaIds(toPolygonAreaIds(areaMap));
+    mapRef.current?.setPolygonAreaIds(toPolygonAreaLabels(areaMap));
     mapRef.current?.renderAll(linkedIds);
     await refreshPlaceOverlay(tree);
   }, [polygonService, editor, regionService, refreshPlaceOverlay]);
